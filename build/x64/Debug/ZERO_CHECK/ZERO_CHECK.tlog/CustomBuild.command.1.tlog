@@ -1,0 +1,10 @@
+^E:\HEARTS_SIMULATOR\BUILD\CMAKEFILES\60A2D279AA238C8A9AB0E3BAF7A503A2\GENERATE.STAMP.RULE
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SE:/hearts_simulator -BE:/hearts_simulator/build --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file E:/hearts_simulator/build/HeartsSimulator.slnx
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
