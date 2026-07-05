@@ -7,7 +7,7 @@ events:
       - "C:/Program Files/CMake/share/cmake-4.3/Modules/CMakeDetermineSystem.cmake:212 (message)"
       - "CMakeLists.txt:2 (project)"
     message: |
-      The system is: Windows - 10.0.22631 - AMD64
+      The system is: Windows - 10.0.26200 - AMD64
   -
     kind: "find-v1"
     backtrace:
@@ -35,25 +35,37 @@ events:
     found: "C:/Program Files/CMake/share/cmake-4.3/Modules/CMakeCXXCompilerId.cpp.in"
     search_context:
       ENV{PATH}:
-        - "C:\\Windows\\system32"
-        - "C:\\Windows"
-        - "C:\\Windows\\System32\\Wbem"
-        - "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\"
-        - "C:\\Windows\\System32\\OpenSSH\\"
-        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
-        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA NvDLISR"
+        - "C:\\Program Files (x86)\\Razer Chroma SDK\\bin"
+        - "C:\\Program Files\\Razer Chroma SDK\\bin"
         - "C:\\WINDOWS\\system32"
         - "C:\\WINDOWS"
         - "C:\\WINDOWS\\System32\\Wbem"
         - "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\"
         - "C:\\WINDOWS\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA app\\NvDLISR"
+        - "C:\\WINDOWS\\system32\\config\\systemprofile\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Program Files (x86)\\Razer\\ChromaBroadcast\\bin"
+        - "C:\\Program Files\\Razer\\ChromaBroadcast\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Program Files\\dotnet\\"
+        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
         - "C:\\Program Files\\Git\\cmd"
+        - "C:\\WINDOWS\\system32"
+        - "C:\\WINDOWS"
+        - "C:\\WINDOWS\\System32\\Wbem"
+        - "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\WINDOWS\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\Docker\\Docker\\resources\\bin"
         - "C:\\Program Files\\CMake\\bin"
-        - "C:\\Users\\Patrick\\AppData\\Local\\Microsoft\\WindowsApps"
-        - "C:\\Users\\Patrick\\AppData\\Local\\Programs\\Antigravity IDE\\bin"
-        - "C:\\Users\\Patrick\\AppData\\Local\\GitHubDesktop\\bin"
-        - "C:\\Users\\Patrick\\AppData\\Local\\Python\\bin"
-        - "C:\\Users\\Patrick\\AppData\\Local\\Python\\pythoncore-3.14-64\\Scripts"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Python\\Python310\\Scripts\\"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Python\\Python310\\"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Users\\patom\\AppData\\Local\\GitHubDesktop\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Microsoft VS Code\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Antigravity\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WinGet\\Packages\\AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe"
+        - "C:\\Users\\patom\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python313\\Scripts"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Antigravity IDE\\bin"
   -
     kind: "message-v1"
     backtrace:
@@ -69,10 +81,10 @@ events:
       
       The output was:
       0
-      MSBuild version 18.7.8+1ac568fee for .NET Framework
-      Build started 7/4/2026 8:17:38 PM.
+      MSBuild version 18.5.4+cb4e32d21 for .NET Framework
+      Build started 7/5/2026 10:25:07 AM.
       
-      Project "C:\\Users\\Patrick\\Desktop\\hearts_simulator\\build\\CMakeFiles\\4.3.4\\CompilerIdCXX\\CompilerIdCXX.vcxproj" on node 1 (default targets).
+      Project "E:\\hearts_simulator\\build\\CMakeFiles\\4.3.4\\CompilerIdCXX\\CompilerIdCXX.vcxproj" on node 1 (default targets).
       PrepareForBuild:
         Creating directory "Debug\\".
         Structured output is enabled. The formatting of compiler diagnostics will reflect the error hierarchy. See https://aka.ms/cpp/structured-output for more details.
@@ -81,25 +93,25 @@ events:
         Creating "Debug\\CompilerIdCXX.tlog\\unsuccessfulbuild" because "AlwaysCreate" was specified.
         Touching "Debug\\CompilerIdCXX.tlog\\unsuccessfulbuild".
       ClCompile:
-        C:\\Program Files (x86)\\Microsoft Visual Studio\\18\\BuildTools\\VC\\Tools\\MSVC\\14.51.36231\\bin\\HostX64\\x64\\CL.exe /c /nologo /W0 /WX- /diagnostics:column /Od /D _MBCS /Gm- /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Zc:inline /Fo"Debug\\\\" /Fd"Debug\\vc145.pdb" /external:W0 /Gd /TP /FC /errorReport:queue CMakeCXXCompilerId.cpp
+        C:\\Program Files (x86)\\Microsoft Visual Studio\\18\\BuildTools\\VC\\Tools\\MSVC\\14.50.35717\\bin\\HostX64\\x64\\CL.exe /c /nologo /W0 /WX- /diagnostics:column /Od /D _MBCS /Gm- /EHsc /RTC1 /MDd /GS /fp:precise /Zc:wchar_t /Zc:forScope /Zc:inline /Fo"Debug\\\\" /Fd"Debug\\vc145.pdb" /external:W0 /Gd /TP /FC /errorReport:queue CMakeCXXCompilerId.cpp
         CMakeCXXCompilerId.cpp
       Link:
-        C:\\Program Files (x86)\\Microsoft Visual Studio\\18\\BuildTools\\VC\\Tools\\MSVC\\14.51.36231\\bin\\HostX64\\x64\\link.exe /ERRORREPORT:QUEUE /OUT:".\\CompilerIdCXX.exe" /INCREMENTAL:NO /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /PDB:".\\CompilerIdCXX.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:".\\CompilerIdCXX.lib" /MACHINE:X64 Debug\\CMakeCXXCompilerId.obj
-        CompilerIdCXX.vcxproj -> C:\\Users\\Patrick\\Desktop\\hearts_simulator\\build\\CMakeFiles\\4.3.4\\CompilerIdCXX\\CompilerIdCXX.exe
+        C:\\Program Files (x86)\\Microsoft Visual Studio\\18\\BuildTools\\VC\\Tools\\MSVC\\14.50.35717\\bin\\HostX64\\x64\\link.exe /ERRORREPORT:QUEUE /OUT:".\\CompilerIdCXX.exe" /INCREMENTAL:NO /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /PDB:".\\CompilerIdCXX.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /DYNAMICBASE /NXCOMPAT /IMPLIB:".\\CompilerIdCXX.lib" /MACHINE:X64 Debug\\CMakeCXXCompilerId.obj
+        CompilerIdCXX.vcxproj -> E:\\hearts_simulator\\build\\CMakeFiles\\4.3.4\\CompilerIdCXX\\CompilerIdCXX.exe
       PostBuildEvent:
         for %%i in (cl.exe) do @echo CMAKE_CXX_COMPILER=%%~$PATH:i
         :VCEnd
-        CMAKE_CXX_COMPILER=C:\\Program Files (x86)\\Microsoft Visual Studio\\18\\BuildTools\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostx64\\x64\\cl.exe
+        CMAKE_CXX_COMPILER=C:\\Program Files (x86)\\Microsoft Visual Studio\\18\\BuildTools\\VC\\Tools\\MSVC\\14.50.35717\\bin\\Hostx64\\x64\\cl.exe
       FinalizeBuildStatus:
         Deleting file "Debug\\CompilerIdCXX.tlog\\unsuccessfulbuild".
         Touching "Debug\\CompilerIdCXX.tlog\\CompilerIdCXX.lastbuildstate".
-      Done Building Project "C:\\Users\\Patrick\\Desktop\\hearts_simulator\\build\\CMakeFiles\\4.3.4\\CompilerIdCXX\\CompilerIdCXX.vcxproj" (default targets).
+      Done Building Project "E:\\hearts_simulator\\build\\CMakeFiles\\4.3.4\\CompilerIdCXX\\CompilerIdCXX.vcxproj" (default targets).
       
       Build succeeded.
           0 Warning(s)
           0 Error(s)
       
-      Time Elapsed 00:00:01.02
+      Time Elapsed 00:00:00.59
       
       
       Compilation of the CXX compiler identification source "CMakeCXXCompilerId.cpp" produced "CompilerIdCXX.exe"
@@ -107,7 +119,7 @@ events:
       Compilation of the CXX compiler identification source "CMakeCXXCompilerId.cpp" produced "CompilerIdCXX.vcxproj"
       
       The CXX compiler identification is MSVC, found in:
-        C:/Users/Patrick/Desktop/hearts_simulator/build/CMakeFiles/4.3.4/CompilerIdCXX/CompilerIdCXX.exe
+        E:/hearts_simulator/build/CMakeFiles/4.3.4/CompilerIdCXX/CompilerIdCXX.exe
       
   -
     kind: "find-v1"
@@ -131,45 +143,68 @@ events:
     names:
       - "link"
     candidate_directories:
-      - "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/VC/Tools/MSVC/14.51.36231/bin/Hostx64/x64/"
+      - "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/VC/Tools/MSVC/14.50.35717/bin/Hostx64/x64/"
+      - "C:/Program Files (x86)/Razer Chroma SDK/bin/"
+      - "C:/Program Files/Razer Chroma SDK/bin/"
       - "C:/Windows/System32/"
       - "C:/Windows/"
       - "C:/Windows/System32/wbem/"
       - "C:/Windows/System32/WindowsPowerShell/v1.0/"
       - "C:/Windows/System32/OpenSSH/"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/"
+      - "C:/Windows/System32/config/systemprofile/AppData/Local/Microsoft/WindowsApps/"
+      - "C:/Program Files (x86)/Razer/ChromaBroadcast/bin/"
+      - "C:/Program Files/Razer/ChromaBroadcast/bin/"
+      - "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/"
+      - "C:/Program Files/dotnet/"
       - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/"
-      - "C:/Program Files/NVIDIA Corporation/NVIDIA NvDLISR/"
       - "C:/Program Files/Git/cmd/"
+      - "C:/Program Files/Docker/Docker/resources/bin/"
       - "C:/Program Files/CMake/bin/"
-      - "C:/Users/Patrick/AppData/Local/Microsoft/WindowsApps/"
-      - "C:/Users/Patrick/AppData/Local/Programs/Antigravity IDE/bin/"
-      - "C:/Users/Patrick/AppData/Local/GitHubDesktop/bin/"
-      - "C:/Users/Patrick/AppData/Local/Python/bin/"
-      - "C:/Users/Patrick/AppData/Local/Python/pythoncore-3.14-64/Scripts/"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/Scripts/"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/"
+      - "C:/Users/patom/AppData/Local/GitHubDesktop/bin/"
+      - "C:/Users/patom/AppData/Local/Programs/Microsoft VS Code/bin/"
+      - "C:/Users/patom/AppData/Local/Programs/antigravity/bin/"
+      - "C:/Users/patom/AppData/Local/Microsoft/WinGet/Packages/AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe/"
+      - "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts/"
+      - "C:/Users/patom/AppData/Local/Programs/Antigravity IDE/bin/"
     searched_directories:
-      - "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/VC/Tools/MSVC/14.51.36231/bin/Hostx64/x64/link.com"
-    found: "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/VC/Tools/MSVC/14.51.36231/bin/Hostx64/x64/link.exe"
+      - "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/VC/Tools/MSVC/14.50.35717/bin/Hostx64/x64/link.com"
+    found: "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/VC/Tools/MSVC/14.50.35717/bin/Hostx64/x64/link.exe"
     search_context:
       ENV{PATH}:
-        - "C:\\Windows\\system32"
-        - "C:\\Windows"
-        - "C:\\Windows\\System32\\Wbem"
-        - "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\"
-        - "C:\\Windows\\System32\\OpenSSH\\"
-        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
-        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA NvDLISR"
+        - "C:\\Program Files (x86)\\Razer Chroma SDK\\bin"
+        - "C:\\Program Files\\Razer Chroma SDK\\bin"
         - "C:\\WINDOWS\\system32"
         - "C:\\WINDOWS"
         - "C:\\WINDOWS\\System32\\Wbem"
         - "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\"
         - "C:\\WINDOWS\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA app\\NvDLISR"
+        - "C:\\WINDOWS\\system32\\config\\systemprofile\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Program Files (x86)\\Razer\\ChromaBroadcast\\bin"
+        - "C:\\Program Files\\Razer\\ChromaBroadcast\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Program Files\\dotnet\\"
+        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
         - "C:\\Program Files\\Git\\cmd"
+        - "C:\\WINDOWS\\system32"
+        - "C:\\WINDOWS"
+        - "C:\\WINDOWS\\System32\\Wbem"
+        - "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\WINDOWS\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\Docker\\Docker\\resources\\bin"
         - "C:\\Program Files\\CMake\\bin"
-        - "C:\\Users\\Patrick\\AppData\\Local\\Microsoft\\WindowsApps"
-        - "C:\\Users\\Patrick\\AppData\\Local\\Programs\\Antigravity IDE\\bin"
-        - "C:\\Users\\Patrick\\AppData\\Local\\GitHubDesktop\\bin"
-        - "C:\\Users\\Patrick\\AppData\\Local\\Python\\bin"
-        - "C:\\Users\\Patrick\\AppData\\Local\\Python\\pythoncore-3.14-64\\Scripts"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Python\\Python310\\Scripts\\"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Python\\Python310\\"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Users\\patom\\AppData\\Local\\GitHubDesktop\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Microsoft VS Code\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Antigravity\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WinGet\\Packages\\AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe"
+        - "C:\\Users\\patom\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python313\\Scripts"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Antigravity IDE\\bin"
   -
     kind: "find-v1"
     backtrace:
@@ -192,25 +227,42 @@ events:
     names:
       - "lld-link"
     candidate_directories:
-      - "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/VC/Tools/MSVC/14.51.36231/bin/Hostx64/x64/"
+      - "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/VC/Tools/MSVC/14.50.35717/bin/Hostx64/x64/"
+      - "C:/Program Files (x86)/Razer Chroma SDK/bin/"
+      - "C:/Program Files/Razer Chroma SDK/bin/"
       - "C:/Windows/System32/"
       - "C:/Windows/"
       - "C:/Windows/System32/wbem/"
       - "C:/Windows/System32/WindowsPowerShell/v1.0/"
       - "C:/Windows/System32/OpenSSH/"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/"
+      - "C:/Windows/System32/config/systemprofile/AppData/Local/Microsoft/WindowsApps/"
+      - "C:/Program Files (x86)/Razer/ChromaBroadcast/bin/"
+      - "C:/Program Files/Razer/ChromaBroadcast/bin/"
+      - "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/"
+      - "C:/Program Files/dotnet/"
       - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/"
-      - "C:/Program Files/NVIDIA Corporation/NVIDIA NvDLISR/"
       - "C:/Program Files/Git/cmd/"
+      - "C:/Program Files/Docker/Docker/resources/bin/"
       - "C:/Program Files/CMake/bin/"
-      - "C:/Users/Patrick/AppData/Local/Microsoft/WindowsApps/"
-      - "C:/Users/Patrick/AppData/Local/Programs/Antigravity IDE/bin/"
-      - "C:/Users/Patrick/AppData/Local/GitHubDesktop/bin/"
-      - "C:/Users/Patrick/AppData/Local/Python/bin/"
-      - "C:/Users/Patrick/AppData/Local/Python/pythoncore-3.14-64/Scripts/"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/Scripts/"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/"
+      - "C:/Users/patom/AppData/Local/GitHubDesktop/bin/"
+      - "C:/Users/patom/AppData/Local/Programs/Microsoft VS Code/bin/"
+      - "C:/Users/patom/AppData/Local/Programs/antigravity/bin/"
+      - "C:/Users/patom/AppData/Local/Microsoft/WinGet/Packages/AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe/"
+      - "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts/"
+      - "C:/Users/patom/AppData/Local/Programs/Antigravity IDE/bin/"
     searched_directories:
-      - "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/VC/Tools/MSVC/14.51.36231/bin/Hostx64/x64/lld-link.com"
-      - "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/VC/Tools/MSVC/14.51.36231/bin/Hostx64/x64/lld-link.exe"
-      - "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/VC/Tools/MSVC/14.51.36231/bin/Hostx64/x64/lld-link"
+      - "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/VC/Tools/MSVC/14.50.35717/bin/Hostx64/x64/lld-link.com"
+      - "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/VC/Tools/MSVC/14.50.35717/bin/Hostx64/x64/lld-link.exe"
+      - "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/VC/Tools/MSVC/14.50.35717/bin/Hostx64/x64/lld-link"
+      - "C:/Program Files (x86)/Razer Chroma SDK/bin/lld-link.com"
+      - "C:/Program Files (x86)/Razer Chroma SDK/bin/lld-link.exe"
+      - "C:/Program Files (x86)/Razer Chroma SDK/bin/lld-link"
+      - "C:/Program Files/Razer Chroma SDK/bin/lld-link.com"
+      - "C:/Program Files/Razer Chroma SDK/bin/lld-link.exe"
+      - "C:/Program Files/Razer Chroma SDK/bin/lld-link"
       - "C:/Windows/System32/lld-link.com"
       - "C:/Windows/System32/lld-link.exe"
       - "C:/Windows/System32/lld-link"
@@ -226,55 +278,94 @@ events:
       - "C:/Windows/System32/OpenSSH/lld-link.com"
       - "C:/Windows/System32/OpenSSH/lld-link.exe"
       - "C:/Windows/System32/OpenSSH/lld-link"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/lld-link.com"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/lld-link.exe"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/lld-link"
+      - "C:/Windows/System32/config/systemprofile/AppData/Local/Microsoft/WindowsApps/lld-link.com"
+      - "C:/Windows/System32/config/systemprofile/AppData/Local/Microsoft/WindowsApps/lld-link.exe"
+      - "C:/Windows/System32/config/systemprofile/AppData/Local/Microsoft/WindowsApps/lld-link"
+      - "C:/Program Files (x86)/Razer/ChromaBroadcast/bin/lld-link.com"
+      - "C:/Program Files (x86)/Razer/ChromaBroadcast/bin/lld-link.exe"
+      - "C:/Program Files (x86)/Razer/ChromaBroadcast/bin/lld-link"
+      - "C:/Program Files/Razer/ChromaBroadcast/bin/lld-link.com"
+      - "C:/Program Files/Razer/ChromaBroadcast/bin/lld-link.exe"
+      - "C:/Program Files/Razer/ChromaBroadcast/bin/lld-link"
+      - "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/lld-link.com"
+      - "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/lld-link.exe"
+      - "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/lld-link"
+      - "C:/Program Files/dotnet/lld-link.com"
+      - "C:/Program Files/dotnet/lld-link.exe"
+      - "C:/Program Files/dotnet/lld-link"
       - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/lld-link.com"
       - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/lld-link.exe"
       - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/lld-link"
-      - "C:/Program Files/NVIDIA Corporation/NVIDIA NvDLISR/lld-link.com"
-      - "C:/Program Files/NVIDIA Corporation/NVIDIA NvDLISR/lld-link.exe"
-      - "C:/Program Files/NVIDIA Corporation/NVIDIA NvDLISR/lld-link"
       - "C:/Program Files/Git/cmd/lld-link.com"
       - "C:/Program Files/Git/cmd/lld-link.exe"
       - "C:/Program Files/Git/cmd/lld-link"
+      - "C:/Program Files/Docker/Docker/resources/bin/lld-link.com"
+      - "C:/Program Files/Docker/Docker/resources/bin/lld-link.exe"
+      - "C:/Program Files/Docker/Docker/resources/bin/lld-link"
       - "C:/Program Files/CMake/bin/lld-link.com"
       - "C:/Program Files/CMake/bin/lld-link.exe"
       - "C:/Program Files/CMake/bin/lld-link"
-      - "C:/Users/Patrick/AppData/Local/Microsoft/WindowsApps/lld-link.com"
-      - "C:/Users/Patrick/AppData/Local/Microsoft/WindowsApps/lld-link.exe"
-      - "C:/Users/Patrick/AppData/Local/Microsoft/WindowsApps/lld-link"
-      - "C:/Users/Patrick/AppData/Local/Programs/Antigravity IDE/bin/lld-link.com"
-      - "C:/Users/Patrick/AppData/Local/Programs/Antigravity IDE/bin/lld-link.exe"
-      - "C:/Users/Patrick/AppData/Local/Programs/Antigravity IDE/bin/lld-link"
-      - "C:/Users/Patrick/AppData/Local/GitHubDesktop/bin/lld-link.com"
-      - "C:/Users/Patrick/AppData/Local/GitHubDesktop/bin/lld-link.exe"
-      - "C:/Users/Patrick/AppData/Local/GitHubDesktop/bin/lld-link"
-      - "C:/Users/Patrick/AppData/Local/Python/bin/lld-link.com"
-      - "C:/Users/Patrick/AppData/Local/Python/bin/lld-link.exe"
-      - "C:/Users/Patrick/AppData/Local/Python/bin/lld-link"
-      - "C:/Users/Patrick/AppData/Local/Python/pythoncore-3.14-64/Scripts/lld-link.com"
-      - "C:/Users/Patrick/AppData/Local/Python/pythoncore-3.14-64/Scripts/lld-link.exe"
-      - "C:/Users/Patrick/AppData/Local/Python/pythoncore-3.14-64/Scripts/lld-link"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/Scripts/lld-link.com"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/Scripts/lld-link.exe"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/Scripts/lld-link"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/lld-link.com"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/lld-link.exe"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/lld-link"
+      - "C:/Users/patom/AppData/Local/GitHubDesktop/bin/lld-link.com"
+      - "C:/Users/patom/AppData/Local/GitHubDesktop/bin/lld-link.exe"
+      - "C:/Users/patom/AppData/Local/GitHubDesktop/bin/lld-link"
+      - "C:/Users/patom/AppData/Local/Programs/Microsoft VS Code/bin/lld-link.com"
+      - "C:/Users/patom/AppData/Local/Programs/Microsoft VS Code/bin/lld-link.exe"
+      - "C:/Users/patom/AppData/Local/Programs/Microsoft VS Code/bin/lld-link"
+      - "C:/Users/patom/AppData/Local/Programs/antigravity/bin/lld-link.com"
+      - "C:/Users/patom/AppData/Local/Programs/antigravity/bin/lld-link.exe"
+      - "C:/Users/patom/AppData/Local/Programs/antigravity/bin/lld-link"
+      - "C:/Users/patom/AppData/Local/Microsoft/WinGet/Packages/AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe/lld-link.com"
+      - "C:/Users/patom/AppData/Local/Microsoft/WinGet/Packages/AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe/lld-link.exe"
+      - "C:/Users/patom/AppData/Local/Microsoft/WinGet/Packages/AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe/lld-link"
+      - "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts/lld-link.com"
+      - "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts/lld-link.exe"
+      - "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts/lld-link"
+      - "C:/Users/patom/AppData/Local/Programs/Antigravity IDE/bin/lld-link.com"
+      - "C:/Users/patom/AppData/Local/Programs/Antigravity IDE/bin/lld-link.exe"
+      - "C:/Users/patom/AppData/Local/Programs/Antigravity IDE/bin/lld-link"
     found: false
     search_context:
       ENV{PATH}:
-        - "C:\\Windows\\system32"
-        - "C:\\Windows"
-        - "C:\\Windows\\System32\\Wbem"
-        - "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\"
-        - "C:\\Windows\\System32\\OpenSSH\\"
-        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
-        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA NvDLISR"
+        - "C:\\Program Files (x86)\\Razer Chroma SDK\\bin"
+        - "C:\\Program Files\\Razer Chroma SDK\\bin"
         - "C:\\WINDOWS\\system32"
         - "C:\\WINDOWS"
         - "C:\\WINDOWS\\System32\\Wbem"
         - "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\"
         - "C:\\WINDOWS\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA app\\NvDLISR"
+        - "C:\\WINDOWS\\system32\\config\\systemprofile\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Program Files (x86)\\Razer\\ChromaBroadcast\\bin"
+        - "C:\\Program Files\\Razer\\ChromaBroadcast\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Program Files\\dotnet\\"
+        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
         - "C:\\Program Files\\Git\\cmd"
+        - "C:\\WINDOWS\\system32"
+        - "C:\\WINDOWS"
+        - "C:\\WINDOWS\\System32\\Wbem"
+        - "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\WINDOWS\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\Docker\\Docker\\resources\\bin"
         - "C:\\Program Files\\CMake\\bin"
-        - "C:\\Users\\Patrick\\AppData\\Local\\Microsoft\\WindowsApps"
-        - "C:\\Users\\Patrick\\AppData\\Local\\Programs\\Antigravity IDE\\bin"
-        - "C:\\Users\\Patrick\\AppData\\Local\\GitHubDesktop\\bin"
-        - "C:\\Users\\Patrick\\AppData\\Local\\Python\\bin"
-        - "C:\\Users\\Patrick\\AppData\\Local\\Python\\pythoncore-3.14-64\\Scripts"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Python\\Python310\\Scripts\\"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Python\\Python310\\"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Users\\patom\\AppData\\Local\\GitHubDesktop\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Microsoft VS Code\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Antigravity\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WinGet\\Packages\\AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe"
+        - "C:\\Users\\patom\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python313\\Scripts"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Antigravity IDE\\bin"
   -
     kind: "find-v1"
     backtrace:
@@ -295,45 +386,68 @@ events:
     names:
       - "link"
     candidate_directories:
-      - "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/VC/Tools/MSVC/14.51.36231/bin/Hostx64/x64/"
+      - "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/VC/Tools/MSVC/14.50.35717/bin/Hostx64/x64/"
+      - "C:/Program Files (x86)/Razer Chroma SDK/bin/"
+      - "C:/Program Files/Razer Chroma SDK/bin/"
       - "C:/Windows/System32/"
       - "C:/Windows/"
       - "C:/Windows/System32/wbem/"
       - "C:/Windows/System32/WindowsPowerShell/v1.0/"
       - "C:/Windows/System32/OpenSSH/"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/"
+      - "C:/Windows/System32/config/systemprofile/AppData/Local/Microsoft/WindowsApps/"
+      - "C:/Program Files (x86)/Razer/ChromaBroadcast/bin/"
+      - "C:/Program Files/Razer/ChromaBroadcast/bin/"
+      - "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/"
+      - "C:/Program Files/dotnet/"
       - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/"
-      - "C:/Program Files/NVIDIA Corporation/NVIDIA NvDLISR/"
       - "C:/Program Files/Git/cmd/"
+      - "C:/Program Files/Docker/Docker/resources/bin/"
       - "C:/Program Files/CMake/bin/"
-      - "C:/Users/Patrick/AppData/Local/Microsoft/WindowsApps/"
-      - "C:/Users/Patrick/AppData/Local/Programs/Antigravity IDE/bin/"
-      - "C:/Users/Patrick/AppData/Local/GitHubDesktop/bin/"
-      - "C:/Users/Patrick/AppData/Local/Python/bin/"
-      - "C:/Users/Patrick/AppData/Local/Python/pythoncore-3.14-64/Scripts/"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/Scripts/"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/"
+      - "C:/Users/patom/AppData/Local/GitHubDesktop/bin/"
+      - "C:/Users/patom/AppData/Local/Programs/Microsoft VS Code/bin/"
+      - "C:/Users/patom/AppData/Local/Programs/antigravity/bin/"
+      - "C:/Users/patom/AppData/Local/Microsoft/WinGet/Packages/AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe/"
+      - "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts/"
+      - "C:/Users/patom/AppData/Local/Programs/Antigravity IDE/bin/"
     searched_directories:
-      - "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/VC/Tools/MSVC/14.51.36231/bin/Hostx64/x64/link.com"
-    found: "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/VC/Tools/MSVC/14.51.36231/bin/Hostx64/x64/link.exe"
+      - "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/VC/Tools/MSVC/14.50.35717/bin/Hostx64/x64/link.com"
+    found: "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/VC/Tools/MSVC/14.50.35717/bin/Hostx64/x64/link.exe"
     search_context:
       ENV{PATH}:
-        - "C:\\Windows\\system32"
-        - "C:\\Windows"
-        - "C:\\Windows\\System32\\Wbem"
-        - "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\"
-        - "C:\\Windows\\System32\\OpenSSH\\"
-        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
-        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA NvDLISR"
+        - "C:\\Program Files (x86)\\Razer Chroma SDK\\bin"
+        - "C:\\Program Files\\Razer Chroma SDK\\bin"
         - "C:\\WINDOWS\\system32"
         - "C:\\WINDOWS"
         - "C:\\WINDOWS\\System32\\Wbem"
         - "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\"
         - "C:\\WINDOWS\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA app\\NvDLISR"
+        - "C:\\WINDOWS\\system32\\config\\systemprofile\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Program Files (x86)\\Razer\\ChromaBroadcast\\bin"
+        - "C:\\Program Files\\Razer\\ChromaBroadcast\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Program Files\\dotnet\\"
+        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
         - "C:\\Program Files\\Git\\cmd"
+        - "C:\\WINDOWS\\system32"
+        - "C:\\WINDOWS"
+        - "C:\\WINDOWS\\System32\\Wbem"
+        - "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\WINDOWS\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\Docker\\Docker\\resources\\bin"
         - "C:\\Program Files\\CMake\\bin"
-        - "C:\\Users\\Patrick\\AppData\\Local\\Microsoft\\WindowsApps"
-        - "C:\\Users\\Patrick\\AppData\\Local\\Programs\\Antigravity IDE\\bin"
-        - "C:\\Users\\Patrick\\AppData\\Local\\GitHubDesktop\\bin"
-        - "C:\\Users\\Patrick\\AppData\\Local\\Python\\bin"
-        - "C:\\Users\\Patrick\\AppData\\Local\\Python\\pythoncore-3.14-64\\Scripts"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Python\\Python310\\Scripts\\"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Python\\Python310\\"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Users\\patom\\AppData\\Local\\GitHubDesktop\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Microsoft VS Code\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Antigravity\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WinGet\\Packages\\AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe"
+        - "C:\\Users\\patom\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python313\\Scripts"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Antigravity IDE\\bin"
   -
     kind: "find-v1"
     backtrace:
@@ -354,25 +468,42 @@ events:
     names:
       - "mt"
     candidate_directories:
-      - "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/VC/Tools/MSVC/14.51.36231/bin/Hostx64/x64/"
+      - "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/VC/Tools/MSVC/14.50.35717/bin/Hostx64/x64/"
+      - "C:/Program Files (x86)/Razer Chroma SDK/bin/"
+      - "C:/Program Files/Razer Chroma SDK/bin/"
       - "C:/Windows/System32/"
       - "C:/Windows/"
       - "C:/Windows/System32/wbem/"
       - "C:/Windows/System32/WindowsPowerShell/v1.0/"
       - "C:/Windows/System32/OpenSSH/"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/"
+      - "C:/Windows/System32/config/systemprofile/AppData/Local/Microsoft/WindowsApps/"
+      - "C:/Program Files (x86)/Razer/ChromaBroadcast/bin/"
+      - "C:/Program Files/Razer/ChromaBroadcast/bin/"
+      - "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/"
+      - "C:/Program Files/dotnet/"
       - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/"
-      - "C:/Program Files/NVIDIA Corporation/NVIDIA NvDLISR/"
       - "C:/Program Files/Git/cmd/"
+      - "C:/Program Files/Docker/Docker/resources/bin/"
       - "C:/Program Files/CMake/bin/"
-      - "C:/Users/Patrick/AppData/Local/Microsoft/WindowsApps/"
-      - "C:/Users/Patrick/AppData/Local/Programs/Antigravity IDE/bin/"
-      - "C:/Users/Patrick/AppData/Local/GitHubDesktop/bin/"
-      - "C:/Users/Patrick/AppData/Local/Python/bin/"
-      - "C:/Users/Patrick/AppData/Local/Python/pythoncore-3.14-64/Scripts/"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/Scripts/"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/"
+      - "C:/Users/patom/AppData/Local/GitHubDesktop/bin/"
+      - "C:/Users/patom/AppData/Local/Programs/Microsoft VS Code/bin/"
+      - "C:/Users/patom/AppData/Local/Programs/antigravity/bin/"
+      - "C:/Users/patom/AppData/Local/Microsoft/WinGet/Packages/AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe/"
+      - "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts/"
+      - "C:/Users/patom/AppData/Local/Programs/Antigravity IDE/bin/"
     searched_directories:
-      - "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/VC/Tools/MSVC/14.51.36231/bin/Hostx64/x64/mt.com"
-      - "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/VC/Tools/MSVC/14.51.36231/bin/Hostx64/x64/mt.exe"
-      - "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/VC/Tools/MSVC/14.51.36231/bin/Hostx64/x64/mt"
+      - "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/VC/Tools/MSVC/14.50.35717/bin/Hostx64/x64/mt.com"
+      - "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/VC/Tools/MSVC/14.50.35717/bin/Hostx64/x64/mt.exe"
+      - "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/VC/Tools/MSVC/14.50.35717/bin/Hostx64/x64/mt"
+      - "C:/Program Files (x86)/Razer Chroma SDK/bin/mt.com"
+      - "C:/Program Files (x86)/Razer Chroma SDK/bin/mt.exe"
+      - "C:/Program Files (x86)/Razer Chroma SDK/bin/mt"
+      - "C:/Program Files/Razer Chroma SDK/bin/mt.com"
+      - "C:/Program Files/Razer Chroma SDK/bin/mt.exe"
+      - "C:/Program Files/Razer Chroma SDK/bin/mt"
       - "C:/Windows/System32/mt.com"
       - "C:/Windows/System32/mt.exe"
       - "C:/Windows/System32/mt"
@@ -388,55 +519,94 @@ events:
       - "C:/Windows/System32/OpenSSH/mt.com"
       - "C:/Windows/System32/OpenSSH/mt.exe"
       - "C:/Windows/System32/OpenSSH/mt"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/mt.com"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/mt.exe"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/mt"
+      - "C:/Windows/System32/config/systemprofile/AppData/Local/Microsoft/WindowsApps/mt.com"
+      - "C:/Windows/System32/config/systemprofile/AppData/Local/Microsoft/WindowsApps/mt.exe"
+      - "C:/Windows/System32/config/systemprofile/AppData/Local/Microsoft/WindowsApps/mt"
+      - "C:/Program Files (x86)/Razer/ChromaBroadcast/bin/mt.com"
+      - "C:/Program Files (x86)/Razer/ChromaBroadcast/bin/mt.exe"
+      - "C:/Program Files (x86)/Razer/ChromaBroadcast/bin/mt"
+      - "C:/Program Files/Razer/ChromaBroadcast/bin/mt.com"
+      - "C:/Program Files/Razer/ChromaBroadcast/bin/mt.exe"
+      - "C:/Program Files/Razer/ChromaBroadcast/bin/mt"
+      - "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/mt.com"
+      - "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/mt.exe"
+      - "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/mt"
+      - "C:/Program Files/dotnet/mt.com"
+      - "C:/Program Files/dotnet/mt.exe"
+      - "C:/Program Files/dotnet/mt"
       - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/mt.com"
       - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/mt.exe"
       - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/mt"
-      - "C:/Program Files/NVIDIA Corporation/NVIDIA NvDLISR/mt.com"
-      - "C:/Program Files/NVIDIA Corporation/NVIDIA NvDLISR/mt.exe"
-      - "C:/Program Files/NVIDIA Corporation/NVIDIA NvDLISR/mt"
       - "C:/Program Files/Git/cmd/mt.com"
       - "C:/Program Files/Git/cmd/mt.exe"
       - "C:/Program Files/Git/cmd/mt"
+      - "C:/Program Files/Docker/Docker/resources/bin/mt.com"
+      - "C:/Program Files/Docker/Docker/resources/bin/mt.exe"
+      - "C:/Program Files/Docker/Docker/resources/bin/mt"
       - "C:/Program Files/CMake/bin/mt.com"
       - "C:/Program Files/CMake/bin/mt.exe"
       - "C:/Program Files/CMake/bin/mt"
-      - "C:/Users/Patrick/AppData/Local/Microsoft/WindowsApps/mt.com"
-      - "C:/Users/Patrick/AppData/Local/Microsoft/WindowsApps/mt.exe"
-      - "C:/Users/Patrick/AppData/Local/Microsoft/WindowsApps/mt"
-      - "C:/Users/Patrick/AppData/Local/Programs/Antigravity IDE/bin/mt.com"
-      - "C:/Users/Patrick/AppData/Local/Programs/Antigravity IDE/bin/mt.exe"
-      - "C:/Users/Patrick/AppData/Local/Programs/Antigravity IDE/bin/mt"
-      - "C:/Users/Patrick/AppData/Local/GitHubDesktop/bin/mt.com"
-      - "C:/Users/Patrick/AppData/Local/GitHubDesktop/bin/mt.exe"
-      - "C:/Users/Patrick/AppData/Local/GitHubDesktop/bin/mt"
-      - "C:/Users/Patrick/AppData/Local/Python/bin/mt.com"
-      - "C:/Users/Patrick/AppData/Local/Python/bin/mt.exe"
-      - "C:/Users/Patrick/AppData/Local/Python/bin/mt"
-      - "C:/Users/Patrick/AppData/Local/Python/pythoncore-3.14-64/Scripts/mt.com"
-      - "C:/Users/Patrick/AppData/Local/Python/pythoncore-3.14-64/Scripts/mt.exe"
-      - "C:/Users/Patrick/AppData/Local/Python/pythoncore-3.14-64/Scripts/mt"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/Scripts/mt.com"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/Scripts/mt.exe"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/Scripts/mt"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/mt.com"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/mt.exe"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/mt"
+      - "C:/Users/patom/AppData/Local/GitHubDesktop/bin/mt.com"
+      - "C:/Users/patom/AppData/Local/GitHubDesktop/bin/mt.exe"
+      - "C:/Users/patom/AppData/Local/GitHubDesktop/bin/mt"
+      - "C:/Users/patom/AppData/Local/Programs/Microsoft VS Code/bin/mt.com"
+      - "C:/Users/patom/AppData/Local/Programs/Microsoft VS Code/bin/mt.exe"
+      - "C:/Users/patom/AppData/Local/Programs/Microsoft VS Code/bin/mt"
+      - "C:/Users/patom/AppData/Local/Programs/antigravity/bin/mt.com"
+      - "C:/Users/patom/AppData/Local/Programs/antigravity/bin/mt.exe"
+      - "C:/Users/patom/AppData/Local/Programs/antigravity/bin/mt"
+      - "C:/Users/patom/AppData/Local/Microsoft/WinGet/Packages/AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe/mt.com"
+      - "C:/Users/patom/AppData/Local/Microsoft/WinGet/Packages/AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe/mt.exe"
+      - "C:/Users/patom/AppData/Local/Microsoft/WinGet/Packages/AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe/mt"
+      - "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts/mt.com"
+      - "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts/mt.exe"
+      - "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts/mt"
+      - "C:/Users/patom/AppData/Local/Programs/Antigravity IDE/bin/mt.com"
+      - "C:/Users/patom/AppData/Local/Programs/Antigravity IDE/bin/mt.exe"
+      - "C:/Users/patom/AppData/Local/Programs/Antigravity IDE/bin/mt"
     found: false
     search_context:
       ENV{PATH}:
-        - "C:\\Windows\\system32"
-        - "C:\\Windows"
-        - "C:\\Windows\\System32\\Wbem"
-        - "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\"
-        - "C:\\Windows\\System32\\OpenSSH\\"
-        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
-        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA NvDLISR"
+        - "C:\\Program Files (x86)\\Razer Chroma SDK\\bin"
+        - "C:\\Program Files\\Razer Chroma SDK\\bin"
         - "C:\\WINDOWS\\system32"
         - "C:\\WINDOWS"
         - "C:\\WINDOWS\\System32\\Wbem"
         - "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\"
         - "C:\\WINDOWS\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA app\\NvDLISR"
+        - "C:\\WINDOWS\\system32\\config\\systemprofile\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Program Files (x86)\\Razer\\ChromaBroadcast\\bin"
+        - "C:\\Program Files\\Razer\\ChromaBroadcast\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Program Files\\dotnet\\"
+        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
         - "C:\\Program Files\\Git\\cmd"
+        - "C:\\WINDOWS\\system32"
+        - "C:\\WINDOWS"
+        - "C:\\WINDOWS\\System32\\Wbem"
+        - "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\WINDOWS\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\Docker\\Docker\\resources\\bin"
         - "C:\\Program Files\\CMake\\bin"
-        - "C:\\Users\\Patrick\\AppData\\Local\\Microsoft\\WindowsApps"
-        - "C:\\Users\\Patrick\\AppData\\Local\\Programs\\Antigravity IDE\\bin"
-        - "C:\\Users\\Patrick\\AppData\\Local\\GitHubDesktop\\bin"
-        - "C:\\Users\\Patrick\\AppData\\Local\\Python\\bin"
-        - "C:\\Users\\Patrick\\AppData\\Local\\Python\\pythoncore-3.14-64\\Scripts"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Python\\Python310\\Scripts\\"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Python\\Python310\\"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Users\\patom\\AppData\\Local\\GitHubDesktop\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Microsoft VS Code\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Antigravity\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WinGet\\Packages\\AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe"
+        - "C:\\Users\\patom\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python313\\Scripts"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Antigravity IDE\\bin"
   -
     kind: "find-v1"
     backtrace:
@@ -457,45 +627,68 @@ events:
     names:
       - "lib"
     candidate_directories:
-      - "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/VC/Tools/MSVC/14.51.36231/bin/Hostx64/x64/"
+      - "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/VC/Tools/MSVC/14.50.35717/bin/Hostx64/x64/"
+      - "C:/Program Files (x86)/Razer Chroma SDK/bin/"
+      - "C:/Program Files/Razer Chroma SDK/bin/"
       - "C:/Windows/System32/"
       - "C:/Windows/"
       - "C:/Windows/System32/wbem/"
       - "C:/Windows/System32/WindowsPowerShell/v1.0/"
       - "C:/Windows/System32/OpenSSH/"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/"
+      - "C:/Windows/System32/config/systemprofile/AppData/Local/Microsoft/WindowsApps/"
+      - "C:/Program Files (x86)/Razer/ChromaBroadcast/bin/"
+      - "C:/Program Files/Razer/ChromaBroadcast/bin/"
+      - "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/"
+      - "C:/Program Files/dotnet/"
       - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/"
-      - "C:/Program Files/NVIDIA Corporation/NVIDIA NvDLISR/"
       - "C:/Program Files/Git/cmd/"
+      - "C:/Program Files/Docker/Docker/resources/bin/"
       - "C:/Program Files/CMake/bin/"
-      - "C:/Users/Patrick/AppData/Local/Microsoft/WindowsApps/"
-      - "C:/Users/Patrick/AppData/Local/Programs/Antigravity IDE/bin/"
-      - "C:/Users/Patrick/AppData/Local/GitHubDesktop/bin/"
-      - "C:/Users/Patrick/AppData/Local/Python/bin/"
-      - "C:/Users/Patrick/AppData/Local/Python/pythoncore-3.14-64/Scripts/"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/Scripts/"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/"
+      - "C:/Users/patom/AppData/Local/GitHubDesktop/bin/"
+      - "C:/Users/patom/AppData/Local/Programs/Microsoft VS Code/bin/"
+      - "C:/Users/patom/AppData/Local/Programs/antigravity/bin/"
+      - "C:/Users/patom/AppData/Local/Microsoft/WinGet/Packages/AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe/"
+      - "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts/"
+      - "C:/Users/patom/AppData/Local/Programs/Antigravity IDE/bin/"
     searched_directories:
-      - "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/VC/Tools/MSVC/14.51.36231/bin/Hostx64/x64/lib.com"
-    found: "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/VC/Tools/MSVC/14.51.36231/bin/Hostx64/x64/lib.exe"
+      - "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/VC/Tools/MSVC/14.50.35717/bin/Hostx64/x64/lib.com"
+    found: "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/VC/Tools/MSVC/14.50.35717/bin/Hostx64/x64/lib.exe"
     search_context:
       ENV{PATH}:
-        - "C:\\Windows\\system32"
-        - "C:\\Windows"
-        - "C:\\Windows\\System32\\Wbem"
-        - "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\"
-        - "C:\\Windows\\System32\\OpenSSH\\"
-        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
-        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA NvDLISR"
+        - "C:\\Program Files (x86)\\Razer Chroma SDK\\bin"
+        - "C:\\Program Files\\Razer Chroma SDK\\bin"
         - "C:\\WINDOWS\\system32"
         - "C:\\WINDOWS"
         - "C:\\WINDOWS\\System32\\Wbem"
         - "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\"
         - "C:\\WINDOWS\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA app\\NvDLISR"
+        - "C:\\WINDOWS\\system32\\config\\systemprofile\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Program Files (x86)\\Razer\\ChromaBroadcast\\bin"
+        - "C:\\Program Files\\Razer\\ChromaBroadcast\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Program Files\\dotnet\\"
+        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
         - "C:\\Program Files\\Git\\cmd"
+        - "C:\\WINDOWS\\system32"
+        - "C:\\WINDOWS"
+        - "C:\\WINDOWS\\System32\\Wbem"
+        - "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\WINDOWS\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\Docker\\Docker\\resources\\bin"
         - "C:\\Program Files\\CMake\\bin"
-        - "C:\\Users\\Patrick\\AppData\\Local\\Microsoft\\WindowsApps"
-        - "C:\\Users\\Patrick\\AppData\\Local\\Programs\\Antigravity IDE\\bin"
-        - "C:\\Users\\Patrick\\AppData\\Local\\GitHubDesktop\\bin"
-        - "C:\\Users\\Patrick\\AppData\\Local\\Python\\bin"
-        - "C:\\Users\\Patrick\\AppData\\Local\\Python\\pythoncore-3.14-64\\Scripts"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Python\\Python310\\Scripts\\"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Python\\Python310\\"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Users\\patom\\AppData\\Local\\GitHubDesktop\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Microsoft VS Code\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Antigravity\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WinGet\\Packages\\AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe"
+        - "C:\\Users\\patom\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python313\\Scripts"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Antigravity IDE\\bin"
   -
     kind: "find-v1"
     backtrace:
@@ -519,20 +712,31 @@ events:
     names:
       - "rc"
     candidate_directories:
+      - "C:/Program Files (x86)/Razer Chroma SDK/bin/"
+      - "C:/Program Files/Razer Chroma SDK/bin/"
       - "C:/Windows/System32/"
       - "C:/Windows/"
       - "C:/Windows/System32/wbem/"
       - "C:/Windows/System32/WindowsPowerShell/v1.0/"
       - "C:/Windows/System32/OpenSSH/"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/"
+      - "C:/Windows/System32/config/systemprofile/AppData/Local/Microsoft/WindowsApps/"
+      - "C:/Program Files (x86)/Razer/ChromaBroadcast/bin/"
+      - "C:/Program Files/Razer/ChromaBroadcast/bin/"
+      - "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/"
+      - "C:/Program Files/dotnet/"
       - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/"
-      - "C:/Program Files/NVIDIA Corporation/NVIDIA NvDLISR/"
       - "C:/Program Files/Git/cmd/"
+      - "C:/Program Files/Docker/Docker/resources/bin/"
       - "C:/Program Files/CMake/bin/"
-      - "C:/Users/Patrick/AppData/Local/Microsoft/WindowsApps/"
-      - "C:/Users/Patrick/AppData/Local/Programs/Antigravity IDE/bin/"
-      - "C:/Users/Patrick/AppData/Local/GitHubDesktop/bin/"
-      - "C:/Users/Patrick/AppData/Local/Python/bin/"
-      - "C:/Users/Patrick/AppData/Local/Python/pythoncore-3.14-64/Scripts/"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/Scripts/"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/"
+      - "C:/Users/patom/AppData/Local/GitHubDesktop/bin/"
+      - "C:/Users/patom/AppData/Local/Programs/Microsoft VS Code/bin/"
+      - "C:/Users/patom/AppData/Local/Programs/antigravity/bin/"
+      - "C:/Users/patom/AppData/Local/Microsoft/WinGet/Packages/AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe/"
+      - "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts/"
+      - "C:/Users/patom/AppData/Local/Programs/Antigravity IDE/bin/"
       - "C:/Program Files/bin/"
       - "C:/Program Files/sbin/"
       - "C:/Program Files/"
@@ -546,6 +750,12 @@ events:
       - "C:/Program Files (x86)/HeartsSimulator/sbin/"
       - "C:/Program Files (x86)/HeartsSimulator/"
     searched_directories:
+      - "C:/Program Files (x86)/Razer Chroma SDK/bin/rc.com"
+      - "C:/Program Files (x86)/Razer Chroma SDK/bin/rc.exe"
+      - "C:/Program Files (x86)/Razer Chroma SDK/bin/rc"
+      - "C:/Program Files/Razer Chroma SDK/bin/rc.com"
+      - "C:/Program Files/Razer Chroma SDK/bin/rc.exe"
+      - "C:/Program Files/Razer Chroma SDK/bin/rc"
       - "C:/Windows/System32/rc.com"
       - "C:/Windows/System32/rc.exe"
       - "C:/Windows/System32/rc"
@@ -561,33 +771,60 @@ events:
       - "C:/Windows/System32/OpenSSH/rc.com"
       - "C:/Windows/System32/OpenSSH/rc.exe"
       - "C:/Windows/System32/OpenSSH/rc"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/rc.com"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/rc.exe"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/rc"
+      - "C:/Windows/System32/config/systemprofile/AppData/Local/Microsoft/WindowsApps/rc.com"
+      - "C:/Windows/System32/config/systemprofile/AppData/Local/Microsoft/WindowsApps/rc.exe"
+      - "C:/Windows/System32/config/systemprofile/AppData/Local/Microsoft/WindowsApps/rc"
+      - "C:/Program Files (x86)/Razer/ChromaBroadcast/bin/rc.com"
+      - "C:/Program Files (x86)/Razer/ChromaBroadcast/bin/rc.exe"
+      - "C:/Program Files (x86)/Razer/ChromaBroadcast/bin/rc"
+      - "C:/Program Files/Razer/ChromaBroadcast/bin/rc.com"
+      - "C:/Program Files/Razer/ChromaBroadcast/bin/rc.exe"
+      - "C:/Program Files/Razer/ChromaBroadcast/bin/rc"
+      - "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/rc.com"
+      - "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/rc.exe"
+      - "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/rc"
+      - "C:/Program Files/dotnet/rc.com"
+      - "C:/Program Files/dotnet/rc.exe"
+      - "C:/Program Files/dotnet/rc"
       - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/rc.com"
       - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/rc.exe"
       - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/rc"
-      - "C:/Program Files/NVIDIA Corporation/NVIDIA NvDLISR/rc.com"
-      - "C:/Program Files/NVIDIA Corporation/NVIDIA NvDLISR/rc.exe"
-      - "C:/Program Files/NVIDIA Corporation/NVIDIA NvDLISR/rc"
       - "C:/Program Files/Git/cmd/rc.com"
       - "C:/Program Files/Git/cmd/rc.exe"
       - "C:/Program Files/Git/cmd/rc"
+      - "C:/Program Files/Docker/Docker/resources/bin/rc.com"
+      - "C:/Program Files/Docker/Docker/resources/bin/rc.exe"
+      - "C:/Program Files/Docker/Docker/resources/bin/rc"
       - "C:/Program Files/CMake/bin/rc.com"
       - "C:/Program Files/CMake/bin/rc.exe"
       - "C:/Program Files/CMake/bin/rc"
-      - "C:/Users/Patrick/AppData/Local/Microsoft/WindowsApps/rc.com"
-      - "C:/Users/Patrick/AppData/Local/Microsoft/WindowsApps/rc.exe"
-      - "C:/Users/Patrick/AppData/Local/Microsoft/WindowsApps/rc"
-      - "C:/Users/Patrick/AppData/Local/Programs/Antigravity IDE/bin/rc.com"
-      - "C:/Users/Patrick/AppData/Local/Programs/Antigravity IDE/bin/rc.exe"
-      - "C:/Users/Patrick/AppData/Local/Programs/Antigravity IDE/bin/rc"
-      - "C:/Users/Patrick/AppData/Local/GitHubDesktop/bin/rc.com"
-      - "C:/Users/Patrick/AppData/Local/GitHubDesktop/bin/rc.exe"
-      - "C:/Users/Patrick/AppData/Local/GitHubDesktop/bin/rc"
-      - "C:/Users/Patrick/AppData/Local/Python/bin/rc.com"
-      - "C:/Users/Patrick/AppData/Local/Python/bin/rc.exe"
-      - "C:/Users/Patrick/AppData/Local/Python/bin/rc"
-      - "C:/Users/Patrick/AppData/Local/Python/pythoncore-3.14-64/Scripts/rc.com"
-      - "C:/Users/Patrick/AppData/Local/Python/pythoncore-3.14-64/Scripts/rc.exe"
-      - "C:/Users/Patrick/AppData/Local/Python/pythoncore-3.14-64/Scripts/rc"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/Scripts/rc.com"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/Scripts/rc.exe"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/Scripts/rc"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/rc.com"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/rc.exe"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/rc"
+      - "C:/Users/patom/AppData/Local/GitHubDesktop/bin/rc.com"
+      - "C:/Users/patom/AppData/Local/GitHubDesktop/bin/rc.exe"
+      - "C:/Users/patom/AppData/Local/GitHubDesktop/bin/rc"
+      - "C:/Users/patom/AppData/Local/Programs/Microsoft VS Code/bin/rc.com"
+      - "C:/Users/patom/AppData/Local/Programs/Microsoft VS Code/bin/rc.exe"
+      - "C:/Users/patom/AppData/Local/Programs/Microsoft VS Code/bin/rc"
+      - "C:/Users/patom/AppData/Local/Programs/antigravity/bin/rc.com"
+      - "C:/Users/patom/AppData/Local/Programs/antigravity/bin/rc.exe"
+      - "C:/Users/patom/AppData/Local/Programs/antigravity/bin/rc"
+      - "C:/Users/patom/AppData/Local/Microsoft/WinGet/Packages/AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe/rc.com"
+      - "C:/Users/patom/AppData/Local/Microsoft/WinGet/Packages/AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe/rc.exe"
+      - "C:/Users/patom/AppData/Local/Microsoft/WinGet/Packages/AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe/rc"
+      - "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts/rc.com"
+      - "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts/rc.exe"
+      - "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts/rc"
+      - "C:/Users/patom/AppData/Local/Programs/Antigravity IDE/bin/rc.com"
+      - "C:/Users/patom/AppData/Local/Programs/Antigravity IDE/bin/rc.exe"
+      - "C:/Users/patom/AppData/Local/Programs/Antigravity IDE/bin/rc"
       - "C:/Program Files/bin/rc.com"
       - "C:/Program Files/bin/rc.exe"
       - "C:/Program Files/bin/rc"
@@ -627,25 +864,37 @@ events:
     found: false
     search_context:
       ENV{PATH}:
-        - "C:\\Windows\\system32"
-        - "C:\\Windows"
-        - "C:\\Windows\\System32\\Wbem"
-        - "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\"
-        - "C:\\Windows\\System32\\OpenSSH\\"
-        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
-        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA NvDLISR"
+        - "C:\\Program Files (x86)\\Razer Chroma SDK\\bin"
+        - "C:\\Program Files\\Razer Chroma SDK\\bin"
         - "C:\\WINDOWS\\system32"
         - "C:\\WINDOWS"
         - "C:\\WINDOWS\\System32\\Wbem"
         - "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\"
         - "C:\\WINDOWS\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA app\\NvDLISR"
+        - "C:\\WINDOWS\\system32\\config\\systemprofile\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Program Files (x86)\\Razer\\ChromaBroadcast\\bin"
+        - "C:\\Program Files\\Razer\\ChromaBroadcast\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Program Files\\dotnet\\"
+        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
         - "C:\\Program Files\\Git\\cmd"
+        - "C:\\WINDOWS\\system32"
+        - "C:\\WINDOWS"
+        - "C:\\WINDOWS\\System32\\Wbem"
+        - "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\WINDOWS\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\Docker\\Docker\\resources\\bin"
         - "C:\\Program Files\\CMake\\bin"
-        - "C:\\Users\\Patrick\\AppData\\Local\\Microsoft\\WindowsApps"
-        - "C:\\Users\\Patrick\\AppData\\Local\\Programs\\Antigravity IDE\\bin"
-        - "C:\\Users\\Patrick\\AppData\\Local\\GitHubDesktop\\bin"
-        - "C:\\Users\\Patrick\\AppData\\Local\\Python\\bin"
-        - "C:\\Users\\Patrick\\AppData\\Local\\Python\\pythoncore-3.14-64\\Scripts"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Python\\Python310\\Scripts\\"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Python\\Python310\\"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Users\\patom\\AppData\\Local\\GitHubDesktop\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Microsoft VS Code\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Antigravity\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WinGet\\Packages\\AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe"
+        - "C:\\Users\\patom\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python313\\Scripts"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Antigravity IDE\\bin"
       CMAKE_INSTALL_PREFIX: "C:/Program Files (x86)/HeartsSimulator"
       CMAKE_SYSTEM_PREFIX_PATH:
         - "C:/Program Files"
@@ -661,8 +910,8 @@ events:
     checks:
       - "Detecting CXX compiler ABI info"
     directories:
-      source: "C:/Users/Patrick/Desktop/hearts_simulator/build/CMakeFiles/CMakeScratch/TryCompile-m74ly7"
-      binary: "C:/Users/Patrick/Desktop/hearts_simulator/build/CMakeFiles/CMakeScratch/TryCompile-m74ly7"
+      source: "E:/hearts_simulator/build/CMakeFiles/CMakeScratch/TryCompile-o66i72"
+      binary: "E:/hearts_simulator/build/CMakeFiles/CMakeScratch/TryCompile-o66i72"
     cmakeVariables:
       CMAKE_CXX_FLAGS: "/DWIN32 /D_WINDOWS /W3 /GR /EHsc"
       CMAKE_CXX_FLAGS_DEBUG: "/MDd /Zi /Ob0 /Od /RTC1"
@@ -673,39 +922,39 @@ events:
       variable: "CMAKE_CXX_ABI_COMPILED"
       cached: true
       stdout: |
-        Change Dir: 'C:/Users/Patrick/Desktop/hearts_simulator/build/CMakeFiles/CMakeScratch/TryCompile-m74ly7'
+        Change Dir: 'E:/hearts_simulator/build/CMakeFiles/CMakeScratch/TryCompile-o66i72'
         
-        Run Build Command(s): "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/MSBuild/Current/Bin/amd64/MSBuild.exe" cmTC_ce248.vcxproj /p:Configuration=Debug /p:Platform=x64 /p:VisualStudioVersion=18.0 /v:n
-        MSBuild version 18.7.8+1ac568fee for .NET Framework
-        Build started 7/4/2026 8:17:40 PM.
+        Run Build Command(s): "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/MSBuild/Current/Bin/amd64/MSBuild.exe" cmTC_24329.vcxproj /p:Configuration=Debug /p:Platform=x64 /p:VisualStudioVersion=18.0 /v:n
+        MSBuild version 18.5.4+cb4e32d21 for .NET Framework
+        Build started 7/5/2026 10:25:08 AM.
         
-        Project "C:\\Users\\Patrick\\Desktop\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-m74ly7\\cmTC_ce248.vcxproj" on node 1 (default targets).
+        Project "E:\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-o66i72\\cmTC_24329.vcxproj" on node 1 (default targets).
         PrepareForBuild:
           Structured output is enabled. The formatting of compiler diagnostics will reflect the error hierarchy. See https://aka.ms/cpp/structured-output for more details.
-          Creating directory "C:\\Users\\Patrick\\Desktop\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-m74ly7\\Debug\\".
-          Creating directory "cmTC_ce248.dir\\Debug\\cmTC_ce248.tlog\\".
+          Creating directory "E:\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-o66i72\\Debug\\".
+          Creating directory "cmTC_24329.dir\\Debug\\cmTC_24329.tlog\\".
         InitializeBuildStatus:
-          Creating "cmTC_ce248.dir\\Debug\\cmTC_ce248.tlog\\unsuccessfulbuild" because "AlwaysCreate" was specified.
-          Touching "cmTC_ce248.dir\\Debug\\cmTC_ce248.tlog\\unsuccessfulbuild".
+          Creating "cmTC_24329.dir\\Debug\\cmTC_24329.tlog\\unsuccessfulbuild" because "AlwaysCreate" was specified.
+          Touching "cmTC_24329.dir\\Debug\\cmTC_24329.tlog\\unsuccessfulbuild".
         ClCompile:
-          C:\\Program Files (x86)\\Microsoft Visual Studio\\18\\BuildTools\\VC\\Tools\\MSVC\\14.51.36231\\bin\\HostX64\\x64\\CL.exe /c /Zi /W3 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D _MBCS /D "CMAKE_INTDIR=\\"Debug\\"" /EHsc /RTC1 /MDd /GR /Fo"cmTC_ce248.dir\\Debug\\\\" /Fd"cmTC_ce248.dir\\Debug\\vc145.pdb" /external:W3 /TP /errorReport:queue "C:\\Program Files\\CMake\\share\\cmake-4.3\\Modules\\CMakeCXXCompilerABI.cpp"
-          Microsoft (R) C/C++ Optimizing Compiler Version 19.51.36248 for x64
+          C:\\Program Files (x86)\\Microsoft Visual Studio\\18\\BuildTools\\VC\\Tools\\MSVC\\14.50.35717\\bin\\HostX64\\x64\\CL.exe /c /Zi /W3 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D _MBCS /D "CMAKE_INTDIR=\\"Debug\\"" /EHsc /RTC1 /MDd /GR /Fo"cmTC_24329.dir\\Debug\\\\" /Fd"cmTC_24329.dir\\Debug\\vc145.pdb" /external:W3 /TP /errorReport:queue "C:\\Program Files\\CMake\\share\\cmake-4.3\\Modules\\CMakeCXXCompilerABI.cpp"
+          Microsoft (R) C/C++ Optimizing Compiler Version 19.50.35730 for x64
           Copyright (C) Microsoft Corporation.  All rights reserved.
-          cl /c /Zi /W3 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D _MBCS /D "CMAKE_INTDIR=\\"Debug\\"" /EHsc /RTC1 /MDd /GR /Fo"cmTC_ce248.dir\\Debug\\\\" /Fd"cmTC_ce248.dir\\Debug\\vc145.pdb" /external:W3 /TP /errorReport:queue "C:\\Program Files\\CMake\\share\\cmake-4.3\\Modules\\CMakeCXXCompilerABI.cpp"
+          cl /c /Zi /W3 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D _MBCS /D "CMAKE_INTDIR=\\"Debug\\"" /EHsc /RTC1 /MDd /GR /Fo"cmTC_24329.dir\\Debug\\\\" /Fd"cmTC_24329.dir\\Debug\\vc145.pdb" /external:W3 /TP /errorReport:queue "C:\\Program Files\\CMake\\share\\cmake-4.3\\Modules\\CMakeCXXCompilerABI.cpp"
           CMakeCXXCompilerABI.cpp
         Link:
-          C:\\Program Files (x86)\\Microsoft Visual Studio\\18\\BuildTools\\VC\\Tools\\MSVC\\14.51.36231\\bin\\HostX64\\x64\\link.exe /OUT:"C:\\Users\\Patrick\\Desktop\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-m74ly7\\Debug\\cmTC_ce248.exe" /INCREMENTAL /ILK:"cmTC_ce248.dir\\Debug\\cmTC_ce248.ilk" /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"C:/Users/Patrick/Desktop/hearts_simulator/build/CMakeFiles/CMakeScratch/TryCompile-m74ly7/Debug/cmTC_ce248.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /IMPLIB:"C:/Users/Patrick/Desktop/hearts_simulator/build/CMakeFiles/CMakeScratch/TryCompile-m74ly7/Debug/cmTC_ce248.lib" /MACHINE:X64  /machine:x64 cmTC_ce248.dir\\Debug\\CMakeCXXCompilerABI.obj
-          cmTC_ce248.vcxproj -> C:\\Users\\Patrick\\Desktop\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-m74ly7\\Debug\\cmTC_ce248.exe
+          C:\\Program Files (x86)\\Microsoft Visual Studio\\18\\BuildTools\\VC\\Tools\\MSVC\\14.50.35717\\bin\\HostX64\\x64\\link.exe /OUT:"E:\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-o66i72\\Debug\\cmTC_24329.exe" /INCREMENTAL /ILK:"cmTC_24329.dir\\Debug\\cmTC_24329.ilk" /NOLOGO kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"E:/hearts_simulator/build/CMakeFiles/CMakeScratch/TryCompile-o66i72/Debug/cmTC_24329.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /IMPLIB:"E:/hearts_simulator/build/CMakeFiles/CMakeScratch/TryCompile-o66i72/Debug/cmTC_24329.lib" /MACHINE:X64  /machine:x64 cmTC_24329.dir\\Debug\\CMakeCXXCompilerABI.obj
+          cmTC_24329.vcxproj -> E:\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-o66i72\\Debug\\cmTC_24329.exe
         FinalizeBuildStatus:
-          Deleting file "cmTC_ce248.dir\\Debug\\cmTC_ce248.tlog\\unsuccessfulbuild".
-          Touching "cmTC_ce248.dir\\Debug\\cmTC_ce248.tlog\\cmTC_ce248.lastbuildstate".
-        Done Building Project "C:\\Users\\Patrick\\Desktop\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-m74ly7\\cmTC_ce248.vcxproj" (default targets).
+          Deleting file "cmTC_24329.dir\\Debug\\cmTC_24329.tlog\\unsuccessfulbuild".
+          Touching "cmTC_24329.dir\\Debug\\cmTC_24329.tlog\\cmTC_24329.lastbuildstate".
+        Done Building Project "E:\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-o66i72\\cmTC_24329.vcxproj" (default targets).
         
         Build succeeded.
             0 Warning(s)
             0 Error(s)
         
-        Time Elapsed 00:00:00.52
+        Time Elapsed 00:00:00.31
         
       exitCode: 0
   -
@@ -718,7 +967,7 @@ events:
       Parsed CXX implicit link information:
         link line regex: [^( *|.*[/\\])(ld[0-9]*(|\\.[a-rt-z][a-z]*|\\.s[a-np-z][a-z]*|\\.so[a-z]+)|link\\.exe|lld-link(\\.exe)?|CMAKE_LINK_STARTFILE-NOTFOUND|([^/\\]+-)?ld|collect2)[^/\\]*( |$)]
         linker tool regex: [^[ 	]*(->|"|[0-9]+>[ 	-]*Build:[ 	0-9]+ ms[ 	]*)?[ 	]*(([^"]*[/\\])?(ld[0-9]*(|\\.[a-rt-z][a-z]*|\\.s[a-np-z][a-z]*|\\.so[a-z]+)|link\\.exe|lld-link(\\.exe)?))("|,| |$)]
-        linker tool for 'CXX': C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/VC/Tools/MSVC/14.51.36231/bin/HostX64/x64/link.exe
+        linker tool for 'CXX': C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/VC/Tools/MSVC/14.50.35717/bin/HostX64/x64/link.exe
         implicit libs: []
         implicit objs: []
         implicit dirs: []
@@ -733,8 +982,8 @@ events:
       - "C:/Program Files/CMake/share/cmake-4.3/Modules/CMakeTestCXXCompiler.cmake:26 (CMAKE_DETERMINE_COMPILER_ABI)"
       - "CMakeLists.txt:2 (project)"
     message: |
-      Running the CXX compiler's linker: "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/VC/Tools/MSVC/14.51.36231/bin/HostX64/x64/link.exe" "-v"
-      Microsoft (R) Incremental Linker Version 14.51.36248.0
+      Running the CXX compiler's linker: "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/VC/Tools/MSVC/14.50.35717/bin/HostX64/x64/link.exe" "-v"
+      Microsoft (R) Incremental Linker Version 14.50.35730.0
       Copyright (C) Microsoft Corporation.  All rights reserved.
   -
     kind: "find-v1"
@@ -761,20 +1010,31 @@ events:
       - "git.cmd"
       - "git"
     candidate_directories:
+      - "C:/Program Files (x86)/Razer Chroma SDK/bin/"
+      - "C:/Program Files/Razer Chroma SDK/bin/"
       - "C:/Windows/System32/"
       - "C:/Windows/"
       - "C:/Windows/System32/wbem/"
       - "C:/Windows/System32/WindowsPowerShell/v1.0/"
       - "C:/Windows/System32/OpenSSH/"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/"
+      - "C:/Windows/System32/config/systemprofile/AppData/Local/Microsoft/WindowsApps/"
+      - "C:/Program Files (x86)/Razer/ChromaBroadcast/bin/"
+      - "C:/Program Files/Razer/ChromaBroadcast/bin/"
+      - "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/"
+      - "C:/Program Files/dotnet/"
       - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/"
-      - "C:/Program Files/NVIDIA Corporation/NVIDIA NvDLISR/"
       - "C:/Program Files/Git/cmd/"
+      - "C:/Program Files/Docker/Docker/resources/bin/"
       - "C:/Program Files/CMake/bin/"
-      - "C:/Users/Patrick/AppData/Local/Microsoft/WindowsApps/"
-      - "C:/Users/Patrick/AppData/Local/Programs/Antigravity IDE/bin/"
-      - "C:/Users/Patrick/AppData/Local/GitHubDesktop/bin/"
-      - "C:/Users/Patrick/AppData/Local/Python/bin/"
-      - "C:/Users/Patrick/AppData/Local/Python/pythoncore-3.14-64/Scripts/"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/Scripts/"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/"
+      - "C:/Users/patom/AppData/Local/GitHubDesktop/bin/"
+      - "C:/Users/patom/AppData/Local/Programs/Microsoft VS Code/bin/"
+      - "C:/Users/patom/AppData/Local/Programs/antigravity/bin/"
+      - "C:/Users/patom/AppData/Local/Microsoft/WinGet/Packages/AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe/"
+      - "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts/"
+      - "C:/Users/patom/AppData/Local/Programs/Antigravity IDE/bin/"
       - "C:/Program Files/bin/"
       - "C:/Program Files/sbin/"
       - "C:/Program Files/"
@@ -787,8 +1047,14 @@ events:
       - "C:/Program Files (x86)/HeartsSimulator/bin/"
       - "C:/Program Files (x86)/HeartsSimulator/sbin/"
       - "C:/Program Files (x86)/HeartsSimulator/"
-      - "C:/Users/Patrick/AppData/Local/Atlassian/SourceTree/git_local/bin/"
+      - "C:/Users/patom/AppData/Local/Atlassian/SourceTree/git_local/bin/"
     searched_directories:
+      - "C:/Program Files (x86)/Razer Chroma SDK/bin/git.cmd.com"
+      - "C:/Program Files (x86)/Razer Chroma SDK/bin/git.cmd.exe"
+      - "C:/Program Files (x86)/Razer Chroma SDK/bin/git.cmd"
+      - "C:/Program Files/Razer Chroma SDK/bin/git.cmd.com"
+      - "C:/Program Files/Razer Chroma SDK/bin/git.cmd.exe"
+      - "C:/Program Files/Razer Chroma SDK/bin/git.cmd"
       - "C:/Windows/System32/git.cmd.com"
       - "C:/Windows/System32/git.cmd.exe"
       - "C:/Windows/System32/git.cmd"
@@ -804,33 +1070,60 @@ events:
       - "C:/Windows/System32/OpenSSH/git.cmd.com"
       - "C:/Windows/System32/OpenSSH/git.cmd.exe"
       - "C:/Windows/System32/OpenSSH/git.cmd"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/git.cmd.com"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/git.cmd.exe"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/git.cmd"
+      - "C:/Windows/System32/config/systemprofile/AppData/Local/Microsoft/WindowsApps/git.cmd.com"
+      - "C:/Windows/System32/config/systemprofile/AppData/Local/Microsoft/WindowsApps/git.cmd.exe"
+      - "C:/Windows/System32/config/systemprofile/AppData/Local/Microsoft/WindowsApps/git.cmd"
+      - "C:/Program Files (x86)/Razer/ChromaBroadcast/bin/git.cmd.com"
+      - "C:/Program Files (x86)/Razer/ChromaBroadcast/bin/git.cmd.exe"
+      - "C:/Program Files (x86)/Razer/ChromaBroadcast/bin/git.cmd"
+      - "C:/Program Files/Razer/ChromaBroadcast/bin/git.cmd.com"
+      - "C:/Program Files/Razer/ChromaBroadcast/bin/git.cmd.exe"
+      - "C:/Program Files/Razer/ChromaBroadcast/bin/git.cmd"
+      - "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/git.cmd.com"
+      - "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/git.cmd.exe"
+      - "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/git.cmd"
+      - "C:/Program Files/dotnet/git.cmd.com"
+      - "C:/Program Files/dotnet/git.cmd.exe"
+      - "C:/Program Files/dotnet/git.cmd"
       - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/git.cmd.com"
       - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/git.cmd.exe"
       - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/git.cmd"
-      - "C:/Program Files/NVIDIA Corporation/NVIDIA NvDLISR/git.cmd.com"
-      - "C:/Program Files/NVIDIA Corporation/NVIDIA NvDLISR/git.cmd.exe"
-      - "C:/Program Files/NVIDIA Corporation/NVIDIA NvDLISR/git.cmd"
       - "C:/Program Files/Git/cmd/git.cmd.com"
       - "C:/Program Files/Git/cmd/git.cmd.exe"
       - "C:/Program Files/Git/cmd/git.cmd"
+      - "C:/Program Files/Docker/Docker/resources/bin/git.cmd.com"
+      - "C:/Program Files/Docker/Docker/resources/bin/git.cmd.exe"
+      - "C:/Program Files/Docker/Docker/resources/bin/git.cmd"
       - "C:/Program Files/CMake/bin/git.cmd.com"
       - "C:/Program Files/CMake/bin/git.cmd.exe"
       - "C:/Program Files/CMake/bin/git.cmd"
-      - "C:/Users/Patrick/AppData/Local/Microsoft/WindowsApps/git.cmd.com"
-      - "C:/Users/Patrick/AppData/Local/Microsoft/WindowsApps/git.cmd.exe"
-      - "C:/Users/Patrick/AppData/Local/Microsoft/WindowsApps/git.cmd"
-      - "C:/Users/Patrick/AppData/Local/Programs/Antigravity IDE/bin/git.cmd.com"
-      - "C:/Users/Patrick/AppData/Local/Programs/Antigravity IDE/bin/git.cmd.exe"
-      - "C:/Users/Patrick/AppData/Local/Programs/Antigravity IDE/bin/git.cmd"
-      - "C:/Users/Patrick/AppData/Local/GitHubDesktop/bin/git.cmd.com"
-      - "C:/Users/Patrick/AppData/Local/GitHubDesktop/bin/git.cmd.exe"
-      - "C:/Users/Patrick/AppData/Local/GitHubDesktop/bin/git.cmd"
-      - "C:/Users/Patrick/AppData/Local/Python/bin/git.cmd.com"
-      - "C:/Users/Patrick/AppData/Local/Python/bin/git.cmd.exe"
-      - "C:/Users/Patrick/AppData/Local/Python/bin/git.cmd"
-      - "C:/Users/Patrick/AppData/Local/Python/pythoncore-3.14-64/Scripts/git.cmd.com"
-      - "C:/Users/Patrick/AppData/Local/Python/pythoncore-3.14-64/Scripts/git.cmd.exe"
-      - "C:/Users/Patrick/AppData/Local/Python/pythoncore-3.14-64/Scripts/git.cmd"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/Scripts/git.cmd.com"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/Scripts/git.cmd.exe"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/Scripts/git.cmd"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/git.cmd.com"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/git.cmd.exe"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/git.cmd"
+      - "C:/Users/patom/AppData/Local/GitHubDesktop/bin/git.cmd.com"
+      - "C:/Users/patom/AppData/Local/GitHubDesktop/bin/git.cmd.exe"
+      - "C:/Users/patom/AppData/Local/GitHubDesktop/bin/git.cmd"
+      - "C:/Users/patom/AppData/Local/Programs/Microsoft VS Code/bin/git.cmd.com"
+      - "C:/Users/patom/AppData/Local/Programs/Microsoft VS Code/bin/git.cmd.exe"
+      - "C:/Users/patom/AppData/Local/Programs/Microsoft VS Code/bin/git.cmd"
+      - "C:/Users/patom/AppData/Local/Programs/antigravity/bin/git.cmd.com"
+      - "C:/Users/patom/AppData/Local/Programs/antigravity/bin/git.cmd.exe"
+      - "C:/Users/patom/AppData/Local/Programs/antigravity/bin/git.cmd"
+      - "C:/Users/patom/AppData/Local/Microsoft/WinGet/Packages/AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe/git.cmd.com"
+      - "C:/Users/patom/AppData/Local/Microsoft/WinGet/Packages/AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe/git.cmd.exe"
+      - "C:/Users/patom/AppData/Local/Microsoft/WinGet/Packages/AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe/git.cmd"
+      - "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts/git.cmd.com"
+      - "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts/git.cmd.exe"
+      - "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts/git.cmd"
+      - "C:/Users/patom/AppData/Local/Programs/Antigravity IDE/bin/git.cmd.com"
+      - "C:/Users/patom/AppData/Local/Programs/Antigravity IDE/bin/git.cmd.exe"
+      - "C:/Users/patom/AppData/Local/Programs/Antigravity IDE/bin/git.cmd"
       - "C:/Program Files/bin/git.cmd.com"
       - "C:/Program Files/bin/git.cmd.exe"
       - "C:/Program Files/bin/git.cmd"
@@ -867,9 +1160,15 @@ events:
       - "C:/Program Files (x86)/HeartsSimulator/git.cmd.com"
       - "C:/Program Files (x86)/HeartsSimulator/git.cmd.exe"
       - "C:/Program Files (x86)/HeartsSimulator/git.cmd"
-      - "C:/Users/Patrick/AppData/Local/Atlassian/SourceTree/git_local/bin/git.cmd.com"
-      - "C:/Users/Patrick/AppData/Local/Atlassian/SourceTree/git_local/bin/git.cmd.exe"
-      - "C:/Users/Patrick/AppData/Local/Atlassian/SourceTree/git_local/bin/git.cmd"
+      - "C:/Users/patom/AppData/Local/Atlassian/SourceTree/git_local/bin/git.cmd.com"
+      - "C:/Users/patom/AppData/Local/Atlassian/SourceTree/git_local/bin/git.cmd.exe"
+      - "C:/Users/patom/AppData/Local/Atlassian/SourceTree/git_local/bin/git.cmd"
+      - "C:/Program Files (x86)/Razer Chroma SDK/bin/git.com"
+      - "C:/Program Files (x86)/Razer Chroma SDK/bin/git.exe"
+      - "C:/Program Files (x86)/Razer Chroma SDK/bin/git"
+      - "C:/Program Files/Razer Chroma SDK/bin/git.com"
+      - "C:/Program Files/Razer Chroma SDK/bin/git.exe"
+      - "C:/Program Files/Razer Chroma SDK/bin/git"
       - "C:/Windows/System32/git.com"
       - "C:/Windows/System32/git.exe"
       - "C:/Windows/System32/git"
@@ -885,35 +1184,62 @@ events:
       - "C:/Windows/System32/OpenSSH/git.com"
       - "C:/Windows/System32/OpenSSH/git.exe"
       - "C:/Windows/System32/OpenSSH/git"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/git.com"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/git.exe"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/git"
+      - "C:/Windows/System32/config/systemprofile/AppData/Local/Microsoft/WindowsApps/git.com"
+      - "C:/Windows/System32/config/systemprofile/AppData/Local/Microsoft/WindowsApps/git.exe"
+      - "C:/Windows/System32/config/systemprofile/AppData/Local/Microsoft/WindowsApps/git"
+      - "C:/Program Files (x86)/Razer/ChromaBroadcast/bin/git.com"
+      - "C:/Program Files (x86)/Razer/ChromaBroadcast/bin/git.exe"
+      - "C:/Program Files (x86)/Razer/ChromaBroadcast/bin/git"
+      - "C:/Program Files/Razer/ChromaBroadcast/bin/git.com"
+      - "C:/Program Files/Razer/ChromaBroadcast/bin/git.exe"
+      - "C:/Program Files/Razer/ChromaBroadcast/bin/git"
+      - "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/git.com"
+      - "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/git.exe"
+      - "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/git"
+      - "C:/Program Files/dotnet/git.com"
+      - "C:/Program Files/dotnet/git.exe"
+      - "C:/Program Files/dotnet/git"
       - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/git.com"
       - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/git.exe"
       - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/git"
-      - "C:/Program Files/NVIDIA Corporation/NVIDIA NvDLISR/git.com"
-      - "C:/Program Files/NVIDIA Corporation/NVIDIA NvDLISR/git.exe"
-      - "C:/Program Files/NVIDIA Corporation/NVIDIA NvDLISR/git"
       - "C:/Program Files/Git/cmd/git.com"
     found: "C:/Program Files/Git/cmd/git.exe"
     search_context:
       ENV{PATH}:
-        - "C:\\Windows\\system32"
-        - "C:\\Windows"
-        - "C:\\Windows\\System32\\Wbem"
-        - "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\"
-        - "C:\\Windows\\System32\\OpenSSH\\"
-        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
-        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA NvDLISR"
+        - "C:\\Program Files (x86)\\Razer Chroma SDK\\bin"
+        - "C:\\Program Files\\Razer Chroma SDK\\bin"
         - "C:\\WINDOWS\\system32"
         - "C:\\WINDOWS"
         - "C:\\WINDOWS\\System32\\Wbem"
         - "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\"
         - "C:\\WINDOWS\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA app\\NvDLISR"
+        - "C:\\WINDOWS\\system32\\config\\systemprofile\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Program Files (x86)\\Razer\\ChromaBroadcast\\bin"
+        - "C:\\Program Files\\Razer\\ChromaBroadcast\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Program Files\\dotnet\\"
+        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
         - "C:\\Program Files\\Git\\cmd"
+        - "C:\\WINDOWS\\system32"
+        - "C:\\WINDOWS"
+        - "C:\\WINDOWS\\System32\\Wbem"
+        - "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\WINDOWS\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\Docker\\Docker\\resources\\bin"
         - "C:\\Program Files\\CMake\\bin"
-        - "C:\\Users\\Patrick\\AppData\\Local\\Microsoft\\WindowsApps"
-        - "C:\\Users\\Patrick\\AppData\\Local\\Programs\\Antigravity IDE\\bin"
-        - "C:\\Users\\Patrick\\AppData\\Local\\GitHubDesktop\\bin"
-        - "C:\\Users\\Patrick\\AppData\\Local\\Python\\bin"
-        - "C:\\Users\\Patrick\\AppData\\Local\\Python\\pythoncore-3.14-64\\Scripts"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Python\\Python310\\Scripts\\"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Python\\Python310\\"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Users\\patom\\AppData\\Local\\GitHubDesktop\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Microsoft VS Code\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Antigravity\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WinGet\\Packages\\AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe"
+        - "C:\\Users\\patom\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python313\\Scripts"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Antigravity IDE\\bin"
       CMAKE_INSTALL_PREFIX: "C:/Program Files (x86)/HeartsSimulator"
       CMAKE_SYSTEM_PREFIX_PATH:
         - "C:/Program Files"
@@ -931,8 +1257,8 @@ events:
     checks:
       - "Performing Test CMAKE_HAVE_LIBC_PTHREAD"
     directories:
-      source: "C:/Users/Patrick/Desktop/hearts_simulator/build/CMakeFiles/CMakeScratch/TryCompile-axml81"
-      binary: "C:/Users/Patrick/Desktop/hearts_simulator/build/CMakeFiles/CMakeScratch/TryCompile-axml81"
+      source: "E:/hearts_simulator/build/CMakeFiles/CMakeScratch/TryCompile-b0zg5q"
+      binary: "E:/hearts_simulator/build/CMakeFiles/CMakeScratch/TryCompile-b0zg5q"
     cmakeVariables:
       CMAKE_CXX_FLAGS: "/DWIN32 /D_WINDOWS /W3 /GR /EHsc"
       CMAKE_CXX_FLAGS_DEBUG: "/MDd /Zi /Ob0 /Od /RTC1"
@@ -942,39 +1268,39 @@ events:
       variable: "CMAKE_HAVE_LIBC_PTHREAD"
       cached: true
       stdout: |
-        Change Dir: 'C:/Users/Patrick/Desktop/hearts_simulator/build/CMakeFiles/CMakeScratch/TryCompile-axml81'
+        Change Dir: 'E:/hearts_simulator/build/CMakeFiles/CMakeScratch/TryCompile-b0zg5q'
         
-        Run Build Command(s): "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/MSBuild/Current/Bin/amd64/MSBuild.exe" cmTC_db1de.vcxproj /p:Configuration=Debug /p:Platform=x64 /p:VisualStudioVersion=18.0 /v:n
-        MSBuild version 18.7.8+1ac568fee for .NET Framework
-        Build started 7/4/2026 8:17:51 PM.
+        Run Build Command(s): "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/MSBuild/Current/Bin/amd64/MSBuild.exe" cmTC_23bb8.vcxproj /p:Configuration=Debug /p:Platform=x64 /p:VisualStudioVersion=18.0 /v:n
+        MSBuild version 18.5.4+cb4e32d21 for .NET Framework
+        Build started 7/5/2026 10:25:15 AM.
         
-        Project "C:\\Users\\Patrick\\Desktop\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-axml81\\cmTC_db1de.vcxproj" on node 1 (default targets).
+        Project "E:\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-b0zg5q\\cmTC_23bb8.vcxproj" on node 1 (default targets).
         PrepareForBuild:
           Structured output is enabled. The formatting of compiler diagnostics will reflect the error hierarchy. See https://aka.ms/cpp/structured-output for more details.
-          Creating directory "C:\\Users\\Patrick\\Desktop\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-axml81\\Debug\\".
-          Creating directory "cmTC_db1de.dir\\Debug\\cmTC_db1de.tlog\\".
+          Creating directory "E:\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-b0zg5q\\Debug\\".
+          Creating directory "cmTC_23bb8.dir\\Debug\\cmTC_23bb8.tlog\\".
         InitializeBuildStatus:
-          Creating "cmTC_db1de.dir\\Debug\\cmTC_db1de.tlog\\unsuccessfulbuild" because "AlwaysCreate" was specified.
-          Touching "cmTC_db1de.dir\\Debug\\cmTC_db1de.tlog\\unsuccessfulbuild".
+          Creating "cmTC_23bb8.dir\\Debug\\cmTC_23bb8.tlog\\unsuccessfulbuild" because "AlwaysCreate" was specified.
+          Touching "cmTC_23bb8.dir\\Debug\\cmTC_23bb8.tlog\\unsuccessfulbuild".
         ClCompile:
-          C:\\Program Files (x86)\\Microsoft Visual Studio\\18\\BuildTools\\VC\\Tools\\MSVC\\14.51.36231\\bin\\HostX64\\x64\\CL.exe /c /Zi /W3 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D CMAKE_HAVE_LIBC_PTHREAD /D _MBCS /D "CMAKE_INTDIR=\\"Debug\\"" /EHsc /RTC1 /MDd /GR /std:c++17 /Fo"cmTC_db1de.dir\\Debug\\\\" /Fd"cmTC_db1de.dir\\Debug\\vc145.pdb" /external:W3 /TP /errorReport:queue "C:\\Users\\Patrick\\Desktop\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-axml81\\src.cxx"
-          Microsoft (R) C/C++ Optimizing Compiler Version 19.51.36248 for x64
+          C:\\Program Files (x86)\\Microsoft Visual Studio\\18\\BuildTools\\VC\\Tools\\MSVC\\14.50.35717\\bin\\HostX64\\x64\\CL.exe /c /Zi /W3 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D CMAKE_HAVE_LIBC_PTHREAD /D _MBCS /D "CMAKE_INTDIR=\\"Debug\\"" /EHsc /RTC1 /MDd /GR /std:c++17 /Fo"cmTC_23bb8.dir\\Debug\\\\" /Fd"cmTC_23bb8.dir\\Debug\\vc145.pdb" /external:W3 /TP /errorReport:queue "E:\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-b0zg5q\\src.cxx"
+          Microsoft (R) C/C++ Optimizing Compiler Version 19.50.35730 for x64
           Copyright (C) Microsoft Corporation.  All rights reserved.
-          cl /c /Zi /W3 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D CMAKE_HAVE_LIBC_PTHREAD /D _MBCS /D "CMAKE_INTDIR=\\"Debug\\"" /EHsc /RTC1 /MDd /GR /std:c++17 /Fo"cmTC_db1de.dir\\Debug\\\\" /Fd"cmTC_db1de.dir\\Debug\\vc145.pdb" /external:W3 /TP /errorReport:queue "C:\\Users\\Patrick\\Desktop\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-axml81\\src.cxx"
+          cl /c /Zi /W3 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D CMAKE_HAVE_LIBC_PTHREAD /D _MBCS /D "CMAKE_INTDIR=\\"Debug\\"" /EHsc /RTC1 /MDd /GR /std:c++17 /Fo"cmTC_23bb8.dir\\Debug\\\\" /Fd"cmTC_23bb8.dir\\Debug\\vc145.pdb" /external:W3 /TP /errorReport:queue "E:\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-b0zg5q\\src.cxx"
           src.cxx
-        C:\\Users\\Patrick\\Desktop\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-axml81\\src.cxx(1,10): error C1083: Cannot open include file: 'pthread.h': No such file or directory [C:\\Users\\Patrick\\Desktop\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-axml81\\cmTC_db1de.vcxproj]
-        Done Building Project "C:\\Users\\Patrick\\Desktop\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-axml81\\cmTC_db1de.vcxproj" (default targets) -- FAILED.
+        E:\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-b0zg5q\\src.cxx(1,10): error C1083: Cannot open include file: 'pthread.h': No such file or directory [E:\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-b0zg5q\\cmTC_23bb8.vcxproj]
+        Done Building Project "E:\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-b0zg5q\\cmTC_23bb8.vcxproj" (default targets) -- FAILED.
         
         Build FAILED.
         
-        "C:\\Users\\Patrick\\Desktop\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-axml81\\cmTC_db1de.vcxproj" (default target) (1) ->
+        "E:\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-b0zg5q\\cmTC_23bb8.vcxproj" (default target) (1) ->
         (ClCompile target) -> 
-          C:\\Users\\Patrick\\Desktop\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-axml81\\src.cxx(1,10): error C1083: Cannot open include file: 'pthread.h': No such file or directory [C:\\Users\\Patrick\\Desktop\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-axml81\\cmTC_db1de.vcxproj]
+          E:\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-b0zg5q\\src.cxx(1,10): error C1083: Cannot open include file: 'pthread.h': No such file or directory [E:\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-b0zg5q\\cmTC_23bb8.vcxproj]
         
             0 Warning(s)
             1 Error(s)
         
-        Time Elapsed 00:00:00.36
+        Time Elapsed 00:00:00.24
         
       exitCode: 1
   -
@@ -987,8 +1313,8 @@ events:
     checks:
       - "Looking for pthread_create in pthreads"
     directories:
-      source: "C:/Users/Patrick/Desktop/hearts_simulator/build/CMakeFiles/CMakeScratch/TryCompile-223p4u"
-      binary: "C:/Users/Patrick/Desktop/hearts_simulator/build/CMakeFiles/CMakeScratch/TryCompile-223p4u"
+      source: "E:/hearts_simulator/build/CMakeFiles/CMakeScratch/TryCompile-7e83wd"
+      binary: "E:/hearts_simulator/build/CMakeFiles/CMakeScratch/TryCompile-7e83wd"
     cmakeVariables:
       CMAKE_CXX_FLAGS: "/DWIN32 /D_WINDOWS /W3 /GR /EHsc"
       CMAKE_CXX_FLAGS_DEBUG: "/MDd /Zi /Ob0 /Od /RTC1"
@@ -998,41 +1324,41 @@ events:
       variable: "CMAKE_HAVE_PTHREADS_CREATE"
       cached: true
       stdout: |
-        Change Dir: 'C:/Users/Patrick/Desktop/hearts_simulator/build/CMakeFiles/CMakeScratch/TryCompile-223p4u'
+        Change Dir: 'E:/hearts_simulator/build/CMakeFiles/CMakeScratch/TryCompile-7e83wd'
         
-        Run Build Command(s): "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/MSBuild/Current/Bin/amd64/MSBuild.exe" cmTC_7b43b.vcxproj /p:Configuration=Debug /p:Platform=x64 /p:VisualStudioVersion=18.0 /v:n
-        MSBuild version 18.7.8+1ac568fee for .NET Framework
-        Build started 7/4/2026 8:17:51 PM.
+        Run Build Command(s): "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/MSBuild/Current/Bin/amd64/MSBuild.exe" cmTC_86f37.vcxproj /p:Configuration=Debug /p:Platform=x64 /p:VisualStudioVersion=18.0 /v:n
+        MSBuild version 18.5.4+cb4e32d21 for .NET Framework
+        Build started 7/5/2026 10:25:16 AM.
         
-        Project "C:\\Users\\Patrick\\Desktop\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-223p4u\\cmTC_7b43b.vcxproj" on node 1 (default targets).
+        Project "E:\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-7e83wd\\cmTC_86f37.vcxproj" on node 1 (default targets).
         PrepareForBuild:
           Structured output is enabled. The formatting of compiler diagnostics will reflect the error hierarchy. See https://aka.ms/cpp/structured-output for more details.
-          Creating directory "C:\\Users\\Patrick\\Desktop\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-223p4u\\Debug\\".
-          Creating directory "cmTC_7b43b.dir\\Debug\\cmTC_7b43b.tlog\\".
+          Creating directory "E:\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-7e83wd\\Debug\\".
+          Creating directory "cmTC_86f37.dir\\Debug\\cmTC_86f37.tlog\\".
         InitializeBuildStatus:
-          Creating "cmTC_7b43b.dir\\Debug\\cmTC_7b43b.tlog\\unsuccessfulbuild" because "AlwaysCreate" was specified.
-          Touching "cmTC_7b43b.dir\\Debug\\cmTC_7b43b.tlog\\unsuccessfulbuild".
+          Creating "cmTC_86f37.dir\\Debug\\cmTC_86f37.tlog\\unsuccessfulbuild" because "AlwaysCreate" was specified.
+          Touching "cmTC_86f37.dir\\Debug\\cmTC_86f37.tlog\\unsuccessfulbuild".
         ClCompile:
-          C:\\Program Files (x86)\\Microsoft Visual Studio\\18\\BuildTools\\VC\\Tools\\MSVC\\14.51.36231\\bin\\HostX64\\x64\\CL.exe /c /Zi /W3 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D CHECK_FUNCTION_EXISTS=pthread_create /D _MBCS /D "CMAKE_INTDIR=\\"Debug\\"" /EHsc /RTC1 /MDd /GR /std:c++17 /Fo"cmTC_7b43b.dir\\Debug\\\\" /Fd"cmTC_7b43b.dir\\Debug\\vc145.pdb" /external:W3 /TP /errorReport:queue "C:\\Users\\Patrick\\Desktop\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-223p4u\\CheckFunctionExists.cxx"
-          Microsoft (R) C/C++ Optimizing Compiler Version 19.51.36248 for x64
+          C:\\Program Files (x86)\\Microsoft Visual Studio\\18\\BuildTools\\VC\\Tools\\MSVC\\14.50.35717\\bin\\HostX64\\x64\\CL.exe /c /Zi /W3 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D CHECK_FUNCTION_EXISTS=pthread_create /D _MBCS /D "CMAKE_INTDIR=\\"Debug\\"" /EHsc /RTC1 /MDd /GR /std:c++17 /Fo"cmTC_86f37.dir\\Debug\\\\" /Fd"cmTC_86f37.dir\\Debug\\vc145.pdb" /external:W3 /TP /errorReport:queue "E:\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-7e83wd\\CheckFunctionExists.cxx"
+          Microsoft (R) C/C++ Optimizing Compiler Version 19.50.35730 for x64
           Copyright (C) Microsoft Corporation.  All rights reserved.
-          cl /c /Zi /W3 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D CHECK_FUNCTION_EXISTS=pthread_create /D _MBCS /D "CMAKE_INTDIR=\\"Debug\\"" /EHsc /RTC1 /MDd /GR /std:c++17 /Fo"cmTC_7b43b.dir\\Debug\\\\" /Fd"cmTC_7b43b.dir\\Debug\\vc145.pdb" /external:W3 /TP /errorReport:queue "C:\\Users\\Patrick\\Desktop\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-223p4u\\CheckFunctionExists.cxx"
+          cl /c /Zi /W3 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D CHECK_FUNCTION_EXISTS=pthread_create /D _MBCS /D "CMAKE_INTDIR=\\"Debug\\"" /EHsc /RTC1 /MDd /GR /std:c++17 /Fo"cmTC_86f37.dir\\Debug\\\\" /Fd"cmTC_86f37.dir\\Debug\\vc145.pdb" /external:W3 /TP /errorReport:queue "E:\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-7e83wd\\CheckFunctionExists.cxx"
           CheckFunctionExists.cxx
         Link:
-          C:\\Program Files (x86)\\Microsoft Visual Studio\\18\\BuildTools\\VC\\Tools\\MSVC\\14.51.36231\\bin\\HostX64\\x64\\link.exe /OUT:"C:\\Users\\Patrick\\Desktop\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-223p4u\\Debug\\cmTC_7b43b.exe" /INCREMENTAL /ILK:"cmTC_7b43b.dir\\Debug\\cmTC_7b43b.ilk" /NOLOGO pthreads.lib kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"C:/Users/Patrick/Desktop/hearts_simulator/build/CMakeFiles/CMakeScratch/TryCompile-223p4u/Debug/cmTC_7b43b.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /IMPLIB:"C:/Users/Patrick/Desktop/hearts_simulator/build/CMakeFiles/CMakeScratch/TryCompile-223p4u/Debug/cmTC_7b43b.lib" /MACHINE:X64  /machine:x64 cmTC_7b43b.dir\\Debug\\CheckFunctionExists.obj
-        LINK : fatal error LNK1104: cannot open file 'pthreads.lib' [C:\\Users\\Patrick\\Desktop\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-223p4u\\cmTC_7b43b.vcxproj]
-        Done Building Project "C:\\Users\\Patrick\\Desktop\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-223p4u\\cmTC_7b43b.vcxproj" (default targets) -- FAILED.
+          C:\\Program Files (x86)\\Microsoft Visual Studio\\18\\BuildTools\\VC\\Tools\\MSVC\\14.50.35717\\bin\\HostX64\\x64\\link.exe /OUT:"E:\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-7e83wd\\Debug\\cmTC_86f37.exe" /INCREMENTAL /ILK:"cmTC_86f37.dir\\Debug\\cmTC_86f37.ilk" /NOLOGO pthreads.lib kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"E:/hearts_simulator/build/CMakeFiles/CMakeScratch/TryCompile-7e83wd/Debug/cmTC_86f37.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /IMPLIB:"E:/hearts_simulator/build/CMakeFiles/CMakeScratch/TryCompile-7e83wd/Debug/cmTC_86f37.lib" /MACHINE:X64  /machine:x64 cmTC_86f37.dir\\Debug\\CheckFunctionExists.obj
+        LINK : fatal error LNK1104: cannot open file 'pthreads.lib' [E:\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-7e83wd\\cmTC_86f37.vcxproj]
+        Done Building Project "E:\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-7e83wd\\cmTC_86f37.vcxproj" (default targets) -- FAILED.
         
         Build FAILED.
         
-        "C:\\Users\\Patrick\\Desktop\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-223p4u\\cmTC_7b43b.vcxproj" (default target) (1) ->
+        "E:\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-7e83wd\\cmTC_86f37.vcxproj" (default target) (1) ->
         (Link target) -> 
-          LINK : fatal error LNK1104: cannot open file 'pthreads.lib' [C:\\Users\\Patrick\\Desktop\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-223p4u\\cmTC_7b43b.vcxproj]
+          LINK : fatal error LNK1104: cannot open file 'pthreads.lib' [E:\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-7e83wd\\cmTC_86f37.vcxproj]
         
             0 Warning(s)
             1 Error(s)
         
-        Time Elapsed 00:00:00.39
+        Time Elapsed 00:00:00.25
         
       exitCode: 1
   -
@@ -1045,8 +1371,8 @@ events:
     checks:
       - "Looking for pthread_create in pthread"
     directories:
-      source: "C:/Users/Patrick/Desktop/hearts_simulator/build/CMakeFiles/CMakeScratch/TryCompile-2xkv3j"
-      binary: "C:/Users/Patrick/Desktop/hearts_simulator/build/CMakeFiles/CMakeScratch/TryCompile-2xkv3j"
+      source: "E:/hearts_simulator/build/CMakeFiles/CMakeScratch/TryCompile-etoq6x"
+      binary: "E:/hearts_simulator/build/CMakeFiles/CMakeScratch/TryCompile-etoq6x"
     cmakeVariables:
       CMAKE_CXX_FLAGS: "/DWIN32 /D_WINDOWS /W3 /GR /EHsc"
       CMAKE_CXX_FLAGS_DEBUG: "/MDd /Zi /Ob0 /Od /RTC1"
@@ -1056,41 +1382,41 @@ events:
       variable: "CMAKE_HAVE_PTHREAD_CREATE"
       cached: true
       stdout: |
-        Change Dir: 'C:/Users/Patrick/Desktop/hearts_simulator/build/CMakeFiles/CMakeScratch/TryCompile-2xkv3j'
+        Change Dir: 'E:/hearts_simulator/build/CMakeFiles/CMakeScratch/TryCompile-etoq6x'
         
-        Run Build Command(s): "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/MSBuild/Current/Bin/amd64/MSBuild.exe" cmTC_6dd53.vcxproj /p:Configuration=Debug /p:Platform=x64 /p:VisualStudioVersion=18.0 /v:n
-        MSBuild version 18.7.8+1ac568fee for .NET Framework
-        Build started 7/4/2026 8:17:52 PM.
+        Run Build Command(s): "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/MSBuild/Current/Bin/amd64/MSBuild.exe" cmTC_02f19.vcxproj /p:Configuration=Debug /p:Platform=x64 /p:VisualStudioVersion=18.0 /v:n
+        MSBuild version 18.5.4+cb4e32d21 for .NET Framework
+        Build started 7/5/2026 10:25:16 AM.
         
-        Project "C:\\Users\\Patrick\\Desktop\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-2xkv3j\\cmTC_6dd53.vcxproj" on node 1 (default targets).
+        Project "E:\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-etoq6x\\cmTC_02f19.vcxproj" on node 1 (default targets).
         PrepareForBuild:
           Structured output is enabled. The formatting of compiler diagnostics will reflect the error hierarchy. See https://aka.ms/cpp/structured-output for more details.
-          Creating directory "C:\\Users\\Patrick\\Desktop\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-2xkv3j\\Debug\\".
-          Creating directory "cmTC_6dd53.dir\\Debug\\cmTC_6dd53.tlog\\".
+          Creating directory "E:\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-etoq6x\\Debug\\".
+          Creating directory "cmTC_02f19.dir\\Debug\\cmTC_02f19.tlog\\".
         InitializeBuildStatus:
-          Creating "cmTC_6dd53.dir\\Debug\\cmTC_6dd53.tlog\\unsuccessfulbuild" because "AlwaysCreate" was specified.
-          Touching "cmTC_6dd53.dir\\Debug\\cmTC_6dd53.tlog\\unsuccessfulbuild".
+          Creating "cmTC_02f19.dir\\Debug\\cmTC_02f19.tlog\\unsuccessfulbuild" because "AlwaysCreate" was specified.
+          Touching "cmTC_02f19.dir\\Debug\\cmTC_02f19.tlog\\unsuccessfulbuild".
         ClCompile:
-          C:\\Program Files (x86)\\Microsoft Visual Studio\\18\\BuildTools\\VC\\Tools\\MSVC\\14.51.36231\\bin\\HostX64\\x64\\CL.exe /c /Zi /W3 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D CHECK_FUNCTION_EXISTS=pthread_create /D _MBCS /D "CMAKE_INTDIR=\\"Debug\\"" /EHsc /RTC1 /MDd /GR /std:c++17 /Fo"cmTC_6dd53.dir\\Debug\\\\" /Fd"cmTC_6dd53.dir\\Debug\\vc145.pdb" /external:W3 /TP /errorReport:queue "C:\\Users\\Patrick\\Desktop\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-2xkv3j\\CheckFunctionExists.cxx"
-          Microsoft (R) C/C++ Optimizing Compiler Version 19.51.36248 for x64
+          C:\\Program Files (x86)\\Microsoft Visual Studio\\18\\BuildTools\\VC\\Tools\\MSVC\\14.50.35717\\bin\\HostX64\\x64\\CL.exe /c /Zi /W3 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D CHECK_FUNCTION_EXISTS=pthread_create /D _MBCS /D "CMAKE_INTDIR=\\"Debug\\"" /EHsc /RTC1 /MDd /GR /std:c++17 /Fo"cmTC_02f19.dir\\Debug\\\\" /Fd"cmTC_02f19.dir\\Debug\\vc145.pdb" /external:W3 /TP /errorReport:queue "E:\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-etoq6x\\CheckFunctionExists.cxx"
+          Microsoft (R) C/C++ Optimizing Compiler Version 19.50.35730 for x64
           Copyright (C) Microsoft Corporation.  All rights reserved.
-          cl /c /Zi /W3 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D CHECK_FUNCTION_EXISTS=pthread_create /D _MBCS /D "CMAKE_INTDIR=\\"Debug\\"" /EHsc /RTC1 /MDd /GR /std:c++17 /Fo"cmTC_6dd53.dir\\Debug\\\\" /Fd"cmTC_6dd53.dir\\Debug\\vc145.pdb" /external:W3 /TP /errorReport:queue "C:\\Users\\Patrick\\Desktop\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-2xkv3j\\CheckFunctionExists.cxx"
+          cl /c /Zi /W3 /WX- /diagnostics:column /Od /Ob0 /D _MBCS /D WIN32 /D _WINDOWS /D CHECK_FUNCTION_EXISTS=pthread_create /D _MBCS /D "CMAKE_INTDIR=\\"Debug\\"" /EHsc /RTC1 /MDd /GR /std:c++17 /Fo"cmTC_02f19.dir\\Debug\\\\" /Fd"cmTC_02f19.dir\\Debug\\vc145.pdb" /external:W3 /TP /errorReport:queue "E:\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-etoq6x\\CheckFunctionExists.cxx"
           CheckFunctionExists.cxx
         Link:
-          C:\\Program Files (x86)\\Microsoft Visual Studio\\18\\BuildTools\\VC\\Tools\\MSVC\\14.51.36231\\bin\\HostX64\\x64\\link.exe /OUT:"C:\\Users\\Patrick\\Desktop\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-2xkv3j\\Debug\\cmTC_6dd53.exe" /INCREMENTAL /ILK:"cmTC_6dd53.dir\\Debug\\cmTC_6dd53.ilk" /NOLOGO pthread.lib kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"C:/Users/Patrick/Desktop/hearts_simulator/build/CMakeFiles/CMakeScratch/TryCompile-2xkv3j/Debug/cmTC_6dd53.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /IMPLIB:"C:/Users/Patrick/Desktop/hearts_simulator/build/CMakeFiles/CMakeScratch/TryCompile-2xkv3j/Debug/cmTC_6dd53.lib" /MACHINE:X64  /machine:x64 cmTC_6dd53.dir\\Debug\\CheckFunctionExists.obj
-        LINK : fatal error LNK1104: cannot open file 'pthread.lib' [C:\\Users\\Patrick\\Desktop\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-2xkv3j\\cmTC_6dd53.vcxproj]
-        Done Building Project "C:\\Users\\Patrick\\Desktop\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-2xkv3j\\cmTC_6dd53.vcxproj" (default targets) -- FAILED.
+          C:\\Program Files (x86)\\Microsoft Visual Studio\\18\\BuildTools\\VC\\Tools\\MSVC\\14.50.35717\\bin\\HostX64\\x64\\link.exe /OUT:"E:\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-etoq6x\\Debug\\cmTC_02f19.exe" /INCREMENTAL /ILK:"cmTC_02f19.dir\\Debug\\cmTC_02f19.ilk" /NOLOGO pthread.lib kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"E:/hearts_simulator/build/CMakeFiles/CMakeScratch/TryCompile-etoq6x/Debug/cmTC_02f19.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /IMPLIB:"E:/hearts_simulator/build/CMakeFiles/CMakeScratch/TryCompile-etoq6x/Debug/cmTC_02f19.lib" /MACHINE:X64  /machine:x64 cmTC_02f19.dir\\Debug\\CheckFunctionExists.obj
+        LINK : fatal error LNK1104: cannot open file 'pthread.lib' [E:\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-etoq6x\\cmTC_02f19.vcxproj]
+        Done Building Project "E:\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-etoq6x\\cmTC_02f19.vcxproj" (default targets) -- FAILED.
         
         Build FAILED.
         
-        "C:\\Users\\Patrick\\Desktop\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-2xkv3j\\cmTC_6dd53.vcxproj" (default target) (1) ->
+        "E:\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-etoq6x\\cmTC_02f19.vcxproj" (default target) (1) ->
         (Link target) -> 
-          LINK : fatal error LNK1104: cannot open file 'pthread.lib' [C:\\Users\\Patrick\\Desktop\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-2xkv3j\\cmTC_6dd53.vcxproj]
+          LINK : fatal error LNK1104: cannot open file 'pthread.lib' [E:\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-etoq6x\\cmTC_02f19.vcxproj]
         
             0 Warning(s)
             1 Error(s)
         
-        Time Elapsed 00:00:00.38
+        Time Elapsed 00:00:00.24
         
       exitCode: 1
   -
@@ -1112,20 +1438,31 @@ events:
     names:
       - "clang-tidy"
     candidate_directories:
+      - "C:/Program Files (x86)/Razer Chroma SDK/bin/"
+      - "C:/Program Files/Razer Chroma SDK/bin/"
       - "C:/Windows/System32/"
       - "C:/Windows/"
       - "C:/Windows/System32/wbem/"
       - "C:/Windows/System32/WindowsPowerShell/v1.0/"
       - "C:/Windows/System32/OpenSSH/"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/"
+      - "C:/Windows/System32/config/systemprofile/AppData/Local/Microsoft/WindowsApps/"
+      - "C:/Program Files (x86)/Razer/ChromaBroadcast/bin/"
+      - "C:/Program Files/Razer/ChromaBroadcast/bin/"
+      - "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/"
+      - "C:/Program Files/dotnet/"
       - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/"
-      - "C:/Program Files/NVIDIA Corporation/NVIDIA NvDLISR/"
       - "C:/Program Files/Git/cmd/"
+      - "C:/Program Files/Docker/Docker/resources/bin/"
       - "C:/Program Files/CMake/bin/"
-      - "C:/Users/Patrick/AppData/Local/Microsoft/WindowsApps/"
-      - "C:/Users/Patrick/AppData/Local/Programs/Antigravity IDE/bin/"
-      - "C:/Users/Patrick/AppData/Local/GitHubDesktop/bin/"
-      - "C:/Users/Patrick/AppData/Local/Python/bin/"
-      - "C:/Users/Patrick/AppData/Local/Python/pythoncore-3.14-64/Scripts/"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/Scripts/"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/"
+      - "C:/Users/patom/AppData/Local/GitHubDesktop/bin/"
+      - "C:/Users/patom/AppData/Local/Programs/Microsoft VS Code/bin/"
+      - "C:/Users/patom/AppData/Local/Programs/antigravity/bin/"
+      - "C:/Users/patom/AppData/Local/Microsoft/WinGet/Packages/AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe/"
+      - "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts/"
+      - "C:/Users/patom/AppData/Local/Programs/Antigravity IDE/bin/"
       - "C:/Program Files/bin/"
       - "C:/Program Files/sbin/"
       - "C:/Program Files/"
@@ -1139,6 +1476,12 @@ events:
       - "C:/Program Files (x86)/HeartsSimulator/sbin/"
       - "C:/Program Files (x86)/HeartsSimulator/"
     searched_directories:
+      - "C:/Program Files (x86)/Razer Chroma SDK/bin/clang-tidy.com"
+      - "C:/Program Files (x86)/Razer Chroma SDK/bin/clang-tidy.exe"
+      - "C:/Program Files (x86)/Razer Chroma SDK/bin/clang-tidy"
+      - "C:/Program Files/Razer Chroma SDK/bin/clang-tidy.com"
+      - "C:/Program Files/Razer Chroma SDK/bin/clang-tidy.exe"
+      - "C:/Program Files/Razer Chroma SDK/bin/clang-tidy"
       - "C:/Windows/System32/clang-tidy.com"
       - "C:/Windows/System32/clang-tidy.exe"
       - "C:/Windows/System32/clang-tidy"
@@ -1154,33 +1497,60 @@ events:
       - "C:/Windows/System32/OpenSSH/clang-tidy.com"
       - "C:/Windows/System32/OpenSSH/clang-tidy.exe"
       - "C:/Windows/System32/OpenSSH/clang-tidy"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/clang-tidy.com"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/clang-tidy.exe"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/clang-tidy"
+      - "C:/Windows/System32/config/systemprofile/AppData/Local/Microsoft/WindowsApps/clang-tidy.com"
+      - "C:/Windows/System32/config/systemprofile/AppData/Local/Microsoft/WindowsApps/clang-tidy.exe"
+      - "C:/Windows/System32/config/systemprofile/AppData/Local/Microsoft/WindowsApps/clang-tidy"
+      - "C:/Program Files (x86)/Razer/ChromaBroadcast/bin/clang-tidy.com"
+      - "C:/Program Files (x86)/Razer/ChromaBroadcast/bin/clang-tidy.exe"
+      - "C:/Program Files (x86)/Razer/ChromaBroadcast/bin/clang-tidy"
+      - "C:/Program Files/Razer/ChromaBroadcast/bin/clang-tidy.com"
+      - "C:/Program Files/Razer/ChromaBroadcast/bin/clang-tidy.exe"
+      - "C:/Program Files/Razer/ChromaBroadcast/bin/clang-tidy"
+      - "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/clang-tidy.com"
+      - "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/clang-tidy.exe"
+      - "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/clang-tidy"
+      - "C:/Program Files/dotnet/clang-tidy.com"
+      - "C:/Program Files/dotnet/clang-tidy.exe"
+      - "C:/Program Files/dotnet/clang-tidy"
       - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/clang-tidy.com"
       - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/clang-tidy.exe"
       - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/clang-tidy"
-      - "C:/Program Files/NVIDIA Corporation/NVIDIA NvDLISR/clang-tidy.com"
-      - "C:/Program Files/NVIDIA Corporation/NVIDIA NvDLISR/clang-tidy.exe"
-      - "C:/Program Files/NVIDIA Corporation/NVIDIA NvDLISR/clang-tidy"
       - "C:/Program Files/Git/cmd/clang-tidy.com"
       - "C:/Program Files/Git/cmd/clang-tidy.exe"
       - "C:/Program Files/Git/cmd/clang-tidy"
+      - "C:/Program Files/Docker/Docker/resources/bin/clang-tidy.com"
+      - "C:/Program Files/Docker/Docker/resources/bin/clang-tidy.exe"
+      - "C:/Program Files/Docker/Docker/resources/bin/clang-tidy"
       - "C:/Program Files/CMake/bin/clang-tidy.com"
       - "C:/Program Files/CMake/bin/clang-tidy.exe"
       - "C:/Program Files/CMake/bin/clang-tidy"
-      - "C:/Users/Patrick/AppData/Local/Microsoft/WindowsApps/clang-tidy.com"
-      - "C:/Users/Patrick/AppData/Local/Microsoft/WindowsApps/clang-tidy.exe"
-      - "C:/Users/Patrick/AppData/Local/Microsoft/WindowsApps/clang-tidy"
-      - "C:/Users/Patrick/AppData/Local/Programs/Antigravity IDE/bin/clang-tidy.com"
-      - "C:/Users/Patrick/AppData/Local/Programs/Antigravity IDE/bin/clang-tidy.exe"
-      - "C:/Users/Patrick/AppData/Local/Programs/Antigravity IDE/bin/clang-tidy"
-      - "C:/Users/Patrick/AppData/Local/GitHubDesktop/bin/clang-tidy.com"
-      - "C:/Users/Patrick/AppData/Local/GitHubDesktop/bin/clang-tidy.exe"
-      - "C:/Users/Patrick/AppData/Local/GitHubDesktop/bin/clang-tidy"
-      - "C:/Users/Patrick/AppData/Local/Python/bin/clang-tidy.com"
-      - "C:/Users/Patrick/AppData/Local/Python/bin/clang-tidy.exe"
-      - "C:/Users/Patrick/AppData/Local/Python/bin/clang-tidy"
-      - "C:/Users/Patrick/AppData/Local/Python/pythoncore-3.14-64/Scripts/clang-tidy.com"
-      - "C:/Users/Patrick/AppData/Local/Python/pythoncore-3.14-64/Scripts/clang-tidy.exe"
-      - "C:/Users/Patrick/AppData/Local/Python/pythoncore-3.14-64/Scripts/clang-tidy"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/Scripts/clang-tidy.com"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/Scripts/clang-tidy.exe"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/Scripts/clang-tidy"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/clang-tidy.com"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/clang-tidy.exe"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/clang-tidy"
+      - "C:/Users/patom/AppData/Local/GitHubDesktop/bin/clang-tidy.com"
+      - "C:/Users/patom/AppData/Local/GitHubDesktop/bin/clang-tidy.exe"
+      - "C:/Users/patom/AppData/Local/GitHubDesktop/bin/clang-tidy"
+      - "C:/Users/patom/AppData/Local/Programs/Microsoft VS Code/bin/clang-tidy.com"
+      - "C:/Users/patom/AppData/Local/Programs/Microsoft VS Code/bin/clang-tidy.exe"
+      - "C:/Users/patom/AppData/Local/Programs/Microsoft VS Code/bin/clang-tidy"
+      - "C:/Users/patom/AppData/Local/Programs/antigravity/bin/clang-tidy.com"
+      - "C:/Users/patom/AppData/Local/Programs/antigravity/bin/clang-tidy.exe"
+      - "C:/Users/patom/AppData/Local/Programs/antigravity/bin/clang-tidy"
+      - "C:/Users/patom/AppData/Local/Microsoft/WinGet/Packages/AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe/clang-tidy.com"
+      - "C:/Users/patom/AppData/Local/Microsoft/WinGet/Packages/AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe/clang-tidy.exe"
+      - "C:/Users/patom/AppData/Local/Microsoft/WinGet/Packages/AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe/clang-tidy"
+      - "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts/clang-tidy.com"
+      - "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts/clang-tidy.exe"
+      - "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts/clang-tidy"
+      - "C:/Users/patom/AppData/Local/Programs/Antigravity IDE/bin/clang-tidy.com"
+      - "C:/Users/patom/AppData/Local/Programs/Antigravity IDE/bin/clang-tidy.exe"
+      - "C:/Users/patom/AppData/Local/Programs/Antigravity IDE/bin/clang-tidy"
       - "C:/Program Files/bin/clang-tidy.com"
       - "C:/Program Files/bin/clang-tidy.exe"
       - "C:/Program Files/bin/clang-tidy"
@@ -1220,25 +1590,37 @@ events:
     found: false
     search_context:
       ENV{PATH}:
-        - "C:\\Windows\\system32"
-        - "C:\\Windows"
-        - "C:\\Windows\\System32\\Wbem"
-        - "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\"
-        - "C:\\Windows\\System32\\OpenSSH\\"
-        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
-        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA NvDLISR"
+        - "C:\\Program Files (x86)\\Razer Chroma SDK\\bin"
+        - "C:\\Program Files\\Razer Chroma SDK\\bin"
         - "C:\\WINDOWS\\system32"
         - "C:\\WINDOWS"
         - "C:\\WINDOWS\\System32\\Wbem"
         - "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\"
         - "C:\\WINDOWS\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA app\\NvDLISR"
+        - "C:\\WINDOWS\\system32\\config\\systemprofile\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Program Files (x86)\\Razer\\ChromaBroadcast\\bin"
+        - "C:\\Program Files\\Razer\\ChromaBroadcast\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Program Files\\dotnet\\"
+        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
         - "C:\\Program Files\\Git\\cmd"
+        - "C:\\WINDOWS\\system32"
+        - "C:\\WINDOWS"
+        - "C:\\WINDOWS\\System32\\Wbem"
+        - "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\WINDOWS\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\Docker\\Docker\\resources\\bin"
         - "C:\\Program Files\\CMake\\bin"
-        - "C:\\Users\\Patrick\\AppData\\Local\\Microsoft\\WindowsApps"
-        - "C:\\Users\\Patrick\\AppData\\Local\\Programs\\Antigravity IDE\\bin"
-        - "C:\\Users\\Patrick\\AppData\\Local\\GitHubDesktop\\bin"
-        - "C:\\Users\\Patrick\\AppData\\Local\\Python\\bin"
-        - "C:\\Users\\Patrick\\AppData\\Local\\Python\\pythoncore-3.14-64\\Scripts"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Python\\Python310\\Scripts\\"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Python\\Python310\\"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Users\\patom\\AppData\\Local\\GitHubDesktop\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Microsoft VS Code\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Antigravity\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WinGet\\Packages\\AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe"
+        - "C:\\Users\\patom\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python313\\Scripts"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Antigravity IDE\\bin"
       CMAKE_INSTALL_PREFIX: "C:/Program Files (x86)/HeartsSimulator"
       CMAKE_SYSTEM_PREFIX_PATH:
         - "C:/Program Files"
@@ -1265,20 +1647,31 @@ events:
       - "include-what-you-use"
       - "iwyu"
     candidate_directories:
+      - "C:/Program Files (x86)/Razer Chroma SDK/bin/"
+      - "C:/Program Files/Razer Chroma SDK/bin/"
       - "C:/Windows/System32/"
       - "C:/Windows/"
       - "C:/Windows/System32/wbem/"
       - "C:/Windows/System32/WindowsPowerShell/v1.0/"
       - "C:/Windows/System32/OpenSSH/"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/"
+      - "C:/Windows/System32/config/systemprofile/AppData/Local/Microsoft/WindowsApps/"
+      - "C:/Program Files (x86)/Razer/ChromaBroadcast/bin/"
+      - "C:/Program Files/Razer/ChromaBroadcast/bin/"
+      - "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/"
+      - "C:/Program Files/dotnet/"
       - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/"
-      - "C:/Program Files/NVIDIA Corporation/NVIDIA NvDLISR/"
       - "C:/Program Files/Git/cmd/"
+      - "C:/Program Files/Docker/Docker/resources/bin/"
       - "C:/Program Files/CMake/bin/"
-      - "C:/Users/Patrick/AppData/Local/Microsoft/WindowsApps/"
-      - "C:/Users/Patrick/AppData/Local/Programs/Antigravity IDE/bin/"
-      - "C:/Users/Patrick/AppData/Local/GitHubDesktop/bin/"
-      - "C:/Users/Patrick/AppData/Local/Python/bin/"
-      - "C:/Users/Patrick/AppData/Local/Python/pythoncore-3.14-64/Scripts/"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/Scripts/"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/"
+      - "C:/Users/patom/AppData/Local/GitHubDesktop/bin/"
+      - "C:/Users/patom/AppData/Local/Programs/Microsoft VS Code/bin/"
+      - "C:/Users/patom/AppData/Local/Programs/antigravity/bin/"
+      - "C:/Users/patom/AppData/Local/Microsoft/WinGet/Packages/AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe/"
+      - "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts/"
+      - "C:/Users/patom/AppData/Local/Programs/Antigravity IDE/bin/"
       - "C:/Program Files/bin/"
       - "C:/Program Files/sbin/"
       - "C:/Program Files/"
@@ -1292,6 +1685,12 @@ events:
       - "C:/Program Files (x86)/HeartsSimulator/sbin/"
       - "C:/Program Files (x86)/HeartsSimulator/"
     searched_directories:
+      - "C:/Program Files (x86)/Razer Chroma SDK/bin/include-what-you-use.com"
+      - "C:/Program Files (x86)/Razer Chroma SDK/bin/include-what-you-use.exe"
+      - "C:/Program Files (x86)/Razer Chroma SDK/bin/include-what-you-use"
+      - "C:/Program Files/Razer Chroma SDK/bin/include-what-you-use.com"
+      - "C:/Program Files/Razer Chroma SDK/bin/include-what-you-use.exe"
+      - "C:/Program Files/Razer Chroma SDK/bin/include-what-you-use"
       - "C:/Windows/System32/include-what-you-use.com"
       - "C:/Windows/System32/include-what-you-use.exe"
       - "C:/Windows/System32/include-what-you-use"
@@ -1307,33 +1706,60 @@ events:
       - "C:/Windows/System32/OpenSSH/include-what-you-use.com"
       - "C:/Windows/System32/OpenSSH/include-what-you-use.exe"
       - "C:/Windows/System32/OpenSSH/include-what-you-use"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/include-what-you-use.com"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/include-what-you-use.exe"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/include-what-you-use"
+      - "C:/Windows/System32/config/systemprofile/AppData/Local/Microsoft/WindowsApps/include-what-you-use.com"
+      - "C:/Windows/System32/config/systemprofile/AppData/Local/Microsoft/WindowsApps/include-what-you-use.exe"
+      - "C:/Windows/System32/config/systemprofile/AppData/Local/Microsoft/WindowsApps/include-what-you-use"
+      - "C:/Program Files (x86)/Razer/ChromaBroadcast/bin/include-what-you-use.com"
+      - "C:/Program Files (x86)/Razer/ChromaBroadcast/bin/include-what-you-use.exe"
+      - "C:/Program Files (x86)/Razer/ChromaBroadcast/bin/include-what-you-use"
+      - "C:/Program Files/Razer/ChromaBroadcast/bin/include-what-you-use.com"
+      - "C:/Program Files/Razer/ChromaBroadcast/bin/include-what-you-use.exe"
+      - "C:/Program Files/Razer/ChromaBroadcast/bin/include-what-you-use"
+      - "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/include-what-you-use.com"
+      - "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/include-what-you-use.exe"
+      - "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/include-what-you-use"
+      - "C:/Program Files/dotnet/include-what-you-use.com"
+      - "C:/Program Files/dotnet/include-what-you-use.exe"
+      - "C:/Program Files/dotnet/include-what-you-use"
       - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/include-what-you-use.com"
       - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/include-what-you-use.exe"
       - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/include-what-you-use"
-      - "C:/Program Files/NVIDIA Corporation/NVIDIA NvDLISR/include-what-you-use.com"
-      - "C:/Program Files/NVIDIA Corporation/NVIDIA NvDLISR/include-what-you-use.exe"
-      - "C:/Program Files/NVIDIA Corporation/NVIDIA NvDLISR/include-what-you-use"
       - "C:/Program Files/Git/cmd/include-what-you-use.com"
       - "C:/Program Files/Git/cmd/include-what-you-use.exe"
       - "C:/Program Files/Git/cmd/include-what-you-use"
+      - "C:/Program Files/Docker/Docker/resources/bin/include-what-you-use.com"
+      - "C:/Program Files/Docker/Docker/resources/bin/include-what-you-use.exe"
+      - "C:/Program Files/Docker/Docker/resources/bin/include-what-you-use"
       - "C:/Program Files/CMake/bin/include-what-you-use.com"
       - "C:/Program Files/CMake/bin/include-what-you-use.exe"
       - "C:/Program Files/CMake/bin/include-what-you-use"
-      - "C:/Users/Patrick/AppData/Local/Microsoft/WindowsApps/include-what-you-use.com"
-      - "C:/Users/Patrick/AppData/Local/Microsoft/WindowsApps/include-what-you-use.exe"
-      - "C:/Users/Patrick/AppData/Local/Microsoft/WindowsApps/include-what-you-use"
-      - "C:/Users/Patrick/AppData/Local/Programs/Antigravity IDE/bin/include-what-you-use.com"
-      - "C:/Users/Patrick/AppData/Local/Programs/Antigravity IDE/bin/include-what-you-use.exe"
-      - "C:/Users/Patrick/AppData/Local/Programs/Antigravity IDE/bin/include-what-you-use"
-      - "C:/Users/Patrick/AppData/Local/GitHubDesktop/bin/include-what-you-use.com"
-      - "C:/Users/Patrick/AppData/Local/GitHubDesktop/bin/include-what-you-use.exe"
-      - "C:/Users/Patrick/AppData/Local/GitHubDesktop/bin/include-what-you-use"
-      - "C:/Users/Patrick/AppData/Local/Python/bin/include-what-you-use.com"
-      - "C:/Users/Patrick/AppData/Local/Python/bin/include-what-you-use.exe"
-      - "C:/Users/Patrick/AppData/Local/Python/bin/include-what-you-use"
-      - "C:/Users/Patrick/AppData/Local/Python/pythoncore-3.14-64/Scripts/include-what-you-use.com"
-      - "C:/Users/Patrick/AppData/Local/Python/pythoncore-3.14-64/Scripts/include-what-you-use.exe"
-      - "C:/Users/Patrick/AppData/Local/Python/pythoncore-3.14-64/Scripts/include-what-you-use"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/Scripts/include-what-you-use.com"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/Scripts/include-what-you-use.exe"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/Scripts/include-what-you-use"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/include-what-you-use.com"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/include-what-you-use.exe"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/include-what-you-use"
+      - "C:/Users/patom/AppData/Local/GitHubDesktop/bin/include-what-you-use.com"
+      - "C:/Users/patom/AppData/Local/GitHubDesktop/bin/include-what-you-use.exe"
+      - "C:/Users/patom/AppData/Local/GitHubDesktop/bin/include-what-you-use"
+      - "C:/Users/patom/AppData/Local/Programs/Microsoft VS Code/bin/include-what-you-use.com"
+      - "C:/Users/patom/AppData/Local/Programs/Microsoft VS Code/bin/include-what-you-use.exe"
+      - "C:/Users/patom/AppData/Local/Programs/Microsoft VS Code/bin/include-what-you-use"
+      - "C:/Users/patom/AppData/Local/Programs/antigravity/bin/include-what-you-use.com"
+      - "C:/Users/patom/AppData/Local/Programs/antigravity/bin/include-what-you-use.exe"
+      - "C:/Users/patom/AppData/Local/Programs/antigravity/bin/include-what-you-use"
+      - "C:/Users/patom/AppData/Local/Microsoft/WinGet/Packages/AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe/include-what-you-use.com"
+      - "C:/Users/patom/AppData/Local/Microsoft/WinGet/Packages/AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe/include-what-you-use.exe"
+      - "C:/Users/patom/AppData/Local/Microsoft/WinGet/Packages/AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe/include-what-you-use"
+      - "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts/include-what-you-use.com"
+      - "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts/include-what-you-use.exe"
+      - "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts/include-what-you-use"
+      - "C:/Users/patom/AppData/Local/Programs/Antigravity IDE/bin/include-what-you-use.com"
+      - "C:/Users/patom/AppData/Local/Programs/Antigravity IDE/bin/include-what-you-use.exe"
+      - "C:/Users/patom/AppData/Local/Programs/Antigravity IDE/bin/include-what-you-use"
       - "C:/Program Files/bin/include-what-you-use.com"
       - "C:/Program Files/bin/include-what-you-use.exe"
       - "C:/Program Files/bin/include-what-you-use"
@@ -1370,6 +1796,12 @@ events:
       - "C:/Program Files (x86)/HeartsSimulator/include-what-you-use.com"
       - "C:/Program Files (x86)/HeartsSimulator/include-what-you-use.exe"
       - "C:/Program Files (x86)/HeartsSimulator/include-what-you-use"
+      - "C:/Program Files (x86)/Razer Chroma SDK/bin/iwyu.com"
+      - "C:/Program Files (x86)/Razer Chroma SDK/bin/iwyu.exe"
+      - "C:/Program Files (x86)/Razer Chroma SDK/bin/iwyu"
+      - "C:/Program Files/Razer Chroma SDK/bin/iwyu.com"
+      - "C:/Program Files/Razer Chroma SDK/bin/iwyu.exe"
+      - "C:/Program Files/Razer Chroma SDK/bin/iwyu"
       - "C:/Windows/System32/iwyu.com"
       - "C:/Windows/System32/iwyu.exe"
       - "C:/Windows/System32/iwyu"
@@ -1385,33 +1817,60 @@ events:
       - "C:/Windows/System32/OpenSSH/iwyu.com"
       - "C:/Windows/System32/OpenSSH/iwyu.exe"
       - "C:/Windows/System32/OpenSSH/iwyu"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/iwyu.com"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/iwyu.exe"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/iwyu"
+      - "C:/Windows/System32/config/systemprofile/AppData/Local/Microsoft/WindowsApps/iwyu.com"
+      - "C:/Windows/System32/config/systemprofile/AppData/Local/Microsoft/WindowsApps/iwyu.exe"
+      - "C:/Windows/System32/config/systemprofile/AppData/Local/Microsoft/WindowsApps/iwyu"
+      - "C:/Program Files (x86)/Razer/ChromaBroadcast/bin/iwyu.com"
+      - "C:/Program Files (x86)/Razer/ChromaBroadcast/bin/iwyu.exe"
+      - "C:/Program Files (x86)/Razer/ChromaBroadcast/bin/iwyu"
+      - "C:/Program Files/Razer/ChromaBroadcast/bin/iwyu.com"
+      - "C:/Program Files/Razer/ChromaBroadcast/bin/iwyu.exe"
+      - "C:/Program Files/Razer/ChromaBroadcast/bin/iwyu"
+      - "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/iwyu.com"
+      - "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/iwyu.exe"
+      - "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/iwyu"
+      - "C:/Program Files/dotnet/iwyu.com"
+      - "C:/Program Files/dotnet/iwyu.exe"
+      - "C:/Program Files/dotnet/iwyu"
       - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/iwyu.com"
       - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/iwyu.exe"
       - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/iwyu"
-      - "C:/Program Files/NVIDIA Corporation/NVIDIA NvDLISR/iwyu.com"
-      - "C:/Program Files/NVIDIA Corporation/NVIDIA NvDLISR/iwyu.exe"
-      - "C:/Program Files/NVIDIA Corporation/NVIDIA NvDLISR/iwyu"
       - "C:/Program Files/Git/cmd/iwyu.com"
       - "C:/Program Files/Git/cmd/iwyu.exe"
       - "C:/Program Files/Git/cmd/iwyu"
+      - "C:/Program Files/Docker/Docker/resources/bin/iwyu.com"
+      - "C:/Program Files/Docker/Docker/resources/bin/iwyu.exe"
+      - "C:/Program Files/Docker/Docker/resources/bin/iwyu"
       - "C:/Program Files/CMake/bin/iwyu.com"
       - "C:/Program Files/CMake/bin/iwyu.exe"
       - "C:/Program Files/CMake/bin/iwyu"
-      - "C:/Users/Patrick/AppData/Local/Microsoft/WindowsApps/iwyu.com"
-      - "C:/Users/Patrick/AppData/Local/Microsoft/WindowsApps/iwyu.exe"
-      - "C:/Users/Patrick/AppData/Local/Microsoft/WindowsApps/iwyu"
-      - "C:/Users/Patrick/AppData/Local/Programs/Antigravity IDE/bin/iwyu.com"
-      - "C:/Users/Patrick/AppData/Local/Programs/Antigravity IDE/bin/iwyu.exe"
-      - "C:/Users/Patrick/AppData/Local/Programs/Antigravity IDE/bin/iwyu"
-      - "C:/Users/Patrick/AppData/Local/GitHubDesktop/bin/iwyu.com"
-      - "C:/Users/Patrick/AppData/Local/GitHubDesktop/bin/iwyu.exe"
-      - "C:/Users/Patrick/AppData/Local/GitHubDesktop/bin/iwyu"
-      - "C:/Users/Patrick/AppData/Local/Python/bin/iwyu.com"
-      - "C:/Users/Patrick/AppData/Local/Python/bin/iwyu.exe"
-      - "C:/Users/Patrick/AppData/Local/Python/bin/iwyu"
-      - "C:/Users/Patrick/AppData/Local/Python/pythoncore-3.14-64/Scripts/iwyu.com"
-      - "C:/Users/Patrick/AppData/Local/Python/pythoncore-3.14-64/Scripts/iwyu.exe"
-      - "C:/Users/Patrick/AppData/Local/Python/pythoncore-3.14-64/Scripts/iwyu"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/Scripts/iwyu.com"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/Scripts/iwyu.exe"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/Scripts/iwyu"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/iwyu.com"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/iwyu.exe"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/iwyu"
+      - "C:/Users/patom/AppData/Local/GitHubDesktop/bin/iwyu.com"
+      - "C:/Users/patom/AppData/Local/GitHubDesktop/bin/iwyu.exe"
+      - "C:/Users/patom/AppData/Local/GitHubDesktop/bin/iwyu"
+      - "C:/Users/patom/AppData/Local/Programs/Microsoft VS Code/bin/iwyu.com"
+      - "C:/Users/patom/AppData/Local/Programs/Microsoft VS Code/bin/iwyu.exe"
+      - "C:/Users/patom/AppData/Local/Programs/Microsoft VS Code/bin/iwyu"
+      - "C:/Users/patom/AppData/Local/Programs/antigravity/bin/iwyu.com"
+      - "C:/Users/patom/AppData/Local/Programs/antigravity/bin/iwyu.exe"
+      - "C:/Users/patom/AppData/Local/Programs/antigravity/bin/iwyu"
+      - "C:/Users/patom/AppData/Local/Microsoft/WinGet/Packages/AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe/iwyu.com"
+      - "C:/Users/patom/AppData/Local/Microsoft/WinGet/Packages/AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe/iwyu.exe"
+      - "C:/Users/patom/AppData/Local/Microsoft/WinGet/Packages/AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe/iwyu"
+      - "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts/iwyu.com"
+      - "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts/iwyu.exe"
+      - "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts/iwyu"
+      - "C:/Users/patom/AppData/Local/Programs/Antigravity IDE/bin/iwyu.com"
+      - "C:/Users/patom/AppData/Local/Programs/Antigravity IDE/bin/iwyu.exe"
+      - "C:/Users/patom/AppData/Local/Programs/Antigravity IDE/bin/iwyu"
       - "C:/Program Files/bin/iwyu.com"
       - "C:/Program Files/bin/iwyu.exe"
       - "C:/Program Files/bin/iwyu"
@@ -1451,25 +1910,37 @@ events:
     found: false
     search_context:
       ENV{PATH}:
-        - "C:\\Windows\\system32"
-        - "C:\\Windows"
-        - "C:\\Windows\\System32\\Wbem"
-        - "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\"
-        - "C:\\Windows\\System32\\OpenSSH\\"
-        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
-        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA NvDLISR"
+        - "C:\\Program Files (x86)\\Razer Chroma SDK\\bin"
+        - "C:\\Program Files\\Razer Chroma SDK\\bin"
         - "C:\\WINDOWS\\system32"
         - "C:\\WINDOWS"
         - "C:\\WINDOWS\\System32\\Wbem"
         - "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\"
         - "C:\\WINDOWS\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA app\\NvDLISR"
+        - "C:\\WINDOWS\\system32\\config\\systemprofile\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Program Files (x86)\\Razer\\ChromaBroadcast\\bin"
+        - "C:\\Program Files\\Razer\\ChromaBroadcast\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Program Files\\dotnet\\"
+        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
         - "C:\\Program Files\\Git\\cmd"
+        - "C:\\WINDOWS\\system32"
+        - "C:\\WINDOWS"
+        - "C:\\WINDOWS\\System32\\Wbem"
+        - "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\WINDOWS\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\Docker\\Docker\\resources\\bin"
         - "C:\\Program Files\\CMake\\bin"
-        - "C:\\Users\\Patrick\\AppData\\Local\\Microsoft\\WindowsApps"
-        - "C:\\Users\\Patrick\\AppData\\Local\\Programs\\Antigravity IDE\\bin"
-        - "C:\\Users\\Patrick\\AppData\\Local\\GitHubDesktop\\bin"
-        - "C:\\Users\\Patrick\\AppData\\Local\\Python\\bin"
-        - "C:\\Users\\Patrick\\AppData\\Local\\Python\\pythoncore-3.14-64\\Scripts"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Python\\Python310\\Scripts\\"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Python\\Python310\\"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Users\\patom\\AppData\\Local\\GitHubDesktop\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Microsoft VS Code\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Antigravity\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WinGet\\Packages\\AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe"
+        - "C:\\Users\\patom\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python313\\Scripts"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Antigravity IDE\\bin"
       CMAKE_INSTALL_PREFIX: "C:/Program Files (x86)/HeartsSimulator"
       CMAKE_SYSTEM_PREFIX_PATH:
         - "C:/Program Files"

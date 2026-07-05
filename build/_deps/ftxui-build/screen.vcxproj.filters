@@ -1,54 +1,54 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="18.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\screen\box.cpp">
+    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\screen\box.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\screen\color.cpp">
+    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\screen\color.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\screen\color_info.cpp">
+    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\screen\color_info.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\screen\screen.cpp">
+    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\screen\screen.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\screen\string.cpp">
+    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\screen\string.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\screen\terminal.cpp">
+    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\screen\terminal.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\include\ftxui\screen\box.hpp">
+    <ClInclude Include="E:\hearts_simulator\build\_deps\ftxui-src\include\ftxui\screen\box.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\include\ftxui\screen\color.hpp">
+    <ClInclude Include="E:\hearts_simulator\build\_deps\ftxui-src\include\ftxui\screen\color.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\include\ftxui\screen\color_info.hpp">
+    <ClInclude Include="E:\hearts_simulator\build\_deps\ftxui-src\include\ftxui\screen\color_info.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\include\ftxui\screen\screen.hpp">
+    <ClInclude Include="E:\hearts_simulator\build\_deps\ftxui-src\include\ftxui\screen\screen.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\include\ftxui\screen\string.hpp">
+    <ClInclude Include="E:\hearts_simulator\build\_deps\ftxui-src\include\ftxui\screen\string.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\screen\util.hpp">
+    <ClInclude Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\screen\util.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <CustomBuild Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\CMakeLists.txt" />
+    <CustomBuild Include="E:\hearts_simulator\build\_deps\ftxui-src\CMakeLists.txt" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Header Files">
-      <UniqueIdentifier>{F9610DC2-9FF3-38B0-8BC8-D1BDEE78D066}</UniqueIdentifier>
+      <UniqueIdentifier>{24C04DBD-E7E9-3F75-9393-A9182E6484E2}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source Files">
-      <UniqueIdentifier>{89591C36-8EE8-3952-8E9D-DD375BF6C5F2}</UniqueIdentifier>
+      <UniqueIdentifier>{F65E5356-6FD8-39E9-BFD5-0A696720C3B1}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

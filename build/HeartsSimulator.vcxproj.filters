@@ -1,16 +1,16 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="18.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\main.cpp">
+    <ClCompile Include="E:\hearts_simulator\main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <CustomBuild Include="C:\Users\Patrick\Desktop\hearts_simulator\CMakeLists.txt" />
+    <CustomBuild Include="E:\hearts_simulator\CMakeLists.txt" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Source Files">
-      <UniqueIdentifier>{89591C36-8EE8-3952-8E9D-DD375BF6C5F2}</UniqueIdentifier>
+      <UniqueIdentifier>{F65E5356-6FD8-39E9-BFD5-0A696720C3B1}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

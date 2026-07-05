@@ -2,10 +2,10 @@
 <Project>
   <ProjectOutputs>
     <ProjectOutput>
-      <FullPath>C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\x64\Debug\ZERO_CHECK</FullPath>
+      <FullPath>E:\hearts_simulator\build\_deps\ftxui-subbuild\x64\Debug\ZERO_CHECK</FullPath>
     </ProjectOutput>
     <ProjectOutput>
-      <FullPath>C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\x64\Debug\ftxui-populate</FullPath>
+      <FullPath>E:\hearts_simulator\build\_deps\ftxui-subbuild\x64\Debug\ftxui-populate</FullPath>
     </ProjectOutput>
   </ProjectOutputs>
   <ContentFiles />

@@ -1,7 +1,12 @@
 #include <algorithm>
+#include <array>
+#include <atomic>
+#include <chrono>
 #include <limits>
+#include <mutex>
 #include <random>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <ftxui/component/component.hpp>
@@ -47,6 +52,338 @@ struct Card {
         return Color::Default;
     }
 };
+
+// Represents a single card played to the current trick
+struct PlayedCard {
+    int player_id; // 0, 1, 2, or 3
+    Card card;
+};
+
+struct GameState {
+    // ---------------------------------------------------------
+    // 1. PLAYER STATE
+    // ---------------------------------------------------------
+    // We use std::array for the 4 players to keep memory contiguous and fast to copy.
+    // player_id 0 is typically the "root" AI making the decision.
+    std::array<std::vector<Card>, 4> hands; 
+    std::array<int, 4> round_scores = {0, 0, 0, 0}; 
+    std::array<int, 4> total_scores = {0, 0, 0, 0}; 
+
+    // ---------------------------------------------------------
+    // 2. TRICK STATE
+    // ---------------------------------------------------------
+    std::vector<PlayedCard> current_trick;
+    int current_player = 0;       // Who is next to act (0-3)
+    int trick_leader = 0;         // Who led the current trick (0-3)
+    int tricks_played = 0;        // 0 to 12. Trick 0 is the restricted first trick.
+
+    // ---------------------------------------------------------
+    // 3. GLOBAL GAME RULES STATE
+    // ---------------------------------------------------------
+    bool hearts_broken = false;   // True if a heart has been sloughed on a previous trick
+    
+    // Helper to determine the suit that was led (for following suit logic)
+    Suit getLedSuit() const {
+        if (current_trick.empty()) {
+            // Technically shouldn't be called if empty, but safe fallback
+            return Suit::Clubs; 
+        }
+        return current_trick[0].card.suit;
+    }
+    
+    // Helper to check if the current trick is the very first trick of the round
+    bool isFirstTrick() const {
+        return tricks_played == 0;
+    }
+};
+
+std::vector<Card> GetLegalMoves(const GameState& state, int player_id) {
+    std::vector<Card> legal_moves;
+    const std::vector<Card>& hand = state.hands[player_id];
+    
+    bool is_trick_leader = state.current_trick.empty();
+    bool is_first_trick = state.isFirstTrick();
+
+    // ---------------------------------------------------------
+    // RULE 1: The Opening Lead of the Game
+    // ---------------------------------------------------------
+    if (is_first_trick && is_trick_leader) {
+        for (const auto& c : hand) {
+            if (c.suit == Suit::Clubs && c.rank == 2) {
+                legal_moves.push_back(c);
+                return legal_moves; // The 2 of Clubs is the ONLY legal move
+            }
+        }
+    }
+
+    // ---------------------------------------------------------
+    // RULE 2: Responding to a Lead (Must Follow Suit)
+    // ---------------------------------------------------------
+    if (!is_trick_leader) {
+        Suit led_suit = state.getLedSuit();
+        bool can_follow_suit = false;
+        
+        // Check if we have cards in the led suit
+        for (const auto& c : hand) {
+            if (c.suit == led_suit) {
+                legal_moves.push_back(c);
+                can_follow_suit = true;
+            }
+        }
+        
+        // If we can follow suit, those are our only legal moves.
+        if (can_follow_suit) {
+            return legal_moves; 
+        }
+        
+        // If we CANNOT follow suit (we are void), we can slough.
+        // However, we must enforce Trick 1 penalty restrictions.
+        for (const auto& c : hand) {
+            if (is_first_trick) {
+                // You cannot play Hearts or the Queen of Spades on Trick 1
+                bool is_penalty_card = (c.suit == Suit::Hearts) || (c.suit == Suit::Spades && c.rank == 12);
+                if (!is_penalty_card) {
+                    legal_moves.push_back(c);
+                }
+            } else {
+                // On any other trick, any slough is legal
+                legal_moves.push_back(c); 
+            }
+        }
+        
+        // Extreme Edge Case: It is Trick 1, we are void in Clubs, and we hold 
+        // LITERALLY NOTHING but penalty cards (13 Hearts/Q♠). 
+        // We are legally forced to break the Trick 1 rule.
+        if (legal_moves.empty() && is_first_trick) {
+            for (const auto& c : hand) {
+                legal_moves.push_back(c);
+            }
+        }
+        
+        return legal_moves;
+    }
+
+    // ---------------------------------------------------------
+    // RULE 3: Leading a New Trick (Breaking Hearts)
+    // ---------------------------------------------------------
+    // If we are here, we are the trick leader for Trick 2 through 13.
+    bool holds_only_hearts = true;
+    for (const auto& c : hand) {
+        if (c.suit != Suit::Hearts) {
+            holds_only_hearts = false;
+            break;
+        }
+    }
+    
+    for (const auto& c : hand) {
+        if (c.suit == Suit::Hearts) {
+            // Can only lead a Heart if they are broken, OR if we have no other choice
+            if (state.hearts_broken || holds_only_hearts) {
+                legal_moves.push_back(c);
+            }
+        } else {
+            // Any non-Heart is perfectly legal to lead
+            legal_moves.push_back(c);
+        }
+    }
+    
+    return legal_moves;
+}
+
+void ResolveTrick(GameState& state) {
+    // 1. Identify the led suit (the first card played dictates this)
+    Suit led_suit = state.current_trick[0].card.suit;
+
+    int highest_rank = -1;
+    int trick_winner = -1;
+    int trick_points = 0;
+
+    // 2. Single-pass evaluation loop
+    for (const auto& played : state.current_trick) {
+        
+        // Track penalty points: Hearts are 1, Queen of Spades is 13
+        if (played.card.suit == Suit::Hearts) {
+            state.hearts_broken = true; // Any heart played instantly breaks hearts
+            trick_points += 1;
+        } else if (played.card.suit == Suit::Spades && played.card.rank == 12) {
+            trick_points += 13;
+        }
+
+        // Determine the winner: Must match led suit and have the highest rank
+        if (played.card.suit == led_suit && played.card.rank > highest_rank) {
+            highest_rank = played.card.rank;
+            trick_winner = played.player_id;
+        }
+    }
+
+    // 3. Assign the penalty points to the winner's round score
+    state.round_scores[trick_winner] += trick_points;
+
+    // 4. The winner of this trick leads the next trick
+    state.trick_leader = trick_winner;
+    state.current_player = trick_winner; // They are the first to act next
+
+    // 5. Clean up state for the next trick
+    // We use .clear() instead of creating a new vector to avoid reallocating memory
+    state.current_trick.clear();
+    state.tricks_played++;
+}
+
+Card SelectBestMove(const GameState& state, int player_id, const std::vector<Card>& legal_moves) {
+    // 1. Forced Move (Only 1 legal option, usually Trick 1 with the 2 of Clubs)
+    if (legal_moves.size() == 1) {
+        return legal_moves[0];
+    }
+
+    bool is_leading = state.current_trick.empty();
+
+    // ---------------------------------------------------------
+    // 2. LEADING A TRICK
+    // ---------------------------------------------------------
+    if (is_leading) {
+        Card best_card = legal_moves[0];
+        int lowest_rank = 99;
+        bool found_safe = false;
+
+        for (const auto& c : legal_moves) {
+            bool is_penalty = (c.suit == Suit::Hearts) || (c.suit == Suit::Spades && c.rank == 12);
+            // Try to lead the absolute lowest non-penalty card to maintain safety
+            if (!is_penalty && c.rank < lowest_rank) {
+                lowest_rank = c.rank;
+                best_card = c;
+                found_safe = true;
+            }
+        }
+        
+        // Edge Case: If forced to lead a penalty card (e.g., only Hearts left), lead the lowest one
+        if (!found_safe) {
+            lowest_rank = 99;
+            for (const auto& c : legal_moves) {
+                if (c.rank < lowest_rank) {
+                    lowest_rank = c.rank;
+                    best_card = c;
+                }
+            }
+        }
+        return best_card;
+    }
+
+    Suit led_suit = state.getLedSuit();
+    // GetLegalMoves guarantees that if we CAN follow suit, ALL returned moves match the led suit.
+    // Therefore, if the first move matches the led suit, we are following suit.
+    bool is_following = (legal_moves[0].suit == led_suit); 
+
+    // ---------------------------------------------------------
+    // 3. FOLLOWING SUIT
+    // ---------------------------------------------------------
+    if (is_following) {
+        // Find the current winning rank of the trick
+        int current_winner_rank = -1;
+        for (const auto& played : state.current_trick) {
+            if (played.card.suit == led_suit && played.card.rank > current_winner_rank) {
+                current_winner_rank = played.card.rank;
+            }
+        }
+
+        Card best_duck = {Suit::Clubs, -1};
+        Card absolute_lowest = legal_moves[0];
+        int lowest_rank = 99;
+
+        for (const auto& c : legal_moves) {
+            // Track absolute lowest as a fallback
+            if (c.rank < lowest_rank) {
+                lowest_rank = c.rank;
+                absolute_lowest = c;
+            }
+            // Track the HIGHEST card that successfully ducks under the current winner
+            if (c.rank < current_winner_rank && c.rank > best_duck.rank) {
+                best_duck = c;
+            }
+        }
+
+        // If we can duck, play the highest ducking card to save our lowest umbrellas
+        if (best_duck.rank != -1) {
+            return best_duck; 
+        }
+        // If we are forced to step over the winner, play our lowest possible card
+        return absolute_lowest; 
+    }
+
+    // ---------------------------------------------------------
+    // 4. SLOUGHING (Void in the led suit)
+    // ---------------------------------------------------------
+    // Order of operations: Dump Q♠ -> Dump Highest Heart -> Dump Highest Card
+    Card highest_heart = {Suit::Hearts, -1};
+    Card highest_card = {Suit::Clubs, -1};
+
+    for (const auto& c : legal_moves) {
+        if (c.suit == Suit::Spades && c.rank == 12) {
+            return c; // Instant dump of the Q♠
+        }
+        if (c.suit == Suit::Hearts && c.rank > highest_heart.rank) {
+            highest_heart = c;
+        }
+        if (c.rank > highest_card.rank) {
+            highest_card = c;
+        }
+    }
+
+    if (highest_heart.rank != -1) {
+        return highest_heart;
+    }
+    
+    // Slough the highest overall card to shed dangerous liabilities
+    return highest_card; 
+}
+
+// ---------------------------------------------------------
+// PART 1: THE ROLLOUT EXECUTION
+// ---------------------------------------------------------
+int SimulateRollout(GameState state) {
+    // Play until all 13 tricks are resolved
+    while (state.tricks_played < 13) {
+        int p = state.current_player;
+        
+        // 1. Get Legal Moves & Select Best
+        std::vector<Card> legal_moves = GetLegalMoves(state, p);
+        Card chosen_card = SelectBestMove(state, p, legal_moves);
+        
+        // 2. Remove the chosen card from the player's hand
+        auto& hand = state.hands[p];
+        hand.erase(std::remove_if(hand.begin(), hand.end(), [&](const Card& c) {
+            return c.suit == chosen_card.suit && c.rank == chosen_card.rank;
+        }), hand.end());
+        
+        // 3. Play the card to the table
+        state.current_trick.push_back({p, chosen_card});
+        
+        // 4. Advance to the next player
+        state.current_player = (state.current_player + 1) % 4;
+        
+        // 5. If 4 cards are on the table, resolve the trick
+        if (state.current_trick.size() == 4) {
+            ResolveTrick(state);
+        }
+    }
+    
+    // ---------------------------------------------------------
+    // POST-GAME SCORING & SHOOT THE MOON CHECK
+    // ---------------------------------------------------------
+    for (int i = 0; i < 4; ++i) {
+        if (state.round_scores[i] == 26) {
+            // Someone shot the moon! 
+            if (i == 0) {
+                return 0; // Our AI shot the moon. Perfect score!
+            } else {
+                return 26; // An opponent shot the moon. We eat maximum penalty points.
+            }
+        }
+    }
+    
+    // If no one shot the moon, return Player 0's (our AI's) penalty points
+    return state.round_scores[0];
+}
+
 
 std::vector<Card> dealHand() {
     std::vector<Card> deck;
@@ -145,6 +482,7 @@ int EvaluateFortressSafety(const std::vector<Card>& remaining_hand) {
     // and heavy negative bonuses for good Moon cards (Face cards).
     int danger = 0; 
     for (const auto& c : remaining_hand) {
+        danger -= c.rank * 10; // Baseline reward: higher cards are always slightly better
         if (c.rank <= 7) danger += (8 - c.rank) * 100; 
         if (c.suit == Suit::Clubs && c.rank == 2) danger += 1000; 
         if (c.suit == Suit::Hearts && c.rank < 10) danger += 500; 
@@ -385,62 +723,242 @@ int EvaluateHandSafety(const std::vector<Card>& remaining_hand) {
     return expected_value_danger;
 }
 
-// 5. Update the Router
-std::vector<Card> calculateOptimalPass(const std::vector<Card>& full_hand) {
-    std::vector<bool> v(13, false);
-    std::fill(v.end() - 3, v.end(), true);
+struct PassResult {
+    std::vector<Card> pass;
+    double avg_penalty;
+    double moon_shot_prob; // Percentage of games the AI shot the moon
+    int total_rollouts;    // How stable is this data?
+};
 
-    int best_score = std::numeric_limits<int>::max();
-    std::vector<Card> best_pass;
-    
+// 5. Update the Router
+std::vector<PassResult> calculateOptimalPass(const std::vector<Card>& full_hand) {
     auto strategy = DetectMoonStrategy(full_hand);
     MoonState current_state = strategy.first;
     Suit run_suit = strategy.second;
 
-    do {
-        std::vector<Card> remaining_hand;
+    std::vector<bool> v(13, false);
+    std::fill(v.end() - 3, v.end(), true);
+
+    // ---------------------------------------------------------
+    // OFFENSE: PURE HEURISTICS
+    // ---------------------------------------------------------
+    if (current_state == MoonState::FORTRESS || current_state == MoonState::RUN) {
+        struct PassOption {
+            double score;
+            std::vector<Card> current_pass;
+        };
+        std::vector<PassOption> all_passes;
+
+        do {
+            std::vector<Card> remaining_hand, current_pass;
+            for (int i = 0; i < 13; ++i) {
+                if (v[i]) current_pass.push_back(full_hand[i]);
+                else remaining_hand.push_back(full_hand[i]);
+            }
+            
+            double score = (current_state == MoonState::FORTRESS) 
+                ? EvaluateFortressSafety(remaining_hand) 
+                : EvaluateRunSafety(remaining_hand, run_suit);
+
+            all_passes.push_back({score, current_pass});
+        } while (std::next_permutation(v.begin(), v.end()));
+
+        std::sort(all_passes.begin(), all_passes.end(), [](const PassOption& a, const PassOption& b) {
+            return a.score < b.score;
+        });
+
+        std::vector<PassResult> results;
+        for (int i = 0; i < std::min(3, (int)all_passes.size()); ++i) {
+            results.push_back({all_passes[i].current_pass, 0.0, 1.0, 0});
+        }
+        return results;
+    }
+
+    // ---------------------------------------------------------
+    // DEFENSE: HEURISTIC PRUNING + CRN MONTE CARLO
+    // ---------------------------------------------------------
+    
+    // Step 1: Grade all 286 passes using the Heuristic Gatekeeper
+    struct PassOption {
+        int heuristic_score;
         std::vector<Card> current_pass;
+        std::vector<Card> remaining_hand;
+    };
+    std::vector<PassOption> all_passes;
+
+    do {
+        std::vector<Card> remaining_hand, current_pass;
         for (int i = 0; i < 13; ++i) {
             if (v[i]) current_pass.push_back(full_hand[i]);
             else remaining_hand.push_back(full_hand[i]);
         }
-
-        int score = 0;
-        if (current_state == MoonState::FORTRESS) {
-            score = EvaluateFortressSafety(remaining_hand);
-        } else if (current_state == MoonState::RUN) {
-            score = EvaluateRunSafety(remaining_hand, run_suit);
-        } else {
-            score = EvaluateHandSafety(remaining_hand);
-        }
-        
-        if (score < best_score) {
-            best_score = score;
-            best_pass = current_pass;
-        }
+        int h_score = EvaluateHandSafety(remaining_hand);
+        all_passes.push_back({h_score, current_pass, remaining_hand});
     } while (std::next_permutation(v.begin(), v.end()));
 
-    return best_pass;
+    std::sort(all_passes.begin(), all_passes.end(), [](const PassOption& a, const PassOption& b) {
+        return a.heuristic_score < b.heuristic_score;
+    });
+
+    int top_k = 10;
+    if (all_passes.size() > top_k) all_passes.resize(top_k);
+
+    // Step 2: Deduce the 39 unknown cards
+    std::vector<Card> unknown_cards;
+    for (Suit s : ALL_SUITS) {
+        for (int r = 2; r <= 14; ++r) {
+            bool in_hand = false;
+            for (const auto& c : full_hand) {
+                if (c.suit == s && c.rank == r) {
+                    in_hand = true;
+                    break;
+                }
+            }
+            if (!in_hand) unknown_cards.push_back({s, r});
+        }
+    }
+
+    std::random_device rd;
+    std::mt19937 g(rd());
+    
+    std::vector<double> mc_total_scores(all_passes.size(), 0.0);
+    int rollouts = 0;
+    auto start_time = std::chrono::steady_clock::now();
+
+    // Step 3: The Common Random Numbers (CRN) Simulation Loop
+    while (true) {
+        // Check clock every 10 loops
+        if (rollouts % 10 == 0) {
+            auto now = std::chrono::steady_clock::now();
+            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - start_time).count();
+            if (elapsed >= 1500) break; // 1.5 second time budget
+        }
+
+        // Shuffle ONCE per universe creation
+        std::shuffle(unknown_cards.begin(), unknown_cards.end(), g);
+
+        // Test ALL Top 10 passes against the EXACT SAME universe
+        for (size_t i = 0; i < all_passes.size(); ++i) {
+            GameState root_state;
+            root_state.hands[0] = all_passes[i].remaining_hand; 
+            
+            // 1. Give Player 0 the EXACT SAME 3 incoming cards for this universe
+            root_state.hands[0].push_back(unknown_cards[0]);
+            root_state.hands[0].push_back(unknown_cards[1]);
+            root_state.hands[0].push_back(unknown_cards[2]);
+
+            // 2. The Hearts Passing Rule: Route all 3 passed cards to ONE specific opponent (Player 1)
+            root_state.hands[1].push_back(all_passes[i].current_pass[0]);
+            root_state.hands[1].push_back(all_passes[i].current_pass[1]);
+            root_state.hands[1].push_back(all_passes[i].current_pass[2]);
+
+            // 3. Distribute the remaining 36 unknown cards to fill the hands
+            // Player 1 only needs 10 more cards (they already have the 3 passed cards).
+            for (int j = 0; j < 10; ++j) {
+                root_state.hands[1].push_back(unknown_cards[3 + j]);
+            }
+            // Player 2 needs a full 13 cards.
+            for (int j = 0; j < 13; ++j) {
+                root_state.hands[2].push_back(unknown_cards[13 + j]);
+            }
+            // Player 3 needs a full 13 cards.
+            for (int j = 0; j < 13; ++j) {
+                root_state.hands[3].push_back(unknown_cards[26 + j]);
+            }
+
+            // Find Trick 1 leader (Player with the 2 of Clubs)
+            for (int p = 0; p < 4; ++p) {
+                for (const auto& c : root_state.hands[p]) {
+                    if (c.suit == Suit::Clubs && c.rank == 2) {
+                        root_state.current_player = p;
+                        root_state.trick_leader = p;
+                        break;
+                    }
+                }
+            }
+
+            mc_total_scores[i] += SimulateRollout(root_state);
+        }
+        rollouts++;
+    }
+
+    // Step 4: Final Evaluation
+    std::vector<PassResult> results;
+    for (size_t i = 0; i < all_passes.size(); ++i) {
+        double avg_mc_score = mc_total_scores[i] / rollouts;
+        
+        // The flawless tie-breaker
+        double adjusted_score = avg_mc_score + (all_passes[i].heuristic_score / 100000.0);
+        
+        results.push_back({all_passes[i].current_pass, adjusted_score, 0.0, rollouts});
+    }
+
+    // Sort by the best score
+    std::sort(results.begin(), results.end(), [](const PassResult& a, const PassResult& b) {
+        return a.avg_penalty < b.avg_penalty;
+    });
+
+    if (results.size() > 3) results.resize(3);
+    return results; // Return the whole list to the UI thread
 }
 
 int main(int argc, const char* argv[]) {
     auto screen = ScreenInteractive::Fullscreen();
 
-    std::vector<Card> currentHand = dealHand();
-    std::vector<Card> recommendedPass = calculateOptimalPass(currentHand);
-    auto strategy = DetectMoonStrategy(currentHand);
-    MoonState current_state = strategy.first;
+    std::vector<Card> currentHand;
+    std::vector<PassResult> recommendedPasses;
+    MoonState current_state = MoonState::NONE;
+
+    std::atomic<bool> is_thinking{false};
+    std::mutex state_mutex;
+    int frame_count = 0;
 
     auto deal_action = [&]() {
-        currentHand = dealHand();
-        recommendedPass = calculateOptimalPass(currentHand);
-        strategy = DetectMoonStrategy(currentHand);
-        current_state = strategy.first;
+        if (is_thinking) return; // Prevent double-dealing while thinking
+        
+        is_thinking = true;
+        
+        {
+            std::lock_guard<std::mutex> lock(state_mutex);
+            currentHand = dealHand();
+            recommendedPasses.clear(); // Clear so UI updates immediately
+            current_state = MoonState::NONE; // Temporarily hide moon alerts
+        }
+        
+        // 1. Background thread to run the Monte Carlo AI
+        std::thread([&, hand_copy = currentHand]() {
+            auto new_pass = calculateOptimalPass(hand_copy);
+            auto strat = DetectMoonStrategy(hand_copy);
+            
+            {
+                std::lock_guard<std::mutex> lock(state_mutex);
+                recommendedPasses = new_pass;
+                current_state = strat.first;
+            }
+            
+            is_thinking = false;
+            screen.PostEvent(Event::Custom); // Wake up the UI thread immediately when done
+        }).detach();
+        
+        // 2. Background thread to tick the animation loop
+        std::thread([&]() {
+            while (is_thinking) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(50));
+                screen.PostEvent(Event::Custom); // Force the UI to redraw to animate the spinner
+            }
+        }).detach();
     };
+
+    // Trigger the first deal asynchronously on startup so the UI loads instantly
+    deal_action();
 
     auto button_deal = Button("Reshuffle & Deal (R)", deal_action);
 
     auto renderer = Renderer(button_deal, [&] {
+        frame_count++; // Increment frame for the spinner
+        
+        std::lock_guard<std::mutex> lock(state_mutex);
+        
         Elements card_elements;
         for (const auto& card : currentHand) {
             card_elements.push_back(
@@ -452,36 +970,81 @@ int main(int argc, const char* argv[]) {
             hbox(std::move(card_elements)) | center
         );
 
-        Elements pass_elements;
-        for (const auto& card : recommendedPass) {
-            pass_elements.push_back(
-                text(card.toString()) | color(card.getColor()) | border
+        Element pass_panel;
+        if (is_thinking) {
+            // Render the animated spinner instead of the cards
+            pass_panel = window(text(" Recommended Pass "),
+                hbox({
+                    text("Thinking "),
+                    spinner(15, frame_count) | bold | color(Color::Cyan) // Classy Braille dots
+                }) | center
             );
+        } else if (!recommendedPasses.empty()) {
+            // Render the computed cards
+            Elements pass_elements;
+            for (const auto& card : recommendedPasses[0].pass) {
+                pass_elements.push_back(
+                    text(card.toString()) | color(card.getColor()) | border
+                );
+            }
+
+            pass_panel = window(text(" Recommended Pass "),
+                hbox(std::move(pass_elements)) | center
+            );
+        } else {
+            pass_panel = window(text(" Recommended Pass "), text("Waiting...") | center);
         }
 
-        auto pass_panel = window(text(" Recommended Pass "),
-            hbox(std::move(pass_elements)) | center
-        );
+        Element stats_content;
+        if (is_thinking || recommendedPasses.empty()) {
+            stats_content = vbox({
+                text("Calculating Risk Profiles...") | dim | center
+            }) | center;
+        } else {
+            Elements stat_lines;
+            stat_lines.push_back(text("Top 3 Passing Options:") | bold);
+            
+            for (size_t i = 0; i < recommendedPasses.size(); ++i) {
+                std::string pass_str = std::to_string(i + 1) + ". ";
+                for (const auto& c : recommendedPasses[i].pass) {
+                    pass_str += c.toString() + " ";
+                }
+                pass_str += "| Risk: " + std::to_string(recommendedPasses[i].avg_penalty);
+                stat_lines.push_back(text(pass_str));
+            }
+            
+            stat_lines.push_back(separator());
+            
+            if (recommendedPasses[0].total_rollouts == 0) {
+                stat_lines.push_back(text("Heuristic Override: Moon Shot Locked") | bold | color(Color::RedLight));
+                stat_lines.push_back(gauge(1.0) | color(Color::RedLight));
+            } else {
+                stat_lines.push_back(text("Simulation Health: " + std::to_string(recommendedPasses[0].total_rollouts) + " iterations"));
+                float risk_val = std::min(1.0f, std::max(0.0f, (float)(recommendedPasses[0].avg_penalty / 26.0)));
+                stat_lines.push_back(gauge(risk_val) | color(Color::Green));
+            }
+            
+            stats_content = vbox(std::move(stat_lines));
+        }
 
-        auto stats_panel = window(text(" Statistical Analysis "),
-            vbox({
-                text("Future odds calculations will be rendered here.") | center,
-                text("Placeholder...") | dim | center
-            }) | center
-        ) | flex;
+        auto stats_panel = window(text(" Statistical Analysis "), stats_content) | flex;
         
         auto instructions = text("Press 'R' to reshuffle. Press 'Q' or 'ESC' to quit.") | dim | center;
 
         Elements layout_elements;
         layout_elements.push_back(text(" Hearts Card Dealing Simulator ") | bold | center);
         layout_elements.push_back(separator());
-        if (current_state == MoonState::FORTRESS) {
-            layout_elements.push_back(text(" 🚀 HIGH-CARD FORTRESS DETECTED: SHOOTING THE MOON! 🚀 ") | bold | color(Color::RedLight) | center);
-            layout_elements.push_back(separator());
-        } else if (current_state == MoonState::RUN) {
-            layout_elements.push_back(text(" 🔥 UNSTOPPABLE RUN DETECTED: SHOOTING THE MOON! 🔥 ") | bold | color(Color::RedLight) | center);
-            layout_elements.push_back(separator());
+        
+        if (!is_thinking) { // Only show macro-strategy alerts when we aren't thinking
+            if (current_state == MoonState::FORTRESS) {
+                layout_elements.push_back(text(" 🚀 HIGH-CARD FORTRESS DETECTED: SHOOTING THE MOON! 🚀 ") | bold | color(Color::RedLight) | center);
+                layout_elements.push_back(separator());
+            } else if (current_state == MoonState::RUN) {
+                layout_elements.push_back(text(" 🔥 UNSTOPPABLE RUN DETECTED: SHOOTING THE MOON! 🔥 ") | bold | color(Color::RedLight) | center);
+                layout_elements.push_back(separator());
+            }
         }
+        
         layout_elements.push_back(hand_panel);
         layout_elements.push_back(pass_panel);
         layout_elements.push_back(stats_panel);
