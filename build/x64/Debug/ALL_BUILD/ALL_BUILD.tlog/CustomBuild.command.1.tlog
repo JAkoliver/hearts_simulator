@@ -1,6 +1,6 @@
-^E:\HEARTS_SIMULATOR\CMAKELISTS.TXT
+^C:\USERS\PATRICK\DESKTOP\HEARTS_SIMULATOR\CMAKELISTS.TXT
 setlocal
-"C:\Program Files\CMake\bin\cmake.exe" -SE:/hearts_simulator -BE:/hearts_simulator/build --check-stamp-file E:/hearts_simulator/build/CMakeFiles/generate.stamp
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/Patrick/Desktop/hearts_simulator -BC:/Users/Patrick/Desktop/hearts_simulator/build --check-stamp-file C:/Users/Patrick/Desktop/hearts_simulator/build/CMakeFiles/generate.stamp
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
 endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone

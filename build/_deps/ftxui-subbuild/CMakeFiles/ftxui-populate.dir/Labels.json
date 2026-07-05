@@ -2,37 +2,37 @@
 	"sources" : 
 	[
 		{
-			"file" : "E:/hearts_simulator/build/_deps/ftxui-subbuild/CMakeFiles/ftxui-populate"
+			"file" : "C:/Users/Patrick/Desktop/hearts_simulator/build/_deps/ftxui-subbuild/CMakeFiles/ftxui-populate"
 		},
 		{
-			"file" : "E:/hearts_simulator/build/_deps/ftxui-subbuild/CMakeFiles/ac6ebe8adb51154cbffb020646bae819/ftxui-populate.rule"
+			"file" : "C:/Users/Patrick/Desktop/hearts_simulator/build/_deps/ftxui-subbuild/CMakeFiles/9306e1236997d42ac928be3c9b89f7ce/ftxui-populate.rule"
 		},
 		{
-			"file" : "E:/hearts_simulator/build/_deps/ftxui-subbuild/CMakeFiles/46c83e8c71ccc7ee2db26507e994dcfb/ftxui-populate-complete.rule"
+			"file" : "C:/Users/Patrick/Desktop/hearts_simulator/build/_deps/ftxui-subbuild/CMakeFiles/b1b565c23b81d2a8d04fabb26edaa9e7/ftxui-populate-complete.rule"
 		},
 		{
-			"file" : "E:/hearts_simulator/build/_deps/ftxui-subbuild/CMakeFiles/5289e210f2b759c2f8b354bc4ef7e279/ftxui-populate-build.rule"
+			"file" : "C:/Users/Patrick/Desktop/hearts_simulator/build/_deps/ftxui-subbuild/CMakeFiles/4f32dd9c4337154df9f755aa7d065d81/ftxui-populate-build.rule"
 		},
 		{
-			"file" : "E:/hearts_simulator/build/_deps/ftxui-subbuild/CMakeFiles/5289e210f2b759c2f8b354bc4ef7e279/ftxui-populate-configure.rule"
+			"file" : "C:/Users/Patrick/Desktop/hearts_simulator/build/_deps/ftxui-subbuild/CMakeFiles/4f32dd9c4337154df9f755aa7d065d81/ftxui-populate-configure.rule"
 		},
 		{
-			"file" : "E:/hearts_simulator/build/_deps/ftxui-subbuild/CMakeFiles/5289e210f2b759c2f8b354bc4ef7e279/ftxui-populate-download.rule"
+			"file" : "C:/Users/Patrick/Desktop/hearts_simulator/build/_deps/ftxui-subbuild/CMakeFiles/4f32dd9c4337154df9f755aa7d065d81/ftxui-populate-download.rule"
 		},
 		{
-			"file" : "E:/hearts_simulator/build/_deps/ftxui-subbuild/CMakeFiles/5289e210f2b759c2f8b354bc4ef7e279/ftxui-populate-install.rule"
+			"file" : "C:/Users/Patrick/Desktop/hearts_simulator/build/_deps/ftxui-subbuild/CMakeFiles/4f32dd9c4337154df9f755aa7d065d81/ftxui-populate-install.rule"
 		},
 		{
-			"file" : "E:/hearts_simulator/build/_deps/ftxui-subbuild/CMakeFiles/5289e210f2b759c2f8b354bc4ef7e279/ftxui-populate-mkdir.rule"
+			"file" : "C:/Users/Patrick/Desktop/hearts_simulator/build/_deps/ftxui-subbuild/CMakeFiles/4f32dd9c4337154df9f755aa7d065d81/ftxui-populate-mkdir.rule"
 		},
 		{
-			"file" : "E:/hearts_simulator/build/_deps/ftxui-subbuild/CMakeFiles/5289e210f2b759c2f8b354bc4ef7e279/ftxui-populate-patch.rule"
+			"file" : "C:/Users/Patrick/Desktop/hearts_simulator/build/_deps/ftxui-subbuild/CMakeFiles/4f32dd9c4337154df9f755aa7d065d81/ftxui-populate-patch.rule"
 		},
 		{
-			"file" : "E:/hearts_simulator/build/_deps/ftxui-subbuild/CMakeFiles/5289e210f2b759c2f8b354bc4ef7e279/ftxui-populate-test.rule"
+			"file" : "C:/Users/Patrick/Desktop/hearts_simulator/build/_deps/ftxui-subbuild/CMakeFiles/4f32dd9c4337154df9f755aa7d065d81/ftxui-populate-test.rule"
 		},
 		{
-			"file" : "E:/hearts_simulator/build/_deps/ftxui-subbuild/CMakeFiles/5289e210f2b759c2f8b354bc4ef7e279/ftxui-populate-update.rule"
+			"file" : "C:/Users/Patrick/Desktop/hearts_simulator/build/_deps/ftxui-subbuild/CMakeFiles/4f32dd9c4337154df9f755aa7d065d81/ftxui-populate-update.rule"
 		}
 	],
 	"target" : 

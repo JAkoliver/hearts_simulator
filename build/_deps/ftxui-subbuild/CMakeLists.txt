@@ -19,17 +19,17 @@ project(ftxui-populate NONE)
 # Pass through things we've already detected in the main project to avoid
 # paying the cost of redetecting them again in ExternalProject_Add()
 set(GIT_EXECUTABLE [==[C:/Program Files/Git/cmd/git.exe]==])
-set(Git_VERSION [==[2.47.1.windows.2]==])
+set(Git_VERSION [==[2.54.0.windows.1]==])
 set_property(GLOBAL PROPERTY _CMAKE_FindGit_GIT_EXECUTABLE_VERSION
-  [==[C:/Program Files/Git/cmd/git.exe;2.47.1.windows.2]==]
+  [==[C:/Program Files/Git/cmd/git.exe;2.54.0.windows.1]==]
 )
 
 
 include(ExternalProject)
 ExternalProject_Add(ftxui-populate
                      "UPDATE_DISCONNECTED" "False" "GIT_REPOSITORY" "https://github.com/ArthurSonzogni/FTXUI" "EXTERNALPROJECT_INTERNAL_ARGUMENT_SEPARATOR" "GIT_TAG" "v5.0.0"
-                    SOURCE_DIR          "E:/hearts_simulator/build/_deps/ftxui-src"
-                    BINARY_DIR          "E:/hearts_simulator/build/_deps/ftxui-build"
+                    SOURCE_DIR          "C:/Users/Patrick/Desktop/hearts_simulator/build/_deps/ftxui-src"
+                    BINARY_DIR          "C:/Users/Patrick/Desktop/hearts_simulator/build/_deps/ftxui-build"
                     CONFIGURE_COMMAND   ""
                     BUILD_COMMAND       ""
                     INSTALL_COMMAND     ""

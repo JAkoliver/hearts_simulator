@@ -7,20 +7,20 @@
 		<BuildType Name="RelWithDebInfo"/>
 		<Platform Name="x64"/>
 	</Configurations>
-	<Project Path="ALL_BUILD.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="288ddf29-4a69-3116-bda2-d451370a2638" DefaultStartup="true">
+	<Project Path="ALL_BUILD.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="be30f2f6-2c63-388d-a5d5-ab1fed53cc4b" DefaultStartup="true">
 		<BuildDependency Project="HeartsSimulator.vcxproj"/>
 		<BuildDependency Project="ZERO_CHECK.vcxproj"/>
 		<BuildDependency Project="_deps/ftxui-build/component.vcxproj"/>
 		<BuildDependency Project="_deps/ftxui-build/dom.vcxproj"/>
 		<BuildDependency Project="_deps/ftxui-build/screen.vcxproj"/>
 	</Project>
-	<Project Path="HeartsSimulator.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="613c71a1-47de-30dd-affc-1021af71e96e">
+	<Project Path="HeartsSimulator.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="1ad5bf6f-fdd9-3e0d-934a-06de593dc0dd">
 		<BuildDependency Project="ZERO_CHECK.vcxproj"/>
 		<BuildDependency Project="_deps/ftxui-build/component.vcxproj"/>
 		<BuildDependency Project="_deps/ftxui-build/dom.vcxproj"/>
 		<BuildDependency Project="_deps/ftxui-build/screen.vcxproj"/>
 	</Project>
-	<Project Path="INSTALL.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="3c974761-7e8b-32e0-a5b7-784ebc2d2098">
+	<Project Path="INSTALL.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="9bf22052-0a59-3847-b8fd-958b07176341">
 		<BuildDependency Project="ALL_BUILD.vcxproj"/>
 		<BuildDependency Project="ZERO_CHECK.vcxproj"/>
 		<Build Solution="Debug|*" Project="false"/>
@@ -28,7 +28,7 @@
 		<Build Solution="MinSizeRel|*" Project="false"/>
 		<Build Solution="RelWithDebInfo|*" Project="false"/>
 	</Project>
-	<Project Path="PACKAGE.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="466208c0-90f0-36fd-a740-aa1317986221">
+	<Project Path="PACKAGE.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="d0bea314-36e1-3cc4-bbe9-75bf2dc8a9c2">
 		<BuildDependency Project="ALL_BUILD.vcxproj"/>
 		<BuildDependency Project="ZERO_CHECK.vcxproj"/>
 		<Build Solution="Debug|*" Project="false"/>
@@ -36,17 +36,17 @@
 		<Build Solution="MinSizeRel|*" Project="false"/>
 		<Build Solution="RelWithDebInfo|*" Project="false"/>
 	</Project>
-	<Project Path="ZERO_CHECK.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="05dfbc77-7aef-3864-aabf-0aa841479cb8"/>
-	<Project Path="_deps/ftxui-build/component.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="5cc0c536-3b44-3ca7-96d7-6038f3ae7eac">
+	<Project Path="ZERO_CHECK.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="9c09d6f9-9613-3bb9-a3fb-0a3ecb6c88f2"/>
+	<Project Path="_deps/ftxui-build/component.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="a1693cdd-7518-30cd-a10e-f50def4eca63">
 		<BuildDependency Project="ZERO_CHECK.vcxproj"/>
 		<BuildDependency Project="_deps/ftxui-build/dom.vcxproj"/>
 		<BuildDependency Project="_deps/ftxui-build/screen.vcxproj"/>
 	</Project>
-	<Project Path="_deps/ftxui-build/dom.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="ae308506-9a93-35da-b0be-0eeb1551934e">
+	<Project Path="_deps/ftxui-build/dom.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="0736f9f8-b2f4-3f0e-8490-e7b7ba831086">
 		<BuildDependency Project="ZERO_CHECK.vcxproj"/>
 		<BuildDependency Project="_deps/ftxui-build/screen.vcxproj"/>
 	</Project>
-	<Project Path="_deps/ftxui-build/screen.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="b460cfdc-d7ba-321e-871a-a55f96d338ce">
+	<Project Path="_deps/ftxui-build/screen.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="a2a45dd6-6414-32f6-a826-5d658d8a17f1">
 		<BuildDependency Project="ZERO_CHECK.vcxproj"/>
 	</Project>
 </Solution>

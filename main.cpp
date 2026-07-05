@@ -15,6 +15,9 @@ using namespace ftxui;
 enum class Suit { Clubs, Diamonds, Spades, Hearts };
 const std::vector<Suit> ALL_SUITS = {Suit::Clubs, Suit::Diamonds, Suit::Spades, Suit::Hearts};
 
+// 1. New Enum for Macro States
+enum class MoonState { NONE, FORTRESS, RUN };
+
 struct Card {
     Suit suit;
     int rank; // 2 to 14
@@ -75,6 +78,117 @@ std::vector<Card> dealHand() {
     });
 
     return hand;
+}
+
+// 2. Updated Macro-Trigger
+std::pair<MoonState, Suit> DetectMoonStrategy(const std::vector<Card>& full_hand) {
+    // Group cards to check for Unstoppable Run
+    std::vector<Card> clubs, diamonds, spades, hearts;
+    for (const auto& c : full_hand) {
+        if (c.suit == Suit::Clubs) clubs.push_back(c);
+        else if (c.suit == Suit::Diamonds) diamonds.push_back(c);
+        else if (c.suit == Suit::Spades) spades.push_back(c);
+        else if (c.suit == Suit::Hearts) hearts.push_back(c);
+    }
+
+    auto isRunSuit = [](const std::vector<Card>& suit_cards) {
+        if (suit_cards.size() < 6) return false;
+        bool has_a = false, has_k = false, has_q = false;
+        for (const auto& c : suit_cards) {
+            if (c.rank == 14) has_a = true;
+            if (c.rank == 13) has_k = true;
+            if (c.rank == 12) has_q = true;
+        }
+        return has_a && has_k && has_q; // Must be anchored by AKQ
+    };
+
+    // Check for lateral entries (Side-suit Aces)
+    int total_aces = 0;
+    for (const auto& c : full_hand) {
+        if (c.rank == 14) total_aces++;
+    }
+
+    Suit run_suit = Suit::Clubs; 
+    bool found_run = false;
+    
+    if (isRunSuit(clubs)) { run_suit = Suit::Clubs; found_run = true; }
+    else if (isRunSuit(diamonds)) { run_suit = Suit::Diamonds; found_run = true; }
+    else if (isRunSuit(spades)) { run_suit = Suit::Spades; found_run = true; }
+    else if (isRunSuit(hearts)) { run_suit = Suit::Hearts; found_run = true; }
+
+    // A true Unstoppable Run requires the main suit PLUS at least one lateral entry
+    // Since the run suit contains an Ace, total_aces >= 2 guarantees a side-suit Ace.
+    if (found_run && total_aces >= 2) {
+        return {MoonState::RUN, run_suit};
+    }
+
+    // Fallback to High-Card Fortress check
+    int hand_weight = 0;
+    for (const auto& c : full_hand) {
+        if (c.rank == 14) hand_weight += 5;       
+        else if (c.rank >= 11) hand_weight += 4;  
+        else if (c.rank >= 8) hand_weight += 3;   
+        else if (c.rank >= 5) hand_weight += 2;   
+        else hand_weight += 1;                    
+    }
+    if (hand_weight > 45) {
+        return {MoonState::FORTRESS, Suit::Clubs}; // Suit is ignored for Fortress
+    }
+
+    return {MoonState::NONE, Suit::Clubs};
+}
+
+// 3. Rename EvaluateMoonSafety to EvaluateFortressSafety
+int EvaluateFortressSafety(const std::vector<Card>& remaining_hand) {
+    // Note: A LOWER score is still considered "better" by calculateOptimalPass.
+    // Therefore, we apply heavy positive penalties for bad Moon cards (low cards),
+    // and heavy negative bonuses for good Moon cards (Face cards).
+    int danger = 0; 
+    for (const auto& c : remaining_hand) {
+        if (c.rank <= 7) danger += (8 - c.rank) * 100; 
+        if (c.suit == Suit::Clubs && c.rank == 2) danger += 1000; 
+        if (c.suit == Suit::Hearts && c.rank < 10) danger += 500; 
+        if (c.suit == Suit::Spades && c.rank >= 12) danger -= 300; 
+        if (c.suit == Suit::Hearts && c.rank >= 11) danger -= 300; 
+    }
+    return danger;
+}
+
+// 4. New Unstoppable Run Logic
+int EvaluateRunSafety(const std::vector<Card>& remaining_hand, Suit run_suit) {
+    int danger = 0;
+    std::vector<Card> side_suits[4];
+
+    for (const auto& c : remaining_hand) {
+        if (c.suit == run_suit) {
+            // BONUS: Never pass cards from the long suit. They are guaranteed winners.
+            danger -= 500; 
+        } else {
+            side_suits[static_cast<int>(c.suit)].push_back(c);
+            
+            // BONUS: Lateral Entries (Side-suit Aces) grant table control
+            if (c.rank == 14) {
+                danger -= 400; 
+            } 
+            // PENALTY: Unprotected Face Cards in side suits can accidentally win tricks early
+            else if (c.rank >= 11) {
+                danger += 300; 
+            }
+        }
+    }
+    
+    // PENALTY: Failing to engineer artificial voids. 
+    // If a side suit is short (1 or 2 cards), it is a severe liability. 
+    // We heavily penalize keeping these to force the engine to pass them.
+    for (int i = 0; i < 4; ++i) {
+        if (static_cast<int>(run_suit) == i) continue;
+        size_t size = side_suits[i].size();
+        if (size > 0 && size < 3) {
+            danger += size * 400; 
+        }
+    }
+
+    return danger;
 }
 
 int EvaluateHandSafety(const std::vector<Card>& remaining_hand) {
@@ -271,25 +385,35 @@ int EvaluateHandSafety(const std::vector<Card>& remaining_hand) {
     return expected_value_danger;
 }
 
+// 5. Update the Router
 std::vector<Card> calculateOptimalPass(const std::vector<Card>& full_hand) {
     std::vector<bool> v(13, false);
     std::fill(v.end() - 3, v.end(), true);
 
     int best_score = std::numeric_limits<int>::max();
     std::vector<Card> best_pass;
+    
+    auto strategy = DetectMoonStrategy(full_hand);
+    MoonState current_state = strategy.first;
+    Suit run_suit = strategy.second;
 
     do {
         std::vector<Card> remaining_hand;
         std::vector<Card> current_pass;
         for (int i = 0; i < 13; ++i) {
-            if (v[i]) {
-                current_pass.push_back(full_hand[i]);
-            } else {
-                remaining_hand.push_back(full_hand[i]);
-            }
+            if (v[i]) current_pass.push_back(full_hand[i]);
+            else remaining_hand.push_back(full_hand[i]);
         }
 
-        int score = EvaluateHandSafety(remaining_hand);
+        int score = 0;
+        if (current_state == MoonState::FORTRESS) {
+            score = EvaluateFortressSafety(remaining_hand);
+        } else if (current_state == MoonState::RUN) {
+            score = EvaluateRunSafety(remaining_hand, run_suit);
+        } else {
+            score = EvaluateHandSafety(remaining_hand);
+        }
+        
         if (score < best_score) {
             best_score = score;
             best_pass = current_pass;
@@ -304,10 +428,14 @@ int main(int argc, const char* argv[]) {
 
     std::vector<Card> currentHand = dealHand();
     std::vector<Card> recommendedPass = calculateOptimalPass(currentHand);
+    auto strategy = DetectMoonStrategy(currentHand);
+    MoonState current_state = strategy.first;
 
     auto deal_action = [&]() {
         currentHand = dealHand();
         recommendedPass = calculateOptimalPass(currentHand);
+        strategy = DetectMoonStrategy(currentHand);
+        current_state = strategy.first;
     };
 
     auto button_deal = Button("Reshuffle & Deal (R)", deal_action);
@@ -344,17 +472,23 @@ int main(int argc, const char* argv[]) {
         
         auto instructions = text("Press 'R' to reshuffle. Press 'Q' or 'ESC' to quit.") | dim | center;
 
-        return vbox({
-            text(" Hearts Card Dealing Simulator ") | bold | center,
-            separator(),
-            hand_panel,
-            pass_panel,
-            stats_panel,
-            hbox({
-                button_deal->Render(),
-            }) | center,
-            instructions
-        }) | border;
+        Elements layout_elements;
+        layout_elements.push_back(text(" Hearts Card Dealing Simulator ") | bold | center);
+        layout_elements.push_back(separator());
+        if (current_state == MoonState::FORTRESS) {
+            layout_elements.push_back(text(" 🚀 HIGH-CARD FORTRESS DETECTED: SHOOTING THE MOON! 🚀 ") | bold | color(Color::RedLight) | center);
+            layout_elements.push_back(separator());
+        } else if (current_state == MoonState::RUN) {
+            layout_elements.push_back(text(" 🔥 UNSTOPPABLE RUN DETECTED: SHOOTING THE MOON! 🔥 ") | bold | color(Color::RedLight) | center);
+            layout_elements.push_back(separator());
+        }
+        layout_elements.push_back(hand_panel);
+        layout_elements.push_back(pass_panel);
+        layout_elements.push_back(stats_panel);
+        layout_elements.push_back(hbox({button_deal->Render()}) | center);
+        layout_elements.push_back(instructions);
+
+        return vbox(std::move(layout_elements)) | border;
     });
 
     auto main_component = CatchEvent(renderer, [&](Event event) {

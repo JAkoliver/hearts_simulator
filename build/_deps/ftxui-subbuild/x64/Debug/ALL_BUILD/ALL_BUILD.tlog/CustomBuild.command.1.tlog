@@ -1,6 +1,6 @@
-^E:\HEARTS_SIMULATOR\BUILD\_DEPS\FTXUI-SUBBUILD\CMAKELISTS.TXT
+^C:\USERS\PATRICK\DESKTOP\HEARTS_SIMULATOR\BUILD\_DEPS\FTXUI-SUBBUILD\CMAKELISTS.TXT
 setlocal
-"C:\Program Files\CMake\bin\cmake.exe" -SE:/hearts_simulator/build/_deps/ftxui-subbuild -BE:/hearts_simulator/build/_deps/ftxui-subbuild --check-stamp-file E:/hearts_simulator/build/_deps/ftxui-subbuild/CMakeFiles/generate.stamp
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/Patrick/Desktop/hearts_simulator/build/_deps/ftxui-subbuild -BC:/Users/Patrick/Desktop/hearts_simulator/build/_deps/ftxui-subbuild --check-stamp-file C:/Users/Patrick/Desktop/hearts_simulator/build/_deps/ftxui-subbuild/CMakeFiles/generate.stamp
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
 endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone

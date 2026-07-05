@@ -10,7 +10,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{D3465BAC-C0C2-3258-B9EF-CE11EA1BD99F}</ProjectGuid>
+    <ProjectGuid>{3B4E1FE7-E4C8-3CE3-B1EE-CF247A8E0E67}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <WindowsTargetPlatformVersion>10.0.26100.0</WindowsTargetPlatformVersion>
     <Platform>x64</Platform>
@@ -46,13 +46,13 @@
     </Midl>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <CustomBuild Include="E:\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\5289e210f2b759c2f8b354bc4ef7e279\ftxui-populate-mkdir.rule">
+    <CustomBuild Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\4f32dd9c4337154df9f755aa7d065d81\ftxui-populate-mkdir.rule">
       <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</BuildInParallel>
       <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Creating directories for 'ftxui-populate'</Message>
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
-"C:\Program Files\CMake\bin\cmake.exe" -Dcfgdir=/Debug -P E:/hearts_simulator/build/_deps/ftxui-subbuild/ftxui-populate-prefix/tmp/ftxui-populate-mkdirs.cmake
+"C:\Program Files\CMake\bin\cmake.exe" -Dcfgdir=/Debug -P C:/Users/Patrick/Desktop/hearts_simulator/build/_deps/ftxui-subbuild/ftxui-populate-prefix/tmp/ftxui-populate-mkdirs.cmake
 if %errorlevel% neq 0 goto :cmEnd
-"C:\Program Files\CMake\bin\cmake.exe" -E touch E:/hearts_simulator/build/_deps/ftxui-subbuild/ftxui-populate-prefix/src/ftxui-populate-stamp/Debug/ftxui-populate-mkdir
+"C:\Program Files\CMake\bin\cmake.exe" -E touch C:/Users/Patrick/Desktop/hearts_simulator/build/_deps/ftxui-subbuild/ftxui-populate-prefix/src/ftxui-populate-stamp/Debug/ftxui-populate-mkdir
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
 endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
@@ -61,21 +61,21 @@ exit /b %1
 :cmDone
 if %errorlevel% neq 0 goto :VCEnd</Command>
       <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">%(AdditionalInputs)</AdditionalInputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">E:\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\Debug\ftxui-populate-mkdir</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\Debug\ftxui-populate-mkdir</Outputs>
       <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>
-    <CustomBuild Include="E:\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\5289e210f2b759c2f8b354bc4ef7e279\ftxui-populate-download.rule">
+    <CustomBuild Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\4f32dd9c4337154df9f755aa7d065d81\ftxui-populate-download.rule">
       <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Performing download step (git clone) for 'ftxui-populate'</Message>
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
-cd E:\hearts_simulator\build\_deps
+cd C:\Users\Patrick\Desktop\hearts_simulator\build\_deps
 if %errorlevel% neq 0 goto :cmEnd
-E:
+C:
 if %errorlevel% neq 0 goto :cmEnd
-"C:\Program Files\CMake\bin\cmake.exe" -DCMAKE_MESSAGE_LOG_LEVEL=VERBOSE -P E:/hearts_simulator/build/_deps/ftxui-subbuild/ftxui-populate-prefix/tmp/ftxui-populate-gitclone.cmake
+"C:\Program Files\CMake\bin\cmake.exe" -DCMAKE_MESSAGE_LOG_LEVEL=VERBOSE -P C:/Users/Patrick/Desktop/hearts_simulator/build/_deps/ftxui-subbuild/ftxui-populate-prefix/tmp/ftxui-populate-gitclone.cmake
 if %errorlevel% neq 0 goto :cmEnd
-"C:\Program Files\CMake\bin\cmake.exe" -E touch E:/hearts_simulator/build/_deps/ftxui-subbuild/ftxui-populate-prefix/src/ftxui-populate-stamp/Debug/ftxui-populate-download
+"C:\Program Files\CMake\bin\cmake.exe" -E touch C:/Users/Patrick/Desktop/hearts_simulator/build/_deps/ftxui-subbuild/ftxui-populate-prefix/src/ftxui-populate-stamp/Debug/ftxui-populate-download
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
 endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
@@ -83,20 +83,20 @@ endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
 exit /b %1
 :cmDone
 if %errorlevel% neq 0 goto :VCEnd</Command>
-      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">E:\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\ftxui-populate-gitinfo.txt;E:\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\Debug\ftxui-populate-mkdir;%(AdditionalInputs)</AdditionalInputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">E:\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\Debug\ftxui-populate-download</Outputs>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\ftxui-populate-gitinfo.txt;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\Debug\ftxui-populate-mkdir;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\Debug\ftxui-populate-download</Outputs>
       <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>
-    <CustomBuild Include="E:\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\5289e210f2b759c2f8b354bc4ef7e279\ftxui-populate-update.rule">
+    <CustomBuild Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\4f32dd9c4337154df9f755aa7d065d81\ftxui-populate-update.rule">
       <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Performing update step for 'ftxui-populate'</Message>
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
-cd E:\hearts_simulator\build\_deps\ftxui-src
+cd C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src
 if %errorlevel% neq 0 goto :cmEnd
-E:
+C:
 if %errorlevel% neq 0 goto :cmEnd
-"C:\Program Files\CMake\bin\cmake.exe" -Dcan_fetch=YES -DCMAKE_MESSAGE_LOG_LEVEL=VERBOSE -P E:/hearts_simulator/build/_deps/ftxui-subbuild/ftxui-populate-prefix/tmp/ftxui-populate-gitupdate.cmake
+"C:\Program Files\CMake\bin\cmake.exe" -Dcan_fetch=YES -DCMAKE_MESSAGE_LOG_LEVEL=VERBOSE -P C:/Users/Patrick/Desktop/hearts_simulator/build/_deps/ftxui-subbuild/ftxui-populate-prefix/tmp/ftxui-populate-gitupdate.cmake
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
 endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
@@ -104,19 +104,19 @@ endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
 exit /b %1
 :cmDone
 if %errorlevel% neq 0 goto :VCEnd</Command>
-      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">E:\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\tmp\ftxui-populate-gitupdate.cmake;E:\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\ftxui-populate-update-info.txt;E:\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\Debug\ftxui-populate-download;%(AdditionalInputs)</AdditionalInputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">E:\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\Debug\ftxui-populate-update</Outputs>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\tmp\ftxui-populate-gitupdate.cmake;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\ftxui-populate-update-info.txt;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\Debug\ftxui-populate-download;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\Debug\ftxui-populate-update</Outputs>
       <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
       <VerifyInputsAndOutputsExist Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</VerifyInputsAndOutputsExist>
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>
-    <CustomBuild Include="E:\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\5289e210f2b759c2f8b354bc4ef7e279\ftxui-populate-patch.rule">
+    <CustomBuild Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\4f32dd9c4337154df9f755aa7d065d81\ftxui-populate-patch.rule">
       <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">No patch step for 'ftxui-populate'</Message>
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
 "C:\Program Files\CMake\bin\cmake.exe" -E echo_append
 if %errorlevel% neq 0 goto :cmEnd
-"C:\Program Files\CMake\bin\cmake.exe" -E touch E:/hearts_simulator/build/_deps/ftxui-subbuild/ftxui-populate-prefix/src/ftxui-populate-stamp/Debug/ftxui-populate-patch
+"C:\Program Files\CMake\bin\cmake.exe" -E touch C:/Users/Patrick/Desktop/hearts_simulator/build/_deps/ftxui-subbuild/ftxui-populate-prefix/src/ftxui-populate-stamp/Debug/ftxui-populate-patch
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
 endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
@@ -124,24 +124,24 @@ endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
 exit /b %1
 :cmDone
 if %errorlevel% neq 0 goto :VCEnd</Command>
-      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">E:\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\ftxui-populate-patch-info.txt;E:\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\Debug\ftxui-populate-update;%(AdditionalInputs)</AdditionalInputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">E:\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\Debug\ftxui-populate-patch</Outputs>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\ftxui-populate-patch-info.txt;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\Debug\ftxui-populate-update;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\Debug\ftxui-populate-patch</Outputs>
       <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
       <VerifyInputsAndOutputsExist Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</VerifyInputsAndOutputsExist>
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>
-    <CustomBuild Include="E:\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\5289e210f2b759c2f8b354bc4ef7e279\ftxui-populate-configure.rule">
+    <CustomBuild Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\4f32dd9c4337154df9f755aa7d065d81\ftxui-populate-configure.rule">
       <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</BuildInParallel>
       <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">No configure step for 'ftxui-populate'</Message>
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
-cd E:\hearts_simulator\build\_deps\ftxui-build
+cd C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-build
 if %errorlevel% neq 0 goto :cmEnd
-E:
+C:
 if %errorlevel% neq 0 goto :cmEnd
 "C:\Program Files\CMake\bin\cmake.exe" -E echo_append
 if %errorlevel% neq 0 goto :cmEnd
-"C:\Program Files\CMake\bin\cmake.exe" -E touch E:/hearts_simulator/build/_deps/ftxui-subbuild/ftxui-populate-prefix/src/ftxui-populate-stamp/Debug/ftxui-populate-configure
+"C:\Program Files\CMake\bin\cmake.exe" -E touch C:/Users/Patrick/Desktop/hearts_simulator/build/_deps/ftxui-subbuild/ftxui-populate-prefix/src/ftxui-populate-stamp/Debug/ftxui-populate-configure
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
 endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
@@ -149,23 +149,23 @@ endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
 exit /b %1
 :cmDone
 if %errorlevel% neq 0 goto :VCEnd</Command>
-      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">E:\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\tmp\ftxui-populate-cfgcmd.txt;E:\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\Debug\ftxui-populate-patch;%(AdditionalInputs)</AdditionalInputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">E:\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\Debug\ftxui-populate-configure</Outputs>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\tmp\ftxui-populate-cfgcmd.txt;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\Debug\ftxui-populate-patch;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\Debug\ftxui-populate-configure</Outputs>
       <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>
-    <CustomBuild Include="E:\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\5289e210f2b759c2f8b354bc4ef7e279\ftxui-populate-build.rule">
+    <CustomBuild Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\4f32dd9c4337154df9f755aa7d065d81\ftxui-populate-build.rule">
       <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</BuildInParallel>
       <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">No build step for 'ftxui-populate'</Message>
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
-cd E:\hearts_simulator\build\_deps\ftxui-build
+cd C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-build
 if %errorlevel% neq 0 goto :cmEnd
-E:
+C:
 if %errorlevel% neq 0 goto :cmEnd
 "C:\Program Files\CMake\bin\cmake.exe" -E echo_append
 if %errorlevel% neq 0 goto :cmEnd
-"C:\Program Files\CMake\bin\cmake.exe" -E touch E:/hearts_simulator/build/_deps/ftxui-subbuild/ftxui-populate-prefix/src/ftxui-populate-stamp/Debug/ftxui-populate-build
+"C:\Program Files\CMake\bin\cmake.exe" -E touch C:/Users/Patrick/Desktop/hearts_simulator/build/_deps/ftxui-subbuild/ftxui-populate-prefix/src/ftxui-populate-stamp/Debug/ftxui-populate-build
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
 endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
@@ -173,23 +173,23 @@ endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
 exit /b %1
 :cmDone
 if %errorlevel% neq 0 goto :VCEnd</Command>
-      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">E:\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\Debug\ftxui-populate-configure;%(AdditionalInputs)</AdditionalInputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">E:\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\Debug\ftxui-populate-build</Outputs>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\Debug\ftxui-populate-configure;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\Debug\ftxui-populate-build</Outputs>
       <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>
-    <CustomBuild Include="E:\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\5289e210f2b759c2f8b354bc4ef7e279\ftxui-populate-install.rule">
+    <CustomBuild Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\4f32dd9c4337154df9f755aa7d065d81\ftxui-populate-install.rule">
       <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</BuildInParallel>
       <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">No install step for 'ftxui-populate'</Message>
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
-cd E:\hearts_simulator\build\_deps\ftxui-build
+cd C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-build
 if %errorlevel% neq 0 goto :cmEnd
-E:
+C:
 if %errorlevel% neq 0 goto :cmEnd
 "C:\Program Files\CMake\bin\cmake.exe" -E echo_append
 if %errorlevel% neq 0 goto :cmEnd
-"C:\Program Files\CMake\bin\cmake.exe" -E touch E:/hearts_simulator/build/_deps/ftxui-subbuild/ftxui-populate-prefix/src/ftxui-populate-stamp/Debug/ftxui-populate-install
+"C:\Program Files\CMake\bin\cmake.exe" -E touch C:/Users/Patrick/Desktop/hearts_simulator/build/_deps/ftxui-subbuild/ftxui-populate-prefix/src/ftxui-populate-stamp/Debug/ftxui-populate-install
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
 endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
@@ -197,23 +197,23 @@ endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
 exit /b %1
 :cmDone
 if %errorlevel% neq 0 goto :VCEnd</Command>
-      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">E:\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\Debug\ftxui-populate-build;%(AdditionalInputs)</AdditionalInputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">E:\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\Debug\ftxui-populate-install</Outputs>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\Debug\ftxui-populate-build;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\Debug\ftxui-populate-install</Outputs>
       <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>
-    <CustomBuild Include="E:\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\5289e210f2b759c2f8b354bc4ef7e279\ftxui-populate-test.rule">
+    <CustomBuild Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\4f32dd9c4337154df9f755aa7d065d81\ftxui-populate-test.rule">
       <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</BuildInParallel>
       <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">No test step for 'ftxui-populate'</Message>
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
-cd E:\hearts_simulator\build\_deps\ftxui-build
+cd C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-build
 if %errorlevel% neq 0 goto :cmEnd
-E:
+C:
 if %errorlevel% neq 0 goto :cmEnd
 "C:\Program Files\CMake\bin\cmake.exe" -E echo_append
 if %errorlevel% neq 0 goto :cmEnd
-"C:\Program Files\CMake\bin\cmake.exe" -E touch E:/hearts_simulator/build/_deps/ftxui-subbuild/ftxui-populate-prefix/src/ftxui-populate-stamp/Debug/ftxui-populate-test
+"C:\Program Files\CMake\bin\cmake.exe" -E touch C:/Users/Patrick/Desktop/hearts_simulator/build/_deps/ftxui-subbuild/ftxui-populate-prefix/src/ftxui-populate-stamp/Debug/ftxui-populate-test
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
 endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
@@ -221,21 +221,21 @@ endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
 exit /b %1
 :cmDone
 if %errorlevel% neq 0 goto :VCEnd</Command>
-      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">E:\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\Debug\ftxui-populate-install;%(AdditionalInputs)</AdditionalInputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">E:\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\Debug\ftxui-populate-test</Outputs>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\Debug\ftxui-populate-install;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\Debug\ftxui-populate-test</Outputs>
       <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>
-    <CustomBuild Include="E:\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\46c83e8c71ccc7ee2db26507e994dcfb\ftxui-populate-complete.rule">
+    <CustomBuild Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\b1b565c23b81d2a8d04fabb26edaa9e7\ftxui-populate-complete.rule">
       <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</BuildInParallel>
       <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Completed 'ftxui-populate'</Message>
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
-"C:\Program Files\CMake\bin\cmake.exe" -E make_directory E:/hearts_simulator/build/_deps/ftxui-subbuild/CMakeFiles/Debug
+"C:\Program Files\CMake\bin\cmake.exe" -E make_directory C:/Users/Patrick/Desktop/hearts_simulator/build/_deps/ftxui-subbuild/CMakeFiles/Debug
 if %errorlevel% neq 0 goto :cmEnd
-"C:\Program Files\CMake\bin\cmake.exe" -E touch E:/hearts_simulator/build/_deps/ftxui-subbuild/CMakeFiles/Debug/ftxui-populate-complete
+"C:\Program Files\CMake\bin\cmake.exe" -E touch C:/Users/Patrick/Desktop/hearts_simulator/build/_deps/ftxui-subbuild/CMakeFiles/Debug/ftxui-populate-complete
 if %errorlevel% neq 0 goto :cmEnd
-"C:\Program Files\CMake\bin\cmake.exe" -E touch E:/hearts_simulator/build/_deps/ftxui-subbuild/ftxui-populate-prefix/src/ftxui-populate-stamp/Debug/ftxui-populate-done
+"C:\Program Files\CMake\bin\cmake.exe" -E touch C:/Users/Patrick/Desktop/hearts_simulator/build/_deps/ftxui-subbuild/ftxui-populate-prefix/src/ftxui-populate-stamp/Debug/ftxui-populate-done
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
 endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
@@ -243,14 +243,14 @@ endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
 exit /b %1
 :cmDone
 if %errorlevel% neq 0 goto :VCEnd</Command>
-      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">E:\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\Debug\ftxui-populate-install;E:\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\Debug\ftxui-populate-mkdir;E:\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\Debug\ftxui-populate-download;E:\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\Debug\ftxui-populate-update;E:\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\Debug\ftxui-populate-patch;E:\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\Debug\ftxui-populate-configure;E:\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\Debug\ftxui-populate-build;E:\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\Debug\ftxui-populate-test;%(AdditionalInputs)</AdditionalInputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">E:\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\Debug\ftxui-populate-complete</Outputs>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\Debug\ftxui-populate-install;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\Debug\ftxui-populate-mkdir;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\Debug\ftxui-populate-download;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\Debug\ftxui-populate-update;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\Debug\ftxui-populate-patch;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\Debug\ftxui-populate-configure;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\Debug\ftxui-populate-build;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\src\ftxui-populate-stamp\Debug\ftxui-populate-test;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\Debug\ftxui-populate-complete</Outputs>
       <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
       <VerifyInputsAndOutputsExist Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</VerifyInputsAndOutputsExist>
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>
-    <CustomBuild Include="E:\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\ac6ebe8adb51154cbffb020646bae819\ftxui-populate.rule">
+    <CustomBuild Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\9306e1236997d42ac928be3c9b89f7ce\ftxui-populate.rule">
       <BuildInParallel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</BuildInParallel>
       <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'"></Message>
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
@@ -260,18 +260,18 @@ endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
 exit /b %1
 :cmDone
 if %errorlevel% neq 0 goto :VCEnd</Command>
-      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">E:\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\Debug\ftxui-populate-complete;%(AdditionalInputs)</AdditionalInputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">E:\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\ftxui-populate</Outputs>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\Debug\ftxui-populate-complete;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\ftxui-populate</Outputs>
       <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
       <VerifyInputsAndOutputsExist Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</VerifyInputsAndOutputsExist>
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>
-    <CustomBuild Include="E:\hearts_simulator\build\_deps\ftxui-subbuild\CMakeLists.txt">
+    <CustomBuild Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\CMakeLists.txt">
       <UseUtf8Encoding>Always</UseUtf8Encoding>
-      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Building Custom Rule E:/hearts_simulator/build/_deps/ftxui-subbuild/CMakeLists.txt</Message>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Building Custom Rule C:/Users/Patrick/Desktop/hearts_simulator/build/_deps/ftxui-subbuild/CMakeLists.txt</Message>
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
-"C:\Program Files\CMake\bin\cmake.exe" -SE:/hearts_simulator/build/_deps/ftxui-subbuild -BE:/hearts_simulator/build/_deps/ftxui-subbuild --check-stamp-file E:/hearts_simulator/build/_deps/ftxui-subbuild/CMakeFiles/generate.stamp
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/Patrick/Desktop/hearts_simulator/build/_deps/ftxui-subbuild -BC:/Users/Patrick/Desktop/hearts_simulator/build/_deps/ftxui-subbuild --check-stamp-file C:/Users/Patrick/Desktop/hearts_simulator/build/_deps/ftxui-subbuild/CMakeFiles/generate.stamp
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
 endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
@@ -279,19 +279,19 @@ endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
 exit /b %1
 :cmDone
 if %errorlevel% neq 0 goto :VCEnd</Command>
-      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Program Files\CMake\share\cmake-4.3\Modules\CMakeGenericSystem.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CMakeInitializeConfigs.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CMakeSystemSpecificInformation.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CMakeSystemSpecificInitialize.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\ExternalProject.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\ExternalProject\PatchInfo.txt.in;C:\Program Files\CMake\share\cmake-4.3\Modules\ExternalProject\RepositoryInfo.txt.in;C:\Program Files\CMake\share\cmake-4.3\Modules\ExternalProject\UpdateInfo.txt.in;C:\Program Files\CMake\share\cmake-4.3\Modules\ExternalProject\cfgcmd.txt.in;C:\Program Files\CMake\share\cmake-4.3\Modules\ExternalProject\gitclone.cmake.in;C:\Program Files\CMake\share\cmake-4.3\Modules\ExternalProject\gitupdate.cmake.in;C:\Program Files\CMake\share\cmake-4.3\Modules\ExternalProject\mkdirs.cmake.in;C:\Program Files\CMake\share\cmake-4.3\Modules\ExternalProject\shared_internal_commands.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Platform\Windows-Initialize.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Platform\Windows.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Platform\WindowsPaths.cmake;E:\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\4.3.4\CMakeSystem.cmake;E:\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\tmp\ftxui-populate-mkdirs.cmake;%(AdditionalInputs)</AdditionalInputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">E:\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\generate.stamp</Outputs>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Program Files\CMake\share\cmake-4.3\Modules\CMakeGenericSystem.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CMakeInitializeConfigs.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CMakeSystemSpecificInformation.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CMakeSystemSpecificInitialize.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\ExternalProject.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\ExternalProject\PatchInfo.txt.in;C:\Program Files\CMake\share\cmake-4.3\Modules\ExternalProject\RepositoryInfo.txt.in;C:\Program Files\CMake\share\cmake-4.3\Modules\ExternalProject\UpdateInfo.txt.in;C:\Program Files\CMake\share\cmake-4.3\Modules\ExternalProject\cfgcmd.txt.in;C:\Program Files\CMake\share\cmake-4.3\Modules\ExternalProject\gitclone.cmake.in;C:\Program Files\CMake\share\cmake-4.3\Modules\ExternalProject\gitupdate.cmake.in;C:\Program Files\CMake\share\cmake-4.3\Modules\ExternalProject\mkdirs.cmake.in;C:\Program Files\CMake\share\cmake-4.3\Modules\ExternalProject\shared_internal_commands.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Platform\Windows-Initialize.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Platform\Windows.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Platform\WindowsPaths.cmake;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\4.3.4\CMakeSystem.cmake;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\ftxui-populate-prefix\tmp\ftxui-populate-mkdirs.cmake;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\generate.stamp</Outputs>
       <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>
-    <None Include="E:\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\ftxui-populate">
+    <None Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\ftxui-populate">
     </None>
   </ItemGroup>
   <ItemGroup />
   <ItemGroup>
-    <ProjectReference Include="E:\hearts_simulator\build\_deps\ftxui-subbuild\ZERO_CHECK.vcxproj">
-      <Project>{3714ACB9-1BFF-391F-AD8A-7FEE2DC8CF9E}</Project>
+    <ProjectReference Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\ZERO_CHECK.vcxproj">
+      <Project>{03AB7CAA-1891-3485-A42A-B8F420D6B0E6}</Project>
       <Name>ZERO_CHECK</Name>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>

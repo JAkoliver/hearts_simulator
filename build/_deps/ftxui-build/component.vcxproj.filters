@@ -1,126 +1,126 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="18.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\component\animation.cpp">
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\component\animation.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\component\button.cpp">
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\component\button.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\component\catch_event.cpp">
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\component\catch_event.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\component\checkbox.cpp">
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\component\checkbox.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\component\collapsible.cpp">
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\component\collapsible.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\component\component.cpp">
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\component\component.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\component\component_options.cpp">
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\component\component_options.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\component\container.cpp">
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\component\container.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\component\dropdown.cpp">
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\component\dropdown.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\component\event.cpp">
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\component\event.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\component\hoverable.cpp">
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\component\hoverable.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\component\input.cpp">
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\component\input.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\component\loop.cpp">
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\component\loop.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\component\maybe.cpp">
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\component\maybe.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\component\menu.cpp">
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\component\menu.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\component\modal.cpp">
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\component\modal.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\component\radiobox.cpp">
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\component\radiobox.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\component\renderer.cpp">
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\component\renderer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\component\resizable_split.cpp">
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\component\resizable_split.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\component\screen_interactive.cpp">
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\component\screen_interactive.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\component\slider.cpp">
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\component\slider.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\component\terminal_input_parser.cpp">
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\component\terminal_input_parser.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\component\util.cpp">
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\component\util.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\component\window.cpp">
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\component\window.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="E:\hearts_simulator\build\_deps\ftxui-src\include\ftxui\component\animation.hpp">
+    <ClInclude Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\include\ftxui\component\animation.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="E:\hearts_simulator\build\_deps\ftxui-src\include\ftxui\component\captured_mouse.hpp">
+    <ClInclude Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\include\ftxui\component\captured_mouse.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="E:\hearts_simulator\build\_deps\ftxui-src\include\ftxui\component\component.hpp">
+    <ClInclude Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\include\ftxui\component\component.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="E:\hearts_simulator\build\_deps\ftxui-src\include\ftxui\component\component_base.hpp">
+    <ClInclude Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\include\ftxui\component\component_base.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="E:\hearts_simulator\build\_deps\ftxui-src\include\ftxui\component\component_options.hpp">
+    <ClInclude Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\include\ftxui\component\component_options.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="E:\hearts_simulator\build\_deps\ftxui-src\include\ftxui\component\event.hpp">
+    <ClInclude Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\include\ftxui\component\event.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="E:\hearts_simulator\build\_deps\ftxui-src\include\ftxui\component\loop.hpp">
+    <ClInclude Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\include\ftxui\component\loop.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="E:\hearts_simulator\build\_deps\ftxui-src\include\ftxui\component\mouse.hpp">
+    <ClInclude Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\include\ftxui\component\mouse.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="E:\hearts_simulator\build\_deps\ftxui-src\include\ftxui\component\receiver.hpp">
+    <ClInclude Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\include\ftxui\component\receiver.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="E:\hearts_simulator\build\_deps\ftxui-src\include\ftxui\component\screen_interactive.hpp">
+    <ClInclude Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\include\ftxui\component\screen_interactive.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="E:\hearts_simulator\build\_deps\ftxui-src\include\ftxui\component\task.hpp">
+    <ClInclude Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\include\ftxui\component\task.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\component\terminal_input_parser.hpp">
+    <ClInclude Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\component\terminal_input_parser.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <CustomBuild Include="E:\hearts_simulator\build\_deps\ftxui-src\CMakeLists.txt" />
+    <CustomBuild Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\CMakeLists.txt" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Header Files">
-      <UniqueIdentifier>{24C04DBD-E7E9-3F75-9393-A9182E6484E2}</UniqueIdentifier>
+      <UniqueIdentifier>{F9610DC2-9FF3-38B0-8BC8-D1BDEE78D066}</UniqueIdentifier>
     </Filter>
     <Filter Include="Source Files">
-      <UniqueIdentifier>{F65E5356-6FD8-39E9-BFD5-0A696720C3B1}</UniqueIdentifier>
+      <UniqueIdentifier>{89591C36-8EE8-3952-8E9D-DD375BF6C5F2}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

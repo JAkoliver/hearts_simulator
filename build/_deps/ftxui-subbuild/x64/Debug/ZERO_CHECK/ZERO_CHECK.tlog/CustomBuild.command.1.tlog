@@ -1,6 +1,6 @@
-^E:\HEARTS_SIMULATOR\BUILD\_DEPS\FTXUI-SUBBUILD\CMAKEFILES\AC6EBE8ADB51154CBFFB020646BAE819\GENERATE.STAMP.RULE
+^C:\USERS\PATRICK\DESKTOP\HEARTS_SIMULATOR\BUILD\_DEPS\FTXUI-SUBBUILD\CMAKEFILES\9306E1236997D42AC928BE3C9B89F7CE\GENERATE.STAMP.RULE
 setlocal
-"C:\Program Files\CMake\bin\cmake.exe" -SE:/hearts_simulator/build/_deps/ftxui-subbuild -BE:/hearts_simulator/build/_deps/ftxui-subbuild --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file E:/hearts_simulator/build/_deps/ftxui-subbuild/ftxui-populate.slnx
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/Patrick/Desktop/hearts_simulator/build/_deps/ftxui-subbuild -BC:/Users/Patrick/Desktop/hearts_simulator/build/_deps/ftxui-subbuild --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file C:/Users/Patrick/Desktop/hearts_simulator/build/_deps/ftxui-subbuild/ftxui-populate.slnx
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
 endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone

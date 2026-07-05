@@ -1,44 +1,44 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="18.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <CustomBuild Include="E:\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\5289e210f2b759c2f8b354bc4ef7e279\ftxui-populate-mkdir.rule">
+    <CustomBuild Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\4f32dd9c4337154df9f755aa7d065d81\ftxui-populate-mkdir.rule">
       <Filter>CMake Rules</Filter>
     </CustomBuild>
-    <CustomBuild Include="E:\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\5289e210f2b759c2f8b354bc4ef7e279\ftxui-populate-download.rule">
+    <CustomBuild Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\4f32dd9c4337154df9f755aa7d065d81\ftxui-populate-download.rule">
       <Filter>CMake Rules</Filter>
     </CustomBuild>
-    <CustomBuild Include="E:\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\5289e210f2b759c2f8b354bc4ef7e279\ftxui-populate-update.rule">
+    <CustomBuild Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\4f32dd9c4337154df9f755aa7d065d81\ftxui-populate-update.rule">
       <Filter>CMake Rules</Filter>
     </CustomBuild>
-    <CustomBuild Include="E:\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\5289e210f2b759c2f8b354bc4ef7e279\ftxui-populate-patch.rule">
+    <CustomBuild Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\4f32dd9c4337154df9f755aa7d065d81\ftxui-populate-patch.rule">
       <Filter>CMake Rules</Filter>
     </CustomBuild>
-    <CustomBuild Include="E:\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\5289e210f2b759c2f8b354bc4ef7e279\ftxui-populate-configure.rule">
+    <CustomBuild Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\4f32dd9c4337154df9f755aa7d065d81\ftxui-populate-configure.rule">
       <Filter>CMake Rules</Filter>
     </CustomBuild>
-    <CustomBuild Include="E:\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\5289e210f2b759c2f8b354bc4ef7e279\ftxui-populate-build.rule">
+    <CustomBuild Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\4f32dd9c4337154df9f755aa7d065d81\ftxui-populate-build.rule">
       <Filter>CMake Rules</Filter>
     </CustomBuild>
-    <CustomBuild Include="E:\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\5289e210f2b759c2f8b354bc4ef7e279\ftxui-populate-install.rule">
+    <CustomBuild Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\4f32dd9c4337154df9f755aa7d065d81\ftxui-populate-install.rule">
       <Filter>CMake Rules</Filter>
     </CustomBuild>
-    <CustomBuild Include="E:\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\5289e210f2b759c2f8b354bc4ef7e279\ftxui-populate-test.rule">
+    <CustomBuild Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\4f32dd9c4337154df9f755aa7d065d81\ftxui-populate-test.rule">
       <Filter>CMake Rules</Filter>
     </CustomBuild>
-    <CustomBuild Include="E:\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\46c83e8c71ccc7ee2db26507e994dcfb\ftxui-populate-complete.rule">
+    <CustomBuild Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\b1b565c23b81d2a8d04fabb26edaa9e7\ftxui-populate-complete.rule">
       <Filter>CMake Rules</Filter>
     </CustomBuild>
-    <CustomBuild Include="E:\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\ac6ebe8adb51154cbffb020646bae819\ftxui-populate.rule">
+    <CustomBuild Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\9306e1236997d42ac928be3c9b89f7ce\ftxui-populate.rule">
       <Filter>CMake Rules</Filter>
     </CustomBuild>
-    <CustomBuild Include="E:\hearts_simulator\build\_deps\ftxui-subbuild\CMakeLists.txt" />
+    <CustomBuild Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\CMakeLists.txt" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="E:\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\ftxui-populate" />
+    <None Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-subbuild\CMakeFiles\ftxui-populate" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="CMake Rules">
-      <UniqueIdentifier>{8FEFE0D8-C070-34E5-AB8F-B05350585FFD}</UniqueIdentifier>
+      <UniqueIdentifier>{A69E9638-E6D3-3842-833B-AEF423B54CD9}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

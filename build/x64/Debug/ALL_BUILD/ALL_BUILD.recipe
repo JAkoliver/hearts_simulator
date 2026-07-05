@@ -2,13 +2,13 @@
 <Project>
   <ProjectOutputs>
     <ProjectOutput>
-      <FullPath>E:\hearts_simulator\build\x64\Debug\ZERO_CHECK</FullPath>
+      <FullPath>C:\Users\Patrick\Desktop\hearts_simulator\build\x64\Debug\ZERO_CHECK</FullPath>
     </ProjectOutput>
     <ProjectOutput>
-      <FullPath>E:\hearts_simulator\build\Debug\HeartsSimulator.exe</FullPath>
+      <FullPath>C:\Users\Patrick\Desktop\hearts_simulator\build\Debug\HeartsSimulator.exe</FullPath>
     </ProjectOutput>
     <ProjectOutput>
-      <FullPath>E:\hearts_simulator\build\x64\Debug\ALL_BUILD</FullPath>
+      <FullPath>C:\Users\Patrick\Desktop\hearts_simulator\build\x64\Debug\ALL_BUILD</FullPath>
     </ProjectOutput>
   </ProjectOutputs>
   <ContentFiles />

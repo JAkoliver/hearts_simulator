@@ -22,7 +22,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{AE308506-9A93-35DA-B0BE-0EEB1551934E}</ProjectGuid>
+    <ProjectGuid>{0736F9F8-B2F4-3F0E-8490-E7B7BA831086}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <WindowsTargetPlatformVersion>10.0.26100.0</WindowsTargetPlatformVersion>
     <Platform>x64</Platform>
@@ -59,27 +59,27 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup>
     <_ProjectFileVersion>10.0.20506.1</_ProjectFileVersion>
-    <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">E:\hearts_simulator\build\_deps\ftxui-build\Debug\</OutDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-build\Debug\</OutDir>
     <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">dom.dir\Debug\</IntDir>
     <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">ftxui-dom</TargetName>
     <TargetExt Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">.lib</TargetExt>
-    <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">E:\hearts_simulator\build\_deps\ftxui-build\Release\</OutDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-build\Release\</OutDir>
     <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">dom.dir\Release\</IntDir>
     <TargetName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">ftxui-dom</TargetName>
     <TargetExt Condition="'$(Configuration)|$(Platform)'=='Release|x64'">.lib</TargetExt>
-    <OutDir Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">E:\hearts_simulator\build\_deps\ftxui-build\MinSizeRel\</OutDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-build\MinSizeRel\</OutDir>
     <IntDir Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">dom.dir\MinSizeRel\</IntDir>
     <TargetName Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">ftxui-dom</TargetName>
     <TargetExt Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">.lib</TargetExt>
-    <OutDir Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">E:\hearts_simulator\build\_deps\ftxui-build\RelWithDebInfo\</OutDir>
+    <OutDir Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-build\RelWithDebInfo\</OutDir>
     <IntDir Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">dom.dir\RelWithDebInfo\</IntDir>
     <TargetName Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">ftxui-dom</TargetName>
     <TargetExt Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">.lib</TargetExt>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>E:\hearts_simulator\build\_deps\ftxui-src\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalOptions>%(AdditionalOptions) /external:I "E:/hearts_simulator/build/_deps/ftxui-src/include" /utf-8</AdditionalOptions>
+      <AdditionalIncludeDirectories>C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /external:I "C:/Users/Patrick/Desktop/hearts_simulator/build/_deps/ftxui-src/include" /utf-8</AdditionalOptions>
       <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <BufferSecurityCheck></BufferSecurityCheck>
@@ -108,10 +108,10 @@
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_DEBUG;_WINDOWS;_CRT_SECURE_NO_WARNINGS;UNICODE;_UNICODE;FTXUI_MICROSOFT_TERMINAL_FALLBACK;CMAKE_INTDIR=\"Debug\"</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>E:\hearts_simulator\build\_deps\ftxui-src\src;E:\hearts_simulator\build\_deps\ftxui-src\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Midl>
-      <AdditionalIncludeDirectories>E:\hearts_simulator\build\_deps\ftxui-src\src;E:\hearts_simulator\build\_deps\ftxui-src\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
       <HeaderFileName>%(Filename).h</HeaderFileName>
       <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
@@ -124,8 +124,8 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>E:\hearts_simulator\build\_deps\ftxui-src\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalOptions>%(AdditionalOptions) /external:I "E:/hearts_simulator/build/_deps/ftxui-src/include" /utf-8</AdditionalOptions>
+      <AdditionalIncludeDirectories>C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /external:I "C:/Users/Patrick/Desktop/hearts_simulator/build/_deps/ftxui-src/include" /utf-8</AdditionalOptions>
       <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <BufferSecurityCheck></BufferSecurityCheck>
@@ -155,10 +155,10 @@
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;_CRT_SECURE_NO_WARNINGS;UNICODE;_UNICODE;FTXUI_MICROSOFT_TERMINAL_FALLBACK;CMAKE_INTDIR=\"Release\"</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>E:\hearts_simulator\build\_deps\ftxui-src\src;E:\hearts_simulator\build\_deps\ftxui-src\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Midl>
-      <AdditionalIncludeDirectories>E:\hearts_simulator\build\_deps\ftxui-src\src;E:\hearts_simulator\build\_deps\ftxui-src\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
       <HeaderFileName>%(Filename).h</HeaderFileName>
       <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
@@ -171,8 +171,8 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>E:\hearts_simulator\build\_deps\ftxui-src\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalOptions>%(AdditionalOptions) /external:I "E:/hearts_simulator/build/_deps/ftxui-src/include" /utf-8</AdditionalOptions>
+      <AdditionalIncludeDirectories>C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /external:I "C:/Users/Patrick/Desktop/hearts_simulator/build/_deps/ftxui-src/include" /utf-8</AdditionalOptions>
       <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <BufferSecurityCheck></BufferSecurityCheck>
@@ -202,10 +202,10 @@
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;_CRT_SECURE_NO_WARNINGS;UNICODE;_UNICODE;FTXUI_MICROSOFT_TERMINAL_FALLBACK;CMAKE_INTDIR=\"MinSizeRel\"</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>E:\hearts_simulator\build\_deps\ftxui-src\src;E:\hearts_simulator\build\_deps\ftxui-src\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Midl>
-      <AdditionalIncludeDirectories>E:\hearts_simulator\build\_deps\ftxui-src\src;E:\hearts_simulator\build\_deps\ftxui-src\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
       <HeaderFileName>%(Filename).h</HeaderFileName>
       <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
@@ -218,8 +218,8 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">
     <ClCompile>
-      <AdditionalIncludeDirectories>E:\hearts_simulator\build\_deps\ftxui-src\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalOptions>%(AdditionalOptions) /external:I "E:/hearts_simulator/build/_deps/ftxui-src/include" /utf-8</AdditionalOptions>
+      <AdditionalIncludeDirectories>C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalOptions>%(AdditionalOptions) /external:I "C:/Users/Patrick/Desktop/hearts_simulator/build/_deps/ftxui-src/include" /utf-8</AdditionalOptions>
       <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <BufferSecurityCheck></BufferSecurityCheck>
@@ -248,10 +248,10 @@
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>%(PreprocessorDefinitions);WIN32;_WINDOWS;NDEBUG;_CRT_SECURE_NO_WARNINGS;UNICODE;_UNICODE;FTXUI_MICROSOFT_TERMINAL_FALLBACK;CMAKE_INTDIR=\"RelWithDebInfo\"</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>E:\hearts_simulator\build\_deps\ftxui-src\src;E:\hearts_simulator\build\_deps\ftxui-src\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ResourceCompile>
     <Midl>
-      <AdditionalIncludeDirectories>E:\hearts_simulator\build\_deps\ftxui-src\src;E:\hearts_simulator\build\_deps\ftxui-src\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <OutputDirectory>$(ProjectDir)/$(IntDir)</OutputDirectory>
       <HeaderFileName>%(Filename).h</HeaderFileName>
       <TypeLibraryName>%(Filename).tlb</TypeLibraryName>
@@ -263,11 +263,11 @@
     </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <CustomBuild Include="E:\hearts_simulator\build\_deps\ftxui-src\CMakeLists.txt">
+    <CustomBuild Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\CMakeLists.txt">
       <UseUtf8Encoding>Always</UseUtf8Encoding>
-      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Building Custom Rule E:/hearts_simulator/build/_deps/ftxui-src/CMakeLists.txt</Message>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Building Custom Rule C:/Users/Patrick/Desktop/hearts_simulator/build/_deps/ftxui-src/CMakeLists.txt</Message>
       <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">setlocal
-"C:\Program Files\CMake\bin\cmake.exe" -SE:/hearts_simulator -BE:/hearts_simulator/build --check-stamp-file E:/hearts_simulator/build/_deps/ftxui-build/CMakeFiles/generate.stamp
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/Patrick/Desktop/hearts_simulator -BC:/Users/Patrick/Desktop/hearts_simulator/build --check-stamp-file C:/Users/Patrick/Desktop/hearts_simulator/build/_deps/ftxui-build/CMakeFiles/generate.stamp
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
 endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
@@ -275,12 +275,12 @@ endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
 exit /b %1
 :cmDone
 if %errorlevel% neq 0 goto :VCEnd</Command>
-      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Program Files\CMake\share\cmake-4.3\Modules\BasicConfigVersion-SameMajorVersion.cmake.in;C:\Program Files\CMake\share\cmake-4.3\Modules\CMakePackageConfigHelpers.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CPack.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CPackComponent.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CheckCXXSourceCompiles.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CheckIncludeFileCXX.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CheckLibraryExists.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\FindPackageHandleStandardArgs.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\FindPackageMessage.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\FindThreads.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\GNUInstallDirs.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Internal\CheckSourceCompiles.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\WriteBasicConfigVersionFile.cmake;C:\Program Files\CMake\share\cmake-4.3\Templates\CPackConfig.cmake.in;E:\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui-config.cmake.in;E:\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_benchmark.cmake;E:\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_coverage.cmake;E:\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_export.cmake;E:\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_fuzzer.cmake;E:\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_install.cmake;E:\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_message.cmake;E:\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_package.cmake;E:\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_set_options.cmake;E:\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_test.cmake;E:\hearts_simulator\build\_deps\ftxui-src\cmake\iwyu.cmake;E:\hearts_simulator\build\_deps\ftxui-src\ftxui.pc.in;%(AdditionalInputs)</AdditionalInputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">E:\hearts_simulator\build\_deps\ftxui-build\CMakeFiles\generate.stamp</Outputs>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Program Files\CMake\share\cmake-4.3\Modules\BasicConfigVersion-SameMajorVersion.cmake.in;C:\Program Files\CMake\share\cmake-4.3\Modules\CMakePackageConfigHelpers.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CPack.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CPackComponent.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CheckCXXSourceCompiles.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CheckIncludeFileCXX.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CheckLibraryExists.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\FindPackageHandleStandardArgs.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\FindPackageMessage.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\FindThreads.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\GNUInstallDirs.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Internal\CheckSourceCompiles.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\WriteBasicConfigVersionFile.cmake;C:\Program Files\CMake\share\cmake-4.3\Templates\CPackConfig.cmake.in;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui-config.cmake.in;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_benchmark.cmake;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_coverage.cmake;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_export.cmake;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_fuzzer.cmake;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_install.cmake;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_message.cmake;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_package.cmake;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_set_options.cmake;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_test.cmake;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\cmake\iwyu.cmake;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\ftxui.pc.in;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-build\CMakeFiles\generate.stamp</Outputs>
       <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</LinkObjects>
-      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Building Custom Rule E:/hearts_simulator/build/_deps/ftxui-src/CMakeLists.txt</Message>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Building Custom Rule C:/Users/Patrick/Desktop/hearts_simulator/build/_deps/ftxui-src/CMakeLists.txt</Message>
       <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">setlocal
-"C:\Program Files\CMake\bin\cmake.exe" -SE:/hearts_simulator -BE:/hearts_simulator/build --check-stamp-file E:/hearts_simulator/build/_deps/ftxui-build/CMakeFiles/generate.stamp
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/Patrick/Desktop/hearts_simulator -BC:/Users/Patrick/Desktop/hearts_simulator/build --check-stamp-file C:/Users/Patrick/Desktop/hearts_simulator/build/_deps/ftxui-build/CMakeFiles/generate.stamp
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
 endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
@@ -288,12 +288,12 @@ endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
 exit /b %1
 :cmDone
 if %errorlevel% neq 0 goto :VCEnd</Command>
-      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Program Files\CMake\share\cmake-4.3\Modules\BasicConfigVersion-SameMajorVersion.cmake.in;C:\Program Files\CMake\share\cmake-4.3\Modules\CMakePackageConfigHelpers.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CPack.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CPackComponent.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CheckCXXSourceCompiles.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CheckIncludeFileCXX.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CheckLibraryExists.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\FindPackageHandleStandardArgs.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\FindPackageMessage.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\FindThreads.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\GNUInstallDirs.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Internal\CheckSourceCompiles.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\WriteBasicConfigVersionFile.cmake;C:\Program Files\CMake\share\cmake-4.3\Templates\CPackConfig.cmake.in;E:\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui-config.cmake.in;E:\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_benchmark.cmake;E:\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_coverage.cmake;E:\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_export.cmake;E:\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_fuzzer.cmake;E:\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_install.cmake;E:\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_message.cmake;E:\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_package.cmake;E:\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_set_options.cmake;E:\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_test.cmake;E:\hearts_simulator\build\_deps\ftxui-src\cmake\iwyu.cmake;E:\hearts_simulator\build\_deps\ftxui-src\ftxui.pc.in;%(AdditionalInputs)</AdditionalInputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">E:\hearts_simulator\build\_deps\ftxui-build\CMakeFiles\generate.stamp</Outputs>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Program Files\CMake\share\cmake-4.3\Modules\BasicConfigVersion-SameMajorVersion.cmake.in;C:\Program Files\CMake\share\cmake-4.3\Modules\CMakePackageConfigHelpers.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CPack.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CPackComponent.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CheckCXXSourceCompiles.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CheckIncludeFileCXX.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CheckLibraryExists.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\FindPackageHandleStandardArgs.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\FindPackageMessage.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\FindThreads.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\GNUInstallDirs.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Internal\CheckSourceCompiles.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\WriteBasicConfigVersionFile.cmake;C:\Program Files\CMake\share\cmake-4.3\Templates\CPackConfig.cmake.in;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui-config.cmake.in;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_benchmark.cmake;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_coverage.cmake;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_export.cmake;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_fuzzer.cmake;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_install.cmake;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_message.cmake;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_package.cmake;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_set_options.cmake;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_test.cmake;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\cmake\iwyu.cmake;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\ftxui.pc.in;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-build\CMakeFiles\generate.stamp</Outputs>
       <LinkObjects Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkObjects>
-      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Building Custom Rule E:/hearts_simulator/build/_deps/ftxui-src/CMakeLists.txt</Message>
+      <Message Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">Building Custom Rule C:/Users/Patrick/Desktop/hearts_simulator/build/_deps/ftxui-src/CMakeLists.txt</Message>
       <Command Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">setlocal
-"C:\Program Files\CMake\bin\cmake.exe" -SE:/hearts_simulator -BE:/hearts_simulator/build --check-stamp-file E:/hearts_simulator/build/_deps/ftxui-build/CMakeFiles/generate.stamp
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/Patrick/Desktop/hearts_simulator -BC:/Users/Patrick/Desktop/hearts_simulator/build --check-stamp-file C:/Users/Patrick/Desktop/hearts_simulator/build/_deps/ftxui-build/CMakeFiles/generate.stamp
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
 endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
@@ -301,12 +301,12 @@ endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
 exit /b %1
 :cmDone
 if %errorlevel% neq 0 goto :VCEnd</Command>
-      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Program Files\CMake\share\cmake-4.3\Modules\BasicConfigVersion-SameMajorVersion.cmake.in;C:\Program Files\CMake\share\cmake-4.3\Modules\CMakePackageConfigHelpers.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CPack.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CPackComponent.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CheckCXXSourceCompiles.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CheckIncludeFileCXX.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CheckLibraryExists.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\FindPackageHandleStandardArgs.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\FindPackageMessage.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\FindThreads.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\GNUInstallDirs.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Internal\CheckSourceCompiles.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\WriteBasicConfigVersionFile.cmake;C:\Program Files\CMake\share\cmake-4.3\Templates\CPackConfig.cmake.in;E:\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui-config.cmake.in;E:\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_benchmark.cmake;E:\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_coverage.cmake;E:\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_export.cmake;E:\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_fuzzer.cmake;E:\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_install.cmake;E:\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_message.cmake;E:\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_package.cmake;E:\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_set_options.cmake;E:\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_test.cmake;E:\hearts_simulator\build\_deps\ftxui-src\cmake\iwyu.cmake;E:\hearts_simulator\build\_deps\ftxui-src\ftxui.pc.in;%(AdditionalInputs)</AdditionalInputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">E:\hearts_simulator\build\_deps\ftxui-build\CMakeFiles\generate.stamp</Outputs>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Program Files\CMake\share\cmake-4.3\Modules\BasicConfigVersion-SameMajorVersion.cmake.in;C:\Program Files\CMake\share\cmake-4.3\Modules\CMakePackageConfigHelpers.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CPack.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CPackComponent.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CheckCXXSourceCompiles.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CheckIncludeFileCXX.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CheckLibraryExists.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\FindPackageHandleStandardArgs.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\FindPackageMessage.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\FindThreads.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\GNUInstallDirs.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Internal\CheckSourceCompiles.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\WriteBasicConfigVersionFile.cmake;C:\Program Files\CMake\share\cmake-4.3\Templates\CPackConfig.cmake.in;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui-config.cmake.in;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_benchmark.cmake;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_coverage.cmake;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_export.cmake;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_fuzzer.cmake;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_install.cmake;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_message.cmake;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_package.cmake;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_set_options.cmake;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_test.cmake;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\cmake\iwyu.cmake;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\ftxui.pc.in;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-build\CMakeFiles\generate.stamp</Outputs>
       <LinkObjects Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">false</LinkObjects>
-      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Building Custom Rule E:/hearts_simulator/build/_deps/ftxui-src/CMakeLists.txt</Message>
+      <Message Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">Building Custom Rule C:/Users/Patrick/Desktop/hearts_simulator/build/_deps/ftxui-src/CMakeLists.txt</Message>
       <Command Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">setlocal
-"C:\Program Files\CMake\bin\cmake.exe" -SE:/hearts_simulator -BE:/hearts_simulator/build --check-stamp-file E:/hearts_simulator/build/_deps/ftxui-build/CMakeFiles/generate.stamp
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/Patrick/Desktop/hearts_simulator -BC:/Users/Patrick/Desktop/hearts_simulator/build --check-stamp-file C:/Users/Patrick/Desktop/hearts_simulator/build/_deps/ftxui-build/CMakeFiles/generate.stamp
 if %errorlevel% neq 0 goto :cmEnd
 :cmEnd
 endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
@@ -314,71 +314,71 @@ endlocal &amp; call :cmErrorLevel %errorlevel% &amp; goto :cmDone
 exit /b %1
 :cmDone
 if %errorlevel% neq 0 goto :VCEnd</Command>
-      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Program Files\CMake\share\cmake-4.3\Modules\BasicConfigVersion-SameMajorVersion.cmake.in;C:\Program Files\CMake\share\cmake-4.3\Modules\CMakePackageConfigHelpers.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CPack.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CPackComponent.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CheckCXXSourceCompiles.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CheckIncludeFileCXX.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CheckLibraryExists.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\FindPackageHandleStandardArgs.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\FindPackageMessage.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\FindThreads.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\GNUInstallDirs.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Internal\CheckSourceCompiles.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\WriteBasicConfigVersionFile.cmake;C:\Program Files\CMake\share\cmake-4.3\Templates\CPackConfig.cmake.in;E:\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui-config.cmake.in;E:\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_benchmark.cmake;E:\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_coverage.cmake;E:\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_export.cmake;E:\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_fuzzer.cmake;E:\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_install.cmake;E:\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_message.cmake;E:\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_package.cmake;E:\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_set_options.cmake;E:\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_test.cmake;E:\hearts_simulator\build\_deps\ftxui-src\cmake\iwyu.cmake;E:\hearts_simulator\build\_deps\ftxui-src\ftxui.pc.in;%(AdditionalInputs)</AdditionalInputs>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">E:\hearts_simulator\build\_deps\ftxui-build\CMakeFiles\generate.stamp</Outputs>
+      <AdditionalInputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Program Files\CMake\share\cmake-4.3\Modules\BasicConfigVersion-SameMajorVersion.cmake.in;C:\Program Files\CMake\share\cmake-4.3\Modules\CMakePackageConfigHelpers.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CPack.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CPackComponent.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CheckCXXSourceCompiles.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CheckIncludeFileCXX.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\CheckLibraryExists.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\FindPackageHandleStandardArgs.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\FindPackageMessage.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\FindThreads.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\GNUInstallDirs.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\Internal\CheckSourceCompiles.cmake;C:\Program Files\CMake\share\cmake-4.3\Modules\WriteBasicConfigVersionFile.cmake;C:\Program Files\CMake\share\cmake-4.3\Templates\CPackConfig.cmake.in;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui-config.cmake.in;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_benchmark.cmake;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_coverage.cmake;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_export.cmake;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_fuzzer.cmake;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_install.cmake;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_message.cmake;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_package.cmake;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_set_options.cmake;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\cmake\ftxui_test.cmake;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\cmake\iwyu.cmake;C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\ftxui.pc.in;%(AdditionalInputs)</AdditionalInputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-build\CMakeFiles\generate.stamp</Outputs>
       <LinkObjects Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">false</LinkObjects>
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="E:\hearts_simulator\build\_deps\ftxui-src\include\ftxui\dom\canvas.hpp" />
-    <ClInclude Include="E:\hearts_simulator\build\_deps\ftxui-src\include\ftxui\dom\direction.hpp" />
-    <ClInclude Include="E:\hearts_simulator\build\_deps\ftxui-src\include\ftxui\dom\elements.hpp" />
-    <ClInclude Include="E:\hearts_simulator\build\_deps\ftxui-src\include\ftxui\dom\flexbox_config.hpp" />
-    <ClInclude Include="E:\hearts_simulator\build\_deps\ftxui-src\include\ftxui\dom\node.hpp" />
-    <ClInclude Include="E:\hearts_simulator\build\_deps\ftxui-src\include\ftxui\dom\requirement.hpp" />
-    <ClInclude Include="E:\hearts_simulator\build\_deps\ftxui-src\include\ftxui\dom\take_any_args.hpp" />
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\automerge.cpp" />
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\blink.cpp" />
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\bold.cpp" />
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\hyperlink.cpp" />
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\border.cpp" />
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\box_helper.cpp" />
-    <ClInclude Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\box_helper.hpp" />
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\canvas.cpp" />
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\clear_under.cpp" />
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\color.cpp" />
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\composite_decorator.cpp" />
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\dbox.cpp" />
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\dim.cpp" />
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\flex.cpp" />
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\flexbox.cpp" />
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\flexbox_config.cpp" />
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\flexbox_helper.cpp" />
-    <ClInclude Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\flexbox_helper.hpp" />
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\focus.cpp" />
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\frame.cpp" />
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\gauge.cpp" />
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\graph.cpp" />
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\gridbox.cpp" />
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\hbox.cpp" />
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\inverted.cpp" />
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\linear_gradient.cpp" />
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\node.cpp" />
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\node_decorator.cpp" />
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\paragraph.cpp" />
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\reflect.cpp" />
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\scroll_indicator.cpp" />
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\separator.cpp" />
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\size.cpp" />
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\spinner.cpp" />
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\strikethrough.cpp" />
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\table.cpp" />
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\text.cpp" />
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\underlined.cpp" />
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\underlined_double.cpp" />
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\util.cpp" />
-    <ClCompile Include="E:\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\vbox.cpp" />
+    <ClInclude Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\include\ftxui\dom\canvas.hpp" />
+    <ClInclude Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\include\ftxui\dom\direction.hpp" />
+    <ClInclude Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\include\ftxui\dom\elements.hpp" />
+    <ClInclude Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\include\ftxui\dom\flexbox_config.hpp" />
+    <ClInclude Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\include\ftxui\dom\node.hpp" />
+    <ClInclude Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\include\ftxui\dom\requirement.hpp" />
+    <ClInclude Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\include\ftxui\dom\take_any_args.hpp" />
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\automerge.cpp" />
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\blink.cpp" />
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\bold.cpp" />
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\hyperlink.cpp" />
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\border.cpp" />
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\box_helper.cpp" />
+    <ClInclude Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\box_helper.hpp" />
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\canvas.cpp" />
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\clear_under.cpp" />
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\color.cpp" />
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\composite_decorator.cpp" />
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\dbox.cpp" />
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\dim.cpp" />
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\flex.cpp" />
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\flexbox.cpp" />
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\flexbox_config.cpp" />
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\flexbox_helper.cpp" />
+    <ClInclude Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\flexbox_helper.hpp" />
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\focus.cpp" />
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\frame.cpp" />
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\gauge.cpp" />
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\graph.cpp" />
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\gridbox.cpp" />
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\hbox.cpp" />
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\inverted.cpp" />
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\linear_gradient.cpp" />
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\node.cpp" />
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\node_decorator.cpp" />
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\paragraph.cpp" />
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\reflect.cpp" />
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\scroll_indicator.cpp" />
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\separator.cpp" />
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\size.cpp" />
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\spinner.cpp" />
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\strikethrough.cpp" />
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\table.cpp" />
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\text.cpp" />
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\underlined.cpp" />
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\underlined_double.cpp" />
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\util.cpp" />
+    <ClCompile Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-src\src\ftxui\dom\vbox.cpp" />
   </ItemGroup>
   <ItemGroup />
   <ItemGroup>
-    <ProjectReference Include="E:\hearts_simulator\build\ZERO_CHECK.vcxproj">
-      <Project>{05DFBC77-7AEF-3864-AABF-0AA841479CB8}</Project>
+    <ProjectReference Include="C:\Users\Patrick\Desktop\hearts_simulator\build\ZERO_CHECK.vcxproj">
+      <Project>{9C09D6F9-9613-3BB9-A3FB-0A3ECB6C88F2}</Project>
       <Name>ZERO_CHECK</Name>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </ProjectReference>
-    <ProjectReference Include="E:\hearts_simulator\build\_deps\ftxui-build\screen.vcxproj">
-      <Project>{B460CFDC-D7BA-321E-871A-A55F96D338CE}</Project>
+    <ProjectReference Include="C:\Users\Patrick\Desktop\hearts_simulator\build\_deps\ftxui-build\screen.vcxproj">
+      <Project>{A2A45DD6-6414-32F6-A826-5D658D8A17F1}</Project>
       <Name>screen</Name>
     </ProjectReference>
   </ItemGroup>
