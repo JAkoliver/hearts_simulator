@@ -12,6 +12,7 @@
 		<BuildDependency Project="ZERO_CHECK.vcxproj"/>
 		<BuildDependency Project="_deps/ftxui-build/component.vcxproj"/>
 		<BuildDependency Project="_deps/ftxui-build/dom.vcxproj"/>
+		<BuildDependency Project="hearts_env.vcxproj"/>
 		<BuildDependency Project="_deps/ftxui-build/screen.vcxproj"/>
 	</Project>
 	<Project Path="HeartsSimulator.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="613c71a1-47de-30dd-affc-1021af71e96e">
@@ -45,6 +46,9 @@
 	<Project Path="_deps/ftxui-build/dom.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="ae308506-9a93-35da-b0be-0eeb1551934e">
 		<BuildDependency Project="ZERO_CHECK.vcxproj"/>
 		<BuildDependency Project="_deps/ftxui-build/screen.vcxproj"/>
+	</Project>
+	<Project Path="hearts_env.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="598f656f-1552-39c1-bcb5-3c0d0b1c4315">
+		<BuildDependency Project="ZERO_CHECK.vcxproj"/>
 	</Project>
 	<Project Path="_deps/ftxui-build/screen.vcxproj" Type="8bc9ceb8-8b4a-11d0-8d11-00a0c91bc942" Id="b460cfdc-d7ba-321e-871a-a55f96d338ce">
 		<BuildDependency Project="ZERO_CHECK.vcxproj"/>

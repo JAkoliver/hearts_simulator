@@ -12,5 +12,17 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(ftxui)
 
+# Find Torch
+set(CMAKE_PREFIX_PATH ${CMAKE_SOURCE_DIR}/libtorch)
+find_package(Torch REQUIRED)
+
 add_executable(HeartsSimulator main.cpp)
-target_link_libraries(HeartsSimulator PRIVATE ftxui::screen ftxui::dom ftxui::component)
+target_link_libraries(HeartsSimulator PRIVATE ftxui::screen ftxui::dom ftxui::component ${TORCH_LIBRARIES})
+set_property(TARGET HeartsSimulator PROPERTY CXX_STANDARD 17)
+
+# Find Python and Pybind11
+find_package(Python COMPONENTS Interpreter Development REQUIRED)
+find_package(pybind11 CONFIG REQUIRED)
+
+# Build the Python module (creates a .pyd on Windows or .so on Linux/Mac)
+pybind11_add_module(hearts_env bindings.cpp)

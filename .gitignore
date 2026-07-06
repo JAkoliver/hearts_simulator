@@ -1,0 +1,47 @@
+# ====================================================================
+# Build Tree (CMake & Visual Studio)
+# ====================================================================
+# This catches the entire build/ folder containing your CMakeCache.txt, 
+# CMakeFiles, .sln, and .vcxproj files so your local compilation is ignored.
+build/
+
+# ====================================================================
+# Heavy Dependencies
+# ====================================================================
+# Prevents the multi-gigabyte C++ LibTorch library from hitting Git.
+libtorch/
+
+# ====================================================================
+# Machine Learning Weights & Serialized Models
+# ====================================================================
+# Catches hearts_model_final.pth, hearts_model_interrupted.pth,
+# and the compiled TorchScript graph hearts_ai_grandmaster.pt.
+*.pt
+*.pth
+
+# ====================================================================
+# Compiled C++ Extensions & Binaries
+# ====================================================================
+# Catches the compiled Python C++ module (hearts_env.cp311-win_amd64.pyd)
+# as well as any loose executables or dynamic libraries.
+*.pyd
+*.exe
+*.dll
+*.pdb
+*.ilk
+
+# ====================================================================
+# Python Caches & Environments
+# ====================================================================
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# ====================================================================
+# User-Specific IDE Configurations
+# ====================================================================
+.vscode/
+.idea/
+*.suo
+*.user

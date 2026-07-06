@@ -245,6 +245,9 @@ CPACK_SOURCE_7Z:BOOL=ON
 //Enable to build ZIP source packages
 CPACK_SOURCE_ZIP:BOOL=ON
 
+//The directory containing a CMake configuration file for Caffe2.
+Caffe2_DIR:PATH=E:/hearts_simulator/libtorch/share/cmake/Caffe2
+
 //Directory under which to collect all populated content
 FETCHCONTENT_BASE_DIR:PATH=E:/hearts_simulator/build/_deps
 
@@ -309,6 +312,21 @@ HeartsSimulator_IS_TOP_LEVEL:STATIC=ON
 //Value Computed by CMake
 HeartsSimulator_SOURCE_DIR:STATIC=E:/hearts_simulator
 
+//The directory containing a CMake configuration file for MKLDNN.
+MKLDNN_DIR:PATH=MKLDNN_DIR-NOTFOUND
+
+//The directory containing a CMake configuration file for MKL.
+MKL_DIR:PATH=MKL_DIR-NOTFOUND
+
+//Path to a library.
+TORCH_LIBRARY:FILEPATH=E:/hearts_simulator/libtorch/lib/torch.lib
+
+//The directory containing a CMake configuration file for Torch.
+Torch_DIR:PATH=E:/hearts_simulator/libtorch/share/cmake/Torch
+
+//Path to a library.
+c10_LIBRARY:FILEPATH=E:/hearts_simulator/libtorch/lib/c10.lib
+
 //Value Computed by CMake
 ftxui_BINARY_DIR:STATIC=E:/hearts_simulator/build/_deps/ftxui-build
 
@@ -320,6 +338,12 @@ ftxui_SOURCE_DIR:STATIC=E:/hearts_simulator/build/_deps/ftxui-src
 
 //Path to a program.
 iwyu_path:FILEPATH=iwyu_path-NOTFOUND
+
+//Path to a library.
+kineto_LIBRARY:FILEPATH=E:/hearts_simulator/libtorch/lib/kineto.lib
+
+//No help, variable specified on the command line.
+pybind11_DIR:UNINITIALIZED=C:\Users\patom\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\LocalCache\local-packages\Python313\site-packages\pybind11\share\cmake\pybind11
 
 
 ########################
@@ -484,10 +508,51 @@ CMAKE_VERBOSE_MAKEFILE-ADVANCED:INTERNAL=1
 CPACK_SOURCE_7Z-ADVANCED:INTERNAL=1
 //ADVANCED property for variable: CPACK_SOURCE_ZIP
 CPACK_SOURCE_ZIP-ADVANCED:INTERNAL=1
+//Details about finding Python
+FIND_PACKAGE_MESSAGE_DETAILS_Python:INTERNAL=[C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/python3.13.exe][C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/libs/python313.lib][C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/Include][found components: Interpreter Development Development.Module Development.Embed ][v3.13.14()]
 //Details about finding Threads
 FIND_PACKAGE_MESSAGE_DETAILS_Threads:INTERNAL=[TRUE][v()]
+//Details about finding Torch
+FIND_PACKAGE_MESSAGE_DETAILS_Torch:INTERNAL=[E:/hearts_simulator/libtorch/lib/torch.lib][E:/hearts_simulator/libtorch/include;E:/hearts_simulator/libtorch/include/torch/csrc/api/include][v()]
 //ADVANCED property for variable: GIT_EXECUTABLE
 GIT_EXECUTABLE-ADVANCED:INTERNAL=1
+//Test HAS_MSVC_GL_LTCG
+HAS_MSVC_GL_LTCG:INTERNAL=1
+//Python executable during the last CMake run
+PYBIND11_PYTHON_EXECUTABLE_LAST:INTERNAL=C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/python3.13.exe
+//Python debug status
+PYTHON_IS_DEBUG:INTERNAL=0
+PYTHON_MODULE_DEBUG_POSTFIX:INTERNAL=
+PYTHON_MODULE_EXTENSION:INTERNAL=.cp313-win_amd64.pyd
 //CMAKE_INSTALL_PREFIX during last run
 _GNUInstallDirs_LAST_CMAKE_INSTALL_PREFIX:INTERNAL=C:/Program Files (x86)/HeartsSimulator
+_PYBIND11_CROSSCOMPILING:INTERNAL=OFF
+_Python:INTERNAL=Python
+//Compiler reason failure
+_Python_Compiler_REASON_FAILURE:INTERNAL=
+_Python_DEVELOPMENT_EMBED_SIGNATURE:INTERNAL=3cf29043623c6f5b426bbf4f29ce2ada
+_Python_DEVELOPMENT_MODULE_SIGNATURE:INTERNAL=3cf29043623c6f5b426bbf4f29ce2ada
+//Development reason failure
+_Python_Development_REASON_FAILURE:INTERNAL=
+//Path to a program.
+_Python_EXECUTABLE:INTERNAL=C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/python3.13.exe
+//Path to a program.
+_Python_EXECUTABLE_DEBUG:INTERNAL=_Python_EXECUTABLE_DEBUG-NOTFOUND
+//Path to a file.
+_Python_INCLUDE_DIR:INTERNAL=C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/Include
+//Python Properties
+_Python_INTERPRETER_PROPERTIES:INTERNAL=Python;3;13;14;64;<none>;cp313-win_amd64;;C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/Lib;C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/Lib;C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/Lib/site-packages;C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/Lib/site-packages
+_Python_INTERPRETER_SIGNATURE:INTERNAL=8e02d564a354569c67d356e1da53b0f6
+//Interpreter reason failure
+_Python_Interpreter_REASON_FAILURE:INTERNAL=
+//Path to a library.
+_Python_LIBRARY_DEBUG:INTERNAL=_Python_LIBRARY_DEBUG-NOTFOUND
+//Path to a library.
+_Python_LIBRARY_RELEASE:INTERNAL=C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/libs/python313.lib
+//NumPy reason failure
+_Python_NumPy_REASON_FAILURE:INTERNAL=
+//Path to a library.
+_Python_RUNTIME_LIBRARY_RELEASE:INTERNAL=C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/python313.dll
+//Directories where pybind11 and possibly Python headers are located
+pybind11_INCLUDE_DIRS:INTERNAL=C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/site-packages/pybind11/include;C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/Include
 

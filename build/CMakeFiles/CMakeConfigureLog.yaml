@@ -1948,3 +1948,3934 @@ events:
         - "C:/Program Files/CMake"
         - "C:/Program Files (x86)/HeartsSimulator"
 ...
+
+---
+events:
+  -
+    kind: "find-v1"
+    backtrace:
+      - "C:/Program Files/CMake/share/cmake-4.3/Modules/FindPython/Support.cmake:2285 (find_program)"
+      - "C:/Program Files/CMake/share/cmake-4.3/Modules/FindPython.cmake:721 (include)"
+      - "CMakeLists.txt:19 (find_package)"
+    mode: "program"
+    variable: "_Python_EXECUTABLE"
+    description: "Path to a program."
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: true
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: false
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: false
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "python3.15"
+      - "python3"
+      - "python"
+      - "ipy3.15"
+      - "ipy3"
+      - "ipy64"
+      - "ipy32"
+      - "ipy"
+      - "ipy.exe"
+    candidate_directories:
+      - "/REGISTRY-NOTFOUND/bin/"
+      - "/REGISTRY-NOTFOUND/Scripts/"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.15/"
+      - "/REGISTRY-NOTFOUND/net45/"
+      - "/REGISTRY-NOTFOUND/net40/"
+      - "/REGISTRY-NOTFOUND/"
+    searched_directories:
+      - "/REGISTRY-NOTFOUND/bin/python3.15.com"
+      - "/REGISTRY-NOTFOUND/bin/python3.15.exe"
+      - "/REGISTRY-NOTFOUND/bin/python3.15"
+      - "/REGISTRY-NOTFOUND/bin/python3.com"
+      - "/REGISTRY-NOTFOUND/bin/python3.exe"
+      - "/REGISTRY-NOTFOUND/bin/python3"
+      - "/REGISTRY-NOTFOUND/bin/python.com"
+      - "/REGISTRY-NOTFOUND/bin/python.exe"
+      - "/REGISTRY-NOTFOUND/bin/python"
+      - "/REGISTRY-NOTFOUND/bin/ipy3.15.com"
+      - "/REGISTRY-NOTFOUND/bin/ipy3.15.exe"
+      - "/REGISTRY-NOTFOUND/bin/ipy3.15"
+      - "/REGISTRY-NOTFOUND/bin/ipy3.com"
+      - "/REGISTRY-NOTFOUND/bin/ipy3.exe"
+      - "/REGISTRY-NOTFOUND/bin/ipy3"
+      - "/REGISTRY-NOTFOUND/bin/ipy64.com"
+      - "/REGISTRY-NOTFOUND/bin/ipy64.exe"
+      - "/REGISTRY-NOTFOUND/bin/ipy64"
+      - "/REGISTRY-NOTFOUND/bin/ipy32.com"
+      - "/REGISTRY-NOTFOUND/bin/ipy32.exe"
+      - "/REGISTRY-NOTFOUND/bin/ipy32"
+      - "/REGISTRY-NOTFOUND/bin/ipy.com"
+      - "/REGISTRY-NOTFOUND/bin/ipy.exe"
+      - "/REGISTRY-NOTFOUND/bin/ipy"
+      - "/REGISTRY-NOTFOUND/bin/ipy.exe.com"
+      - "/REGISTRY-NOTFOUND/bin/ipy.exe"
+      - "/REGISTRY-NOTFOUND/Scripts/python3.15.com"
+      - "/REGISTRY-NOTFOUND/Scripts/python3.15.exe"
+      - "/REGISTRY-NOTFOUND/Scripts/python3.15"
+      - "/REGISTRY-NOTFOUND/Scripts/python3.com"
+      - "/REGISTRY-NOTFOUND/Scripts/python3.exe"
+      - "/REGISTRY-NOTFOUND/Scripts/python3"
+      - "/REGISTRY-NOTFOUND/Scripts/python.com"
+      - "/REGISTRY-NOTFOUND/Scripts/python.exe"
+      - "/REGISTRY-NOTFOUND/Scripts/python"
+      - "/REGISTRY-NOTFOUND/Scripts/ipy3.15.com"
+      - "/REGISTRY-NOTFOUND/Scripts/ipy3.15.exe"
+      - "/REGISTRY-NOTFOUND/Scripts/ipy3.15"
+      - "/REGISTRY-NOTFOUND/Scripts/ipy3.com"
+      - "/REGISTRY-NOTFOUND/Scripts/ipy3.exe"
+      - "/REGISTRY-NOTFOUND/Scripts/ipy3"
+      - "/REGISTRY-NOTFOUND/Scripts/ipy64.com"
+      - "/REGISTRY-NOTFOUND/Scripts/ipy64.exe"
+      - "/REGISTRY-NOTFOUND/Scripts/ipy64"
+      - "/REGISTRY-NOTFOUND/Scripts/ipy32.com"
+      - "/REGISTRY-NOTFOUND/Scripts/ipy32.exe"
+      - "/REGISTRY-NOTFOUND/Scripts/ipy32"
+      - "/REGISTRY-NOTFOUND/Scripts/ipy.com"
+      - "/REGISTRY-NOTFOUND/Scripts/ipy.exe"
+      - "/REGISTRY-NOTFOUND/Scripts/ipy"
+      - "/REGISTRY-NOTFOUND/Scripts/ipy.exe.com"
+      - "/REGISTRY-NOTFOUND/Scripts/ipy.exe"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.15/python3.15.com"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.15/python3.15.exe"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.15/python3.15"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.15/python3.com"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.15/python3.exe"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.15/python3"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.15/python.com"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.15/python.exe"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.15/python"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.15/ipy3.15.com"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.15/ipy3.15.exe"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.15/ipy3.15"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.15/ipy3.com"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.15/ipy3.exe"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.15/ipy3"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.15/ipy64.com"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.15/ipy64.exe"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.15/ipy64"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.15/ipy32.com"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.15/ipy32.exe"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.15/ipy32"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.15/ipy.com"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.15/ipy.exe"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.15/ipy"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.15/ipy.exe.com"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.15/ipy.exe"
+      - "/REGISTRY-NOTFOUND/net45/python3.15.com"
+      - "/REGISTRY-NOTFOUND/net45/python3.15.exe"
+      - "/REGISTRY-NOTFOUND/net45/python3.15"
+      - "/REGISTRY-NOTFOUND/net45/python3.com"
+      - "/REGISTRY-NOTFOUND/net45/python3.exe"
+      - "/REGISTRY-NOTFOUND/net45/python3"
+      - "/REGISTRY-NOTFOUND/net45/python.com"
+      - "/REGISTRY-NOTFOUND/net45/python.exe"
+      - "/REGISTRY-NOTFOUND/net45/python"
+      - "/REGISTRY-NOTFOUND/net45/ipy3.15.com"
+      - "/REGISTRY-NOTFOUND/net45/ipy3.15.exe"
+      - "/REGISTRY-NOTFOUND/net45/ipy3.15"
+      - "/REGISTRY-NOTFOUND/net45/ipy3.com"
+      - "/REGISTRY-NOTFOUND/net45/ipy3.exe"
+      - "/REGISTRY-NOTFOUND/net45/ipy3"
+      - "/REGISTRY-NOTFOUND/net45/ipy64.com"
+      - "/REGISTRY-NOTFOUND/net45/ipy64.exe"
+      - "/REGISTRY-NOTFOUND/net45/ipy64"
+      - "/REGISTRY-NOTFOUND/net45/ipy32.com"
+      - "/REGISTRY-NOTFOUND/net45/ipy32.exe"
+      - "/REGISTRY-NOTFOUND/net45/ipy32"
+      - "/REGISTRY-NOTFOUND/net45/ipy.com"
+      - "/REGISTRY-NOTFOUND/net45/ipy.exe"
+      - "/REGISTRY-NOTFOUND/net45/ipy"
+      - "/REGISTRY-NOTFOUND/net45/ipy.exe.com"
+      - "/REGISTRY-NOTFOUND/net45/ipy.exe"
+      - "/REGISTRY-NOTFOUND/net40/python3.15.com"
+      - "/REGISTRY-NOTFOUND/net40/python3.15.exe"
+      - "/REGISTRY-NOTFOUND/net40/python3.15"
+      - "/REGISTRY-NOTFOUND/net40/python3.com"
+      - "/REGISTRY-NOTFOUND/net40/python3.exe"
+      - "/REGISTRY-NOTFOUND/net40/python3"
+      - "/REGISTRY-NOTFOUND/net40/python.com"
+      - "/REGISTRY-NOTFOUND/net40/python.exe"
+      - "/REGISTRY-NOTFOUND/net40/python"
+      - "/REGISTRY-NOTFOUND/net40/ipy3.15.com"
+      - "/REGISTRY-NOTFOUND/net40/ipy3.15.exe"
+      - "/REGISTRY-NOTFOUND/net40/ipy3.15"
+      - "/REGISTRY-NOTFOUND/net40/ipy3.com"
+      - "/REGISTRY-NOTFOUND/net40/ipy3.exe"
+      - "/REGISTRY-NOTFOUND/net40/ipy3"
+      - "/REGISTRY-NOTFOUND/net40/ipy64.com"
+      - "/REGISTRY-NOTFOUND/net40/ipy64.exe"
+      - "/REGISTRY-NOTFOUND/net40/ipy64"
+      - "/REGISTRY-NOTFOUND/net40/ipy32.com"
+      - "/REGISTRY-NOTFOUND/net40/ipy32.exe"
+      - "/REGISTRY-NOTFOUND/net40/ipy32"
+      - "/REGISTRY-NOTFOUND/net40/ipy.com"
+      - "/REGISTRY-NOTFOUND/net40/ipy.exe"
+      - "/REGISTRY-NOTFOUND/net40/ipy"
+      - "/REGISTRY-NOTFOUND/net40/ipy.exe.com"
+      - "/REGISTRY-NOTFOUND/net40/ipy.exe"
+      - "/REGISTRY-NOTFOUND/python3.15.com"
+      - "/REGISTRY-NOTFOUND/python3.15.exe"
+      - "/REGISTRY-NOTFOUND/python3.15"
+      - "/REGISTRY-NOTFOUND/python3.com"
+      - "/REGISTRY-NOTFOUND/python3.exe"
+      - "/REGISTRY-NOTFOUND/python3"
+      - "/REGISTRY-NOTFOUND/python.com"
+      - "/REGISTRY-NOTFOUND/python.exe"
+      - "/REGISTRY-NOTFOUND/python"
+      - "/REGISTRY-NOTFOUND/ipy3.15.com"
+      - "/REGISTRY-NOTFOUND/ipy3.15.exe"
+      - "/REGISTRY-NOTFOUND/ipy3.15"
+      - "/REGISTRY-NOTFOUND/ipy3.com"
+      - "/REGISTRY-NOTFOUND/ipy3.exe"
+      - "/REGISTRY-NOTFOUND/ipy3"
+      - "/REGISTRY-NOTFOUND/ipy64.com"
+      - "/REGISTRY-NOTFOUND/ipy64.exe"
+      - "/REGISTRY-NOTFOUND/ipy64"
+      - "/REGISTRY-NOTFOUND/ipy32.com"
+      - "/REGISTRY-NOTFOUND/ipy32.exe"
+      - "/REGISTRY-NOTFOUND/ipy32"
+      - "/REGISTRY-NOTFOUND/ipy.com"
+      - "/REGISTRY-NOTFOUND/ipy.exe"
+      - "/REGISTRY-NOTFOUND/ipy"
+      - "/REGISTRY-NOTFOUND/ipy.exe.com"
+      - "/REGISTRY-NOTFOUND/ipy.exe"
+    found: false
+    search_context:
+      ENV{PATH}:
+        - "C:/Users/patom/.gemini/antigravity/bin"
+        - "C:\\Users\\patom\\AppData\\Roaming\\Antigravity\\bin"
+        - "C:\\Program Files (x86)\\Razer Chroma SDK\\bin"
+        - "C:\\Program Files\\Razer Chroma SDK\\bin"
+        - "C:\\WINDOWS\\system32"
+        - "C:\\WINDOWS"
+        - "C:\\WINDOWS\\System32\\Wbem"
+        - "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\WINDOWS\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA app\\NvDLISR"
+        - "C:\\WINDOWS\\system32\\config\\systemprofile\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Program Files (x86)\\Razer\\ChromaBroadcast\\bin"
+        - "C:\\Program Files\\Razer\\ChromaBroadcast\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Program Files\\dotnet\\"
+        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
+        - "C:\\Program Files\\Git\\cmd"
+        - "C:\\WINDOWS\\system32"
+        - "C:\\WINDOWS"
+        - "C:\\WINDOWS\\System32\\Wbem"
+        - "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\WINDOWS\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\Docker\\Docker\\resources\\bin"
+        - "C:\\Program Files\\CMake\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Python\\Python310\\Scripts\\"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Python\\Python310\\"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Users\\patom\\AppData\\Local\\GitHubDesktop\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Microsoft VS Code\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Antigravity\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WinGet\\Packages\\AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe"
+        - "C:\\Users\\patom\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python313\\Scripts"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Antigravity IDE\\bin"
+      CMAKE_INSTALL_PREFIX: "C:/Program Files (x86)/HeartsSimulator"
+      CMAKE_SYSTEM_PREFIX_PATH:
+        - "C:/Program Files"
+        - "C:/Program Files (x86)"
+        - "C:/Program Files/CMake"
+        - "C:/Program Files (x86)/HeartsSimulator"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "C:/Program Files/CMake/share/cmake-4.3/Modules/FindPython/Support.cmake:2285 (find_program)"
+      - "C:/Program Files/CMake/share/cmake-4.3/Modules/FindPython.cmake:721 (include)"
+      - "CMakeLists.txt:19 (find_package)"
+    mode: "program"
+    variable: "_Python_EXECUTABLE"
+    description: "Path to a program."
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: true
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: false
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: false
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "python3.13"
+      - "python3"
+      - "python"
+      - "ipy3.13"
+      - "ipy3"
+      - "ipy64"
+      - "ipy32"
+      - "ipy"
+      - "ipy.exe"
+    candidate_directories:
+      - "/REGISTRY-NOTFOUND/bin/"
+      - "/REGISTRY-NOTFOUND/Scripts/"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.13/"
+      - "/REGISTRY-NOTFOUND/net45/"
+      - "/REGISTRY-NOTFOUND/net40/"
+      - "/REGISTRY-NOTFOUND/"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/bin/"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/Scripts/"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/share/ironpython3.13/"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net45/"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net40/"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/"
+    searched_directories:
+      - "/REGISTRY-NOTFOUND/bin/python3.13.com"
+      - "/REGISTRY-NOTFOUND/bin/python3.13.exe"
+      - "/REGISTRY-NOTFOUND/bin/python3.13"
+      - "/REGISTRY-NOTFOUND/bin/python3.com"
+      - "/REGISTRY-NOTFOUND/bin/python3.exe"
+      - "/REGISTRY-NOTFOUND/bin/python3"
+      - "/REGISTRY-NOTFOUND/bin/python.com"
+      - "/REGISTRY-NOTFOUND/bin/python.exe"
+      - "/REGISTRY-NOTFOUND/bin/python"
+      - "/REGISTRY-NOTFOUND/bin/ipy3.13.com"
+      - "/REGISTRY-NOTFOUND/bin/ipy3.13.exe"
+      - "/REGISTRY-NOTFOUND/bin/ipy3.13"
+      - "/REGISTRY-NOTFOUND/bin/ipy3.com"
+      - "/REGISTRY-NOTFOUND/bin/ipy3.exe"
+      - "/REGISTRY-NOTFOUND/bin/ipy3"
+      - "/REGISTRY-NOTFOUND/bin/ipy64.com"
+      - "/REGISTRY-NOTFOUND/bin/ipy64.exe"
+      - "/REGISTRY-NOTFOUND/bin/ipy64"
+      - "/REGISTRY-NOTFOUND/bin/ipy32.com"
+      - "/REGISTRY-NOTFOUND/bin/ipy32.exe"
+      - "/REGISTRY-NOTFOUND/bin/ipy32"
+      - "/REGISTRY-NOTFOUND/bin/ipy.com"
+      - "/REGISTRY-NOTFOUND/bin/ipy.exe"
+      - "/REGISTRY-NOTFOUND/bin/ipy"
+      - "/REGISTRY-NOTFOUND/bin/ipy.exe.com"
+      - "/REGISTRY-NOTFOUND/bin/ipy.exe"
+      - "/REGISTRY-NOTFOUND/Scripts/python3.13.com"
+      - "/REGISTRY-NOTFOUND/Scripts/python3.13.exe"
+      - "/REGISTRY-NOTFOUND/Scripts/python3.13"
+      - "/REGISTRY-NOTFOUND/Scripts/python3.com"
+      - "/REGISTRY-NOTFOUND/Scripts/python3.exe"
+      - "/REGISTRY-NOTFOUND/Scripts/python3"
+      - "/REGISTRY-NOTFOUND/Scripts/python.com"
+      - "/REGISTRY-NOTFOUND/Scripts/python.exe"
+      - "/REGISTRY-NOTFOUND/Scripts/python"
+      - "/REGISTRY-NOTFOUND/Scripts/ipy3.13.com"
+      - "/REGISTRY-NOTFOUND/Scripts/ipy3.13.exe"
+      - "/REGISTRY-NOTFOUND/Scripts/ipy3.13"
+      - "/REGISTRY-NOTFOUND/Scripts/ipy3.com"
+      - "/REGISTRY-NOTFOUND/Scripts/ipy3.exe"
+      - "/REGISTRY-NOTFOUND/Scripts/ipy3"
+      - "/REGISTRY-NOTFOUND/Scripts/ipy64.com"
+      - "/REGISTRY-NOTFOUND/Scripts/ipy64.exe"
+      - "/REGISTRY-NOTFOUND/Scripts/ipy64"
+      - "/REGISTRY-NOTFOUND/Scripts/ipy32.com"
+      - "/REGISTRY-NOTFOUND/Scripts/ipy32.exe"
+      - "/REGISTRY-NOTFOUND/Scripts/ipy32"
+      - "/REGISTRY-NOTFOUND/Scripts/ipy.com"
+      - "/REGISTRY-NOTFOUND/Scripts/ipy.exe"
+      - "/REGISTRY-NOTFOUND/Scripts/ipy"
+      - "/REGISTRY-NOTFOUND/Scripts/ipy.exe.com"
+      - "/REGISTRY-NOTFOUND/Scripts/ipy.exe"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.13/python3.13.com"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.13/python3.13.exe"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.13/python3.13"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.13/python3.com"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.13/python3.exe"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.13/python3"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.13/python.com"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.13/python.exe"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.13/python"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.13/ipy3.13.com"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.13/ipy3.13.exe"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.13/ipy3.13"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.13/ipy3.com"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.13/ipy3.exe"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.13/ipy3"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.13/ipy64.com"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.13/ipy64.exe"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.13/ipy64"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.13/ipy32.com"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.13/ipy32.exe"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.13/ipy32"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.13/ipy.com"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.13/ipy.exe"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.13/ipy"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.13/ipy.exe.com"
+      - "/REGISTRY-NOTFOUND/share/ironpython3.13/ipy.exe"
+      - "/REGISTRY-NOTFOUND/net45/python3.13.com"
+      - "/REGISTRY-NOTFOUND/net45/python3.13.exe"
+      - "/REGISTRY-NOTFOUND/net45/python3.13"
+      - "/REGISTRY-NOTFOUND/net45/python3.com"
+      - "/REGISTRY-NOTFOUND/net45/python3.exe"
+      - "/REGISTRY-NOTFOUND/net45/python3"
+      - "/REGISTRY-NOTFOUND/net45/python.com"
+      - "/REGISTRY-NOTFOUND/net45/python.exe"
+      - "/REGISTRY-NOTFOUND/net45/python"
+      - "/REGISTRY-NOTFOUND/net45/ipy3.13.com"
+      - "/REGISTRY-NOTFOUND/net45/ipy3.13.exe"
+      - "/REGISTRY-NOTFOUND/net45/ipy3.13"
+      - "/REGISTRY-NOTFOUND/net45/ipy3.com"
+      - "/REGISTRY-NOTFOUND/net45/ipy3.exe"
+      - "/REGISTRY-NOTFOUND/net45/ipy3"
+      - "/REGISTRY-NOTFOUND/net45/ipy64.com"
+      - "/REGISTRY-NOTFOUND/net45/ipy64.exe"
+      - "/REGISTRY-NOTFOUND/net45/ipy64"
+      - "/REGISTRY-NOTFOUND/net45/ipy32.com"
+      - "/REGISTRY-NOTFOUND/net45/ipy32.exe"
+      - "/REGISTRY-NOTFOUND/net45/ipy32"
+      - "/REGISTRY-NOTFOUND/net45/ipy.com"
+      - "/REGISTRY-NOTFOUND/net45/ipy.exe"
+      - "/REGISTRY-NOTFOUND/net45/ipy"
+      - "/REGISTRY-NOTFOUND/net45/ipy.exe.com"
+      - "/REGISTRY-NOTFOUND/net45/ipy.exe"
+      - "/REGISTRY-NOTFOUND/net40/python3.13.com"
+      - "/REGISTRY-NOTFOUND/net40/python3.13.exe"
+      - "/REGISTRY-NOTFOUND/net40/python3.13"
+      - "/REGISTRY-NOTFOUND/net40/python3.com"
+      - "/REGISTRY-NOTFOUND/net40/python3.exe"
+      - "/REGISTRY-NOTFOUND/net40/python3"
+      - "/REGISTRY-NOTFOUND/net40/python.com"
+      - "/REGISTRY-NOTFOUND/net40/python.exe"
+      - "/REGISTRY-NOTFOUND/net40/python"
+      - "/REGISTRY-NOTFOUND/net40/ipy3.13.com"
+      - "/REGISTRY-NOTFOUND/net40/ipy3.13.exe"
+      - "/REGISTRY-NOTFOUND/net40/ipy3.13"
+      - "/REGISTRY-NOTFOUND/net40/ipy3.com"
+      - "/REGISTRY-NOTFOUND/net40/ipy3.exe"
+      - "/REGISTRY-NOTFOUND/net40/ipy3"
+      - "/REGISTRY-NOTFOUND/net40/ipy64.com"
+      - "/REGISTRY-NOTFOUND/net40/ipy64.exe"
+      - "/REGISTRY-NOTFOUND/net40/ipy64"
+      - "/REGISTRY-NOTFOUND/net40/ipy32.com"
+      - "/REGISTRY-NOTFOUND/net40/ipy32.exe"
+      - "/REGISTRY-NOTFOUND/net40/ipy32"
+      - "/REGISTRY-NOTFOUND/net40/ipy.com"
+      - "/REGISTRY-NOTFOUND/net40/ipy.exe"
+      - "/REGISTRY-NOTFOUND/net40/ipy"
+      - "/REGISTRY-NOTFOUND/net40/ipy.exe.com"
+      - "/REGISTRY-NOTFOUND/net40/ipy.exe"
+      - "/REGISTRY-NOTFOUND/python3.13.com"
+      - "/REGISTRY-NOTFOUND/python3.13.exe"
+      - "/REGISTRY-NOTFOUND/python3.13"
+      - "/REGISTRY-NOTFOUND/python3.com"
+      - "/REGISTRY-NOTFOUND/python3.exe"
+      - "/REGISTRY-NOTFOUND/python3"
+      - "/REGISTRY-NOTFOUND/python.com"
+      - "/REGISTRY-NOTFOUND/python.exe"
+      - "/REGISTRY-NOTFOUND/python"
+      - "/REGISTRY-NOTFOUND/ipy3.13.com"
+      - "/REGISTRY-NOTFOUND/ipy3.13.exe"
+      - "/REGISTRY-NOTFOUND/ipy3.13"
+      - "/REGISTRY-NOTFOUND/ipy3.com"
+      - "/REGISTRY-NOTFOUND/ipy3.exe"
+      - "/REGISTRY-NOTFOUND/ipy3"
+      - "/REGISTRY-NOTFOUND/ipy64.com"
+      - "/REGISTRY-NOTFOUND/ipy64.exe"
+      - "/REGISTRY-NOTFOUND/ipy64"
+      - "/REGISTRY-NOTFOUND/ipy32.com"
+      - "/REGISTRY-NOTFOUND/ipy32.exe"
+      - "/REGISTRY-NOTFOUND/ipy32"
+      - "/REGISTRY-NOTFOUND/ipy.com"
+      - "/REGISTRY-NOTFOUND/ipy.exe"
+      - "/REGISTRY-NOTFOUND/ipy"
+      - "/REGISTRY-NOTFOUND/ipy.exe.com"
+      - "/REGISTRY-NOTFOUND/ipy.exe"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/bin/python3.13.com"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/bin/python3.13.exe"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/bin/python3.13"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/bin/python3.com"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/bin/python3.exe"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/bin/python3"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/bin/python.com"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/bin/python.exe"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/bin/python"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/bin/ipy3.13.com"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/bin/ipy3.13.exe"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/bin/ipy3.13"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/bin/ipy3.com"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/bin/ipy3.exe"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/bin/ipy3"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/bin/ipy64.com"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/bin/ipy64.exe"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/bin/ipy64"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/bin/ipy32.com"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/bin/ipy32.exe"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/bin/ipy32"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/bin/ipy.com"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/bin/ipy.exe"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/bin/ipy"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/bin/ipy.exe.com"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/bin/ipy.exe"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/Scripts/python3.13.com"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/Scripts/python3.13.exe"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/Scripts/python3.13"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/Scripts/python3.com"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/Scripts/python3.exe"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/Scripts/python3"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/Scripts/python.com"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/Scripts/python.exe"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/Scripts/python"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/Scripts/ipy3.13.com"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/Scripts/ipy3.13.exe"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/Scripts/ipy3.13"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/Scripts/ipy3.com"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/Scripts/ipy3.exe"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/Scripts/ipy3"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/Scripts/ipy64.com"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/Scripts/ipy64.exe"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/Scripts/ipy64"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/Scripts/ipy32.com"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/Scripts/ipy32.exe"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/Scripts/ipy32"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/Scripts/ipy.com"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/Scripts/ipy.exe"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/Scripts/ipy"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/Scripts/ipy.exe.com"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/Scripts/ipy.exe"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/share/ironpython3.13/python3.13.com"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/share/ironpython3.13/python3.13.exe"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/share/ironpython3.13/python3.13"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/share/ironpython3.13/python3.com"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/share/ironpython3.13/python3.exe"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/share/ironpython3.13/python3"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/share/ironpython3.13/python.com"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/share/ironpython3.13/python.exe"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/share/ironpython3.13/python"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/share/ironpython3.13/ipy3.13.com"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/share/ironpython3.13/ipy3.13.exe"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/share/ironpython3.13/ipy3.13"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/share/ironpython3.13/ipy3.com"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/share/ironpython3.13/ipy3.exe"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/share/ironpython3.13/ipy3"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/share/ironpython3.13/ipy64.com"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/share/ironpython3.13/ipy64.exe"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/share/ironpython3.13/ipy64"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/share/ironpython3.13/ipy32.com"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/share/ironpython3.13/ipy32.exe"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/share/ironpython3.13/ipy32"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/share/ironpython3.13/ipy.com"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/share/ironpython3.13/ipy.exe"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/share/ironpython3.13/ipy"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/share/ironpython3.13/ipy.exe.com"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/share/ironpython3.13/ipy.exe"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net45/python3.13.com"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net45/python3.13.exe"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net45/python3.13"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net45/python3.com"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net45/python3.exe"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net45/python3"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net45/python.com"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net45/python.exe"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net45/python"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net45/ipy3.13.com"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net45/ipy3.13.exe"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net45/ipy3.13"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net45/ipy3.com"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net45/ipy3.exe"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net45/ipy3"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net45/ipy64.com"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net45/ipy64.exe"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net45/ipy64"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net45/ipy32.com"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net45/ipy32.exe"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net45/ipy32"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net45/ipy.com"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net45/ipy.exe"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net45/ipy"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net45/ipy.exe.com"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net45/ipy.exe"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net40/python3.13.com"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net40/python3.13.exe"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net40/python3.13"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net40/python3.com"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net40/python3.exe"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net40/python3"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net40/python.com"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net40/python.exe"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net40/python"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net40/ipy3.13.com"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net40/ipy3.13.exe"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net40/ipy3.13"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net40/ipy3.com"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net40/ipy3.exe"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net40/ipy3"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net40/ipy64.com"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net40/ipy64.exe"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net40/ipy64"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net40/ipy32.com"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net40/ipy32.exe"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net40/ipy32"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net40/ipy.com"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net40/ipy.exe"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net40/ipy"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net40/ipy.exe.com"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/net40/ipy.exe"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/python3.13.com"
+    found: "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/python3.13.exe"
+    search_context:
+      ENV{PATH}:
+        - "C:/Users/patom/.gemini/antigravity/bin"
+        - "C:\\Users\\patom\\AppData\\Roaming\\Antigravity\\bin"
+        - "C:\\Program Files (x86)\\Razer Chroma SDK\\bin"
+        - "C:\\Program Files\\Razer Chroma SDK\\bin"
+        - "C:\\WINDOWS\\system32"
+        - "C:\\WINDOWS"
+        - "C:\\WINDOWS\\System32\\Wbem"
+        - "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\WINDOWS\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA app\\NvDLISR"
+        - "C:\\WINDOWS\\system32\\config\\systemprofile\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Program Files (x86)\\Razer\\ChromaBroadcast\\bin"
+        - "C:\\Program Files\\Razer\\ChromaBroadcast\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Program Files\\dotnet\\"
+        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
+        - "C:\\Program Files\\Git\\cmd"
+        - "C:\\WINDOWS\\system32"
+        - "C:\\WINDOWS"
+        - "C:\\WINDOWS\\System32\\Wbem"
+        - "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\WINDOWS\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\Docker\\Docker\\resources\\bin"
+        - "C:\\Program Files\\CMake\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Python\\Python310\\Scripts\\"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Python\\Python310\\"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Users\\patom\\AppData\\Local\\GitHubDesktop\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Microsoft VS Code\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Antigravity\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WinGet\\Packages\\AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe"
+        - "C:\\Users\\patom\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python313\\Scripts"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Antigravity IDE\\bin"
+      CMAKE_INSTALL_PREFIX: "C:/Program Files (x86)/HeartsSimulator"
+      CMAKE_SYSTEM_PREFIX_PATH:
+        - "C:/Program Files"
+        - "C:/Program Files (x86)"
+        - "C:/Program Files/CMake"
+        - "C:/Program Files (x86)/HeartsSimulator"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "C:/Program Files/CMake/share/cmake-4.3/Modules/FindPython/Support.cmake:2563 (find_program)"
+      - "C:/Program Files/CMake/share/cmake-4.3/Modules/FindPython.cmake:721 (include)"
+      - "CMakeLists.txt:19 (find_package)"
+    mode: "program"
+    variable: "_Python_EXECUTABLE_DEBUG"
+    description: "Path to a program."
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: true
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "python3.13_d"
+      - "python3_d"
+      - "python_d"
+    candidate_directories:
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/"
+    searched_directories:
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/python3.13_d.com"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/python3.13_d.exe"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/python3.13_d"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/python3_d.com"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/python3_d.exe"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/python3_d"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/python_d.com"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/python_d.exe"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/python_d"
+    found: false
+    search_context:
+      ENV{PATH}:
+        - "C:/Users/patom/.gemini/antigravity/bin"
+        - "C:\\Users\\patom\\AppData\\Roaming\\Antigravity\\bin"
+        - "C:\\Program Files (x86)\\Razer Chroma SDK\\bin"
+        - "C:\\Program Files\\Razer Chroma SDK\\bin"
+        - "C:\\WINDOWS\\system32"
+        - "C:\\WINDOWS"
+        - "C:\\WINDOWS\\System32\\Wbem"
+        - "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\WINDOWS\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA app\\NvDLISR"
+        - "C:\\WINDOWS\\system32\\config\\systemprofile\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Program Files (x86)\\Razer\\ChromaBroadcast\\bin"
+        - "C:\\Program Files\\Razer\\ChromaBroadcast\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Program Files\\dotnet\\"
+        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
+        - "C:\\Program Files\\Git\\cmd"
+        - "C:\\WINDOWS\\system32"
+        - "C:\\WINDOWS"
+        - "C:\\WINDOWS\\System32\\Wbem"
+        - "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\WINDOWS\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\Docker\\Docker\\resources\\bin"
+        - "C:\\Program Files\\CMake\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Python\\Python310\\Scripts\\"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Python\\Python310\\"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Users\\patom\\AppData\\Local\\GitHubDesktop\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Microsoft VS Code\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Antigravity\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WinGet\\Packages\\AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe"
+        - "C:\\Users\\patom\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python313\\Scripts"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Antigravity IDE\\bin"
+      CMAKE_INSTALL_PREFIX: "C:/Program Files (x86)/HeartsSimulator"
+      CMAKE_SYSTEM_PREFIX_PATH:
+        - "C:/Program Files"
+        - "C:/Program Files (x86)"
+        - "C:/Program Files/CMake"
+        - "C:/Program Files (x86)/HeartsSimulator"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "C:/Program Files/CMake/share/cmake-4.3/Modules/FindPython/Support.cmake:3331 (find_library)"
+      - "C:/Program Files/CMake/share/cmake-4.3/Modules/FindPython.cmake:721 (include)"
+      - "CMakeLists.txt:19 (find_package)"
+    mode: "library"
+    variable: "_Python_LIBRARY_RELEASE"
+    description: "Path to a library."
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: true
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: false
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: false
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "python313"
+      - "python3.13"
+    candidate_directories:
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/lib/"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/libs/"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/lib/python3.13/config-3.13/"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/"
+    searched_directories:
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/lib/"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/lib/"
+    found: "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/libs/python313.lib"
+    search_context:
+      ENV{PATH}:
+        - "C:/Users/patom/.gemini/antigravity/bin"
+        - "C:\\Users\\patom\\AppData\\Roaming\\Antigravity\\bin"
+        - "C:\\Program Files (x86)\\Razer Chroma SDK\\bin"
+        - "C:\\Program Files\\Razer Chroma SDK\\bin"
+        - "C:\\WINDOWS\\system32"
+        - "C:\\WINDOWS"
+        - "C:\\WINDOWS\\System32\\Wbem"
+        - "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\WINDOWS\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA app\\NvDLISR"
+        - "C:\\WINDOWS\\system32\\config\\systemprofile\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Program Files (x86)\\Razer\\ChromaBroadcast\\bin"
+        - "C:\\Program Files\\Razer\\ChromaBroadcast\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Program Files\\dotnet\\"
+        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
+        - "C:\\Program Files\\Git\\cmd"
+        - "C:\\WINDOWS\\system32"
+        - "C:\\WINDOWS"
+        - "C:\\WINDOWS\\System32\\Wbem"
+        - "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\WINDOWS\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\Docker\\Docker\\resources\\bin"
+        - "C:\\Program Files\\CMake\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Python\\Python310\\Scripts\\"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Python\\Python310\\"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Users\\patom\\AppData\\Local\\GitHubDesktop\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Microsoft VS Code\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Antigravity\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WinGet\\Packages\\AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe"
+        - "C:\\Users\\patom\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python313\\Scripts"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Antigravity IDE\\bin"
+      CMAKE_INSTALL_PREFIX: "C:/Program Files (x86)/HeartsSimulator"
+      CMAKE_SYSTEM_PREFIX_PATH:
+        - "C:/Program Files"
+        - "C:/Program Files (x86)"
+        - "C:/Program Files/CMake"
+        - "C:/Program Files (x86)/HeartsSimulator"
+      CMAKE_SYSTEM_LIBRARY_PATH:
+        - "C:/Program Files (x86)/HeartsSimulator/bin"
+        - "C:/Program Files/CMake/bin"
+        - "/bin"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "C:/Program Files/CMake/share/cmake-4.3/Modules/FindPython/Support.cmake:3519 (find_library)"
+      - "C:/Program Files/CMake/share/cmake-4.3/Modules/FindPython.cmake:721 (include)"
+      - "CMakeLists.txt:19 (find_package)"
+    mode: "library"
+    variable: "_Python_LIBRARY_DEBUG"
+    description: "Path to a library."
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: true
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "python313_d"
+    candidate_directories:
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/libs/"
+    searched_directories:
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/libs/"
+    found: false
+    search_context:
+      ENV{PATH}:
+        - "C:/Users/patom/.gemini/antigravity/bin"
+        - "C:\\Users\\patom\\AppData\\Roaming\\Antigravity\\bin"
+        - "C:\\Program Files (x86)\\Razer Chroma SDK\\bin"
+        - "C:\\Program Files\\Razer Chroma SDK\\bin"
+        - "C:\\WINDOWS\\system32"
+        - "C:\\WINDOWS"
+        - "C:\\WINDOWS\\System32\\Wbem"
+        - "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\WINDOWS\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA app\\NvDLISR"
+        - "C:\\WINDOWS\\system32\\config\\systemprofile\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Program Files (x86)\\Razer\\ChromaBroadcast\\bin"
+        - "C:\\Program Files\\Razer\\ChromaBroadcast\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Program Files\\dotnet\\"
+        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
+        - "C:\\Program Files\\Git\\cmd"
+        - "C:\\WINDOWS\\system32"
+        - "C:\\WINDOWS"
+        - "C:\\WINDOWS\\System32\\Wbem"
+        - "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\WINDOWS\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\Docker\\Docker\\resources\\bin"
+        - "C:\\Program Files\\CMake\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Python\\Python310\\Scripts\\"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Python\\Python310\\"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Users\\patom\\AppData\\Local\\GitHubDesktop\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Microsoft VS Code\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Antigravity\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WinGet\\Packages\\AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe"
+        - "C:\\Users\\patom\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python313\\Scripts"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Antigravity IDE\\bin"
+      CMAKE_INSTALL_PREFIX: "C:/Program Files (x86)/HeartsSimulator"
+      CMAKE_SYSTEM_PREFIX_PATH:
+        - "C:/Program Files"
+        - "C:/Program Files (x86)"
+        - "C:/Program Files/CMake"
+        - "C:/Program Files (x86)/HeartsSimulator"
+      CMAKE_SYSTEM_LIBRARY_PATH:
+        - "C:/Program Files (x86)/HeartsSimulator/bin"
+        - "C:/Program Files/CMake/bin"
+        - "/bin"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "C:/Program Files/CMake/share/cmake-4.3/Modules/FindPython/Support.cmake:1483 (find_library)"
+      - "C:/Program Files/CMake/share/cmake-4.3/Modules/FindPython/Support.cmake:3537 (_python_find_runtime_library)"
+      - "C:/Program Files/CMake/share/cmake-4.3/Modules/FindPython.cmake:721 (include)"
+      - "CMakeLists.txt:19 (find_package)"
+    mode: "library"
+    variable: "_Python_RUNTIME_LIBRARY_RELEASE"
+    description: "Path to a library."
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: true
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "python313"
+      - "python3.13"
+    candidate_directories:
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/libs/bin/"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/libs/"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/bin/"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/"
+      - "C:/Users/patom/.gemini/antigravity/bin/bin/"
+      - "C:/Users/patom/.gemini/antigravity/bin/"
+      - "C:/Users/patom/AppData/Roaming/Antigravity/bin/bin/"
+      - "C:/Users/patom/AppData/Roaming/Antigravity/bin/"
+      - "C:/Program Files (x86)/Razer Chroma SDK/bin/bin/"
+      - "C:/Program Files (x86)/Razer Chroma SDK/bin/"
+      - "C:/Program Files/Razer Chroma SDK/bin/bin/"
+      - "C:/Program Files/Razer Chroma SDK/bin/"
+      - "C:/Windows/System32/bin/"
+      - "C:/Windows/System32/"
+      - "C:/Windows/bin/"
+      - "C:/Windows/"
+      - "C:/Windows/System32/wbem/bin/"
+      - "C:/Windows/System32/wbem/"
+      - "C:/Windows/System32/WindowsPowerShell/v1.0/bin/"
+      - "C:/Windows/System32/WindowsPowerShell/v1.0/"
+      - "C:/Windows/System32/OpenSSH/bin/"
+      - "C:/Windows/System32/OpenSSH/"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/bin/"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/"
+      - "C:/Windows/System32/config/systemprofile/AppData/Local/Microsoft/WindowsApps/bin/"
+      - "C:/Windows/System32/config/systemprofile/AppData/Local/Microsoft/WindowsApps/"
+      - "C:/Program Files (x86)/Razer/ChromaBroadcast/bin/bin/"
+      - "C:/Program Files (x86)/Razer/ChromaBroadcast/bin/"
+      - "C:/Program Files/Razer/ChromaBroadcast/bin/bin/"
+      - "C:/Program Files/Razer/ChromaBroadcast/bin/"
+      - "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/bin/"
+      - "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/"
+      - "C:/Program Files/dotnet/bin/"
+      - "C:/Program Files/dotnet/"
+      - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/bin/"
+      - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/"
+      - "C:/Program Files/Git/cmd/bin/"
+      - "C:/Program Files/Git/cmd/"
+      - "C:/Program Files/Docker/Docker/resources/bin/bin/"
+      - "C:/Program Files/Docker/Docker/resources/bin/"
+      - "C:/Program Files/CMake/bin/bin/"
+      - "C:/Program Files/CMake/bin/"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/Scripts/bin/"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/Scripts/"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/bin/"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/"
+      - "C:/Users/patom/AppData/Local/GitHubDesktop/bin/bin/"
+      - "C:/Users/patom/AppData/Local/GitHubDesktop/bin/"
+      - "C:/Users/patom/AppData/Local/Programs/Microsoft VS Code/bin/bin/"
+      - "C:/Users/patom/AppData/Local/Programs/Microsoft VS Code/bin/"
+      - "C:/Users/patom/AppData/Local/Programs/antigravity/bin/bin/"
+      - "C:/Users/patom/AppData/Local/Programs/antigravity/bin/"
+      - "C:/Users/patom/AppData/Local/Microsoft/WinGet/Packages/AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe/bin/"
+      - "C:/Users/patom/AppData/Local/Microsoft/WinGet/Packages/AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe/"
+      - "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts/bin/"
+      - "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts/"
+      - "C:/Users/patom/AppData/Local/Programs/Antigravity IDE/bin/bin/"
+      - "C:/Users/patom/AppData/Local/Programs/Antigravity IDE/bin/"
+      - "C:/Program Files/lib/bin/"
+      - "C:/Program Files/lib/"
+      - "C:/Program Files/bin/"
+      - "C:/Program Files/"
+      - "C:/Program Files (x86)/lib/bin/"
+      - "C:/Program Files (x86)/lib/"
+      - "C:/Program Files (x86)/bin/"
+      - "C:/Program Files (x86)/"
+      - "C:/Program Files/CMake/lib/bin/"
+      - "C:/Program Files/CMake/lib/"
+      - "C:/Program Files/CMake/bin/"
+      - "C:/Program Files/CMake/"
+      - "C:/Program Files (x86)/HeartsSimulator/lib/bin/"
+      - "C:/Program Files (x86)/HeartsSimulator/lib/"
+      - "C:/Program Files (x86)/HeartsSimulator/bin/"
+      - "C:/Program Files (x86)/HeartsSimulator/"
+      - "C:/Program Files (x86)/HeartsSimulator/bin/bin/"
+      - "C:/Program Files (x86)/HeartsSimulator/bin/"
+      - "/bin/bin/"
+      - "/bin/"
+    searched_directories:
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/libs/bin/"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/libs/bin/"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/libs/"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/libs/"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/bin/"
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/bin/"
+    found: "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/python313.dll"
+    search_context:
+      ENV{PATH}:
+        - "C:/Users/patom/.gemini/antigravity/bin"
+        - "C:\\Users\\patom\\AppData\\Roaming\\Antigravity\\bin"
+        - "C:\\Program Files (x86)\\Razer Chroma SDK\\bin"
+        - "C:\\Program Files\\Razer Chroma SDK\\bin"
+        - "C:\\WINDOWS\\system32"
+        - "C:\\WINDOWS"
+        - "C:\\WINDOWS\\System32\\Wbem"
+        - "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\WINDOWS\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA app\\NvDLISR"
+        - "C:\\WINDOWS\\system32\\config\\systemprofile\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Program Files (x86)\\Razer\\ChromaBroadcast\\bin"
+        - "C:\\Program Files\\Razer\\ChromaBroadcast\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Program Files\\dotnet\\"
+        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
+        - "C:\\Program Files\\Git\\cmd"
+        - "C:\\WINDOWS\\system32"
+        - "C:\\WINDOWS"
+        - "C:\\WINDOWS\\System32\\Wbem"
+        - "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\WINDOWS\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\Docker\\Docker\\resources\\bin"
+        - "C:\\Program Files\\CMake\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Python\\Python310\\Scripts\\"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Python\\Python310\\"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Users\\patom\\AppData\\Local\\GitHubDesktop\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Microsoft VS Code\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Antigravity\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WinGet\\Packages\\AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe"
+        - "C:\\Users\\patom\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python313\\Scripts"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Antigravity IDE\\bin"
+      CMAKE_INSTALL_PREFIX: "C:/Program Files (x86)/HeartsSimulator"
+      CMAKE_SYSTEM_PREFIX_PATH:
+        - "C:/Program Files"
+        - "C:/Program Files (x86)"
+        - "C:/Program Files/CMake"
+        - "C:/Program Files (x86)/HeartsSimulator"
+      CMAKE_SYSTEM_LIBRARY_PATH:
+        - "C:/Program Files (x86)/HeartsSimulator/bin"
+        - "C:/Program Files/CMake/bin"
+        - "/bin"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "C:/Program Files/CMake/share/cmake-4.3/Modules/FindPython/Support.cmake:3846 (find_path)"
+      - "C:/Program Files/CMake/share/cmake-4.3/Modules/FindPython.cmake:721 (include)"
+      - "CMakeLists.txt:19 (find_package)"
+    mode: "path"
+    variable: "_Python_INCLUDE_DIR"
+    description: "Path to a file."
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: true
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: false
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: false
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "Python.h"
+    candidate_directories:
+      - "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/Include/"
+    found: "C:/Program Files/WindowsApps/PythonSoftwareFoundation.Python.3.13_3.13.3824.0_x64__qbz5n2kfra8p0/Include/"
+    search_context:
+      ENV{PATH}:
+        - "C:/Users/patom/.gemini/antigravity/bin"
+        - "C:\\Users\\patom\\AppData\\Roaming\\Antigravity\\bin"
+        - "C:\\Program Files (x86)\\Razer Chroma SDK\\bin"
+        - "C:\\Program Files\\Razer Chroma SDK\\bin"
+        - "C:\\WINDOWS\\system32"
+        - "C:\\WINDOWS"
+        - "C:\\WINDOWS\\System32\\Wbem"
+        - "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\WINDOWS\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA app\\NvDLISR"
+        - "C:\\WINDOWS\\system32\\config\\systemprofile\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Program Files (x86)\\Razer\\ChromaBroadcast\\bin"
+        - "C:\\Program Files\\Razer\\ChromaBroadcast\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Program Files\\dotnet\\"
+        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
+        - "C:\\Program Files\\Git\\cmd"
+        - "C:\\WINDOWS\\system32"
+        - "C:\\WINDOWS"
+        - "C:\\WINDOWS\\System32\\Wbem"
+        - "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\WINDOWS\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\Docker\\Docker\\resources\\bin"
+        - "C:\\Program Files\\CMake\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Python\\Python310\\Scripts\\"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Python\\Python310\\"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Users\\patom\\AppData\\Local\\GitHubDesktop\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Microsoft VS Code\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Antigravity\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WinGet\\Packages\\AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe"
+        - "C:\\Users\\patom\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python313\\Scripts"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Antigravity IDE\\bin"
+      CMAKE_INSTALL_PREFIX: "C:/Program Files (x86)/HeartsSimulator"
+      CMAKE_SYSTEM_PREFIX_PATH:
+        - "C:/Program Files"
+        - "C:/Program Files (x86)"
+        - "C:/Program Files/CMake"
+        - "C:/Program Files (x86)/HeartsSimulator"
+  -
+    kind: "find_package-v1"
+    backtrace:
+      - "CMakeLists.txt:20 (find_package)"
+    name: "pybind11"
+    configs:
+      -
+        filename: "pybind11.cps"
+        kind: "cps"
+      -
+        filename: "pybind11Config.cmake"
+        kind: "cmake"
+      -
+        filename: "pybind11-config.cmake"
+        kind: "cmake"
+    version_request:
+      exact: false
+    settings:
+      required: "required_explicit"
+      quiet: false
+      global: false
+      policy_scope: true
+      bypass_provider: false
+      names:
+        - "pybind11"
+      path_suffixes:
+        - ""
+      paths:
+        CMAKE_FIND_USE_CMAKE_PATH: true
+        CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: true
+        CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+        CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+        CMAKE_FIND_USE_INSTALL_PREFIX: true
+        CMAKE_FIND_USE_PACKAGE_ROOT_PATH: true
+        CMAKE_FIND_USE_CMAKE_PACKAGE_REGISTRY: true
+        CMAKE_FIND_USE_SYSTEM_PACKAGE_REGISTRY: true
+        CMAKE_FIND_ROOT_PATH_MODE: "BOTH"
+    candidates:
+      -
+        path: "E:/hearts_simulator/build/CMakeFiles/pkgRedirects/pybind11Config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/build/CMakeFiles/pkgRedirects/pybind11-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/build/CMakeFiles/pkgRedirects/lib/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/build/CMakeFiles/pkgRedirects/share/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/.gemini/antigravity/pybind11Config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/.gemini/antigravity/pybind11-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/.gemini/antigravity/lib/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/.gemini/antigravity/share/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Roaming/Antigravity/pybind11Config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Roaming/Antigravity/pybind11-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Roaming/Antigravity/lib/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Roaming/Antigravity/share/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/Razer Chroma SDK/pybind11Config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/Razer Chroma SDK/pybind11-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/Razer Chroma SDK/lib/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/Razer Chroma SDK/share/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Razer Chroma SDK/pybind11Config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Razer Chroma SDK/pybind11-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Razer Chroma SDK/lib/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Razer Chroma SDK/share/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/pybind11Config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/pybind11-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/lib/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/share/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/pybind11Config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/pybind11-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/lib/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/share/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/wbem/pybind11Config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/wbem/pybind11-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/wbem/lib/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/wbem/share/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/WindowsPowerShell/v1.0/pybind11Config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/WindowsPowerShell/v1.0/pybind11-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/WindowsPowerShell/v1.0/lib/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/WindowsPowerShell/v1.0/share/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/OpenSSH/pybind11Config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/OpenSSH/pybind11-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/OpenSSH/lib/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/OpenSSH/share/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/pybind11Config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/pybind11-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/lib/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/share/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/Razer/ChromaBroadcast/pybind11Config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/Razer/ChromaBroadcast/pybind11-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/Razer/ChromaBroadcast/lib/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/Razer/ChromaBroadcast/share/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Razer/ChromaBroadcast/pybind11Config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Razer/ChromaBroadcast/pybind11-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Razer/ChromaBroadcast/lib/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Razer/ChromaBroadcast/share/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/pybind11Config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/pybind11-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/lib/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/share/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/dotnet/pybind11Config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/dotnet/pybind11-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/dotnet/lib/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/dotnet/share/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/pybind11Config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/pybind11-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/lib/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/share/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Git/cmd/pybind11Config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Git/cmd/pybind11-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Git/cmd/lib/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Git/cmd/share/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Docker/Docker/resources/pybind11Config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Docker/Docker/resources/pybind11-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Docker/Docker/resources/lib/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Docker/Docker/resources/share/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/CMake/pybind11Config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/CMake/pybind11-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/CMake/lib/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/CMake/share/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Python/Python310/Scripts/pybind11Config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Python/Python310/Scripts/pybind11-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Python/Python310/Scripts/lib/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Python/Python310/Scripts/share/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Python/Python310/pybind11Config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Python/Python310/pybind11-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Python/Python310/lib/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Python/Python310/share/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/GitHubDesktop/pybind11Config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/GitHubDesktop/pybind11-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/GitHubDesktop/lib/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/GitHubDesktop/share/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Microsoft VS Code/pybind11Config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Microsoft VS Code/pybind11-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Microsoft VS Code/lib/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Microsoft VS Code/share/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/antigravity/pybind11Config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/antigravity/pybind11-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/antigravity/lib/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/antigravity/share/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Microsoft/WinGet/Packages/AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe/pybind11Config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Microsoft/WinGet/Packages/AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe/pybind11-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Microsoft/WinGet/Packages/AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe/lib/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Microsoft/WinGet/Packages/AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe/share/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts/pybind11Config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts/pybind11-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts/lib/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts/share/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Antigravity IDE/pybind11Config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Antigravity IDE/pybind11-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Antigravity IDE/lib/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Antigravity IDE/share/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/pybind11Config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/pybind11-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/CMake/pybind11Config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/CMake/pybind11-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/lib/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/share/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/pybind11Config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/pybind11-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/lib/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/share/cps/pybind11.cps"
+        mode: "cps"
+        reason: "no_exist"
+    found: null
+    search_context:
+      ENV{PATH}:
+        - "C:/Users/patom/.gemini/antigravity/bin"
+        - "C:\\Users\\patom\\AppData\\Roaming\\Antigravity\\bin"
+        - "C:\\Program Files (x86)\\Razer Chroma SDK\\bin"
+        - "C:\\Program Files\\Razer Chroma SDK\\bin"
+        - "C:\\WINDOWS\\system32"
+        - "C:\\WINDOWS"
+        - "C:\\WINDOWS\\System32\\Wbem"
+        - "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\WINDOWS\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA app\\NvDLISR"
+        - "C:\\WINDOWS\\system32\\config\\systemprofile\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Program Files (x86)\\Razer\\ChromaBroadcast\\bin"
+        - "C:\\Program Files\\Razer\\ChromaBroadcast\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Program Files\\dotnet\\"
+        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
+        - "C:\\Program Files\\Git\\cmd"
+        - "C:\\WINDOWS\\system32"
+        - "C:\\WINDOWS"
+        - "C:\\WINDOWS\\System32\\Wbem"
+        - "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\WINDOWS\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\Docker\\Docker\\resources\\bin"
+        - "C:\\Program Files\\CMake\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Python\\Python310\\Scripts\\"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Python\\Python310\\"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Users\\patom\\AppData\\Local\\GitHubDesktop\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Microsoft VS Code\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Antigravity\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WinGet\\Packages\\AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe"
+        - "C:\\Users\\patom\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python313\\Scripts"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Antigravity IDE\\bin"
+      CMAKE_INSTALL_PREFIX: "C:/Program Files (x86)/HeartsSimulator"
+      CMAKE_SYSTEM_PREFIX_PATH:
+        - "C:/Program Files"
+        - "C:/Program Files (x86)"
+        - "C:/Program Files/CMake"
+        - "C:/Program Files (x86)/HeartsSimulator"
+...
+
+---
+events:
+  -
+    kind: "try_compile-v1"
+    backtrace:
+      - "C:/Program Files/CMake/share/cmake-4.3/Modules/Internal/CheckSourceCompiles.cmake:104 (try_compile)"
+      - "C:/Program Files/CMake/share/cmake-4.3/Modules/Internal/CheckCompilerFlag.cmake:18 (cmake_check_source_compiles)"
+      - "C:/Program Files/CMake/share/cmake-4.3/Modules/CheckCXXCompilerFlag.cmake:103 (cmake_check_compiler_flag)"
+      - "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/site-packages/pybind11/share/cmake/pybind11/pybind11Common.cmake:332 (check_cxx_compiler_flag)"
+      - "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/site-packages/pybind11/share/cmake/pybind11/pybind11Common.cmake:404 (_pybind11_return_if_cxx_and_linker_flags_work)"
+      - "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/site-packages/pybind11/share/cmake/pybind11/pybind11Common.cmake:438 (_pybind11_generate_lto)"
+      - "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/site-packages/pybind11/share/cmake/pybind11/pybind11Config.cmake:257 (include)"
+      - "CMakeLists.txt:20 (find_package)"
+    checks:
+      - "Performing Test HAS_MSVC_GL_LTCG"
+    directories:
+      source: "E:/hearts_simulator/build/CMakeFiles/CMakeScratch/TryCompile-1b7z42"
+      binary: "E:/hearts_simulator/build/CMakeFiles/CMakeScratch/TryCompile-1b7z42"
+    cmakeVariables:
+      CMAKE_CXX_FLAGS: "/DWIN32 /D_WINDOWS /W3 /GR /EHsc"
+      CMAKE_CXX_FLAGS_DEBUG: "/MDd /Zi /Ob0 /Od /RTC1"
+      CMAKE_CXX_STDLIB_MODULES_JSON: ""
+      CMAKE_EXE_LINKER_FLAGS: "/machine:x64"
+    buildResult:
+      variable: "HAS_MSVC_GL_LTCG"
+      cached: true
+      stdout: |
+        Change Dir: 'E:/hearts_simulator/build/CMakeFiles/CMakeScratch/TryCompile-1b7z42'
+        
+        Run Build Command(s): "C:/Program Files (x86)/Microsoft Visual Studio/18/BuildTools/MSBuild/Current/Bin/amd64/MSBuild.exe" cmTC_3aebd.vcxproj /p:Configuration=Debug /p:Platform=x64 /p:VisualStudioVersion=18.0 /v:n
+        MSBuild version 18.5.4+cb4e32d21 for .NET Framework
+        Build started 7/5/2026 2:59:28 PM.
+        
+        Project "E:\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-1b7z42\\cmTC_3aebd.vcxproj" on node 1 (default targets).
+        PrepareForBuild:
+          Structured output is enabled. The formatting of compiler diagnostics will reflect the error hierarchy. See https://aka.ms/cpp/structured-output for more details.
+          Creating directory "E:\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-1b7z42\\Debug\\".
+          Creating directory "cmTC_3aebd.dir\\Debug\\cmTC_3aebd.tlog\\".
+        InitializeBuildStatus:
+          Creating "cmTC_3aebd.dir\\Debug\\cmTC_3aebd.tlog\\unsuccessfulbuild" because "AlwaysCreate" was specified.
+          Touching "cmTC_3aebd.dir\\Debug\\cmTC_3aebd.tlog\\unsuccessfulbuild".
+        ClCompile:
+          C:\\Program Files (x86)\\Microsoft Visual Studio\\18\\BuildTools\\VC\\Tools\\MSVC\\14.50.35717\\bin\\HostX64\\x64\\CL.exe /c /Zi /W3 /WX- /diagnostics:column /Od /Ob0 /GL /D _MBCS /D WIN32 /D _WINDOWS /D HAS_MSVC_GL_LTCG /D _MBCS /D "CMAKE_INTDIR=\\"Debug\\"" /EHsc /RTC1 /MDd /GR /std:c++17 /Fo"cmTC_3aebd.dir\\Debug\\\\" /Fd"cmTC_3aebd.dir\\Debug\\vc145.pdb" /external:W3 /TP /errorReport:queue "E:\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-1b7z42\\src.cxx"
+          Microsoft (R) C/C++ Optimizing Compiler Version 19.50.35730 for x64
+          Copyright (C) Microsoft Corporation.  All rights reserved.
+          cl /c /Zi /W3 /WX- /diagnostics:column /Od /Ob0 /GL /D _MBCS /D WIN32 /D _WINDOWS /D HAS_MSVC_GL_LTCG /D _MBCS /D "CMAKE_INTDIR=\\"Debug\\"" /EHsc /RTC1 /MDd /GR /std:c++17 /Fo"cmTC_3aebd.dir\\Debug\\\\" /Fd"cmTC_3aebd.dir\\Debug\\vc145.pdb" /external:W3 /TP /errorReport:queue "E:\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-1b7z42\\src.cxx"
+          src.cxx
+        Link:
+          C:\\Program Files (x86)\\Microsoft Visual Studio\\18\\BuildTools\\VC\\Tools\\MSVC\\14.50.35717\\bin\\HostX64\\x64\\link.exe /OUT:"E:\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-1b7z42\\Debug\\cmTC_3aebd.exe" /INCREMENTAL /ILK:"cmTC_3aebd.dir\\Debug\\cmTC_3aebd.ilk" /NOLOGO "-LTCG" kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /DEBUG /PDB:"E:/hearts_simulator/build/CMakeFiles/CMakeScratch/TryCompile-1b7z42/Debug/cmTC_3aebd.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /IMPLIB:"E:/hearts_simulator/build/CMakeFiles/CMakeScratch/TryCompile-1b7z42/Debug/cmTC_3aebd.lib" /MACHINE:X64  /machine:x64 cmTC_3aebd.dir\\Debug\\src.obj
+        LINK : warning LNK4075: ignoring '/INCREMENTAL' due to '/LTCG' specification [E:\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-1b7z42\\cmTC_3aebd.vcxproj]
+          Generating code
+          Finished generating code
+          cmTC_3aebd.vcxproj -> E:\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-1b7z42\\Debug\\cmTC_3aebd.exe
+        FinalizeBuildStatus:
+          Deleting file "cmTC_3aebd.dir\\Debug\\cmTC_3aebd.tlog\\unsuccessfulbuild".
+          Touching "cmTC_3aebd.dir\\Debug\\cmTC_3aebd.tlog\\cmTC_3aebd.lastbuildstate".
+        Done Building Project "E:\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-1b7z42\\cmTC_3aebd.vcxproj" (default targets).
+        
+        Build succeeded.
+        
+        "E:\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-1b7z42\\cmTC_3aebd.vcxproj" (default target) (1) ->
+        (Link target) -> 
+          LINK : warning LNK4075: ignoring '/INCREMENTAL' due to '/LTCG' specification [E:\\hearts_simulator\\build\\CMakeFiles\\CMakeScratch\\TryCompile-1b7z42\\cmTC_3aebd.vcxproj]
+        
+            1 Warning(s)
+            0 Error(s)
+        
+        Time Elapsed 00:00:00.49
+        
+      exitCode: 0
+...
+
+---
+events:
+  -
+    kind: "find_package-v1"
+    backtrace:
+      - "libtorch/share/cmake/Caffe2/public/mkl.cmake:1 (find_package)"
+      - "libtorch/share/cmake/Caffe2/Caffe2Config.cmake:105 (include)"
+      - "libtorch/share/cmake/Torch/TorchConfig.cmake:68 (find_package)"
+      - "CMakeLists.txt:17 (find_package)"
+    name: "MKL"
+    configs:
+      -
+        filename: "MKL.cps"
+        kind: "cps"
+      -
+        filename: "mkl.cps"
+        kind: "cps"
+      -
+        filename: "MKLConfig.cmake"
+        kind: "cmake"
+      -
+        filename: "mkl-config.cmake"
+        kind: "cmake"
+    version_request:
+      exact: false
+    settings:
+      required: "optional"
+      quiet: true
+      global: false
+      policy_scope: true
+      bypass_provider: false
+      names:
+        - "MKL"
+      path_suffixes:
+        - ""
+      paths:
+        CMAKE_FIND_USE_CMAKE_PATH: true
+        CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: true
+        CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+        CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+        CMAKE_FIND_USE_INSTALL_PREFIX: true
+        CMAKE_FIND_USE_PACKAGE_ROOT_PATH: true
+        CMAKE_FIND_USE_CMAKE_PACKAGE_REGISTRY: true
+        CMAKE_FIND_USE_SYSTEM_PACKAGE_REGISTRY: true
+        CMAKE_FIND_ROOT_PATH_MODE: "BOTH"
+    candidates:
+      -
+        path: "E:/hearts_simulator/build/CMakeFiles/pkgRedirects/MKLConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/build/CMakeFiles/pkgRedirects/mkl-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/build/CMakeFiles/pkgRedirects/lib/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/build/CMakeFiles/pkgRedirects/lib/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/build/CMakeFiles/pkgRedirects/share/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/build/CMakeFiles/pkgRedirects/share/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/libtorch/MKLConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/libtorch/mkl-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/libtorch/cmake/MKLConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/libtorch/cmake/mkl-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/libtorch/lib/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/libtorch/lib/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/libtorch/share/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/libtorch/share/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/.gemini/antigravity/MKLConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/.gemini/antigravity/mkl-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/.gemini/antigravity/lib/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/.gemini/antigravity/lib/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/.gemini/antigravity/share/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/.gemini/antigravity/share/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Roaming/Antigravity/MKLConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Roaming/Antigravity/mkl-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Roaming/Antigravity/lib/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Roaming/Antigravity/lib/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Roaming/Antigravity/share/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Roaming/Antigravity/share/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/Razer Chroma SDK/MKLConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/Razer Chroma SDK/mkl-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/Razer Chroma SDK/lib/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/Razer Chroma SDK/lib/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/Razer Chroma SDK/share/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/Razer Chroma SDK/share/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Razer Chroma SDK/MKLConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Razer Chroma SDK/mkl-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Razer Chroma SDK/lib/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Razer Chroma SDK/lib/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Razer Chroma SDK/share/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Razer Chroma SDK/share/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/MKLConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/mkl-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/lib/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/lib/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/share/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/share/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/MKLConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/mkl-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/lib/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/lib/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/share/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/share/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/wbem/MKLConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/wbem/mkl-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/wbem/lib/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/wbem/lib/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/wbem/share/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/wbem/share/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/WindowsPowerShell/v1.0/MKLConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/WindowsPowerShell/v1.0/mkl-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/WindowsPowerShell/v1.0/lib/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/WindowsPowerShell/v1.0/lib/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/WindowsPowerShell/v1.0/share/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/WindowsPowerShell/v1.0/share/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/OpenSSH/MKLConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/OpenSSH/mkl-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/OpenSSH/lib/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/OpenSSH/lib/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/OpenSSH/share/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/OpenSSH/share/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/MKLConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/mkl-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/lib/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/lib/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/share/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/share/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/Razer/ChromaBroadcast/MKLConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/Razer/ChromaBroadcast/mkl-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/Razer/ChromaBroadcast/lib/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/Razer/ChromaBroadcast/lib/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/Razer/ChromaBroadcast/share/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/Razer/ChromaBroadcast/share/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Razer/ChromaBroadcast/MKLConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Razer/ChromaBroadcast/mkl-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Razer/ChromaBroadcast/lib/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Razer/ChromaBroadcast/lib/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Razer/ChromaBroadcast/share/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Razer/ChromaBroadcast/share/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/MKLConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/mkl-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/lib/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/lib/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/share/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/share/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/dotnet/MKLConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/dotnet/mkl-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/dotnet/lib/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/dotnet/lib/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/dotnet/share/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/dotnet/share/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/MKLConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/mkl-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/lib/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/lib/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/share/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/share/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Git/cmd/MKLConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Git/cmd/mkl-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Git/cmd/lib/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Git/cmd/lib/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Git/cmd/share/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Git/cmd/share/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Docker/Docker/resources/MKLConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Docker/Docker/resources/mkl-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Docker/Docker/resources/lib/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Docker/Docker/resources/lib/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Docker/Docker/resources/share/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Docker/Docker/resources/share/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/CMake/MKLConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/CMake/mkl-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/CMake/lib/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/CMake/lib/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/CMake/share/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/CMake/share/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Python/Python310/Scripts/MKLConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Python/Python310/Scripts/mkl-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Python/Python310/Scripts/lib/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Python/Python310/Scripts/lib/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Python/Python310/Scripts/share/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Python/Python310/Scripts/share/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Python/Python310/MKLConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Python/Python310/mkl-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Python/Python310/lib/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Python/Python310/lib/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Python/Python310/share/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Python/Python310/share/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/GitHubDesktop/MKLConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/GitHubDesktop/mkl-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/GitHubDesktop/lib/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/GitHubDesktop/lib/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/GitHubDesktop/share/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/GitHubDesktop/share/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Microsoft VS Code/MKLConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Microsoft VS Code/mkl-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Microsoft VS Code/lib/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Microsoft VS Code/lib/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Microsoft VS Code/share/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Microsoft VS Code/share/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/antigravity/MKLConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/antigravity/mkl-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/antigravity/lib/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/antigravity/lib/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/antigravity/share/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/antigravity/share/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Microsoft/WinGet/Packages/AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe/MKLConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Microsoft/WinGet/Packages/AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe/mkl-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Microsoft/WinGet/Packages/AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe/lib/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Microsoft/WinGet/Packages/AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe/lib/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Microsoft/WinGet/Packages/AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe/share/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Microsoft/WinGet/Packages/AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe/share/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts/MKLConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts/mkl-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts/lib/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts/lib/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts/share/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts/share/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Antigravity IDE/MKLConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Antigravity IDE/mkl-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Antigravity IDE/lib/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Antigravity IDE/lib/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Antigravity IDE/share/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Antigravity IDE/share/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/MKLConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/mkl-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/CMake/MKLConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/CMake/mkl-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/lib/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/lib/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/share/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/share/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/MKLConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/mkl-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/lib/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/lib/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/share/cps/MKL.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/share/cps/mkl.cps"
+        mode: "cps"
+        reason: "no_exist"
+    found: null
+    search_context:
+      CMAKE_PREFIX_PATH:
+        - "E:/hearts_simulator/libtorch"
+      ENV{PATH}:
+        - "C:/Users/patom/.gemini/antigravity/bin"
+        - "C:\\Users\\patom\\AppData\\Roaming\\Antigravity\\bin"
+        - "C:\\Program Files (x86)\\Razer Chroma SDK\\bin"
+        - "C:\\Program Files\\Razer Chroma SDK\\bin"
+        - "C:\\WINDOWS\\system32"
+        - "C:\\WINDOWS"
+        - "C:\\WINDOWS\\System32\\Wbem"
+        - "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\WINDOWS\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA app\\NvDLISR"
+        - "C:\\WINDOWS\\system32\\config\\systemprofile\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Program Files (x86)\\Razer\\ChromaBroadcast\\bin"
+        - "C:\\Program Files\\Razer\\ChromaBroadcast\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Program Files\\dotnet\\"
+        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
+        - "C:\\Program Files\\Git\\cmd"
+        - "C:\\WINDOWS\\system32"
+        - "C:\\WINDOWS"
+        - "C:\\WINDOWS\\System32\\Wbem"
+        - "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\WINDOWS\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\Docker\\Docker\\resources\\bin"
+        - "C:\\Program Files\\CMake\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Python\\Python310\\Scripts\\"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Python\\Python310\\"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Users\\patom\\AppData\\Local\\GitHubDesktop\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Microsoft VS Code\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Antigravity\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WinGet\\Packages\\AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe"
+        - "C:\\Users\\patom\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python313\\Scripts"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Antigravity IDE\\bin"
+      CMAKE_INSTALL_PREFIX: "C:/Program Files (x86)/HeartsSimulator"
+      CMAKE_SYSTEM_PREFIX_PATH:
+        - "C:/Program Files"
+        - "C:/Program Files (x86)"
+        - "C:/Program Files/CMake"
+        - "C:/Program Files (x86)/HeartsSimulator"
+  -
+    kind: "find_package-v1"
+    backtrace:
+      - "libtorch/share/cmake/Caffe2/public/mkldnn.cmake:7 (find_package)"
+      - "libtorch/share/cmake/Caffe2/Caffe2Config.cmake:109 (include)"
+      - "libtorch/share/cmake/Torch/TorchConfig.cmake:68 (find_package)"
+      - "CMakeLists.txt:17 (find_package)"
+    name: "MKLDNN"
+    configs:
+      -
+        filename: "MKLDNN.cps"
+        kind: "cps"
+      -
+        filename: "mkldnn.cps"
+        kind: "cps"
+      -
+        filename: "MKLDNNConfig.cmake"
+        kind: "cmake"
+      -
+        filename: "mkldnn-config.cmake"
+        kind: "cmake"
+    version_request:
+      exact: false
+    settings:
+      required: "optional"
+      quiet: true
+      global: false
+      policy_scope: true
+      bypass_provider: false
+      names:
+        - "MKLDNN"
+      path_suffixes:
+        - ""
+      paths:
+        CMAKE_FIND_USE_CMAKE_PATH: true
+        CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: true
+        CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+        CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+        CMAKE_FIND_USE_INSTALL_PREFIX: true
+        CMAKE_FIND_USE_PACKAGE_ROOT_PATH: true
+        CMAKE_FIND_USE_CMAKE_PACKAGE_REGISTRY: true
+        CMAKE_FIND_USE_SYSTEM_PACKAGE_REGISTRY: true
+        CMAKE_FIND_ROOT_PATH_MODE: "BOTH"
+    candidates:
+      -
+        path: "E:/hearts_simulator/build/CMakeFiles/pkgRedirects/MKLDNNConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/build/CMakeFiles/pkgRedirects/mkldnn-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/build/CMakeFiles/pkgRedirects/lib/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/build/CMakeFiles/pkgRedirects/lib/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/build/CMakeFiles/pkgRedirects/share/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/build/CMakeFiles/pkgRedirects/share/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/libtorch/MKLDNNConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/libtorch/mkldnn-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/libtorch/cmake/MKLDNNConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/libtorch/cmake/mkldnn-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/libtorch/lib/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/libtorch/lib/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/libtorch/share/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/libtorch/share/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/.gemini/antigravity/MKLDNNConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/.gemini/antigravity/mkldnn-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/.gemini/antigravity/lib/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/.gemini/antigravity/lib/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/.gemini/antigravity/share/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/.gemini/antigravity/share/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Roaming/Antigravity/MKLDNNConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Roaming/Antigravity/mkldnn-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Roaming/Antigravity/lib/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Roaming/Antigravity/lib/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Roaming/Antigravity/share/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Roaming/Antigravity/share/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/Razer Chroma SDK/MKLDNNConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/Razer Chroma SDK/mkldnn-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/Razer Chroma SDK/lib/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/Razer Chroma SDK/lib/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/Razer Chroma SDK/share/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/Razer Chroma SDK/share/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Razer Chroma SDK/MKLDNNConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Razer Chroma SDK/mkldnn-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Razer Chroma SDK/lib/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Razer Chroma SDK/lib/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Razer Chroma SDK/share/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Razer Chroma SDK/share/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/MKLDNNConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/mkldnn-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/lib/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/lib/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/share/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/share/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/MKLDNNConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/mkldnn-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/lib/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/lib/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/share/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/share/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/wbem/MKLDNNConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/wbem/mkldnn-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/wbem/lib/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/wbem/lib/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/wbem/share/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/wbem/share/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/WindowsPowerShell/v1.0/MKLDNNConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/WindowsPowerShell/v1.0/mkldnn-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/WindowsPowerShell/v1.0/lib/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/WindowsPowerShell/v1.0/lib/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/WindowsPowerShell/v1.0/share/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/WindowsPowerShell/v1.0/share/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/OpenSSH/MKLDNNConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/OpenSSH/mkldnn-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/OpenSSH/lib/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/OpenSSH/lib/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/OpenSSH/share/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Windows/System32/OpenSSH/share/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/MKLDNNConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/mkldnn-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/lib/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/lib/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/share/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/share/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/Razer/ChromaBroadcast/MKLDNNConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/Razer/ChromaBroadcast/mkldnn-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/Razer/ChromaBroadcast/lib/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/Razer/ChromaBroadcast/lib/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/Razer/ChromaBroadcast/share/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/Razer/ChromaBroadcast/share/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Razer/ChromaBroadcast/MKLDNNConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Razer/ChromaBroadcast/mkldnn-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Razer/ChromaBroadcast/lib/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Razer/ChromaBroadcast/lib/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Razer/ChromaBroadcast/share/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Razer/ChromaBroadcast/share/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/MKLDNNConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/mkldnn-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/lib/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/lib/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/share/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/share/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/dotnet/MKLDNNConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/dotnet/mkldnn-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/dotnet/lib/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/dotnet/lib/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/dotnet/share/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/dotnet/share/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/MKLDNNConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/mkldnn-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/lib/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/lib/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/share/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/share/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Git/cmd/MKLDNNConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Git/cmd/mkldnn-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Git/cmd/lib/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Git/cmd/lib/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Git/cmd/share/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Git/cmd/share/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Docker/Docker/resources/MKLDNNConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Docker/Docker/resources/mkldnn-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Docker/Docker/resources/lib/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Docker/Docker/resources/lib/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Docker/Docker/resources/share/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/Docker/Docker/resources/share/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/CMake/MKLDNNConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/CMake/mkldnn-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/CMake/lib/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/CMake/lib/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/CMake/share/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/CMake/share/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Python/Python310/Scripts/MKLDNNConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Python/Python310/Scripts/mkldnn-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Python/Python310/Scripts/lib/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Python/Python310/Scripts/lib/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Python/Python310/Scripts/share/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Python/Python310/Scripts/share/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Python/Python310/MKLDNNConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Python/Python310/mkldnn-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Python/Python310/lib/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Python/Python310/lib/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Python/Python310/share/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Python/Python310/share/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/GitHubDesktop/MKLDNNConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/GitHubDesktop/mkldnn-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/GitHubDesktop/lib/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/GitHubDesktop/lib/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/GitHubDesktop/share/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/GitHubDesktop/share/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Microsoft VS Code/MKLDNNConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Microsoft VS Code/mkldnn-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Microsoft VS Code/lib/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Microsoft VS Code/lib/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Microsoft VS Code/share/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Microsoft VS Code/share/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/antigravity/MKLDNNConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/antigravity/mkldnn-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/antigravity/lib/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/antigravity/lib/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/antigravity/share/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/antigravity/share/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Microsoft/WinGet/Packages/AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe/MKLDNNConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Microsoft/WinGet/Packages/AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe/mkldnn-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Microsoft/WinGet/Packages/AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe/lib/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Microsoft/WinGet/Packages/AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe/lib/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Microsoft/WinGet/Packages/AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe/share/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Microsoft/WinGet/Packages/AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe/share/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts/MKLDNNConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts/mkldnn-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts/lib/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts/lib/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts/share/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts/share/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Antigravity IDE/MKLDNNConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Antigravity IDE/mkldnn-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Antigravity IDE/lib/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Antigravity IDE/lib/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Antigravity IDE/share/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Users/patom/AppData/Local/Programs/Antigravity IDE/share/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/MKLDNNConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/mkldnn-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/CMake/MKLDNNConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/CMake/mkldnn-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/lib/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/lib/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/share/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files/share/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/MKLDNNConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/mkldnn-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/lib/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/lib/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/share/cps/MKLDNN.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "C:/Program Files (x86)/share/cps/mkldnn.cps"
+        mode: "cps"
+        reason: "no_exist"
+    found: null
+    search_context:
+      CMAKE_PREFIX_PATH:
+        - "E:/hearts_simulator/libtorch"
+      ENV{PATH}:
+        - "C:/Users/patom/.gemini/antigravity/bin"
+        - "C:\\Users\\patom\\AppData\\Roaming\\Antigravity\\bin"
+        - "C:\\Program Files (x86)\\Razer Chroma SDK\\bin"
+        - "C:\\Program Files\\Razer Chroma SDK\\bin"
+        - "C:\\WINDOWS\\system32"
+        - "C:\\WINDOWS"
+        - "C:\\WINDOWS\\System32\\Wbem"
+        - "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\WINDOWS\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA app\\NvDLISR"
+        - "C:\\WINDOWS\\system32\\config\\systemprofile\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Program Files (x86)\\Razer\\ChromaBroadcast\\bin"
+        - "C:\\Program Files\\Razer\\ChromaBroadcast\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Program Files\\dotnet\\"
+        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
+        - "C:\\Program Files\\Git\\cmd"
+        - "C:\\WINDOWS\\system32"
+        - "C:\\WINDOWS"
+        - "C:\\WINDOWS\\System32\\Wbem"
+        - "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\WINDOWS\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\Docker\\Docker\\resources\\bin"
+        - "C:\\Program Files\\CMake\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Python\\Python310\\Scripts\\"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Python\\Python310\\"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Users\\patom\\AppData\\Local\\GitHubDesktop\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Microsoft VS Code\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Antigravity\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WinGet\\Packages\\AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe"
+        - "C:\\Users\\patom\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python313\\Scripts"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Antigravity IDE\\bin"
+      CMAKE_INSTALL_PREFIX: "C:/Program Files (x86)/HeartsSimulator"
+      CMAKE_SYSTEM_PREFIX_PATH:
+        - "C:/Program Files"
+        - "C:/Program Files (x86)"
+        - "C:/Program Files/CMake"
+        - "C:/Program Files (x86)/HeartsSimulator"
+  -
+    kind: "find_package-v1"
+    backtrace:
+      - "libtorch/share/cmake/Torch/TorchConfig.cmake:68 (find_package)"
+      - "CMakeLists.txt:17 (find_package)"
+    name: "Caffe2"
+    configs:
+      -
+        filename: "Caffe2.cps"
+        kind: "cps"
+      -
+        filename: "caffe2.cps"
+        kind: "cps"
+      -
+        filename: "Caffe2Config.cmake"
+        kind: "cmake"
+      -
+        filename: "caffe2-config.cmake"
+        kind: "cmake"
+    version_request:
+      exact: false
+    settings:
+      required: "required_explicit"
+      quiet: false
+      global: false
+      policy_scope: true
+      bypass_provider: false
+      names:
+        - "Caffe2"
+      search_paths:
+        - "E:/hearts_simulator/libtorch/share/cmake/Torch/../Caffe2"
+      path_suffixes:
+        - ""
+      paths:
+        CMAKE_FIND_USE_CMAKE_PATH: true
+        CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: true
+        CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+        CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+        CMAKE_FIND_USE_INSTALL_PREFIX: true
+        CMAKE_FIND_USE_PACKAGE_ROOT_PATH: true
+        CMAKE_FIND_USE_CMAKE_PACKAGE_REGISTRY: true
+        CMAKE_FIND_USE_SYSTEM_PACKAGE_REGISTRY: true
+        CMAKE_FIND_ROOT_PATH_MODE: "BOTH"
+    candidates:
+      -
+        path: "E:/hearts_simulator/build/CMakeFiles/pkgRedirects/Caffe2Config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/build/CMakeFiles/pkgRedirects/caffe2-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/build/CMakeFiles/pkgRedirects/lib/cps/Caffe2.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/build/CMakeFiles/pkgRedirects/lib/cps/caffe2.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/build/CMakeFiles/pkgRedirects/share/cps/Caffe2.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/build/CMakeFiles/pkgRedirects/share/cps/caffe2.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/libtorch/Caffe2Config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/libtorch/caffe2-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/libtorch/cmake/Caffe2Config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/libtorch/cmake/caffe2-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/libtorch/lib/cps/Caffe2.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/libtorch/lib/cps/caffe2.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/libtorch/share/cps/Caffe2.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/libtorch/share/cps/caffe2.cps"
+        mode: "cps"
+        reason: "no_exist"
+    found:
+      path: "E:/hearts_simulator/libtorch/share/cmake/Caffe2/Caffe2Config.cmake"
+      mode: "config"
+      version: ""
+    search_context:
+      CMAKE_PREFIX_PATH:
+        - "E:/hearts_simulator/libtorch"
+      ENV{PATH}:
+        - "C:/Users/patom/.gemini/antigravity/bin"
+        - "C:\\Users\\patom\\AppData\\Roaming\\Antigravity\\bin"
+        - "C:\\Program Files (x86)\\Razer Chroma SDK\\bin"
+        - "C:\\Program Files\\Razer Chroma SDK\\bin"
+        - "C:\\WINDOWS\\system32"
+        - "C:\\WINDOWS"
+        - "C:\\WINDOWS\\System32\\Wbem"
+        - "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\WINDOWS\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA app\\NvDLISR"
+        - "C:\\WINDOWS\\system32\\config\\systemprofile\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Program Files (x86)\\Razer\\ChromaBroadcast\\bin"
+        - "C:\\Program Files\\Razer\\ChromaBroadcast\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Program Files\\dotnet\\"
+        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
+        - "C:\\Program Files\\Git\\cmd"
+        - "C:\\WINDOWS\\system32"
+        - "C:\\WINDOWS"
+        - "C:\\WINDOWS\\System32\\Wbem"
+        - "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\WINDOWS\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\Docker\\Docker\\resources\\bin"
+        - "C:\\Program Files\\CMake\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Python\\Python310\\Scripts\\"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Python\\Python310\\"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Users\\patom\\AppData\\Local\\GitHubDesktop\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Microsoft VS Code\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Antigravity\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WinGet\\Packages\\AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe"
+        - "C:\\Users\\patom\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python313\\Scripts"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Antigravity IDE\\bin"
+      CMAKE_INSTALL_PREFIX: "C:/Program Files (x86)/HeartsSimulator"
+      CMAKE_SYSTEM_PREFIX_PATH:
+        - "C:/Program Files"
+        - "C:/Program Files (x86)"
+        - "C:/Program Files/CMake"
+        - "C:/Program Files (x86)/HeartsSimulator"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "libtorch/share/cmake/Torch/TorchConfig.cmake:18 (find_library)"
+      - "libtorch/share/cmake/Torch/TorchConfig.cmake:70 (append_torchlib_if_found)"
+      - "CMakeLists.txt:17 (find_package)"
+    mode: "library"
+    variable: "c10_LIBRARY"
+    description: "Path to a library."
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: true
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "c10"
+    candidate_directories:
+      - "E:/hearts_simulator/libtorch/lib/"
+      - "E:/hearts_simulator/libtorch/"
+      - "C:/Users/patom/.gemini/antigravity/bin/"
+      - "C:/Users/patom/AppData/Roaming/Antigravity/bin/"
+      - "C:/Program Files (x86)/Razer Chroma SDK/bin/"
+      - "C:/Program Files/Razer Chroma SDK/bin/"
+      - "C:/Windows/System32/"
+      - "C:/Windows/"
+      - "C:/Windows/System32/wbem/"
+      - "C:/Windows/System32/WindowsPowerShell/v1.0/"
+      - "C:/Windows/System32/OpenSSH/"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/"
+      - "C:/Windows/System32/config/systemprofile/AppData/Local/Microsoft/WindowsApps/"
+      - "C:/Program Files (x86)/Razer/ChromaBroadcast/bin/"
+      - "C:/Program Files/Razer/ChromaBroadcast/bin/"
+      - "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/"
+      - "C:/Program Files/dotnet/"
+      - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/"
+      - "C:/Program Files/Git/cmd/"
+      - "C:/Program Files/Docker/Docker/resources/bin/"
+      - "C:/Program Files/CMake/bin/"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/Scripts/"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/"
+      - "C:/Users/patom/AppData/Local/GitHubDesktop/bin/"
+      - "C:/Users/patom/AppData/Local/Programs/Microsoft VS Code/bin/"
+      - "C:/Users/patom/AppData/Local/Programs/antigravity/bin/"
+      - "C:/Users/patom/AppData/Local/Microsoft/WinGet/Packages/AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe/"
+      - "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts/"
+      - "C:/Users/patom/AppData/Local/Programs/Antigravity IDE/bin/"
+      - "C:/Program Files/lib/"
+      - "C:/Program Files/"
+      - "C:/Program Files (x86)/lib/"
+      - "C:/Program Files (x86)/"
+      - "C:/Program Files/CMake/lib/"
+      - "C:/Program Files/CMake/"
+      - "C:/Program Files (x86)/HeartsSimulator/lib/"
+      - "C:/Program Files (x86)/HeartsSimulator/"
+      - "C:/Program Files (x86)/HeartsSimulator/bin/"
+      - "/bin/"
+      - "E:/hearts_simulator/libtorch/lib/"
+    found: "E:/hearts_simulator/libtorch/lib/c10.lib"
+    search_context:
+      CMAKE_PREFIX_PATH:
+        - "E:/hearts_simulator/libtorch"
+      ENV{PATH}:
+        - "C:/Users/patom/.gemini/antigravity/bin"
+        - "C:\\Users\\patom\\AppData\\Roaming\\Antigravity\\bin"
+        - "C:\\Program Files (x86)\\Razer Chroma SDK\\bin"
+        - "C:\\Program Files\\Razer Chroma SDK\\bin"
+        - "C:\\WINDOWS\\system32"
+        - "C:\\WINDOWS"
+        - "C:\\WINDOWS\\System32\\Wbem"
+        - "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\WINDOWS\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA app\\NvDLISR"
+        - "C:\\WINDOWS\\system32\\config\\systemprofile\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Program Files (x86)\\Razer\\ChromaBroadcast\\bin"
+        - "C:\\Program Files\\Razer\\ChromaBroadcast\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Program Files\\dotnet\\"
+        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
+        - "C:\\Program Files\\Git\\cmd"
+        - "C:\\WINDOWS\\system32"
+        - "C:\\WINDOWS"
+        - "C:\\WINDOWS\\System32\\Wbem"
+        - "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\WINDOWS\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\Docker\\Docker\\resources\\bin"
+        - "C:\\Program Files\\CMake\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Python\\Python310\\Scripts\\"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Python\\Python310\\"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Users\\patom\\AppData\\Local\\GitHubDesktop\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Microsoft VS Code\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Antigravity\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WinGet\\Packages\\AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe"
+        - "C:\\Users\\patom\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python313\\Scripts"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Antigravity IDE\\bin"
+      CMAKE_INSTALL_PREFIX: "C:/Program Files (x86)/HeartsSimulator"
+      CMAKE_SYSTEM_PREFIX_PATH:
+        - "C:/Program Files"
+        - "C:/Program Files (x86)"
+        - "C:/Program Files/CMake"
+        - "C:/Program Files (x86)/HeartsSimulator"
+      CMAKE_SYSTEM_LIBRARY_PATH:
+        - "C:/Program Files (x86)/HeartsSimulator/bin"
+        - "C:/Program Files/CMake/bin"
+        - "/bin"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "libtorch/share/cmake/Torch/TorchConfig.cmake:18 (find_library)"
+      - "libtorch/share/cmake/Torch/TorchConfig.cmake:127 (append_torchlib_if_found)"
+      - "CMakeLists.txt:17 (find_package)"
+    mode: "library"
+    variable: "kineto_LIBRARY"
+    description: "Path to a library."
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: true
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "kineto"
+    candidate_directories:
+      - "E:/hearts_simulator/libtorch/lib/"
+      - "E:/hearts_simulator/libtorch/"
+      - "C:/Users/patom/.gemini/antigravity/bin/"
+      - "C:/Users/patom/AppData/Roaming/Antigravity/bin/"
+      - "C:/Program Files (x86)/Razer Chroma SDK/bin/"
+      - "C:/Program Files/Razer Chroma SDK/bin/"
+      - "C:/Windows/System32/"
+      - "C:/Windows/"
+      - "C:/Windows/System32/wbem/"
+      - "C:/Windows/System32/WindowsPowerShell/v1.0/"
+      - "C:/Windows/System32/OpenSSH/"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/"
+      - "C:/Windows/System32/config/systemprofile/AppData/Local/Microsoft/WindowsApps/"
+      - "C:/Program Files (x86)/Razer/ChromaBroadcast/bin/"
+      - "C:/Program Files/Razer/ChromaBroadcast/bin/"
+      - "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/"
+      - "C:/Program Files/dotnet/"
+      - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/"
+      - "C:/Program Files/Git/cmd/"
+      - "C:/Program Files/Docker/Docker/resources/bin/"
+      - "C:/Program Files/CMake/bin/"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/Scripts/"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/"
+      - "C:/Users/patom/AppData/Local/GitHubDesktop/bin/"
+      - "C:/Users/patom/AppData/Local/Programs/Microsoft VS Code/bin/"
+      - "C:/Users/patom/AppData/Local/Programs/antigravity/bin/"
+      - "C:/Users/patom/AppData/Local/Microsoft/WinGet/Packages/AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe/"
+      - "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts/"
+      - "C:/Users/patom/AppData/Local/Programs/Antigravity IDE/bin/"
+      - "C:/Program Files/lib/"
+      - "C:/Program Files/"
+      - "C:/Program Files (x86)/lib/"
+      - "C:/Program Files (x86)/"
+      - "C:/Program Files/CMake/lib/"
+      - "C:/Program Files/CMake/"
+      - "C:/Program Files (x86)/HeartsSimulator/lib/"
+      - "C:/Program Files (x86)/HeartsSimulator/"
+      - "C:/Program Files (x86)/HeartsSimulator/bin/"
+      - "/bin/"
+      - "E:/hearts_simulator/libtorch/lib/"
+    found: "E:/hearts_simulator/libtorch/lib/kineto.lib"
+    search_context:
+      CMAKE_PREFIX_PATH:
+        - "E:/hearts_simulator/libtorch"
+      ENV{PATH}:
+        - "C:/Users/patom/.gemini/antigravity/bin"
+        - "C:\\Users\\patom\\AppData\\Roaming\\Antigravity\\bin"
+        - "C:\\Program Files (x86)\\Razer Chroma SDK\\bin"
+        - "C:\\Program Files\\Razer Chroma SDK\\bin"
+        - "C:\\WINDOWS\\system32"
+        - "C:\\WINDOWS"
+        - "C:\\WINDOWS\\System32\\Wbem"
+        - "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\WINDOWS\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA app\\NvDLISR"
+        - "C:\\WINDOWS\\system32\\config\\systemprofile\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Program Files (x86)\\Razer\\ChromaBroadcast\\bin"
+        - "C:\\Program Files\\Razer\\ChromaBroadcast\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Program Files\\dotnet\\"
+        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
+        - "C:\\Program Files\\Git\\cmd"
+        - "C:\\WINDOWS\\system32"
+        - "C:\\WINDOWS"
+        - "C:\\WINDOWS\\System32\\Wbem"
+        - "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\WINDOWS\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\Docker\\Docker\\resources\\bin"
+        - "C:\\Program Files\\CMake\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Python\\Python310\\Scripts\\"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Python\\Python310\\"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Users\\patom\\AppData\\Local\\GitHubDesktop\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Microsoft VS Code\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Antigravity\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WinGet\\Packages\\AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe"
+        - "C:\\Users\\patom\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python313\\Scripts"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Antigravity IDE\\bin"
+      CMAKE_INSTALL_PREFIX: "C:/Program Files (x86)/HeartsSimulator"
+      CMAKE_SYSTEM_PREFIX_PATH:
+        - "C:/Program Files"
+        - "C:/Program Files (x86)"
+        - "C:/Program Files/CMake"
+        - "C:/Program Files (x86)/HeartsSimulator"
+      CMAKE_SYSTEM_LIBRARY_PATH:
+        - "C:/Program Files (x86)/HeartsSimulator/bin"
+        - "C:/Program Files/CMake/bin"
+        - "/bin"
+  -
+    kind: "find-v1"
+    backtrace:
+      - "libtorch/share/cmake/Torch/TorchConfig.cmake:170 (find_library)"
+      - "CMakeLists.txt:17 (find_package)"
+    mode: "library"
+    variable: "TORCH_LIBRARY"
+    description: "Path to a library."
+    settings:
+      SearchFramework: "NEVER"
+      SearchAppBundle: "NEVER"
+      CMAKE_FIND_USE_CMAKE_PATH: true
+      CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+      CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+      CMAKE_FIND_USE_INSTALL_PREFIX: true
+    names:
+      - "torch"
+    candidate_directories:
+      - "E:/hearts_simulator/libtorch/lib/"
+      - "E:/hearts_simulator/libtorch/"
+      - "C:/Users/patom/.gemini/antigravity/bin/"
+      - "C:/Users/patom/AppData/Roaming/Antigravity/bin/"
+      - "C:/Program Files (x86)/Razer Chroma SDK/bin/"
+      - "C:/Program Files/Razer Chroma SDK/bin/"
+      - "C:/Windows/System32/"
+      - "C:/Windows/"
+      - "C:/Windows/System32/wbem/"
+      - "C:/Windows/System32/WindowsPowerShell/v1.0/"
+      - "C:/Windows/System32/OpenSSH/"
+      - "C:/Program Files/NVIDIA Corporation/NVIDIA app/NvDLISR/"
+      - "C:/Windows/System32/config/systemprofile/AppData/Local/Microsoft/WindowsApps/"
+      - "C:/Program Files (x86)/Razer/ChromaBroadcast/bin/"
+      - "C:/Program Files/Razer/ChromaBroadcast/bin/"
+      - "C:/Users/patom/AppData/Local/Microsoft/WindowsApps/"
+      - "C:/Program Files/dotnet/"
+      - "C:/Program Files (x86)/NVIDIA Corporation/PhysX/Common/"
+      - "C:/Program Files/Git/cmd/"
+      - "C:/Program Files/Docker/Docker/resources/bin/"
+      - "C:/Program Files/CMake/bin/"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/Scripts/"
+      - "C:/Users/patom/AppData/Local/Programs/Python/Python310/"
+      - "C:/Users/patom/AppData/Local/GitHubDesktop/bin/"
+      - "C:/Users/patom/AppData/Local/Programs/Microsoft VS Code/bin/"
+      - "C:/Users/patom/AppData/Local/Programs/antigravity/bin/"
+      - "C:/Users/patom/AppData/Local/Microsoft/WinGet/Packages/AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe/"
+      - "C:/Users/patom/AppData/Local/Packages/PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0/LocalCache/local-packages/Python313/Scripts/"
+      - "C:/Users/patom/AppData/Local/Programs/Antigravity IDE/bin/"
+      - "C:/Program Files/lib/"
+      - "C:/Program Files/"
+      - "C:/Program Files (x86)/lib/"
+      - "C:/Program Files (x86)/"
+      - "C:/Program Files/CMake/lib/"
+      - "C:/Program Files/CMake/"
+      - "C:/Program Files (x86)/HeartsSimulator/lib/"
+      - "C:/Program Files (x86)/HeartsSimulator/"
+      - "C:/Program Files (x86)/HeartsSimulator/bin/"
+      - "/bin/"
+      - "E:/hearts_simulator/libtorch/lib/"
+    found: "E:/hearts_simulator/libtorch/lib/torch.lib"
+    search_context:
+      CMAKE_PREFIX_PATH:
+        - "E:/hearts_simulator/libtorch"
+      ENV{PATH}:
+        - "C:/Users/patom/.gemini/antigravity/bin"
+        - "C:\\Users\\patom\\AppData\\Roaming\\Antigravity\\bin"
+        - "C:\\Program Files (x86)\\Razer Chroma SDK\\bin"
+        - "C:\\Program Files\\Razer Chroma SDK\\bin"
+        - "C:\\WINDOWS\\system32"
+        - "C:\\WINDOWS"
+        - "C:\\WINDOWS\\System32\\Wbem"
+        - "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\WINDOWS\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA app\\NvDLISR"
+        - "C:\\WINDOWS\\system32\\config\\systemprofile\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Program Files (x86)\\Razer\\ChromaBroadcast\\bin"
+        - "C:\\Program Files\\Razer\\ChromaBroadcast\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Program Files\\dotnet\\"
+        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
+        - "C:\\Program Files\\Git\\cmd"
+        - "C:\\WINDOWS\\system32"
+        - "C:\\WINDOWS"
+        - "C:\\WINDOWS\\System32\\Wbem"
+        - "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\WINDOWS\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\Docker\\Docker\\resources\\bin"
+        - "C:\\Program Files\\CMake\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Python\\Python310\\Scripts\\"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Python\\Python310\\"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Users\\patom\\AppData\\Local\\GitHubDesktop\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Microsoft VS Code\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Antigravity\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WinGet\\Packages\\AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe"
+        - "C:\\Users\\patom\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python313\\Scripts"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Antigravity IDE\\bin"
+      CMAKE_INSTALL_PREFIX: "C:/Program Files (x86)/HeartsSimulator"
+      CMAKE_SYSTEM_PREFIX_PATH:
+        - "C:/Program Files"
+        - "C:/Program Files (x86)"
+        - "C:/Program Files/CMake"
+        - "C:/Program Files (x86)/HeartsSimulator"
+      CMAKE_SYSTEM_LIBRARY_PATH:
+        - "C:/Program Files (x86)/HeartsSimulator/bin"
+        - "C:/Program Files/CMake/bin"
+        - "/bin"
+  -
+    kind: "find_package-v1"
+    backtrace:
+      - "CMakeLists.txt:17 (find_package)"
+    name: "Torch"
+    configs:
+      -
+        filename: "Torch.cps"
+        kind: "cps"
+      -
+        filename: "torch.cps"
+        kind: "cps"
+      -
+        filename: "TorchConfig.cmake"
+        kind: "cmake"
+      -
+        filename: "torch-config.cmake"
+        kind: "cmake"
+    version_request:
+      exact: false
+    settings:
+      required: "required_explicit"
+      quiet: false
+      global: false
+      policy_scope: true
+      bypass_provider: false
+      names:
+        - "Torch"
+      path_suffixes:
+        - ""
+      paths:
+        CMAKE_FIND_USE_CMAKE_PATH: true
+        CMAKE_FIND_USE_CMAKE_ENVIRONMENT_PATH: true
+        CMAKE_FIND_USE_SYSTEM_ENVIRONMENT_PATH: true
+        CMAKE_FIND_USE_CMAKE_SYSTEM_PATH: true
+        CMAKE_FIND_USE_INSTALL_PREFIX: true
+        CMAKE_FIND_USE_PACKAGE_ROOT_PATH: true
+        CMAKE_FIND_USE_CMAKE_PACKAGE_REGISTRY: true
+        CMAKE_FIND_USE_SYSTEM_PACKAGE_REGISTRY: true
+        CMAKE_FIND_ROOT_PATH_MODE: "BOTH"
+    candidates:
+      -
+        path: "E:/hearts_simulator/build/CMakeFiles/pkgRedirects/TorchConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/build/CMakeFiles/pkgRedirects/torch-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/build/CMakeFiles/pkgRedirects/lib/cps/Torch.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/build/CMakeFiles/pkgRedirects/lib/cps/torch.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/build/CMakeFiles/pkgRedirects/share/cps/Torch.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/build/CMakeFiles/pkgRedirects/share/cps/torch.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/libtorch/TorchConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/libtorch/torch-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/libtorch/cmake/TorchConfig.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/libtorch/cmake/torch-config.cmake"
+        mode: "config"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/libtorch/lib/cps/Torch.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/libtorch/lib/cps/torch.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/libtorch/share/cps/Torch.cps"
+        mode: "cps"
+        reason: "no_exist"
+      -
+        path: "E:/hearts_simulator/libtorch/share/cps/torch.cps"
+        mode: "cps"
+        reason: "no_exist"
+    found:
+      path: "E:/hearts_simulator/libtorch/share/cmake/Torch/TorchConfig.cmake"
+      mode: "config"
+      version: "2.2.2"
+    search_context:
+      CMAKE_PREFIX_PATH:
+        - "E:/hearts_simulator/libtorch"
+      ENV{PATH}:
+        - "C:/Users/patom/.gemini/antigravity/bin"
+        - "C:\\Users\\patom\\AppData\\Roaming\\Antigravity\\bin"
+        - "C:\\Program Files (x86)\\Razer Chroma SDK\\bin"
+        - "C:\\Program Files\\Razer Chroma SDK\\bin"
+        - "C:\\WINDOWS\\system32"
+        - "C:\\WINDOWS"
+        - "C:\\WINDOWS\\System32\\Wbem"
+        - "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\WINDOWS\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\NVIDIA Corporation\\NVIDIA app\\NvDLISR"
+        - "C:\\WINDOWS\\system32\\config\\systemprofile\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Program Files (x86)\\Razer\\ChromaBroadcast\\bin"
+        - "C:\\Program Files\\Razer\\ChromaBroadcast\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Program Files\\dotnet\\"
+        - "C:\\Program Files (x86)\\NVIDIA Corporation\\PhysX\\Common"
+        - "C:\\Program Files\\Git\\cmd"
+        - "C:\\WINDOWS\\system32"
+        - "C:\\WINDOWS"
+        - "C:\\WINDOWS\\System32\\Wbem"
+        - "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\"
+        - "C:\\WINDOWS\\System32\\OpenSSH\\"
+        - "C:\\Program Files\\Docker\\Docker\\resources\\bin"
+        - "C:\\Program Files\\CMake\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Python\\Python310\\Scripts\\"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Python\\Python310\\"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WindowsApps"
+        - "C:\\Users\\patom\\AppData\\Local\\GitHubDesktop\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Microsoft VS Code\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Antigravity\\bin"
+        - "C:\\Users\\patom\\AppData\\Local\\Microsoft\\WinGet\\Packages\\AlDanial.Cloc_Microsoft.Winget.Source_8wekyb3d8bbwe"
+        - "C:\\Users\\patom\\AppData\\Local\\Packages\\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\\LocalCache\\local-packages\\Python313\\Scripts"
+        - "C:\\Users\\patom\\AppData\\Local\\Programs\\Antigravity IDE\\bin"
+      CMAKE_INSTALL_PREFIX: "C:/Program Files (x86)/HeartsSimulator"
+      CMAKE_SYSTEM_PREFIX_PATH:
+        - "C:/Program Files"
+        - "C:/Program Files (x86)"
+        - "C:/Program Files/CMake"
+        - "C:/Program Files (x86)/HeartsSimulator"
+...
