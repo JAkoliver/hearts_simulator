@@ -6,6 +6,7 @@ import copy
 import random
 import os
 import glob
+import json
 import psutil
 import multiprocessing
 import concurrent.futures
@@ -182,19 +183,27 @@ def main():
     print("Initializing Hearts PPO Training Pipeline (Multiprocessing)...")
     
     network = HeartsNet()
-    if os.path.exists('hearts_model_interrupted.pth'):
-        network.load_state_dict(torch.load('hearts_model_interrupted.pth', weights_only=True))
-        print("Model Resumption Successful: Loaded weights from hearts_model_interrupted.pth!")
-    elif os.path.exists('hearts_model_final.pth'):
+    if os.path.exists('hearts_model_final.pth'):
         network.load_state_dict(torch.load('hearts_model_final.pth', weights_only=True))
         print("Model Resumption Successful: Loaded weights from hearts_model_final.pth!")
+    elif os.path.exists('hearts_model_interrupted.pth'):
+        network.load_state_dict(torch.load('hearts_model_interrupted.pth', weights_only=True))
+        print("Model Resumption Successful: Loaded weights from hearts_model_interrupted.pth!")
         
-    optimizer = optim.Adam(network.parameters(), lr=5e-5)
+    with open('config.json', 'r') as f:
+        config = json.load(f)
+
+    optimizer = optim.Adam(network.parameters(), lr=config.get('learning_rate', 5e-5))
     
-    update_timestep = 560
-    games_per_worker = 40
-    max_workers = 14
-    max_episodes = 15160000
+    update_timestep = config.get('update_timestep', 560)
+    games_per_worker = config.get('games_per_worker', 40)
+    max_workers = config.get('max_workers', 14)
+    
+    if os.environ.get('SMOKE_TEST') == '1':
+        max_episodes = 100
+        print("SMOKE_TEST mode active: max_episodes set to 100")
+    else:
+        max_episodes = config.get('max_episodes', 250000)
     
     historical_pool = []
     for _ in range(5):
@@ -248,7 +257,10 @@ def main():
             
             for i in range(4):
                 if len(master_buffer_list[i].states) > 0:
-                    ppo_update(network, optimizer, master_buffer_list[i])
+                    ppo_update(network, optimizer, master_buffer_list[i], 
+                               gamma=config.get('gamma', 1.0), 
+                               eps_clip=config.get('eps_clip', 0.2), 
+                               k_epochs=config.get('k_epochs', 4))
                     
             if games_played >= next_milestone:
                 total_lifetime_games = baseline_games + next_milestone

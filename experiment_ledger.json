@@ -1,0 +1,5 @@
+{
+  "baseline_model_path": "hearts_model_final.pth",
+  "baseline_score": 6.5,
+  "failed_experiments": []
+}
