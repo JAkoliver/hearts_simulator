@@ -112,11 +112,27 @@ int main() {
 
     // 3. Human UI Component (Interactive Container)
     auto hand_container = Container::Horizontal({});
+    
+    auto new_game_button = Button("New Game", [&] {
+        overall_game_over = false;
+        // game_thread will notice and reset
+    });
+    
+    auto game_over_container = Container::Vertical({
+        new_game_button
+    });
+    
+    int tab_index = 0;
+    auto main_container = Container::Tab({
+        hand_container,
+        game_over_container
+    }, &tab_index);
 
-    auto renderer = Renderer(hand_container, [&] {
+    auto renderer = Renderer(main_container, [&] {
         const auto& state = env.GetState();
         
         if (overall_game_over) {
+            tab_index = 1;
             int winner = 0;
             int lowest_score = 9999;
             for (int i = 0; i < 4; ++i) {
@@ -135,8 +151,18 @@ int main() {
                 text(winner_text) | center | bold | color(Color::Green),
                 text("Lowest Score: " + std::to_string(lowest_score)) | center,
                 text(""),
+                text("Final Scores:") | center | bold,
+                text("Player 0 (You): " + std::to_string(state.total_scores[0])) | center,
+                text("Player 1 (AI):  " + std::to_string(state.total_scores[1])) | center,
+                text("Player 2 (AI):  " + std::to_string(state.total_scores[2])) | center,
+                text("Player 3 (AI):  " + std::to_string(state.total_scores[3])) | center,
+                text(""),
+                new_game_button->Render() | center,
+                text(""),
                 text("Press Ctrl+C to exit.") | center | dim
             }) | center;
+        } else {
+            tab_index = 0;
         }
 
         auto score_box = window(text(" Scores "), vbox({
@@ -146,11 +172,45 @@ int main() {
             text("Player 3 (AI):  Total " + std::to_string(state.total_scores[3]) + " (Round: " + std::to_string(state.round_scores[3]) + ")"),
         }));
         
+        Elements last_trick_elements;
+        int last_winner = state.last_trick_winner;
+        for (size_t i = 0; i < state.last_trick.size(); ++i) {
+            const auto& card = state.last_trick[i];
+            int card_id = static_cast<int>(card.card.suit) * 13 + (card.card.rank - 2);
+            auto t = text("P" + std::to_string(card.player_id) + ": " + CardToString(card_id));
+            if (card.player_id == last_winner) {
+                t = t | color(Color::Green) | bold;
+            }
+            last_trick_elements.push_back(t);
+        }
+        if (last_trick_elements.empty()) {
+            last_trick_elements.push_back(text("None"));
+        }
+        auto last_trick_box = window(text(" Last Trick "), vbox(std::move(last_trick_elements)) | center);
+        
         Elements trick_elements;
         const auto& active_trick = show_trick_override ? trick_override : state.current_trick;
-        for (const auto& card : active_trick) {
+        
+        int highest_rank = -1;
+        int winning_idx = -1;
+        if (active_trick.size() == 4) {
+            Suit led_suit = active_trick[0].card.suit;
+            for (size_t i = 0; i < active_trick.size(); ++i) {
+                if (active_trick[i].card.suit == led_suit && active_trick[i].card.rank > highest_rank) {
+                    highest_rank = active_trick[i].card.rank;
+                    winning_idx = i;
+                }
+            }
+        }
+        
+        for (size_t i = 0; i < active_trick.size(); ++i) {
+            const auto& card = active_trick[i];
             int card_id = static_cast<int>(card.card.suit) * 13 + (card.card.rank - 2);
-            trick_elements.push_back(text("P" + std::to_string(card.player_id) + ": " + CardToString(card_id)));
+            auto t = text("P" + std::to_string(card.player_id) + ": " + CardToString(card_id));
+            if (i == winning_idx) {
+                t = t | color(Color::Red) | blink | bold;
+            }
+            trick_elements.push_back(t);
         }
         if (trick_elements.empty()) {
             trick_elements.push_back(text("Waiting for lead..."));
@@ -162,7 +222,7 @@ int main() {
         
         Element status_text;
         if (game_over) {
-            status_text = text("Game Over! Press Ctrl+C to exit.") | center | bold;
+            status_text = text("Round Over! Dealing next hand...") | center | bold;
         } else if (current_player == 0) {
             status_text = text("Your Turn (Select a Card to Play)") | center | bold;
         } else {
@@ -173,6 +233,7 @@ int main() {
         
         return vbox({
             score_box,
+            last_trick_box,
             filler(),
             trick_box,
             filler(),
@@ -183,7 +244,18 @@ int main() {
 
     // 4. Game Logic Thread
     std::thread game_thread([&]() {
-        while (!game_over) {
+        while (true) {
+            if (overall_game_over) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                continue;
+            }
+            
+            if (game_over) {
+                game_over = false;
+                env.Reset();
+                screen.PostEvent(Event::Custom);
+            }
+            
             int current_player = env.GetCurrentPlayer();
             auto legal_actions = env.GetLegalActions();
             
@@ -263,7 +335,7 @@ int main() {
                         overall_game_over = true;
                         game_over = true;
                         screen.PostEvent(Event::Custom);
-                        break;
+                        continue;
                     } else {
                         env.Reset(); // Deal new round
                         screen.PostEvent(Event::Custom);
@@ -303,6 +375,9 @@ int main() {
                 
                 int action_id = logits.argmax(1).item<int>();
                 
+                // Wait for the AI to "think" so it doesn't play instantly right after the previous player
+                std::this_thread::sleep_for(std::chrono::milliseconds(800));
+                
                 if (env.GetState().current_trick.size() == 3) {
                     trick_override = env.GetState().current_trick;
                     Card c;
@@ -312,10 +387,8 @@ int main() {
                     show_trick_override = true;
                     screen.PostEvent(Event::Custom);
                     
-                    std::this_thread::sleep_for(std::chrono::seconds(1));
+                    std::this_thread::sleep_for(std::chrono::seconds(2)); // Pause for 2s on 4th card
                     show_trick_override = false;
-                } else {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(800));
                 }
                 
                 auto result = env.Step(action_id);
@@ -331,7 +404,7 @@ int main() {
                         overall_game_over = true;
                         game_over = true;
                         screen.PostEvent(Event::Custom);
-                        break;
+                        continue;
                     } else {
                         env.Reset(); // Deal new round
                         screen.PostEvent(Event::Custom);

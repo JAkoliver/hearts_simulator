@@ -24,6 +24,9 @@ struct GameState {
     std::array<int, 4> total_scores = {0, 0, 0, 0}; 
 
     std::vector<PlayedCard> current_trick;
+    std::vector<PlayedCard> last_trick; // For UI
+    int last_trick_winner = -1;         // For UI
+    
     int current_player = 0;       
     int trick_leader = 0;         
     int tricks_played = 0;        
@@ -175,6 +178,10 @@ public:
             if (trick_winner == player) {
                 result.reward = -static_cast<double>(penalty_points);
             }
+
+            // Save last trick for UI
+            state.last_trick = state.current_trick;
+            state.last_trick_winner = trick_winner;
 
             state.current_player = trick_winner;
             state.trick_leader = trick_winner;

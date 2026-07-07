@@ -5,6 +5,7 @@ from torch.distributions import Categorical
 import copy
 import random
 import os
+import glob
 import psutil
 import multiprocessing
 import concurrent.futures
@@ -128,6 +129,7 @@ def rollout_worker(network_state_dict, historical_pool_state_dicts, num_games, e
         
     buffer_list = [RolloutBuffer() for _ in range(4)]
     p0_reward_sum = 0.0
+    p0_raw_score_sum = 0.0
     
     for _ in range(num_games):
         env.reset()
@@ -165,12 +167,13 @@ def rollout_worker(network_state_dict, historical_pool_state_dicts, num_games, e
         rel_rewards = [avg - score for score in scores]
         
         p0_reward_sum += rel_rewards[0]
+        p0_raw_score_sum += scores[0]
         
         for i in range(4):
             if len(buffer_list[i].rewards) > 0:
                 buffer_list[i].rewards[-1] = rel_rewards[i]
                 
-    return buffer_list, p0_reward_sum
+    return buffer_list, p0_reward_sum, p0_raw_score_sum
 
 # ---------------------------------------------------------
 # 5. Main Training Loop
@@ -182,16 +185,30 @@ def main():
     if os.path.exists('hearts_model_interrupted.pth'):
         network.load_state_dict(torch.load('hearts_model_interrupted.pth', weights_only=True))
         print("Model Resumption Successful: Loaded weights from hearts_model_interrupted.pth!")
+    elif os.path.exists('hearts_model_final.pth'):
+        network.load_state_dict(torch.load('hearts_model_final.pth', weights_only=True))
+        print("Model Resumption Successful: Loaded weights from hearts_model_final.pth!")
         
-    optimizer = optim.Adam(network.parameters(), lr=3e-4)
+    optimizer = optim.Adam(network.parameters(), lr=5e-5)
     
     update_timestep = 560
     games_per_worker = 40
     max_workers = 14
-    max_episodes = 5000000 
+    max_episodes = 15160000
     
     historical_pool = []
+    for _ in range(5):
+        historical_pool.append(copy.deepcopy(network))
+        
+    for m_file in glob.glob('hearts_model_milestone_*.pth'):
+        m_net = HeartsNet()
+        m_net.load_state_dict(torch.load(m_file, weights_only=True))
+        historical_pool.append(m_net)
+        print(f"Loaded milestone opponent: {m_file}")
+
     games_played = 0
+    baseline_games = 17000000
+    next_milestone = 1000000
     
     executor = concurrent.futures.ProcessPoolExecutor(max_workers=max_workers)
     try:
@@ -213,22 +230,31 @@ def main():
                 
             master_buffer_list = [RolloutBuffer() for _ in range(4)]
             avg_p0_reward_batch = 0.0
+            avg_p0_raw_batch = 0.0
             
             for future in concurrent.futures.as_completed(futures):
-                local_buffers, p0_reward_sum = future.result()
+                local_buffers, p0_reward_sum, p0_raw_score_sum = future.result()
                 avg_p0_reward_batch += p0_reward_sum
+                avg_p0_raw_batch += p0_raw_score_sum
                 
                 for i in range(4):
                     master_buffer_list[i].extend(local_buffers[i])
                     
             games_played += update_timestep
             avg_p0_reward = avg_p0_reward_batch / update_timestep
+            avg_p0_raw = avg_p0_raw_batch / update_timestep
             
-            print(f"Games: {games_played} | Avg P0 Reward: {avg_p0_reward:+.2f} | PPO Update...")
+            print(f"Games: {games_played} | Pool: {len(historical_pool)} | P0 Raw: {avg_p0_raw:.2f} | P0 Rel: {avg_p0_reward:+.2f} | PPO Update...")
             
             for i in range(4):
                 if len(master_buffer_list[i].states) > 0:
                     ppo_update(network, optimizer, master_buffer_list[i])
+                    
+            if games_played >= next_milestone:
+                total_lifetime_games = baseline_games + next_milestone
+                torch.save(network.state_dict(), f'hearts_model_milestone_{total_lifetime_games}.pth')
+                print(f"Global Milestone saved: hearts_model_milestone_{total_lifetime_games}.pth")
+                next_milestone += 1000000
                     
             if games_played % 25000 == 0:
                 historical_pool.append(copy.deepcopy(network))
@@ -238,6 +264,14 @@ def main():
         print("\nTraining Complete! Saving final model...")
         torch.save(network.state_dict(), 'hearts_model_final.pth')
         print("Model saved to hearts_model_final.pth!")
+        
+        print("Automating C++ deployment... Tracing network architecture...")
+        network.eval()
+        dummy_obs = torch.zeros(1, 181, dtype=torch.float32)
+        dummy_mask = torch.zeros(1, 52, dtype=torch.bool)
+        traced_script_module = torch.jit.trace(network, (dummy_obs, dummy_mask))
+        traced_script_module.save("hearts_ai_grandmaster.pt")
+        print("Deployment asset 'hearts_ai_grandmaster.pt' successfully updated!")
         
         executor.shutdown(wait=True)
                         
