@@ -113,8 +113,16 @@ def main():
     
     print(f"--- Starting Agentic MLOps Trial ---")
     
+    if os.path.exists('hearts_model_final.pth'):
+        shutil.copy('hearts_model_final.pth', 'hearts_model_baseline_temp.pth')
+        
     try:
         is_valid, err_msg = validate_code()
+        
+        # Restore baseline immediately to wipe smoke test pollution
+        if os.path.exists('hearts_model_baseline_temp.pth'):
+            shutil.copy('hearts_model_baseline_temp.pth', 'hearts_model_final.pth')
+            
         if not is_valid:
             print("Validation Sandbox Failed!")
             print(err_msg)
@@ -130,7 +138,6 @@ def main():
             return
             
         print("Validation passed. Launching full training loop...")
-        shutil.copy('hearts_model_final.pth', 'hearts_model_baseline_temp.pth')
         train_res = subprocess.run(["python", "train.py"])
         if train_res.returncode != 0:
             print("Training crashed or was interrupted!")
@@ -166,6 +173,7 @@ def main():
         else:
             print("Experiment FAILED (Candidate not significantly better). Rolling back.")
             rollback_config()
+            shutil.copy('hearts_model_baseline_temp.pth', 'hearts_model_final.pth')
             ledger["failed_experiments"].append({
                 "config": cfg,
                 "reason": "evaluation_failed"
@@ -175,6 +183,8 @@ def main():
     except KeyboardInterrupt:
         print("\nOrchestrator interrupted by user.")
         rollback_config()
+        if os.path.exists('hearts_model_baseline_temp.pth'):
+            shutil.copy('hearts_model_baseline_temp.pth', 'hearts_model_final.pth')
         
     finally:
         if os.path.exists('hearts_model_baseline_temp.pth'):
