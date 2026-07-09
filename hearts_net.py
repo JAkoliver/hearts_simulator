@@ -24,7 +24,7 @@ class HeartsNet(nn.Module):
     Actor-Critic Neural Network for the Hearts Reinforcement Learning Environment.
 
     Architecture (v2): a LayerNorm residual trunk replacing the v1 two-layer MLP.
-      - Input projection: 181 -> width
+      - Input projection: 238 -> width
       - num_blocks pre-LN residual blocks (width -> width)
       - Final LayerNorm, then two heads:
           1. Policy Head: logits for all 52 possible cards in the deck.
@@ -42,11 +42,14 @@ class HeartsNet(nn.Module):
     be loaded with torch.jit.load() regardless of architecture.
     """
 
-    def __init__(self, obs_dim=181, width=512, num_blocks=3):
+    def __init__(self, obs_dim=238, width=512, num_blocks=3):
         super(HeartsNet, self).__init__()
 
-        # Input is the 181-dimensional observation tensor:
-        # (52 hand + 52 trick + 52 history + 4 scores + 4 trick_pos + 1 hearts_broken + 16 void_tracker)
+        # Input is the 238-dimensional observation tensor:
+        # (52 hand + 52 trick + 52 history + 4 scores + 4 trick_pos + 1 hearts_broken
+        #  + 16 void_tracker + 4 pass_direction + 1 in_passing + 52 cards_i_passed)
+        # The same policy head serves both phases: during passing, the chosen
+        # "action" is the card to pass (legality mask restricts to the hand).
         self.input_fc = nn.Linear(obs_dim, width)
         self.blocks = nn.ModuleList([ResidualBlock(width) for _ in range(num_blocks)])
         self.final_norm = nn.LayerNorm(width)
@@ -76,7 +79,7 @@ class HeartsNet(nn.Module):
         Forward pass of the Actor-Critic network with explicit action masking.
 
         Args:
-            observation (torch.Tensor): The 181-dim state tensor. Shape: (batch_size, 181) or (181,)
+            observation (torch.Tensor): The 238-dim state tensor. Shape: (batch_size, 238) or (238,)
             legal_actions_mask (torch.Tensor): A boolean mask of shape (batch_size, 52) or (52,)
                                                where True indicates a legal move.
 

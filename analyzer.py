@@ -43,6 +43,8 @@ MODE = 'argmax'         # 'argmax' (deterministic) or 'sample' (stochastic)
 SEED = 42               # deal sequence + torch/random seed (sample mode)
 TOP_DISAGREEMENTS = 5   # highest-divergence states to print
 HISTORY_CSV = 'analyzer_history.csv'
+PASSING = True          # play with the card-passing phase (set False to
+                        # compare pre-passing models on their own terms)
 
 QS, KS, AS = 36, 37, 38
 RANKS = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A']
@@ -62,7 +64,10 @@ class LegacyHeartsNet(nn.Module):
         self.value_head = nn.Linear(256, 1)
 
     def forward(self, observation, legal_actions_mask):
-        x = F.relu(self.shared_fc1(observation))
+        # v1 models predate the passing extension: feed them the first 181
+        # dims (layout-identical to their training obs). They can still act
+        # in passing states, just blindly - flagged in the report.
+        x = F.relu(self.shared_fc1(observation[..., :181]))
         x = F.relu(self.shared_fc2(x))
         state_value = self.value_head(x)
         logits = self.policy_head(x)
@@ -162,7 +167,7 @@ def sym_kl(logits_p, logits_q, legal):
 # ----------------------------- telemetry -----------------------------
 
 TACTIC_KEYS = [
-    "qs_dump", "duck", "duck4", "slough", "bleed",
+    "qs_pass", "qs_dump", "duck", "duck4", "slough", "bleed",
     "lead_safe", "moon_def", "ak_punished", "control", "forced_win",
 ]
 
@@ -197,6 +202,8 @@ def play_game(env, networks, names, telem, mode, div=None):
     voids = [[False] * 4 for _ in range(4)]
     qs_out = False                     # QS seen in a completed trick
     qs_eater = None
+    pass_picks = [[] for _ in range(4)]
+    had_qs_at_pass = [False] * 4
 
     while not done:
         p = env.get_current_player()
@@ -204,6 +211,31 @@ def play_game(env, networks, names, telem, mode, div=None):
         obs = env.observe()
         legal = [a for a in env.get_legal_actions() if a != -1]
         hand = [i for i in range(52) if obs[i] == 1.0]
+
+        # --- passing phase: pick a card to pass, no trick logic ---
+        if env.is_passing():
+            if not pass_picks[p] and QS in hand:
+                had_qs_at_pass[p] = True
+            action, logits = choose_action(networks[p], obs, legal, mode)
+            t["decisions"] += 1
+            t["entropy_sum"] += masked_entropy(logits)
+            if div is not None:
+                new_a, new_logits = choose_action(div["newer_net"], obs, legal, 'argmax')
+                old_a, old_logits = choose_action(div["older_net"], obs, legal, 'argmax')
+                div["states"][0] += 1
+                if new_a != old_a:
+                    div["disagree"][0] += 1
+                    kl = sym_kl(new_logits, old_logits, legal)
+                    info = (f"deal {div['deal_idx']}, PASS pick {len(pass_picks[p]) + 1}/3 | "
+                            f"hand: {' '.join(card_name(c) for c in sorted(hand))} | "
+                            f"newer: {card_name(new_a)}  older: {card_name(old_a)}")
+                    heapq.heappush(div["top"], (kl, div["counter"], info))
+                    div["counter"] += 1
+                    if len(div["top"]) > TOP_DISAGREEMENTS:
+                        heapq.heappop(div["top"])
+            pass_picks[p].append(action)
+            done = env.step(action).done
+            continue
 
         if not trick_cards:
             trick_leader = p
@@ -349,6 +381,11 @@ def play_game(env, networks, names, telem, mode, div=None):
     is_moon = sorted(scores) == [0, 26, 26, 26]
     for i in range(4):
         t = telem[names[i]]
+        # QS Passed: dealt the queen on a passing round - did it pass her?
+        if had_qs_at_pass[i]:
+            t["qs_pass_opps"] += 1
+            if QS in pass_picks[i]:
+                t["qs_pass_succ"] += 1
         t["games_played"] += 1
         t["total_penalty"] += scores[i]
         if scores[i] == min_score:
@@ -414,6 +451,9 @@ def main():
     newer_net, newer_arch = load_model(newer_file)
     print(f" Older: {older_name} [{older_arch}]")
     print(f" Newer: {newer_name} [{newer_arch}]  (by file mtime)")
+    if PASSING and 'v1' in (older_arch, newer_arch):
+        print(" NOTE: v1 models predate card passing; they pass blindly (obs truncated to 181).")
+        print("       Set PASSING = False for a fair v1-vs-v1 comparison.")
 
     telem = {older_name: new_telemetry(), newer_name: new_telemetry()}
     div = {"newer_net": newer_net, "older_net": older_net,
@@ -421,7 +461,7 @@ def main():
            "top": [], "counter": 0, "deal_idx": 0}
 
     # Four tables fed identical deal streams
-    envs = [hearts_env.HeartsEnv(seed=SEED) for _ in range(4)]
+    envs = [hearts_env.HeartsEnv(seed=SEED, enable_passing=PASSING) for _ in range(4)]
     diffs1, diffs2 = [], []
 
     print(f"\nRunning {PAIRED_DEALS} paired deals (4 games each)...")
@@ -492,6 +532,7 @@ def main():
     higher_better = {k: True for k in TACTIC_KEYS}
     higher_better["ak_punished"] = False
     print_rate_table("Tactics (rate [95% Wilson CI], * = significant delta)", [
+        ("QS Passed", "qs_pass"),
         ("QS Dump", "qs_dump"), ("Duck Optimal", "duck"), ("Duck (4th seat)", "duck4"),
         ("Slough Quality", "slough"), ("Spade Bleed", "bleed"), ("Lead Safety", "lead_safe"),
         ("Moon Defense", "moon_def"), ("AK-Spade Punish", "ak_punished"),

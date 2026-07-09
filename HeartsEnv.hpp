@@ -57,6 +57,13 @@ private:
     std::array<int, 52> full_deck;
     std::array<bool, 16> void_tracker;
 
+    // Passing phase (opt-in): direction cycles Left, Right, Across, Hold per deal
+    bool passing_enabled;
+    int deal_count = 0;
+    bool in_passing = false;
+    int pass_direction = 3; // 0=left(+1), 1=right(+3), 2=across(+2), 3=hold
+    std::array<std::vector<int>, 4> pass_picks; // action ids each player chose to pass
+
     int CardToActionId(const Card& c) const {
         return (static_cast<int>(c.suit) * 13) + (c.rank - 2);
     }
@@ -81,8 +88,29 @@ private:
         return true;
     }
 
+    void SortHand(std::vector<Card>& hand) {
+        std::sort(hand.begin(), hand.end(), [](const Card& a, const Card& b) {
+            if (a.suit != b.suit) return static_cast<int>(a.suit) < static_cast<int>(b.suit);
+            return a.rank < b.rank;
+        });
+    }
+
+    void LocateTwoOfClubs() {
+        state.current_player = 0;
+        for (int i = 0; i < 4; ++i) {
+            for (const auto& c : state.hands[i]) {
+                if (c.suit == Suit::Clubs && c.rank == 2) {
+                    state.current_player = i;
+                    state.trick_leader = i;
+                    break;
+                }
+            }
+        }
+    }
+
 public:
-    HeartsEnv(unsigned int seed = 42) : rng(seed) {
+    HeartsEnv(unsigned int seed = 42, bool enable_passing = false)
+        : rng(seed), passing_enabled(enable_passing) {
         for (int i = 0; i < 52; ++i) {
             full_deck[i] = i;
         }
@@ -109,23 +137,21 @@ public:
                 state.hands[i].push_back(ActionIdToCard(full_deck[i * 13 + j]));
             }
             // Sort hands to keep things predictable
-            std::sort(state.hands[i].begin(), state.hands[i].end(), [](const Card& a, const Card& b) {
-                if (a.suit != b.suit) return static_cast<int>(a.suit) < static_cast<int>(b.suit);
-                return a.rank < b.rank;
-            });
+            SortHand(state.hands[i]);
         }
 
-        // Skipping passing phase for V1.0. 
-        // Locate 2 of Clubs
-        state.current_player = 0;
-        for (int i = 0; i < 4; ++i) {
-            for (const auto& c : state.hands[i]) {
-                if (c.suit == Suit::Clubs && c.rank == 2) {
-                    state.current_player = i;
-                    state.trick_leader = i;
-                    break;
-                }
-            }
+        // Passing phase setup: direction cycles Left, Right, Across, Hold
+        for (auto& picks : pass_picks) picks.clear();
+        pass_direction = passing_enabled ? (deal_count % 4) : 3;
+        deal_count++;
+        in_passing = passing_enabled && pass_direction != 3;
+
+        if (in_passing) {
+            // Players 0..3 each select 3 cards to pass (sequential selection is
+            // equivalent to simultaneous: nobody observes others' picks)
+            state.current_player = 0;
+        } else {
+            LocateTwoOfClubs();
         }
     }
 
@@ -133,6 +159,37 @@ public:
         StepResult result = {0.0, false};
         Card played_card = ActionIdToCard(action_id);
         int player = state.current_player;
+
+        // --- Passing phase: the action selects a card to pass ---
+        if (in_passing) {
+            auto& hand = state.hands[player];
+            auto it = std::find_if(hand.begin(), hand.end(), [&](const Card& c) {
+                return c.suit == played_card.suit && c.rank == played_card.rank;
+            });
+            if (it != hand.end()) {
+                hand.erase(it);
+            }
+            pass_picks[player].push_back(action_id);
+
+            if (pass_picks[player].size() == 3) {
+                if (player == 3) {
+                    // All picks made: distribute simultaneously
+                    int offset = (pass_direction == 0) ? 1 : (pass_direction == 1) ? 3 : 2;
+                    for (int i = 0; i < 4; ++i) {
+                        int receiver = (i + offset) % 4;
+                        for (int a : pass_picks[i]) {
+                            state.hands[receiver].push_back(ActionIdToCard(a));
+                        }
+                    }
+                    for (int i = 0; i < 4; ++i) SortHand(state.hands[i]);
+                    in_passing = false;
+                    LocateTwoOfClubs();
+                } else {
+                    state.current_player = player + 1;
+                }
+            }
+            return result;
+        }
 
         // Remove card from hand
         auto& hand = state.hands[player];
@@ -233,6 +290,14 @@ public:
         int player = state.current_player;
         const auto& hand = state.hands[player];
 
+        // Passing phase: any remaining card in hand may be passed
+        if (in_passing) {
+            for (const auto& c : hand) {
+                legal_actions[idx++] = CardToActionId(c);
+            }
+            return legal_actions;
+        }
+
         bool is_leading = state.current_trick.empty();
         bool is_first_trick = state.isFirstTrick();
         Suit led_suit = is_leading ? Suit::Clubs : state.getLedSuit();
@@ -280,8 +345,8 @@ public:
         return legal_actions;
     }
 
-    std::array<float, 181> Observe() const {
-        std::array<float, 181> obs;
+    std::array<float, 238> Observe() const {
+        std::array<float, 238> obs;
         obs.fill(0.0f);
         
         int player = state.current_player;
@@ -305,6 +370,12 @@ public:
         }
         for (const auto& pc : state.current_trick) {
             card_seen[CardToActionId(pc.card)] = false; // ...or actively on the table
+        }
+        if (in_passing) {
+            // Cards selected for passing are out of hands but NOT played
+            for (int i = 0; i < 4; ++i) {
+                for (int a : pass_picks[i]) card_seen[a] = false;
+            }
         }
 
         for (int i = 0; i < 52; ++i) {
@@ -333,6 +404,19 @@ public:
             obs[165 + i] = void_tracker[i] ? 1.0f : 0.0f;
         }
 
+        // Block 6: Pass Direction one-hot (4 floats: 181-184)
+        // 0=left, 1=right, 2=across, 3=hold (also hold when passing disabled)
+        obs[181 + pass_direction] = 1.0f;
+
+        // Block 7: In-Passing-Phase flag (1 float: 185)
+        obs[185] = in_passing ? 1.0f : 0.0f;
+
+        // Block 8: Cards I passed away this round (52 floats: 186-237)
+        // During play these are known cards in the receiving opponent's hand
+        for (int a : pass_picks[player]) {
+            obs[186 + a] = 1.0f;
+        }
+
         return obs;
     }
 
@@ -340,4 +424,6 @@ public:
 
     std::array<int, 4> GetRoundScores() const { return state.round_scores; }
     int GetCurrentPlayer() const { return state.current_player; }
+    bool IsPassing() const { return in_passing; }
+    int GetPassDirection() const { return pass_direction; }
 };

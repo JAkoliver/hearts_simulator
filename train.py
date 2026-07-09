@@ -49,8 +49,8 @@ class RolloutBuffer:
 # 2. Action Selection Function
 # ---------------------------------------------------------
 def select_action(network, observation, legal_actions_raw):
-    # Convert 181-float observation list to tensor
-    state_tensor = torch.tensor(observation, dtype=torch.float32).unsqueeze(0) # Shape: (1, 181)
+    # Convert 238-float observation list to tensor
+    state_tensor = torch.tensor(observation, dtype=torch.float32).unsqueeze(0) # Shape: (1, 238)
     
     # Create boolean mask for legal actions (True = legal, False = illegal)
     mask_tensor = torch.zeros((1, 52), dtype=torch.bool)

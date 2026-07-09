@@ -14,12 +14,16 @@ PYBIND11_MODULE(hearts_env, m) {
         .def_readonly("done", &StepResult::done);
 
     // 2. Expose the HeartsEnv class and its core methods
+    // Passing defaults ON for the Python training/eval side; the C++ game
+    // (main.cpp) constructs with seed only and keeps passing disabled.
     py::class_<HeartsEnv>(m, "HeartsEnv")
-        .def(py::init<unsigned int>(), py::arg("seed") = 42)
+        .def(py::init<unsigned int, bool>(), py::arg("seed") = 42, py::arg("enable_passing") = true)
         .def("reset", &HeartsEnv::Reset)
         .def("step", &HeartsEnv::Step, py::arg("action_id"))
         .def("get_legal_actions", &HeartsEnv::GetLegalActions)
         .def("observe", &HeartsEnv::Observe)
         .def("get_round_scores", &HeartsEnv::GetRoundScores)
-        .def("get_current_player", &HeartsEnv::GetCurrentPlayer);
+        .def("get_current_player", &HeartsEnv::GetCurrentPlayer)
+        .def("is_passing", &HeartsEnv::IsPassing)
+        .def("get_pass_direction", &HeartsEnv::GetPassDirection);
 }
