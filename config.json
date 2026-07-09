@@ -1,10 +1,13 @@
 {
-    "learning_rate": 4e-05,
-    "update_timestep": 350,
-    "games_per_worker": 25,
+    "learning_rate": 0.0001,
+    "update_timestep": 378,
+    "games_per_worker": 27,
     "max_workers": 14,
     "gamma": 1.0,
-    "eps_clip": 0.24000000000000005,
+    "eps_clip": 0.2,
     "k_epochs": 4,
-    "max_episodes": 250000
+    "max_episodes": 250000,
+    "gae_lambda": 0.95,
+    "entropy_coef": 0.01,
+    "minibatch_size": 2048
 }

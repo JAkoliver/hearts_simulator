@@ -1,5 +1,6 @@
 import os
 import json
+import math
 import random
 import time
 import subprocess
@@ -27,35 +28,76 @@ def load_failed_experiments():
 def mutate_config(base_config):
     new_config = copy.deepcopy(base_config)
     
-    # Select which parameter to mutate
-    choices = ['learning_rate', 'update_timestep', 'gamma', 'eps_clip']
-    choice = random.choice(choices)
+    # 30% chance to mutate each parameter
+    mutated = False
     
-    if choice == 'learning_rate':
-        multiplier = random.choice([0.8, 1.2])
-        new_config['learning_rate'] = new_config['learning_rate'] * multiplier
+    # Ensure at least one mutation happens if all rolls fail
+    if random.random() > 0.5:
+        force_mutate = random.choice(['learning_rate', 'update_timestep', 'gamma',
+                                      'eps_clip', 'entropy_coef', 'gae_lambda'])
+    else:
+        force_mutate = None
+
+    if random.random() < 0.3 or force_mutate == 'learning_rate':
+        multiplier = random.uniform(0.7, 1.3)
+        new_config['learning_rate'] = round(new_config['learning_rate'] * multiplier, 6)
+        mutated = True
         
-    elif choice == 'update_timestep':
-        # Adjust games_per_worker by +/- 5, and recalculate update_timestep
-        delta = random.choice([-5, 5])
-        new_config['games_per_worker'] = max(5, new_config['games_per_worker'] + delta) # prevent zero or negative
+    if random.random() < 0.3 or force_mutate == 'update_timestep':
+        delta = random.randint(-15, 15)
+        new_config['games_per_worker'] = max(5, new_config['games_per_worker'] + delta)
         new_config['update_timestep'] = new_config['games_per_worker'] * new_config['max_workers']
+        mutated = True
         
-    elif choice == 'gamma':
-        delta = random.choice([-0.01, 0.01])
-        new_config['gamma'] = min(1.0, max(0.0, new_config['gamma'] + delta))
-        
-    elif choice == 'eps_clip':
-        delta = random.choice([-0.01, 0.01])
-        new_config['eps_clip'] = max(0.01, new_config['eps_clip'] + delta)
-        
+    if random.random() < 0.3 or force_mutate == 'gamma':
+        # Gamma changes the objective, not just the optimizer: with 13-step
+        # episodes and terminal-only reward, low gamma makes the agent myopic.
+        # Keep the walk near 1.0.
+        delta = random.uniform(-0.05, 0.05)
+        new_config['gamma'] = round(min(1.0, max(0.9, new_config['gamma'] + delta)), 6)
+        mutated = True
+
+    if random.random() < 0.3 or force_mutate == 'eps_clip':
+        # Bounded above: beyond ~0.3 the PPO trust region is effectively gone
+        delta = random.uniform(-0.05, 0.05)
+        new_config['eps_clip'] = round(min(0.3, max(0.05, new_config['eps_clip'] + delta)), 6)
+        mutated = True
+
+    if random.random() < 0.3 or force_mutate == 'entropy_coef':
+        multiplier = random.uniform(0.7, 1.3)
+        new_config['entropy_coef'] = round(min(0.05, max(0.001, new_config.get('entropy_coef', 0.01) * multiplier)), 6)
+        mutated = True
+
+    if random.random() < 0.3 or force_mutate == 'gae_lambda':
+        delta = random.uniform(-0.03, 0.03)
+        new_config['gae_lambda'] = round(min(1.0, max(0.8, new_config.get('gae_lambda', 0.95) + delta)), 6)
+        mutated = True
+
+    # Safety net: If by some tiny probability nothing was mutated and force_mutate failed to trigger
+    if not mutated:
+        new_config['eps_clip'] = round(min(0.3, max(0.05, new_config['eps_clip'] + random.uniform(-0.01, 0.01))), 6)
+
     return new_config
 
+def configs_match(cfg_a, cfg_b, rel_tol=0.05):
+    # Exact float equality never fires against random.uniform products, so
+    # treat configs within 5% on every numeric parameter as the same experiment
+    if cfg_a is None or cfg_b is None:
+        return False
+    if set(cfg_a.keys()) != set(cfg_b.keys()):
+        return False
+    for key, val_a in cfg_a.items():
+        val_b = cfg_b[key]
+        if isinstance(val_a, float) or isinstance(val_b, float):
+            if not math.isclose(val_a, val_b, rel_tol=rel_tol, abs_tol=1e-9):
+                return False
+        elif val_a != val_b:
+            return False
+    return True
+
 def is_config_failed(new_config, failed_configs):
-    # Check if this exact config dictionary exists in failed configs
-    # JSON serialization sorts keys to ensure exact matching, or we can just compare dicts
     for failed_cfg in failed_configs:
-        if failed_cfg == new_config:
+        if configs_match(new_config, failed_cfg):
             return True
     return False
 

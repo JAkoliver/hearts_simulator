@@ -107,6 +107,7 @@ int main() {
     std::atomic<bool> game_over(false);
     std::atomic<bool> overall_game_over(false);
     std::atomic<bool> show_trick_override(false);
+    std::atomic<bool> god_mode(false);
     std::atomic<int> action_to_play(-1); // Thread synchronization variable
     std::vector<PlayedCard> trick_override;
 
@@ -165,7 +166,7 @@ int main() {
             tab_index = 0;
         }
 
-        auto score_box = window(text(" Scores "), vbox({
+        auto score_box = window(text(" Scores [Press 'G' to toggle God Mode] "), vbox({
             text("Player 0 (You): Total " + std::to_string(state.total_scores[0]) + " (Round: " + std::to_string(state.round_scores[0]) + ")"),
             text("Player 1 (AI):  Total " + std::to_string(state.total_scores[1]) + " (Round: " + std::to_string(state.round_scores[1]) + ")"),
             text("Player 2 (AI):  Total " + std::to_string(state.total_scores[2]) + " (Round: " + std::to_string(state.round_scores[2]) + ")"),
@@ -218,6 +219,28 @@ int main() {
         
         auto trick_box = window(text(" Current Trick "), vbox(std::move(trick_elements)) | center);
         
+        Element god_mode_panel;
+        if (god_mode) {
+            Elements ai_hands_ui;
+            for (int i = 1; i <= 3; ++i) {
+                Elements cards_ui;
+                for (const auto& c : state.hands[i]) {
+                    int card_id = static_cast<int>(c.suit) * 13 + (c.rank - 2);
+                    auto t = text(" " + CardToString(card_id) + " ") | border;
+                    if (c.suit == Suit::Hearts || c.suit == Suit::Diamonds) {
+                        t = t | color(Color::Red);
+                    }
+                    cards_ui.push_back(t);
+                }
+                ai_hands_ui.push_back(
+                    window(text(" Player " + std::to_string(i) + " "), hbox(std::move(cards_ui)) | center)
+                );
+            }
+            god_mode_panel = window(text(" God Mode (AI Hands) "), vbox(std::move(ai_hands_ui)));
+        } else {
+            god_mode_panel = filler();
+        }
+        
         int current_player = env.GetCurrentPlayer();
         
         Element status_text;
@@ -236,7 +259,7 @@ int main() {
             last_trick_box,
             filler(),
             trick_box,
-            filler(),
+            god_mode_panel,
             status_text,
             bottom_panel
         });
@@ -418,7 +441,15 @@ int main() {
         screen.PostEvent(Event::Custom);
     });
 
-    screen.Loop(renderer);
+    auto event_handler = CatchEvent(renderer, [&](Event e) {
+        if (e == Event::Character('g') || e == Event::Character('G')) {
+            god_mode = !god_mode;
+            return true;
+        }
+        return false;
+    });
+
+    screen.Loop(event_handler);
     
     if (game_thread.joinable()) {
         game_thread.join();

@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -24,6 +25,7 @@ class RolloutBuffer:
         self.rewards = []
         self.values = []
         self.masks = []
+        self.dones = []
 
     def clear(self):
         self.states.clear()
@@ -32,7 +34,8 @@ class RolloutBuffer:
         self.rewards.clear()
         self.values.clear()
         self.masks.clear()
-        
+        self.dones.clear()
+
     def extend(self, other):
         self.states.extend(other.states)
         self.actions.extend(other.actions)
@@ -40,6 +43,7 @@ class RolloutBuffer:
         self.rewards.extend(other.rewards)
         self.values.extend(other.values)
         self.masks.extend(other.masks)
+        self.dones.extend(other.dones)
 
 # ---------------------------------------------------------
 # 2. Action Selection Function
@@ -53,63 +57,99 @@ def select_action(network, observation, legal_actions_raw):
     for a in legal_actions_raw:
         if a != -1:
             mask_tensor[0, a] = True
-            
-    # Forward pass
-    masked_logits, state_value = network(state_tensor, mask_tensor)
-    
-    # Because masked_logits has -inf for illegal actions, 
-    # Categorical will beautifully assign them 0 probability.
-    dist = Categorical(logits=masked_logits)
-    action = dist.sample()
-    
-    return action.item(), dist.log_prob(action).detach(), state_value.detach(), mask_tensor
+
+    # Rollouts never backprop, so skip autograd graph construction entirely
+    with torch.no_grad():
+        masked_logits, state_value = network(state_tensor, mask_tensor)
+
+        # Because masked_logits has -inf for illegal actions,
+        # Categorical will beautifully assign them 0 probability.
+        dist = Categorical(logits=masked_logits)
+        action = dist.sample()
+        log_prob = dist.log_prob(action)
+
+    return action.item(), log_prob, state_value, mask_tensor
 
 # ---------------------------------------------------------
 # 3. PPO Update Function
 # ---------------------------------------------------------
-def ppo_update(network, optimizer, buffer, gamma=1.0, eps_clip=0.2, k_epochs=4):
+def compute_gae(rewards, values, dones, gamma=1.0, gae_lambda=0.95):
+    """Generalized Advantage Estimation over a buffer of complete episodes.
+
+    Resets the accumulator and bootstrap value at every episode boundary
+    (done=True marks the LAST step of an episode), so nothing bleeds across
+    games. Returns (advantages, value_targets) as float32 numpy arrays.
+    """
+    n = len(rewards)
+    advantages = np.zeros(n, dtype=np.float32)
+    gae = 0.0
+    next_value = 0.0
+    for t in range(n - 1, -1, -1):
+        if dones[t]:
+            next_value = 0.0
+            gae = 0.0
+        delta = rewards[t] + gamma * next_value - values[t]
+        gae = delta + gamma * gae_lambda * gae
+        advantages[t] = gae
+        next_value = values[t]
+    return advantages, advantages + values
+
+def ppo_update(network, optimizer, buffer, gamma=1.0, eps_clip=0.2, k_epochs=4,
+               minibatch_size=2048, gae_lambda=0.95, entropy_coef=0.01):
     if len(buffer.states) == 0:
-        return
-        
-    returns = []
-    discounted_reward = 0
-    # Process rewards in reverse
-    for reward in reversed(buffer.rewards):
-        discounted_reward = reward + (gamma * discounted_reward)
-        returns.insert(0, discounted_reward)
-        
-    old_states = torch.tensor(buffer.states, dtype=torch.float32)
-    old_actions = torch.tensor(buffer.actions, dtype=torch.float32)
-    old_log_probs = torch.tensor(buffer.log_probs, dtype=torch.float32)
-    old_masks = torch.tensor(buffer.masks, dtype=torch.bool)
-    returns = torch.tensor(returns, dtype=torch.float32)
-    old_values = torch.tensor(buffer.values, dtype=torch.float32)
-    
-    advantages = returns - old_values.detach()
+        return None
+
+    rewards_np = np.asarray(buffer.rewards, dtype=np.float32)
+    values_np = np.asarray(buffer.values, dtype=np.float32)
+    dones_np = np.asarray(buffer.dones, dtype=np.bool_)
+
+    advantages_np, returns_np = compute_gae(rewards_np, values_np, dones_np, gamma, gae_lambda)
+
+    # Critic health metric: 1.0 = value head perfectly predicts targets,
+    # <= 0.0 = no better than predicting the mean
+    explained_var = 1.0 - np.var(returns_np - values_np) / (np.var(returns_np) + 1e-8)
+
+    # Go through numpy: torch.tensor() on large lists-of-lists is very slow
+    old_states = torch.from_numpy(np.asarray(buffer.states, dtype=np.float32))
+    old_actions = torch.from_numpy(np.asarray(buffer.actions, dtype=np.int64))
+    old_log_probs = torch.from_numpy(np.asarray(buffer.log_probs, dtype=np.float32))
+    old_masks = torch.from_numpy(np.asarray(buffer.masks, dtype=np.bool_))
+    returns = torch.from_numpy(returns_np)
+    advantages = torch.from_numpy(advantages_np)
+
     if len(advantages) > 1:
         advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
-    
+
+    n = old_states.shape[0]
     for _ in range(k_epochs):
-        masked_logits, state_values = network(old_states, old_masks)
-        dist = Categorical(logits=masked_logits)
-        
-        new_log_probs = dist.log_prob(old_actions)
-        entropy = dist.entropy()
-        
-        ratios = torch.exp(new_log_probs - old_log_probs.detach())
-        
-        surr1 = ratios * advantages
-        surr2 = torch.clamp(ratios, 1 - eps_clip, 1 + eps_clip) * advantages
-        
-        actor_loss = -torch.min(surr1, surr2).mean()
-        
-        critic_loss = nn.MSELoss()(state_values.squeeze(), returns)
-        
-        loss = actor_loss + 0.5 * critic_loss - 0.01 * entropy.mean()
-        
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+        perm = torch.randperm(n)
+        for start in range(0, n, minibatch_size):
+            idx = perm[start:start + minibatch_size]
+
+            masked_logits, state_values = network(old_states[idx], old_masks[idx])
+            dist = Categorical(logits=masked_logits)
+
+            new_log_probs = dist.log_prob(old_actions[idx])
+            entropy = dist.entropy()
+
+            ratios = torch.exp(new_log_probs - old_log_probs[idx])
+
+            mb_advantages = advantages[idx]
+            surr1 = ratios * mb_advantages
+            surr2 = torch.clamp(ratios, 1 - eps_clip, 1 + eps_clip) * mb_advantages
+
+            actor_loss = -torch.min(surr1, surr2).mean()
+
+            critic_loss = nn.MSELoss()(state_values.squeeze(-1), returns[idx])
+
+            loss = actor_loss + 0.5 * critic_loss - entropy_coef * entropy.mean()
+
+            optimizer.zero_grad()
+            loss.backward()
+            nn.utils.clip_grad_norm_(network.parameters(), 0.5)
+            optimizer.step()
+
+    return explained_var
 
 # ---------------------------------------------------------
 # 4. Rollout Worker (Multiprocessing)
@@ -154,13 +194,14 @@ def rollout_worker(network_state_dict, historical_pool_state_dicts, num_games, e
             result = env.step(action)
             done = result.done
             
-            if player_networks[player_id] == main_network:
+            if player_networks[player_id] is main_network:
                 buffer_list[player_id].states.append(obs)
                 buffer_list[player_id].actions.append(action)
                 buffer_list[player_id].log_probs.append(log_prob.item())
-                buffer_list[player_id].rewards.append(0.0) 
+                buffer_list[player_id].rewards.append(0.0)
                 buffer_list[player_id].values.append(state_value.item())
                 buffer_list[player_id].masks.append(mask.tolist()[0])
+                buffer_list[player_id].dones.append(False)
                 
         # End of round
         scores = env.get_round_scores()
@@ -170,9 +211,12 @@ def rollout_worker(network_state_dict, historical_pool_state_dicts, num_games, e
         p0_reward_sum += rel_rewards[0]
         p0_raw_score_sum += scores[0]
         
+        # Only assign the terminal reward to seats the main network actually
+        # played this game; otherwise rewards[-1] belongs to an earlier game
         for i in range(4):
-            if len(buffer_list[i].rewards) > 0:
+            if player_networks[i] is main_network and len(buffer_list[i].rewards) > 0:
                 buffer_list[i].rewards[-1] = rel_rewards[i]
+                buffer_list[i].dones[-1] = True
                 
     return buffer_list, p0_reward_sum, p0_raw_score_sum
 
@@ -194,6 +238,19 @@ def main():
         config = json.load(f)
 
     optimizer = optim.Adam(network.parameters(), lr=config.get('learning_rate', 5e-5))
+
+    # Restore Adam moment estimates from the previous trial so every experiment
+    # doesn't start with a cold optimizer on a warm network
+    if os.path.exists('hearts_optimizer.pth'):
+        try:
+            optimizer.load_state_dict(torch.load('hearts_optimizer.pth', weights_only=True))
+            # load_state_dict restores the OLD learning rate too; re-apply this
+            # trial's (possibly mutated) value
+            for group in optimizer.param_groups:
+                group['lr'] = config.get('learning_rate', 5e-5)
+            print("Optimizer state restored: Adam moments carried over from previous trial.")
+        except Exception as e:
+            print(f"Could not load optimizer state ({e}); starting with fresh Adam moments.")
     
     update_timestep = config.get('update_timestep', 560)
     games_per_worker = config.get('games_per_worker', 40)
@@ -205,20 +262,22 @@ def main():
     else:
         max_episodes = config.get('max_episodes', 250000)
     
-    historical_pool = []
-    for _ in range(5):
-        historical_pool.append(copy.deepcopy(network))
-        
-    for m_file in glob.glob('hearts_model_milestone_*.pth'):
+    historical_pool = [copy.deepcopy(network)]
+
+    for m_file in glob.glob('Hall_of_Fame/hearts_model_milestone_*.pth'):
         m_net = HeartsNet()
-        m_net.load_state_dict(torch.load(m_file, weights_only=True))
+        try:
+            m_net.load_state_dict(torch.load(m_file, weights_only=True))
+        except RuntimeError as e:
+            print(f"Skipping incompatible milestone (old architecture?): {m_file}")
+            continue
         historical_pool.append(m_net)
         print(f"Loaded milestone opponent: {m_file}")
 
     games_played = 0
-    baseline_games = 17000000
-    next_milestone = 1000000
-    
+    pool_refresh_interval = config.get('pool_refresh_interval', 25000)
+    next_pool_refresh = pool_refresh_interval
+
     executor = concurrent.futures.ProcessPoolExecutor(max_workers=max_workers)
     try:
         while games_played < max_episodes:
@@ -253,43 +312,42 @@ def main():
             avg_p0_reward = avg_p0_reward_batch / update_timestep
             avg_p0_raw = avg_p0_raw_batch / update_timestep
             
-            print(f"Games: {games_played} | Pool: {len(historical_pool)} | P0 Raw: {avg_p0_raw:.2f} | P0 Rel: {avg_p0_reward:+.2f} | PPO Update...")
-            
+            # Merge all seats into one dataset: updating per-seat sequentially
+            # runs later seats' ratios against log_probs that are already stale
+            merged_buffer = RolloutBuffer()
             for i in range(4):
-                if len(master_buffer_list[i].states) > 0:
-                    ppo_update(network, optimizer, master_buffer_list[i], 
-                               gamma=config.get('gamma', 1.0), 
-                               eps_clip=config.get('eps_clip', 0.2), 
-                               k_epochs=config.get('k_epochs', 4))
-                    
-            if games_played >= next_milestone:
-                total_lifetime_games = baseline_games + next_milestone
-                torch.save(network.state_dict(), f'hearts_model_milestone_{total_lifetime_games}.pth')
-                print(f"Global Milestone saved: hearts_model_milestone_{total_lifetime_games}.pth")
-                next_milestone += 1000000
-                    
-            if games_played % 25000 == 0:
+                merged_buffer.extend(master_buffer_list[i])
+
+            explained_var = ppo_update(network, optimizer, merged_buffer,
+                                       gamma=config.get('gamma', 1.0),
+                                       eps_clip=config.get('eps_clip', 0.2),
+                                       k_epochs=config.get('k_epochs', 4),
+                                       minibatch_size=config.get('minibatch_size', 2048),
+                                       gae_lambda=config.get('gae_lambda', 0.95),
+                                       entropy_coef=config.get('entropy_coef', 0.01))
+
+            ev_str = f"{explained_var:.3f}" if explained_var is not None else "n/a"
+            print(f"Games: {games_played} | Pool: {len(historical_pool)} | P0 Raw: {avg_p0_raw:.2f} | P0 Rel: {avg_p0_reward:+.2f} | Critic EV: {ev_str}")
+
+            # Periodically snapshot the current policy into the opponent pool so
+            # in-trial opponents track progress instead of staying frozen
+            if games_played >= next_pool_refresh:
                 historical_pool.append(copy.deepcopy(network))
                 if len(historical_pool) > 50:
                     historical_pool.pop(0)
+                next_pool_refresh += pool_refresh_interval
                     
         print("\nTraining Complete! Saving final model...")
         torch.save(network.state_dict(), 'hearts_model_final.pth')
+        torch.save(optimizer.state_dict(), 'hearts_optimizer.pth')
         print("Model saved to hearts_model_final.pth!")
-        
-        print("Automating C++ deployment... Tracing network architecture...")
-        network.eval()
-        dummy_obs = torch.zeros(1, 181, dtype=torch.float32)
-        dummy_mask = torch.zeros(1, 52, dtype=torch.bool)
-        traced_script_module = torch.jit.trace(network, (dummy_obs, dummy_mask))
-        traced_script_module.save("hearts_ai_grandmaster.pt")
-        print("Deployment asset 'hearts_ai_grandmaster.pt' successfully updated!")
         
         executor.shutdown(wait=True)
                         
     except KeyboardInterrupt:
         print("\nTraining interrupted. Model saved safely!")
         torch.save(network.state_dict(), 'hearts_model_interrupted.pth')
+        torch.save(optimizer.state_dict(), 'hearts_optimizer.pth')
         
         print("Shutting down worker pool...")
         executor.shutdown(wait=False, cancel_futures=True)
