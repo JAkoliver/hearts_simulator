@@ -1,4 +1,21 @@
 {
-    "baseline_score": null,
-    "failed_experiments": []
+    "baseline_score": 6.4492,
+    "failed_experiments": [
+        {
+            "config": {
+                "learning_rate": 6.7e-05,
+                "update_timestep": 378,
+                "games_per_worker": 27,
+                "max_workers": 14,
+                "gamma": 0.99628,
+                "eps_clip": 0.162799,
+                "k_epochs": 4,
+                "max_episodes": 250000,
+                "gae_lambda": 0.908752,
+                "entropy_coef": 0.009276,
+                "minibatch_size": 2048
+            },
+            "reason": "evaluation_failed"
+        }
+    ]
 }

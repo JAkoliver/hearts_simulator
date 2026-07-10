@@ -5,6 +5,8 @@
 #include <thread>
 #include <chrono>
 #include <atomic>
+#include <mutex>
+#include <algorithm>
 #include <torch/script.h>
 #include <torch/torch.h>
 #include "HeartsEnv.hpp"
@@ -25,24 +27,36 @@ std::string CardToString(int card_id) {
     return std::string(ranks[rank]) + suits[suit];
 }
 
+const char* PASS_DIR_NAMES[] = {"LEFT", "RIGHT", "ACROSS", "HOLD"};
+
+// Seat offset a pass travels: receiver = (giver + offset) % 4
+int PassOffset(int dir) {
+    return dir == 0 ? 1 : (dir == 1 ? 3 : (dir == 2 ? 2 : 0));
+}
+
 class CardButton : public ComponentBase {
 public:
     std::string label;
     std::function<void()> on_click;
     bool is_legal;
     Suit suit;
+    std::function<bool()> is_selected; // set during the passing phase
     bool hovered = false;
     Box box_; // For mouse collision detection
 
-    CardButton(std::string label_, std::function<void()> on_click_, bool is_legal_, Suit suit_)
-        : label(std::move(label_)), on_click(std::move(on_click_)), is_legal(is_legal_), suit(suit_) {}
+    CardButton(std::string label_, std::function<void()> on_click_, bool is_legal_, Suit suit_,
+               std::function<bool()> is_selected_ = nullptr)
+        : label(std::move(label_)), on_click(std::move(on_click_)), is_legal(is_legal_),
+          suit(suit_), is_selected(std::move(is_selected_)) {}
 
     Element Render() override {
-        auto t = text(" " + label + " ") | border;
-        
+        bool selected = is_selected && is_selected();
+        auto t = text((selected ? "*" : " ") + label + (selected ? "*" : " ")) | border;
+
         bool is_focused = Focused();
         if (hovered || is_focused) t = t | inverted;
-        
+        if (selected) t = t | bgcolor(Color::Blue) | bold;
+
         if (!is_legal) {
             if (suit == Suit::Hearts || suit == Suit::Diamonds) {
                 t = t | dim | color(Color::DarkRed);
@@ -82,34 +96,53 @@ public:
     }
 };
 
-Component MakeCardButton(std::string label, std::function<void()> on_click, bool is_legal, Suit suit) {
-    return Make<CardButton>(std::move(label), std::move(on_click), is_legal, suit);
+Component MakeCardButton(std::string label, std::function<void()> on_click, bool is_legal, Suit suit,
+                         std::function<bool()> is_selected = nullptr) {
+    return Make<CardButton>(std::move(label), std::move(on_click), is_legal, suit, std::move(is_selected));
 }
 
 int main() {
-    // 1. Load the Model
+    // 1. Load the Model. Try the working directory first (running from the
+    // repo root), then two levels up (double-clicking the exe in build/Release).
     torch::jit::script::Module ai_model;
-    try {
-        ai_model = torch::jit::load("hearts_ai_grandmaster.pt");
-        ai_model.eval();
-    } catch (const c10::Error& e) {
-        std::cerr << "Error loading the model: " << e.what() << "\n";
+    bool model_loaded = false;
+    for (const char* path : {"hearts_ai_grandmaster.pt", "../../hearts_ai_grandmaster.pt"}) {
+        try {
+            ai_model = torch::jit::load(path);
+            ai_model.eval();
+            model_loaded = true;
+            break;
+        } catch (const c10::Error&) {
+            // try the next candidate path
+        }
+    }
+    if (!model_loaded) {
+        std::cerr << "Error: could not find hearts_ai_grandmaster.pt (looked in the "
+                     "current directory and ../../).\n";
         return -1;
     }
 
-    // 2. Initialize Environment
+    // 2. Initialize Environment (card passing enabled: Left, Right, Across, Hold)
     std::random_device rd;
-    HeartsEnv env(rd());
+    HeartsEnv env(rd(), true);
     env.Reset();
     
     auto screen = ScreenInteractive::Fullscreen();
     
     std::atomic<bool> game_over(false);
     std::atomic<bool> overall_game_over(false);
+    std::atomic<bool> ui_ready(false);
     std::atomic<bool> show_trick_override(false);
     std::atomic<bool> god_mode(false);
     std::atomic<int> action_to_play(-1); // Thread synchronization variable
     std::vector<PlayedCard> trick_override;
+
+    // Passing-phase state (shared between UI and game thread)
+    std::mutex pass_mutex;
+    std::vector<int> pass_selection;   // cards the human has toggled to pass
+    std::vector<int> human_kept;       // hand snapshot after the human's picks left
+    std::vector<int> received_cards;   // what arrived in the distribution
+    std::atomic<bool> pass_confirmed(false);
 
     // 3. Human UI Component (Interactive Container)
     auto hand_container = Container::Horizontal({});
@@ -130,6 +163,7 @@ int main() {
     }, &tab_index);
 
     auto renderer = Renderer(main_container, [&] {
+        ui_ready = true; // first frame proves the event loop is installed
         const auto& state = env.GetState();
         
         if (overall_game_over) {
@@ -171,6 +205,7 @@ int main() {
             text("Player 1 (AI):  Total " + std::to_string(state.total_scores[1]) + " (Round: " + std::to_string(state.round_scores[1]) + ")"),
             text("Player 2 (AI):  Total " + std::to_string(state.total_scores[2]) + " (Round: " + std::to_string(state.round_scores[2]) + ")"),
             text("Player 3 (AI):  Total " + std::to_string(state.total_scores[3]) + " (Round: " + std::to_string(state.round_scores[3]) + ")"),
+            text("This round passes: " + std::string(PASS_DIR_NAMES[env.GetPassDirection()])) | color(Color::Cyan),
         }));
         
         Elements last_trick_elements;
@@ -246,14 +281,42 @@ int main() {
         Element status_text;
         if (game_over) {
             status_text = text("Round Over! Dealing next hand...") | center | bold;
+        } else if (env.IsPassing()) {
+            if (current_player == 0) {
+                size_t n_sel;
+                {
+                    std::lock_guard<std::mutex> lk(pass_mutex);
+                    n_sel = pass_selection.size();
+                }
+                int target = PassOffset(env.GetPassDirection()) % 4;
+                status_text = text("Pass 3 cards " + std::string(PASS_DIR_NAMES[env.GetPassDirection()]) +
+                                   " to Player " + std::to_string(target) +
+                                   "  (" + std::to_string(n_sel) + "/3 selected - click to toggle, then Confirm)")
+                              | center | bold | color(Color::Yellow);
+            } else {
+                status_text = text("Opponents are choosing their passes...") | center | bold;
+            }
         } else if (current_player == 0) {
             status_text = text("Your Turn (Select a Card to Play)") | center | bold;
         } else {
             status_text = text("AI is thinking... Player " + std::to_string(current_player) + "'s turn.") | center | bold;
         }
-        
+
+        // Reveal what the pass brought in, for the duration of the first trick
+        Element received_box = filler() | size(HEIGHT, EQUAL, 0);
+        {
+            std::lock_guard<std::mutex> lk(pass_mutex);
+            if (!received_cards.empty() && !env.IsPassing() && state.tricks_played == 0) {
+                std::string recv = "You received:";
+                for (int id : received_cards) recv += " " + CardToString(id);
+                int giver = (4 - PassOffset(env.GetPassDirection())) % 4;
+                recv += "  (from Player " + std::to_string(giver) + ")";
+                received_box = text(recv) | center | color(Color::Green);
+            }
+        }
+
         auto bottom_panel = window(text(" Your Hand "), hand_container->Render() | center) | size(HEIGHT, EQUAL, 5);
-        
+
         return vbox({
             score_box,
             last_trick_box,
@@ -261,12 +324,19 @@ int main() {
             trick_box,
             god_mode_panel,
             status_text,
+            received_box,
             bottom_panel
         });
     });
 
     // 4. Game Logic Thread
     std::thread game_thread([&]() {
+        // ScreenInteractive::Post() silently drops tasks until Loop() has
+        // installed the event queue. Wait for the first rendered frame so the
+        // initial hand build (the human passes first!) cannot be lost.
+        while (!ui_ready) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
         while (true) {
             if (overall_game_over) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -275,20 +345,30 @@ int main() {
             
             if (game_over) {
                 game_over = false;
+                {
+                    std::lock_guard<std::mutex> lk(pass_mutex);
+                    pass_selection.clear();
+                    human_kept.clear();
+                    received_cards.clear();
+                }
+                pass_confirmed = false;
                 env.Reset();
                 screen.PostEvent(Event::Custom);
             }
             
             int current_player = env.GetCurrentPlayer();
             auto legal_actions = env.GetLegalActions();
-            
+            bool is_passing = env.IsPassing();
+
             std::vector<Card> current_hand = env.GetState().hands[0];
-            
-            screen.Post([&, current_player, legal_actions, current_hand]() {
+
+            if (is_passing && current_player == 0) pass_confirmed = false;
+
+            screen.Post([&, current_player, legal_actions, current_hand, is_passing]() {
                 hand_container->DetachAllChildren();
                 for (const auto& c : current_hand) {
                     int action_id = (static_cast<int>(c.suit) * 13) + (c.rank - 2);
-                    
+
                     bool is_legal = false;
                     if (current_player == 0) {
                         for (int i = 0; i < 13; ++i) {
@@ -298,17 +378,68 @@ int main() {
                             }
                         }
                     }
-                    
-                    auto btn = MakeCardButton(CardToString(action_id), [&, action_id]() {
-                        if (action_to_play == -1) action_to_play = action_id;
-                    }, is_legal, c.suit);
-                    
+
+                    Component btn;
+                    if (is_passing && current_player == 0) {
+                        // Passing: clicks toggle selection (max 3, click again to remove)
+                        btn = MakeCardButton(CardToString(action_id), [&, action_id]() {
+                            std::lock_guard<std::mutex> lk(pass_mutex);
+                            auto it = std::find(pass_selection.begin(), pass_selection.end(), action_id);
+                            if (it != pass_selection.end()) {
+                                pass_selection.erase(it);
+                            } else if (pass_selection.size() < 3) {
+                                pass_selection.push_back(action_id);
+                            }
+                            screen.PostEvent(Event::Custom);
+                        }, is_legal, c.suit, [&, action_id]() {
+                            std::lock_guard<std::mutex> lk(pass_mutex);
+                            return std::find(pass_selection.begin(), pass_selection.end(), action_id) != pass_selection.end();
+                        });
+                    } else {
+                        btn = MakeCardButton(CardToString(action_id), [&, action_id]() {
+                            if (action_to_play == -1) action_to_play = action_id;
+                        }, is_legal, c.suit);
+                    }
+
                     hand_container->Add(btn);
                 }
+                if (is_passing && current_player == 0) {
+                    hand_container->Add(Button(" Confirm Pass ", [&] {
+                        std::lock_guard<std::mutex> lk(pass_mutex);
+                        if (pass_selection.size() == 3) pass_confirmed = true;
+                    }));
+                }
             });
-            
+
             screen.PostEvent(Event::Custom); // Force redraw
-            
+
+            if (current_player == 0 && is_passing) {
+                // Wait for the human to select 3 cards and confirm, then submit
+                while (!pass_confirmed && !game_over && !overall_game_over) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+                }
+                if (game_over || overall_game_over) continue;
+
+                std::vector<int> picks;
+                {
+                    std::lock_guard<std::mutex> lk(pass_mutex);
+                    picks = pass_selection;
+                }
+                for (int id : picks) {
+                    env.Step(id);
+                }
+                {
+                    // Snapshot the 10 cards kept; the distribution delta = received
+                    std::lock_guard<std::mutex> lk(pass_mutex);
+                    human_kept.clear();
+                    for (const auto& c : env.GetState().hands[0]) {
+                        human_kept.push_back((static_cast<int>(c.suit) * 13) + (c.rank - 2));
+                    }
+                }
+                screen.PostEvent(Event::Custom);
+                continue; // loop re-enters for the AI players' passes
+            }
+
             if (current_player == 0) {
                 action_to_play = -1; // Reset action signal
                 
@@ -360,6 +491,13 @@ int main() {
                         screen.PostEvent(Event::Custom);
                         continue;
                     } else {
+                        {
+                            std::lock_guard<std::mutex> lk(pass_mutex);
+                            pass_selection.clear();
+                            human_kept.clear();
+                            received_cards.clear();
+                        }
+                        pass_confirmed = false;
                         env.Reset(); // Deal new round
                         screen.PostEvent(Event::Custom);
                         continue;
@@ -370,8 +508,8 @@ int main() {
             } else {
                 // AI Turn
                 auto obs = env.Observe();
-                
-                torch::Tensor obs_tensor = torch::from_blob(obs.data(), {1, 181}, torch::kFloat32).clone();
+
+                torch::Tensor obs_tensor = torch::from_blob(obs.data(), {1, 238}, torch::kFloat32).clone();
                 
                 torch::Tensor mask_tensor = torch::zeros({1, 52}, torch::kBool);
                 bool* mask_ptr = mask_tensor.data_ptr<bool>();
@@ -397,11 +535,12 @@ int main() {
                 }
                 
                 int action_id = logits.argmax(1).item<int>();
-                
+
                 // Wait for the AI to "think" so it doesn't play instantly right after the previous player
-                std::this_thread::sleep_for(std::chrono::milliseconds(800));
-                
-                if (env.GetState().current_trick.size() == 3) {
+                // (passing picks are quick: 9 of them happen back to back)
+                std::this_thread::sleep_for(std::chrono::milliseconds(is_passing ? 150 : 800));
+
+                if (!is_passing && env.GetState().current_trick.size() == 3) {
                     trick_override = env.GetState().current_trick;
                     Card c;
                     c.suit = static_cast<Suit>(action_id / 13);
@@ -413,8 +552,22 @@ int main() {
                     std::this_thread::sleep_for(std::chrono::seconds(2)); // Pause for 2s on 4th card
                     show_trick_override = false;
                 }
-                
+
                 auto result = env.Step(action_id);
+
+                if (is_passing && !env.IsPassing()) {
+                    // The distribution just resolved: anything now in the human's
+                    // hand that wasn't in the kept snapshot arrived via the pass
+                    std::lock_guard<std::mutex> lk(pass_mutex);
+                    received_cards.clear();
+                    for (const auto& c : env.GetState().hands[0]) {
+                        int id = (static_cast<int>(c.suit) * 13) + (c.rank - 2);
+                        if (std::find(human_kept.begin(), human_kept.end(), id) == human_kept.end()) {
+                            received_cards.push_back(id);
+                        }
+                    }
+                }
+
                 if (result.done) {
                     screen.PostEvent(Event::Custom); // Draw the final trick and scores
                     std::this_thread::sleep_for(std::chrono::seconds(3)); // 3 second pause
@@ -429,6 +582,13 @@ int main() {
                         screen.PostEvent(Event::Custom);
                         continue;
                     } else {
+                        {
+                            std::lock_guard<std::mutex> lk(pass_mutex);
+                            pass_selection.clear();
+                            human_kept.clear();
+                            received_cards.clear();
+                        }
+                        pass_confirmed = false;
                         env.Reset(); // Deal new round
                         screen.PostEvent(Event::Custom);
                         continue;
