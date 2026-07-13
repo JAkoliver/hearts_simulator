@@ -41,8 +41,10 @@ def generate(iter_dir, deals, workers, k, pass_k, seed0):
         cmd = [GEN_EXE, '--model', SEARCH_TRACE, '--deals', str(per_worker),
                '--k', str(k), '--pass-k', str(pass_k),
                '--seed', str(seed0 + w), '--out', out]
-        procs.append(subprocess.Popen(cmd, stderr=subprocess.DEVNULL,
-                                      stdout=subprocess.DEVNULL))
+        # Worker 0's progress streams through as a proxy for the whole fleet
+        # (all workers advance at roughly the same rate)
+        quiet = subprocess.DEVNULL if w > 0 else None
+        procs.append(subprocess.Popen(cmd, stderr=quiet, stdout=subprocess.DEVNULL))
     t0 = time.time()
     for p in procs:
         if p.wait() != 0:
