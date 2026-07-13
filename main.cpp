@@ -158,6 +158,7 @@ int main() {
                 SearchPlayer::Config scfg;
                 scfg.determinizations = 24;
                 scfg.seed = 777;
+                scfg.pass_search = true;  // AI opponents also search their passes
                 search_ai = std::make_unique<SearchPlayer>(std::move(sm), sdim, scfg);
             }
             break;

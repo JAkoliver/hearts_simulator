@@ -25,6 +25,11 @@ add_executable(SearchEval search_eval.cpp)
 target_link_libraries(SearchEval PRIVATE ${TORCH_LIBRARIES})
 set_property(TARGET SearchEval PROPERTY CXX_STANDARD 17)
 
+# Expert-iteration self-play data generator
+add_executable(SelfPlayGen selfplay_gen.cpp)
+target_link_libraries(SelfPlayGen PRIVATE ${TORCH_LIBRARIES})
+set_property(TARGET SelfPlayGen PROPERTY CXX_STANDARD 17)
+
 # Find Python and Pybind11
 find_package(Python COMPONENTS Interpreter Development REQUIRED)
 find_package(pybind11 CONFIG REQUIRED)

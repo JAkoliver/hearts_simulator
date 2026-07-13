@@ -497,6 +497,41 @@ public:
     const std::vector<int>& GetPassPicks(int player) const { return pass_picks[player]; }
     int GetHandSize(int player) const { return static_cast<int>(state.hands[player].size()); }
 
+    // Rewind the passing phase for pass-candidate search: give every player a
+    // full 13-card hand (a determinization of the deal) and restart the picks
+    // from player 0. Passing is informationally simultaneous, so evaluating a
+    // pass from this state is equivalent regardless of real pick order.
+    // Only valid while the round is still in (or entering) the passing phase.
+    void ResetForPassSearch(const std::array<std::vector<int>, 4>& full_hands) {
+        if (pass_direction == 3) {
+            throw std::runtime_error("ResetForPassSearch: no passing this round");
+        }
+        std::array<bool, 52> seen_card;
+        seen_card.fill(false);
+        for (int i = 0; i < 4; ++i) {
+            if (full_hands[i].size() != 13) {
+                throw std::runtime_error("ResetForPassSearch: hands must be 13 cards");
+            }
+            for (int id : full_hands[i]) {
+                if (id < 0 || id > 51 || seen_card[id]) {
+                    throw std::runtime_error("ResetForPassSearch: invalid or duplicate card");
+                }
+                seen_card[id] = true;
+            }
+        }
+        for (int i = 0; i < 4; ++i) {
+            state.hands[i].clear();
+            for (int id : full_hands[i]) {
+                state.hands[i].push_back(ActionIdToCard(id));
+            }
+            SortHand(state.hands[i]);
+        }
+        for (auto& p : pass_picks) p.clear();
+        for (auto& r : pass_received) r.clear();
+        in_passing = true;
+        state.current_player = 0;
+    }
+
     // Replace all four hands with a determinization (action ids). Validates
     // that the hands form a partition of the correct sizes with no duplicates.
     void SetHands(const std::array<std::vector<int>, 4>& hand_ids) {

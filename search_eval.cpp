@@ -177,7 +177,7 @@ int main(int argc, char** argv) {
     std::string search_path, opp_path, out_path = "search_eval_results.csv";
     int deals = 300, k = 32;
     unsigned int seed = 42;
-    bool uniform = false, selftest = false;
+    bool uniform = false, selftest = false, pass_search = false;
 
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
@@ -189,6 +189,7 @@ int main(int argc, char** argv) {
         else if (a == "--k") k = std::stoi(next());
         else if (a == "--seed") seed = static_cast<unsigned int>(std::stoul(next()));
         else if (a == "--uniform-sampling") uniform = true;
+        else if (a == "--pass-search") pass_search = true;
         else if (a == "--selftest") selftest = true;
         else { std::cerr << "Unknown arg: " << a << "\n"; return 2; }
     }
@@ -251,6 +252,7 @@ int main(int argc, char** argv) {
     cfg.determinizations = k;
     cfg.belief_weighted = !uniform;
     cfg.seed = seed + 1000;
+    cfg.pass_search = pass_search;
     SearchPlayer sp(search_model, sdim, cfg);
     RawPolicy opp(opp_model, odim);
 

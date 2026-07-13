@@ -47,3 +47,8 @@ venv/
 *.user
 # Regenerable search evaluation outputs
 search_eval_*.csv
+
+# Expert-iteration artifacts
+selfplay_data/
+*.bin
+hearts_model_candidate.pth

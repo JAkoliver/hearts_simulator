@@ -1,0 +1,103 @@
+"""Expert-iteration loop: the search teacher trains its own successor.
+
+Each iteration:
+  1. GENERATE  N parallel SelfPlayGen workers play search-vs-search self-play
+               (including passing-phase search) with the CURRENT search trace.
+  2. DISTILL   Warm-start from the current baseline; train policy to imitate
+               the teacher, value on outcomes, belief on true hands.
+  3. GATE      Paired-deal evaluation (raw candidate vs raw baseline, argmax)
+               via orchestrator.evaluate_candidate - same statistics as the
+               PPO-era promotion gate.
+  4. PROMOTE   On success: candidate becomes baseline, Hall of Fame milestone
+               saved, export.py re-traces BOTH .pt files - so the next
+               iteration's search teacher is built on the improved network.
+               That re-export is what closes the flywheel.
+
+Usage:
+  python expert_iter.py --iterations 5 --deals 20000 --workers 12 --k 12
+"""
+
+import argparse
+import glob
+import os
+import shutil
+import subprocess
+import sys
+import time
+
+import orchestrator
+
+GEN_EXE = os.path.join('build', 'Release', 'SelfPlayGen.exe')
+SEARCH_TRACE = 'hearts_ai_search.pt'
+BASELINE = 'hearts_model_final.pth'
+CANDIDATE = 'hearts_model_candidate.pth'
+
+def generate(iter_dir, deals, workers, k, pass_k, seed0):
+    os.makedirs(iter_dir, exist_ok=True)
+    per_worker = max(1, deals // workers)
+    procs = []
+    for w in range(workers):
+        out = os.path.join(iter_dir, f'selfplay_{w}.bin')
+        cmd = [GEN_EXE, '--model', SEARCH_TRACE, '--deals', str(per_worker),
+               '--k', str(k), '--pass-k', str(pass_k),
+               '--seed', str(seed0 + w), '--out', out]
+        procs.append(subprocess.Popen(cmd, stderr=subprocess.DEVNULL,
+                                      stdout=subprocess.DEVNULL))
+    t0 = time.time()
+    for p in procs:
+        if p.wait() != 0:
+            raise SystemExit("A SelfPlayGen worker failed")
+    print(f"  generated {per_worker * workers} deals in {time.time() - t0:.0f}s")
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--iterations', type=int, default=3)
+    ap.add_argument('--deals', type=int, default=20000)
+    ap.add_argument('--workers', type=int, default=12)
+    ap.add_argument('--k', type=int, default=12)
+    ap.add_argument('--pass-k', type=int, default=10)
+    ap.add_argument('--epochs', type=int, default=2)
+    ap.add_argument('--eval-deals', type=int, default=2500)
+    ap.add_argument('--seed', type=int, default=None,
+                    help='base seed (default: derived from time)')
+    args = ap.parse_args()
+
+    base_seed = args.seed if args.seed is not None else int(time.time()) % 1000000
+    stamp = time.strftime('%m%d_%H%M')
+
+    for it in range(args.iterations):
+        print(f"\n================ Expert iteration {it + 1}/{args.iterations} ================")
+        iter_dir = os.path.join('selfplay_data', f'{stamp}_iter{it}')
+
+        print("[1/3] Generating self-play data (search teacher)...")
+        generate(iter_dir, args.deals, args.workers, args.k, args.pass_k,
+                 seed0=base_seed + it * args.workers)
+
+        print("[2/3] Distilling...")
+        res = subprocess.run([sys.executable, 'distill.py',
+                              '--data', os.path.join(iter_dir, '*.bin'),
+                              '--init', BASELINE, '--out', CANDIDATE,
+                              '--epochs', str(args.epochs)])
+        if res.returncode != 0:
+            raise SystemExit("Distillation failed")
+
+        print("[3/3] Gate: paired evaluation vs baseline...")
+        success, cand_mean = orchestrator.evaluate_candidate(
+            CANDIDATE, BASELINE, num_deals=args.eval_deals)
+
+        if success:
+            shutil.copy(CANDIDATE, BASELINE)
+            os.makedirs('Hall_of_Fame', exist_ok=True)
+            milestone = f"Hall_of_Fame/hearts_model_milestone_{int(time.time())}.pth"
+            shutil.copy(BASELINE, milestone)
+            print(f"*** PROMOTED (mean={cand_mean:.3f}). Milestone: {milestone} ***")
+            exp = subprocess.run([sys.executable, 'export.py'])
+            if exp.returncode != 0:
+                raise SystemExit("export.py failed - search teacher not updated")
+            print("Search teacher re-exported: next iteration trains on a stronger teacher.")
+        else:
+            print("Iteration FAILED the gate; baseline unchanged "
+                  "(next iteration re-generates with fresh seeds).")
+
+if __name__ == '__main__':
+    main()
