@@ -45,3 +45,5 @@ venv/
 .idea/
 *.suo
 *.user
+# Regenerable search evaluation outputs
+search_eval_*.csv

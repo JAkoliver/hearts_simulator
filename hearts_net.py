@@ -23,13 +23,18 @@ class HeartsNet(nn.Module):
     """
     Actor-Critic Neural Network for the Hearts Reinforcement Learning Environment.
 
-    Architecture (v2): a LayerNorm residual trunk replacing the v1 two-layer MLP.
-      - Input projection: 238 -> width
+    Architecture (v4): a LayerNorm residual trunk with three heads.
+      - Input projection: 550 -> width
       - num_blocks pre-LN residual blocks (width -> width)
-      - Final LayerNorm, then two heads:
+      - Final LayerNorm, then:
           1. Policy Head: logits for all 52 possible cards in the deck.
           2. Value Head: scalar estimating the expected RELATIVE round reward
              (table average minus own score), so positive = better than the table.
+          3. Auxiliary Belief Head (training only): 3x52 logits predicting which
+             cards each RELATIVE opponent (left/across/right) currently holds.
+             Trained supervised against ground truth from self-play; forces the
+             shared trunk to learn hidden-hand inference. Not used at play time
+             and excluded from the traced deployment graph.
 
     Initialization: orthogonal weights throughout (gain sqrt(2)); each residual
     branch's last layer is zero-initialized so every block starts as identity;
@@ -42,12 +47,13 @@ class HeartsNet(nn.Module):
     be loaded with torch.jit.load() regardless of architecture.
     """
 
-    def __init__(self, obs_dim=238, width=512, num_blocks=3):
+    def __init__(self, obs_dim=550, width=512, num_blocks=3):
         super(HeartsNet, self).__init__()
 
-        # Input is the 238-dimensional observation tensor:
+        # Input is the 550-dimensional observation tensor:
         # (52 hand + 52 trick + 52 history + 4 scores + 4 trick_pos + 1 hearts_broken
-        #  + 16 void_tracker + 4 pass_direction + 1 in_passing + 52 cards_i_passed)
+        #  + 16 void_tracker + 4 pass_direction + 1 in_passing + 52 cards_i_passed
+        #  + 52 cards_i_received + 4x52 who_played_what(rel seats) + 52 play_timing)
         # The same policy head serves both phases: during passing, the chosen
         # "action" is the card to pass (legality mask restricts to the hand).
         self.input_fc = nn.Linear(obs_dim, width)
@@ -59,6 +65,9 @@ class HeartsNet(nn.Module):
 
         # Value Head (Critic)
         self.value_head = nn.Linear(width, 1)
+
+        # Auxiliary Belief Head: per relative opponent, per card, "do they hold it?"
+        self.belief_head = nn.Linear(width, 156)
 
         self._init_weights()
 
@@ -73,6 +82,7 @@ class HeartsNet(nn.Module):
         # Near-uniform initial policy, unit-scale initial value estimates
         nn.init.orthogonal_(self.policy_head.weight, gain=0.01)
         nn.init.orthogonal_(self.value_head.weight, gain=1.0)
+        nn.init.orthogonal_(self.belief_head.weight, gain=1.0)
 
     def forward(self, observation, legal_actions_mask):
         """
@@ -87,10 +97,7 @@ class HeartsNet(nn.Module):
             policy_logits (torch.Tensor): Masked logits for the 52 deck actions.
             state_value (torch.Tensor): The expected value (scalar) of the current state.
         """
-        x = F.gelu(self.input_fc(observation))
-        for block in self.blocks:
-            x = block(x)
-        x = self.final_norm(x)
+        x = self._trunk(observation)
 
         state_value = self.value_head(x)
         logits = self.policy_head(x)
@@ -100,3 +107,21 @@ class HeartsNet(nn.Module):
         masked_logits = logits.masked_fill(~legal_actions_mask, float('-inf'))
 
         return masked_logits, state_value
+
+    def _trunk(self, observation):
+        x = F.gelu(self.input_fc(observation))
+        for block in self.blocks:
+            x = block(x)
+        return self.final_norm(x)
+
+    def forward_all(self, observation, legal_actions_mask):
+        """Training-time forward: one trunk pass feeding all three heads.
+
+        Returns (masked_policy_logits, state_value, belief_logits) where
+        belief_logits has shape (batch, 156) = 3 relative opponents x 52 cards.
+        """
+        x = self._trunk(observation)
+        state_value = self.value_head(x)
+        masked_logits = self.policy_head(x).masked_fill(~legal_actions_mask, float('-inf'))
+        belief_logits = self.belief_head(x)
+        return masked_logits, state_value, belief_logits

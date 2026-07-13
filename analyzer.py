@@ -74,17 +74,38 @@ class LegacyHeartsNet(nn.Module):
         masked_logits = logits.masked_fill(~legal_actions_mask, float('-inf'))
         return masked_logits, state_value
 
+class TruncateObs(nn.Module):
+    """Feed an older-generation net the observation prefix it was trained on.
+    The observation layout is prefix-stable across engine versions."""
+
+    def __init__(self, net, obs_dim):
+        super(TruncateObs, self).__init__()
+        self.net = net
+        self.obs_dim = obs_dim
+
+    def forward(self, observation, legal_actions_mask):
+        return self.net(observation[..., :self.obs_dim], legal_actions_mask)
+
 def load_model(path):
-    """Load a checkpoint, auto-detecting v1 vs v2 architecture from its keys."""
+    """Load a checkpoint from any lineage, auto-detecting its architecture."""
     sd = torch.load(path, weights_only=True)
     if 'shared_fc1.weight' in sd:
-        net = LegacyHeartsNet()
-        arch = "v1"
-    else:
-        net = HeartsNet()
-        arch = "v2"
-    net.load_state_dict(sd)
+        net = LegacyHeartsNet()  # v1 MLP; slices to 181 dims internally
+        net.load_state_dict(sd)
+        net.eval()
+        return net, "v1"
+
+    obs_dim = sd['input_fc.weight'].shape[1]
+    net = HeartsNet(obs_dim=obs_dim)
+    # Pre-belief checkpoints lack the belief head; leave it randomly
+    # initialized (unused by forward()). Anything else missing is a real error.
+    missing, unexpected = net.load_state_dict(sd, strict=False)
+    assert not unexpected, f"unexpected keys in {path}: {unexpected}"
+    assert all(k.startswith('belief_head.') for k in missing), f"missing keys: {missing}"
     net.eval()
+    arch = {550: "v4", 238: "v3"}.get(obs_dim, f"{obs_dim}d")
+    if obs_dim < 550:
+        return TruncateObs(net, obs_dim), arch
     return net, arch
 
 # ----------------------------- small helpers -----------------------------
@@ -451,9 +472,10 @@ def main():
     newer_net, newer_arch = load_model(newer_file)
     print(f" Older: {older_name} [{older_arch}]")
     print(f" Newer: {newer_name} [{newer_arch}]  (by file mtime)")
-    if PASSING and 'v1' in (older_arch, newer_arch):
-        print(" NOTE: v1 models predate card passing; they pass blindly (obs truncated to 181).")
-        print("       Set PASSING = False for a fair v1-vs-v1 comparison.")
+    if older_arch != newer_arch or older_arch != "v4":
+        print(" NOTE: pre-v4 models see a truncated observation (v1: 181 dims, no passing")
+        print("       info; v3: 238 dims, no who-played-what planes). Cross-generation")
+        print("       results measure them as-is on the current rules.")
 
     telem = {older_name: new_telemetry(), newer_name: new_telemetry()}
     div = {"newer_net": newer_net, "older_net": older_net,

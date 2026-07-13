@@ -34,7 +34,7 @@ def mutate_config(base_config):
     # Ensure at least one mutation happens if all rolls fail
     if random.random() > 0.5:
         force_mutate = random.choice(['learning_rate', 'update_timestep', 'gamma',
-                                      'eps_clip', 'entropy_coef', 'gae_lambda'])
+                                      'eps_clip', 'entropy_coef', 'gae_lambda', 'aux_coef'])
     else:
         force_mutate = None
 
@@ -50,11 +50,12 @@ def mutate_config(base_config):
         mutated = True
         
     if random.random() < 0.3 or force_mutate == 'gamma':
-        # Gamma changes the objective, not just the optimizer: with 13-step
-        # episodes and terminal-only reward, low gamma makes the agent myopic.
-        # Keep the walk near 1.0.
-        delta = random.uniform(-0.05, 0.05)
-        new_config['gamma'] = round(min(1.0, max(0.9, new_config['gamma'] + delta)), 6)
+        # Gamma changes the objective, not just the optimizer. With 16-step
+        # episodes (3 pass + 13 play) and terminal-only reward, gamma 0.92
+        # cuts the credit reaching the passing decisions to ~a third — it
+        # starves exactly the pass-phase skills. Keep the walk pinned near 1.0.
+        delta = random.uniform(-0.01, 0.01)
+        new_config['gamma'] = round(min(1.0, max(0.97, new_config['gamma'] + delta)), 6)
         mutated = True
 
     if random.random() < 0.3 or force_mutate == 'eps_clip':
@@ -71,6 +72,11 @@ def mutate_config(base_config):
     if random.random() < 0.3 or force_mutate == 'gae_lambda':
         delta = random.uniform(-0.03, 0.03)
         new_config['gae_lambda'] = round(min(1.0, max(0.8, new_config.get('gae_lambda', 0.95) + delta)), 6)
+        mutated = True
+
+    if random.random() < 0.3 or force_mutate == 'aux_coef':
+        multiplier = random.uniform(0.7, 1.3)
+        new_config['aux_coef'] = round(min(1.0, max(0.1, new_config.get('aux_coef', 0.5) * multiplier)), 6)
         mutated = True
 
     # Safety net: If by some tiny probability nothing was mutated and force_mutate failed to trigger

@@ -1,19 +1,564 @@
 {
-    "baseline_score": 6.4492,
+    "baseline_score": 6.1088,
     "failed_experiments": [
         {
             "config": {
+                "learning_rate": 9.3e-05,
+                "update_timestep": 476,
+                "games_per_worker": 34,
+                "max_workers": 14,
+                "gamma": 1.0,
+                "eps_clip": 0.2,
+                "k_epochs": 4,
+                "max_episodes": 250000,
+                "gae_lambda": 0.955139,
+                "entropy_coef": 0.009485,
+                "minibatch_size": 2048,
+                "aux_coef": 0.5
+            },
+            "reason": "evaluation_failed"
+        },
+        {
+            "config": {
+                "learning_rate": 9.3e-05,
+                "update_timestep": 518,
+                "games_per_worker": 37,
+                "max_workers": 14,
+                "gamma": 1.0,
+                "eps_clip": 0.212664,
+                "k_epochs": 4,
+                "max_episodes": 250000,
+                "gae_lambda": 0.954637,
+                "entropy_coef": 0.009213,
+                "minibatch_size": 2048,
+                "aux_coef": 0.564779
+            },
+            "reason": "evaluation_failed"
+        },
+        {
+            "config": {
                 "learning_rate": 6.7e-05,
+                "update_timestep": 476,
+                "games_per_worker": 34,
+                "max_workers": 14,
+                "gamma": 0.92141,
+                "eps_clip": 0.2,
+                "k_epochs": 4,
+                "max_episodes": 250000,
+                "gae_lambda": 0.954637,
+                "entropy_coef": 0.011331,
+                "minibatch_size": 2048,
+                "aux_coef": 0.5
+            },
+            "reason": "evaluation_failed"
+        },
+        {
+            "config": {
+                "learning_rate": 8.2e-05,
+                "update_timestep": 392,
+                "games_per_worker": 28,
+                "max_workers": 14,
+                "gamma": 0.92141,
+                "eps_clip": 0.244865,
+                "k_epochs": 4,
+                "max_episodes": 250000,
+                "gae_lambda": 0.946626,
+                "entropy_coef": 0.008889,
+                "minibatch_size": 2048,
+                "aux_coef": 0.63339
+            },
+            "reason": "evaluation_failed"
+        },
+        {
+            "config": {
+                "learning_rate": 7.1e-05,
+                "update_timestep": 476,
+                "games_per_worker": 34,
+                "max_workers": 14,
+                "gamma": 0.92141,
+                "eps_clip": 0.259324,
+                "k_epochs": 4,
+                "max_episodes": 250000,
+                "gae_lambda": 0.946626,
+                "entropy_coef": 0.009409,
+                "minibatch_size": 2048,
+                "aux_coef": 0.765244
+            },
+            "reason": "evaluation_failed"
+        },
+        {
+            "config": {
+                "learning_rate": 5.7e-05,
+                "update_timestep": 476,
+                "games_per_worker": 34,
+                "max_workers": 14,
+                "gamma": 0.92141,
+                "eps_clip": 0.254046,
+                "k_epochs": 4,
+                "max_episodes": 250000,
+                "gae_lambda": 0.946626,
+                "entropy_coef": 0.008889,
+                "minibatch_size": 2048,
+                "aux_coef": 0.765244
+            },
+            "reason": "evaluation_failed"
+        },
+        {
+            "config": {
+                "learning_rate": 6.7e-05,
+                "update_timestep": 476,
+                "games_per_worker": 34,
+                "max_workers": 14,
+                "gamma": 0.938324,
+                "eps_clip": 0.244865,
+                "k_epochs": 4,
+                "max_episodes": 250000,
+                "gae_lambda": 0.946712,
+                "entropy_coef": 0.006286,
+                "minibatch_size": 2048,
+                "aux_coef": 0.74508
+            },
+            "reason": "evaluation_failed"
+        },
+        {
+            "config": {
+                "learning_rate": 6.9e-05,
+                "update_timestep": 476,
+                "games_per_worker": 34,
+                "max_workers": 14,
+                "gamma": 0.92141,
+                "eps_clip": 0.244865,
+                "k_epochs": 4,
+                "max_episodes": 250000,
+                "gae_lambda": 0.950516,
+                "entropy_coef": 0.00702,
+                "minibatch_size": 2048,
+                "aux_coef": 0.927223
+            },
+            "reason": "evaluation_failed"
+        },
+        {
+            "config": {
+                "learning_rate": 8e-05,
+                "update_timestep": 602,
+                "games_per_worker": 43,
+                "max_workers": 14,
+                "gamma": 0.926764,
+                "eps_clip": 0.244865,
+                "k_epochs": 4,
+                "max_episodes": 250000,
+                "gae_lambda": 0.946626,
+                "entropy_coef": 0.009549,
+                "minibatch_size": 2048,
+                "aux_coef": 0.765244
+            },
+            "reason": "evaluation_failed"
+        },
+        {
+            "config": {
+                "learning_rate": 6.3e-05,
+                "update_timestep": 420,
+                "games_per_worker": 30,
+                "max_workers": 14,
+                "gamma": 0.97334,
+                "eps_clip": 0.244865,
+                "k_epochs": 4,
+                "max_episodes": 250000,
+                "gae_lambda": 0.919805,
+                "entropy_coef": 0.010028,
+                "minibatch_size": 2048,
+                "aux_coef": 0.765244
+            },
+            "reason": "evaluation_failed"
+        },
+        {
+            "config": {
+                "learning_rate": 7.8e-05,
+                "update_timestep": 462,
+                "games_per_worker": 33,
+                "max_workers": 14,
+                "gamma": 0.927088,
+                "eps_clip": 0.23417,
+                "k_epochs": 4,
+                "max_episodes": 250000,
+                "gae_lambda": 0.919805,
+                "entropy_coef": 0.010028,
+                "minibatch_size": 2048,
+                "aux_coef": 0.598651
+            },
+            "reason": "evaluation_failed"
+        },
+        {
+            "config": {
+                "learning_rate": 7.8e-05,
+                "update_timestep": 238,
+                "games_per_worker": 17,
+                "max_workers": 14,
+                "gamma": 0.927088,
+                "eps_clip": 0.267265,
+                "k_epochs": 4,
+                "max_episodes": 250000,
+                "gae_lambda": 0.919805,
+                "entropy_coef": 0.007483,
+                "minibatch_size": 2048,
+                "aux_coef": 0.586295
+            },
+            "reason": "evaluation_failed"
+        },
+        {
+            "config": {
+                "learning_rate": 9.2e-05,
+                "update_timestep": 420,
+                "games_per_worker": 30,
+                "max_workers": 14,
+                "gamma": 0.927088,
+                "eps_clip": 0.244865,
+                "k_epochs": 4,
+                "max_episodes": 250000,
+                "gae_lambda": 0.939671,
+                "entropy_coef": 0.010028,
+                "minibatch_size": 2048,
+                "aux_coef": 0.765244
+            },
+            "reason": "evaluation_failed"
+        },
+        {
+            "config": {
+                "learning_rate": 7.8e-05,
+                "update_timestep": 420,
+                "games_per_worker": 30,
+                "max_workers": 14,
+                "gamma": 0.927088,
+                "eps_clip": 0.283467,
+                "k_epochs": 4,
+                "max_episodes": 250000,
+                "gae_lambda": 0.919805,
+                "entropy_coef": 0.010028,
+                "minibatch_size": 2048,
+                "aux_coef": 0.765244
+            },
+            "reason": "evaluation_failed"
+        },
+        {
+            "config": {
+                "learning_rate": 7.8e-05,
+                "update_timestep": 280,
+                "games_per_worker": 20,
+                "max_workers": 14,
+                "gamma": 0.92949,
+                "eps_clip": 0.244865,
+                "k_epochs": 4,
+                "max_episodes": 250000,
+                "gae_lambda": 0.892893,
+                "entropy_coef": 0.010028,
+                "minibatch_size": 2048,
+                "aux_coef": 0.765244
+            },
+            "reason": "evaluation_failed"
+        },
+        {
+            "config": {
+                "learning_rate": 7.8e-05,
+                "update_timestep": 420,
+                "games_per_worker": 30,
+                "max_workers": 14,
+                "gamma": 0.960994,
+                "eps_clip": 0.244865,
+                "k_epochs": 4,
+                "max_episodes": 250000,
+                "gae_lambda": 0.890786,
+                "entropy_coef": 0.010028,
+                "minibatch_size": 2048,
+                "aux_coef": 0.814844
+            },
+            "reason": "evaluation_failed"
+        },
+        {
+            "config": {
+                "learning_rate": 6.6e-05,
+                "update_timestep": 504,
+                "games_per_worker": 36,
+                "max_workers": 14,
+                "gamma": 0.968279,
+                "eps_clip": 0.2294,
+                "k_epochs": 4,
+                "max_episodes": 250000,
+                "gae_lambda": 0.898754,
+                "entropy_coef": 0.010028,
+                "minibatch_size": 2048,
+                "aux_coef": 0.765244
+            },
+            "reason": "evaluation_failed"
+        },
+        {
+            "config": {
+                "learning_rate": 7.8e-05,
+                "update_timestep": 364,
+                "games_per_worker": 26,
+                "max_workers": 14,
+                "gamma": 1.0,
+                "eps_clip": 0.249803,
+                "k_epochs": 4,
+                "max_episodes": 250000,
+                "gae_lambda": 0.871766,
+                "entropy_coef": 0.010028,
+                "minibatch_size": 2048,
+                "aux_coef": 0.765244
+            },
+            "reason": "evaluation_failed"
+        },
+        {
+            "config": {
+                "learning_rate": 7.8e-05,
+                "update_timestep": 364,
+                "games_per_worker": 26,
+                "max_workers": 14,
+                "gamma": 1.0,
+                "eps_clip": 0.207614,
+                "k_epochs": 4,
+                "max_episodes": 250000,
+                "gae_lambda": 0.898754,
+                "entropy_coef": 0.012918,
+                "minibatch_size": 2048,
+                "aux_coef": 0.934826
+            },
+            "reason": "evaluation_failed"
+        },
+        {
+            "config": {
+                "learning_rate": 7.8e-05,
+                "update_timestep": 364,
+                "games_per_worker": 26,
+                "max_workers": 14,
+                "gamma": 0.992122,
+                "eps_clip": 0.2294,
+                "k_epochs": 4,
+                "max_episodes": 250000,
+                "gae_lambda": 0.875242,
+                "entropy_coef": 0.010028,
+                "minibatch_size": 2048,
+                "aux_coef": 0.591106
+            },
+            "reason": "evaluation_failed"
+        },
+        {
+            "config": {
+                "learning_rate": 7.8e-05,
+                "update_timestep": 364,
+                "games_per_worker": 26,
+                "max_workers": 14,
+                "gamma": 1.0,
+                "eps_clip": 0.225097,
+                "k_epochs": 4,
+                "max_episodes": 250000,
+                "gae_lambda": 0.898754,
+                "entropy_coef": 0.010028,
+                "minibatch_size": 2048,
+                "aux_coef": 0.765244
+            },
+            "reason": "evaluation_failed"
+        },
+        {
+            "config": {
+                "learning_rate": 6.9e-05,
+                "update_timestep": 364,
+                "games_per_worker": 26,
+                "max_workers": 14,
+                "gamma": 1.0,
+                "eps_clip": 0.2294,
+                "k_epochs": 4,
+                "max_episodes": 250000,
+                "gae_lambda": 0.896378,
+                "entropy_coef": 0.010028,
+                "minibatch_size": 2048,
+                "aux_coef": 0.765244
+            },
+            "reason": "evaluation_failed"
+        },
+        {
+            "config": {
+                "learning_rate": 7.8e-05,
+                "update_timestep": 518,
+                "games_per_worker": 37,
+                "max_workers": 14,
+                "gamma": 1.0,
+                "eps_clip": 0.234018,
+                "k_epochs": 4,
+                "max_episodes": 250000,
+                "gae_lambda": 0.885175,
+                "entropy_coef": 0.010028,
+                "minibatch_size": 2048,
+                "aux_coef": 0.765244
+            },
+            "reason": "evaluation_failed"
+        },
+        {
+            "config": {
+                "learning_rate": 7.8e-05,
                 "update_timestep": 378,
                 "games_per_worker": 27,
                 "max_workers": 14,
-                "gamma": 0.99628,
-                "eps_clip": 0.162799,
+                "gamma": 1.0,
+                "eps_clip": 0.2294,
                 "k_epochs": 4,
                 "max_episodes": 250000,
-                "gae_lambda": 0.908752,
-                "entropy_coef": 0.009276,
-                "minibatch_size": 2048
+                "gae_lambda": 0.898754,
+                "entropy_coef": 0.010028,
+                "minibatch_size": 2048,
+                "aux_coef": 0.765244
+            },
+            "reason": "evaluation_failed"
+        },
+        {
+            "config": {
+                "learning_rate": 6.7e-05,
+                "update_timestep": 322,
+                "games_per_worker": 23,
+                "max_workers": 14,
+                "gamma": 1.0,
+                "eps_clip": 0.2294,
+                "k_epochs": 4,
+                "max_episodes": 250000,
+                "gae_lambda": 0.898754,
+                "entropy_coef": 0.010028,
+                "minibatch_size": 2048,
+                "aux_coef": 0.765244
+            },
+            "reason": "evaluation_failed"
+        },
+        {
+            "config": {
+                "learning_rate": 5.5e-05,
+                "update_timestep": 364,
+                "games_per_worker": 26,
+                "max_workers": 14,
+                "gamma": 0.995917,
+                "eps_clip": 0.2294,
+                "k_epochs": 4,
+                "max_episodes": 250000,
+                "gae_lambda": 0.898754,
+                "entropy_coef": 0.010028,
+                "minibatch_size": 2048,
+                "aux_coef": 0.765244
+            },
+            "reason": "evaluation_failed"
+        },
+        {
+            "config": {
+                "learning_rate": 7.8e-05,
+                "update_timestep": 364,
+                "games_per_worker": 26,
+                "max_workers": 14,
+                "gamma": 1.0,
+                "eps_clip": 0.237245,
+                "k_epochs": 4,
+                "max_episodes": 250000,
+                "gae_lambda": 0.898754,
+                "entropy_coef": 0.010302,
+                "minibatch_size": 2048,
+                "aux_coef": 0.765244
+            },
+            "reason": "evaluation_failed"
+        },
+        {
+            "config": {
+                "learning_rate": 7.8e-05,
+                "update_timestep": 168,
+                "games_per_worker": 12,
+                "max_workers": 14,
+                "gamma": 1.0,
+                "eps_clip": 0.199306,
+                "k_epochs": 4,
+                "max_episodes": 250000,
+                "gae_lambda": 0.898754,
+                "entropy_coef": 0.010028,
+                "minibatch_size": 2048,
+                "aux_coef": 0.765244
+            },
+            "reason": "evaluation_failed"
+        },
+        {
+            "config": {
+                "learning_rate": 9.7e-05,
+                "update_timestep": 364,
+                "games_per_worker": 26,
+                "max_workers": 14,
+                "gamma": 1.0,
+                "eps_clip": 0.2294,
+                "k_epochs": 4,
+                "max_episodes": 250000,
+                "gae_lambda": 0.90452,
+                "entropy_coef": 0.010028,
+                "minibatch_size": 2048,
+                "aux_coef": 0.765244
+            },
+            "reason": "evaluation_failed"
+        },
+        {
+            "config": {
+                "learning_rate": 8.4e-05,
+                "update_timestep": 336,
+                "games_per_worker": 24,
+                "max_workers": 14,
+                "gamma": 1.0,
+                "eps_clip": 0.21429,
+                "k_epochs": 4,
+                "max_episodes": 250000,
+                "gae_lambda": 0.91198,
+                "entropy_coef": 0.010028,
+                "minibatch_size": 2048,
+                "aux_coef": 0.765244
+            },
+            "reason": "evaluation_failed"
+        },
+        {
+            "config": {
+                "learning_rate": 7.8e-05,
+                "update_timestep": 364,
+                "games_per_worker": 26,
+                "max_workers": 14,
+                "gamma": 1.0,
+                "eps_clip": 0.180122,
+                "k_epochs": 4,
+                "max_episodes": 250000,
+                "gae_lambda": 0.898754,
+                "entropy_coef": 0.01263,
+                "minibatch_size": 2048,
+                "aux_coef": 0.765244
+            },
+            "reason": "evaluation_failed"
+        },
+        {
+            "config": {
+                "learning_rate": 5.7e-05,
+                "update_timestep": 364,
+                "games_per_worker": 26,
+                "max_workers": 14,
+                "gamma": 1.0,
+                "eps_clip": 0.2294,
+                "k_epochs": 4,
+                "max_episodes": 250000,
+                "gae_lambda": 0.898754,
+                "entropy_coef": 0.00917,
+                "minibatch_size": 2048,
+                "aux_coef": 0.765244
+            },
+            "reason": "evaluation_failed"
+        },
+        {
+            "config": {
+                "learning_rate": 8.8e-05,
+                "update_timestep": 364,
+                "games_per_worker": 26,
+                "max_workers": 14,
+                "gamma": 1.0,
+                "eps_clip": 0.2294,
+                "k_epochs": 4,
+                "max_episodes": 250000,
+                "gae_lambda": 0.898754,
+                "entropy_coef": 0.010669,
+                "minibatch_size": 2048,
+                "aux_coef": 0.765244
             },
             "reason": "evaluation_failed"
         }

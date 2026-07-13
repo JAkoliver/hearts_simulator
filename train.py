@@ -26,6 +26,7 @@ class RolloutBuffer:
         self.values = []
         self.masks = []
         self.dones = []
+        self.hand_labels = []  # ground-truth opponent hands for the belief head
 
     def clear(self):
         self.states.clear()
@@ -35,6 +36,7 @@ class RolloutBuffer:
         self.values.clear()
         self.masks.clear()
         self.dones.clear()
+        self.hand_labels.clear()
 
     def extend(self, other):
         self.states.extend(other.states)
@@ -44,13 +46,14 @@ class RolloutBuffer:
         self.values.extend(other.values)
         self.masks.extend(other.masks)
         self.dones.extend(other.dones)
+        self.hand_labels.extend(other.hand_labels)
 
 # ---------------------------------------------------------
 # 2. Action Selection Function
 # ---------------------------------------------------------
 def select_action(network, observation, legal_actions_raw):
-    # Convert 238-float observation list to tensor
-    state_tensor = torch.tensor(observation, dtype=torch.float32).unsqueeze(0) # Shape: (1, 238)
+    # Convert 550-float observation list to tensor
+    state_tensor = torch.tensor(observation, dtype=torch.float32).unsqueeze(0) # Shape: (1, 550)
     
     # Create boolean mask for legal actions (True = legal, False = illegal)
     mask_tensor = torch.zeros((1, 52), dtype=torch.bool)
@@ -95,9 +98,9 @@ def compute_gae(rewards, values, dones, gamma=1.0, gae_lambda=0.95):
     return advantages, advantages + values
 
 def ppo_update(network, optimizer, buffer, gamma=1.0, eps_clip=0.2, k_epochs=4,
-               minibatch_size=2048, gae_lambda=0.95, entropy_coef=0.01):
+               minibatch_size=2048, gae_lambda=0.95, entropy_coef=0.01, aux_coef=0.5):
     if len(buffer.states) == 0:
-        return None
+        return None, None
 
     rewards_np = np.asarray(buffer.rewards, dtype=np.float32)
     values_np = np.asarray(buffer.values, dtype=np.float32)
@@ -116,17 +119,19 @@ def ppo_update(network, optimizer, buffer, gamma=1.0, eps_clip=0.2, k_epochs=4,
     old_masks = torch.from_numpy(np.asarray(buffer.masks, dtype=np.bool_))
     returns = torch.from_numpy(returns_np)
     advantages = torch.from_numpy(advantages_np)
+    hand_labels = torch.from_numpy(np.asarray(buffer.hand_labels, dtype=np.float32))
 
     if len(advantages) > 1:
         advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
 
     n = old_states.shape[0]
-    for _ in range(k_epochs):
+    belief_bce_sum, belief_bce_count = 0.0, 0
+    for epoch in range(k_epochs):
         perm = torch.randperm(n)
         for start in range(0, n, minibatch_size):
             idx = perm[start:start + minibatch_size]
 
-            masked_logits, state_values = network(old_states[idx], old_masks[idx])
+            masked_logits, state_values, belief_logits = network.forward_all(old_states[idx], old_masks[idx])
             dist = Categorical(logits=masked_logits)
 
             new_log_probs = dist.log_prob(old_actions[idx])
@@ -142,14 +147,24 @@ def ppo_update(network, optimizer, buffer, gamma=1.0, eps_clip=0.2, k_epochs=4,
 
             critic_loss = nn.MSELoss()(state_values.squeeze(-1), returns[idx])
 
-            loss = actor_loss + 0.5 * critic_loss - entropy_coef * entropy.mean()
+            # Auxiliary belief loss: supervised prediction of opponents' hands
+            belief_loss = nn.functional.binary_cross_entropy_with_logits(
+                belief_logits, hand_labels[idx])
+
+            loss = (actor_loss + 0.5 * critic_loss
+                    - entropy_coef * entropy.mean() + aux_coef * belief_loss)
 
             optimizer.zero_grad()
             loss.backward()
             nn.utils.clip_grad_norm_(network.parameters(), 0.5)
             optimizer.step()
 
-    return explained_var
+            if epoch == k_epochs - 1:
+                belief_bce_sum += belief_loss.item()
+                belief_bce_count += 1
+
+    belief_bce = belief_bce_sum / belief_bce_count if belief_bce_count else None
+    return explained_var, belief_bce
 
 # ---------------------------------------------------------
 # 4. Rollout Worker (Multiprocessing)
@@ -190,10 +205,14 @@ def rollout_worker(network_state_dict, historical_pool_state_dicts, num_games, e
             player_id = env.get_current_player()
             
             action, log_prob, state_value, mask = select_action(player_networks[player_id], obs, legal_actions)
-            
+
+            # Belief labels must be captured BEFORE stepping: they are relative
+            # to the acting player and describe the state being recorded
+            hand_labels = env.observe_opponent_hands() if player_networks[player_id] is main_network else None
+
             result = env.step(action)
             done = result.done
-            
+
             if player_networks[player_id] is main_network:
                 buffer_list[player_id].states.append(obs)
                 buffer_list[player_id].actions.append(action)
@@ -202,6 +221,7 @@ def rollout_worker(network_state_dict, historical_pool_state_dicts, num_games, e
                 buffer_list[player_id].values.append(state_value.item())
                 buffer_list[player_id].masks.append(mask.tolist()[0])
                 buffer_list[player_id].dones.append(False)
+                buffer_list[player_id].hand_labels.append(hand_labels)
                 
         # End of round
         scores = env.get_round_scores()
@@ -318,16 +338,18 @@ def main():
             for i in range(4):
                 merged_buffer.extend(master_buffer_list[i])
 
-            explained_var = ppo_update(network, optimizer, merged_buffer,
-                                       gamma=config.get('gamma', 1.0),
-                                       eps_clip=config.get('eps_clip', 0.2),
-                                       k_epochs=config.get('k_epochs', 4),
-                                       minibatch_size=config.get('minibatch_size', 2048),
-                                       gae_lambda=config.get('gae_lambda', 0.95),
-                                       entropy_coef=config.get('entropy_coef', 0.01))
+            explained_var, belief_bce = ppo_update(network, optimizer, merged_buffer,
+                                                   gamma=config.get('gamma', 1.0),
+                                                   eps_clip=config.get('eps_clip', 0.2),
+                                                   k_epochs=config.get('k_epochs', 4),
+                                                   minibatch_size=config.get('minibatch_size', 2048),
+                                                   gae_lambda=config.get('gae_lambda', 0.95),
+                                                   entropy_coef=config.get('entropy_coef', 0.01),
+                                                   aux_coef=config.get('aux_coef', 0.5))
 
             ev_str = f"{explained_var:.3f}" if explained_var is not None else "n/a"
-            print(f"Games: {games_played} | Pool: {len(historical_pool)} | P0 Raw: {avg_p0_raw:.2f} | P0 Rel: {avg_p0_reward:+.2f} | Critic EV: {ev_str}")
+            bce_str = f"{belief_bce:.4f}" if belief_bce is not None else "n/a"
+            print(f"Games: {games_played} | Pool: {len(historical_pool)} | P0 Raw: {avg_p0_raw:.2f} | P0 Rel: {avg_p0_reward:+.2f} | Critic EV: {ev_str} | Belief BCE: {bce_str}")
 
             # Periodically snapshot the current policy into the opponent pool so
             # in-trial opponents track progress instead of staying frozen

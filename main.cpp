@@ -7,9 +7,11 @@
 #include <atomic>
 #include <mutex>
 #include <algorithm>
+#include <memory>
 #include <torch/script.h>
 #include <torch/torch.h>
 #include "HeartsEnv.hpp"
+#include "SearchPlayer.hpp"
 
 #include <ftxui/component/component.hpp>
 #include <ftxui/component/screen_interactive.hpp>
@@ -120,6 +122,48 @@ int main() {
         std::cerr << "Error: could not find hearts_ai_grandmaster.pt (looked in the "
                      "current directory and ../../).\n";
         return -1;
+    }
+
+    // The deployed model may come from an older lineage with a narrower
+    // observation. The observation layout is prefix-stable across versions,
+    // so probe which width this model expects and feed exactly that prefix.
+    int model_obs_dim = 0;
+    for (int dim : {550, 238, 181}) {
+        try {
+            std::vector<torch::jit::IValue> probe;
+            probe.push_back(torch::zeros({1, dim}, torch::kFloat32));
+            probe.push_back(torch::ones({1, 52}, torch::kBool));
+            ai_model.forward(probe);
+            model_obs_dim = dim;
+            break;
+        } catch (const std::exception&) {
+            // try the next known width
+        }
+    }
+    if (model_obs_dim == 0) {
+        std::cerr << "Error: model rejected all known observation widths.\n";
+        return -1;
+    }
+
+    // Optional decision-time search opponent: if the 3-output search trace is
+    // available, AI seats search over belief-weighted determinizations instead
+    // of playing the raw policy. Falls back silently to the raw policy.
+    std::unique_ptr<SearchPlayer> search_ai;
+    for (const char* path : {"hearts_ai_search.pt", "../../hearts_ai_search.pt"}) {
+        try {
+            torch::jit::script::Module sm = torch::jit::load(path);
+            sm.eval();
+            int sdim = ProbeObsDim(sm);
+            if (sdim != 0) {
+                SearchPlayer::Config scfg;
+                scfg.determinizations = 24;
+                scfg.seed = 777;
+                search_ai = std::make_unique<SearchPlayer>(std::move(sm), sdim, scfg);
+            }
+            break;
+        } catch (const c10::Error&) {
+            // try the next candidate path
+        }
     }
 
     // 2. Initialize Environment (card passing enabled: Left, Right, Across, Hold)
@@ -507,38 +551,53 @@ int main() {
                 
             } else {
                 // AI Turn
-                auto obs = env.Observe();
-
-                torch::Tensor obs_tensor = torch::from_blob(obs.data(), {1, 238}, torch::kFloat32).clone();
-                
-                torch::Tensor mask_tensor = torch::zeros({1, 52}, torch::kBool);
-                bool* mask_ptr = mask_tensor.data_ptr<bool>();
-                for(int i = 0; i < 13; ++i) {
-                    int action_id = legal_actions[i];
-                    if (action_id != -1) {
-                        mask_ptr[action_id] = true;
+                int action_id;
+                if (search_ai) {
+                    // Decision-time search: its compute time IS the thinking pause
+                    try {
+                        action_id = search_ai->ChooseAction(env);
+                    } catch (const std::exception& e) {
+                        std::ofstream out("crash.txt");
+                        out << "Exception in search: " << e.what() << std::endl;
+                        exit(1);
                     }
-                }
-                
-                std::vector<torch::jit::IValue> inputs;
-                inputs.push_back(obs_tensor);
-                inputs.push_back(mask_tensor);
-                
-                torch::Tensor logits;
-                try {
-                    auto output_tuple = ai_model.forward(inputs).toTuple();
-                    logits = output_tuple->elements()[0].toTensor();
-                } catch (const std::exception& e) {
-                    std::ofstream out("crash.txt");
-                    out << "Exception in AI forward pass: " << e.what() << std::endl;
-                    exit(1);
-                }
-                
-                int action_id = logits.argmax(1).item<int>();
+                    if (is_passing) {
+                        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                    }
+                } else {
+                    auto obs = env.Observe();
 
-                // Wait for the AI to "think" so it doesn't play instantly right after the previous player
-                // (passing picks are quick: 9 of them happen back to back)
-                std::this_thread::sleep_for(std::chrono::milliseconds(is_passing ? 150 : 800));
+                    torch::Tensor obs_tensor = torch::from_blob(obs.data(), {1, model_obs_dim}, torch::kFloat32).clone();
+
+                    torch::Tensor mask_tensor = torch::zeros({1, 52}, torch::kBool);
+                    bool* mask_ptr = mask_tensor.data_ptr<bool>();
+                    for(int i = 0; i < 13; ++i) {
+                        int legal_id = legal_actions[i];
+                        if (legal_id != -1) {
+                            mask_ptr[legal_id] = true;
+                        }
+                    }
+
+                    std::vector<torch::jit::IValue> inputs;
+                    inputs.push_back(obs_tensor);
+                    inputs.push_back(mask_tensor);
+
+                    torch::Tensor logits;
+                    try {
+                        auto output_tuple = ai_model.forward(inputs).toTuple();
+                        logits = output_tuple->elements()[0].toTensor();
+                    } catch (const std::exception& e) {
+                        std::ofstream out("crash.txt");
+                        out << "Exception in AI forward pass: " << e.what() << std::endl;
+                        exit(1);
+                    }
+
+                    action_id = logits.argmax(1).item<int>();
+
+                    // Wait for the AI to "think" so it doesn't play instantly right after the previous player
+                    // (passing picks are quick: 9 of them happen back to back)
+                    std::this_thread::sleep_for(std::chrono::milliseconds(is_passing ? 150 : 800));
+                }
 
                 if (!is_passing && env.GetState().current_trick.size() == 3) {
                     trick_override = env.GetState().current_trick;

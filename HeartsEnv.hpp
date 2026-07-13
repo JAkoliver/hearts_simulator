@@ -5,6 +5,7 @@
 #include <random>
 #include <algorithm>
 #include <stdexcept>
+#include <string>
 
 enum class Suit { Clubs, Diamonds, Spades, Hearts };
 
@@ -63,6 +64,11 @@ private:
     bool in_passing = false;
     int pass_direction = 3; // 0=left(+1), 1=right(+3), 2=across(+2), 3=hold
     std::array<std::vector<int>, 4> pass_picks; // action ids each player chose to pass
+    std::array<std::vector<int>, 4> pass_received; // action ids each player was handed
+
+    // Per-round play history: who played which card, and when
+    std::array<std::array<bool, 52>, 4> played_by; // [absolute seat][card]
+    std::array<int, 52> played_trick;              // trick index card was played on, -1 = unseen
 
     int CardToActionId(const Card& c) const {
         return (static_cast<int>(c.suit) * 13) + (c.rank - 2);
@@ -140,8 +146,13 @@ public:
             SortHand(state.hands[i]);
         }
 
+        // Wipe per-round play history
+        for (auto& pb : played_by) pb.fill(false);
+        played_trick.fill(-1);
+
         // Passing phase setup: direction cycles Left, Right, Across, Hold
         for (auto& picks : pass_picks) picks.clear();
+        for (auto& recv : pass_received) recv.clear();
         pass_direction = passing_enabled ? (deal_count % 4) : 3;
         deal_count++;
         in_passing = passing_enabled && pass_direction != 3;
@@ -179,6 +190,7 @@ public:
                         int receiver = (i + offset) % 4;
                         for (int a : pass_picks[i]) {
                             state.hands[receiver].push_back(ActionIdToCard(a));
+                            pass_received[receiver].push_back(a);
                         }
                     }
                     for (int i = 0; i < 4; ++i) SortHand(state.hands[i]);
@@ -200,13 +212,19 @@ public:
             hand.erase(it); // Note: erase on std::vector shifts memory, but does not allocate new heap memory.
         }
 
+        // Record play history: who played this card, and on which trick
+        played_by[player][action_id] = true;
+        played_trick[action_id] = state.tricks_played;
+
         // Check for broken hearts
         if (played_card.suit == Suit::Hearts) {
             state.hearts_broken = true;
         }
 
-        // Track voids
-        if (played_card.suit != state.getLedSuit() && !state.isFirstTrick()) {
+        // Track voids: playing off-suit while FOLLOWING reveals a void.
+        // (A leader reveals nothing — getLedSuit() defaults to Clubs on an
+        // empty trick, which used to falsely mark leaders void in clubs.)
+        if (!state.current_trick.empty() && played_card.suit != state.getLedSuit() && !state.isFirstTrick()) {
             void_tracker[player * 4 + static_cast<int>(state.getLedSuit())] = true;
         }
 
@@ -345,8 +363,8 @@ public:
         return legal_actions;
     }
 
-    std::array<float, 238> Observe() const {
-        std::array<float, 238> obs;
+    std::array<float, 550> Observe() const {
+        std::array<float, 550> obs;
         obs.fill(0.0f);
         
         int player = state.current_player;
@@ -417,7 +435,50 @@ public:
             obs[186 + a] = 1.0f;
         }
 
+        // Block 9: Cards I received in the pass (52 floats: 238-289)
+        // The giver knows I hold these until they are played
+        for (int a : pass_received[player]) {
+            obs[238 + a] = 1.0f;
+        }
+
+        // Block 10: Who played what this round, in RELATIVE seats
+        // (4 x 52 floats: 290-341 me, 342-393 left(+1), 394-445 across(+2),
+        //  446-497 right(+3)). Includes cards in the current trick, which
+        //  also attributes the table cards to seats.
+        for (int k = 0; k < 4; ++k) {
+            int seat = (player + k) % 4;
+            for (int c = 0; c < 52; ++c) {
+                if (played_by[seat][c]) {
+                    obs[290 + k * 52 + c] = 1.0f;
+                }
+            }
+        }
+
+        // Block 11: Play-order timing (52 floats: 498-549)
+        // (trick_index + 1) / 13 for played cards, 0 for unseen
+        for (int c = 0; c < 52; ++c) {
+            if (played_trick[c] >= 0) {
+                obs[498 + c] = static_cast<float>(played_trick[c] + 1) / 13.0f;
+            }
+        }
+
         return obs;
+    }
+
+    // Ground-truth labels for the auxiliary belief head (training only):
+    // the actual current hands of the three opponents, in relative seats
+    // (0-51 left(+1), 52-103 across(+2), 104-155 right(+3)).
+    std::array<float, 156> ObserveOpponentHands() const {
+        std::array<float, 156> labels;
+        labels.fill(0.0f);
+        int player = state.current_player;
+        for (int k = 1; k < 4; ++k) {
+            int seat = (player + k) % 4;
+            for (const auto& c : state.hands[seat]) {
+                labels[(k - 1) * 52 + CardToActionId(c)] = 1.0f;
+            }
+        }
+        return labels;
     }
 
     const GameState& GetState() const { return state; }
@@ -426,4 +487,38 @@ public:
     int GetCurrentPlayer() const { return state.current_player; }
     bool IsPassing() const { return in_passing; }
     int GetPassDirection() const { return pass_direction; }
+
+    // ---- Search support (decision-time determinized search) ----
+
+    HeartsEnv Clone() const { return *this; }
+
+    const std::array<bool, 16>& GetVoidTracker() const { return void_tracker; }
+    const std::array<std::array<bool, 52>, 4>& GetPlayedBy() const { return played_by; }
+    const std::vector<int>& GetPassPicks(int player) const { return pass_picks[player]; }
+    int GetHandSize(int player) const { return static_cast<int>(state.hands[player].size()); }
+
+    // Replace all four hands with a determinization (action ids). Validates
+    // that the hands form a partition of the correct sizes with no duplicates.
+    void SetHands(const std::array<std::vector<int>, 4>& hand_ids) {
+        std::array<bool, 52> seen_card;
+        seen_card.fill(false);
+        for (int i = 0; i < 4; ++i) {
+            if (hand_ids[i].size() != state.hands[i].size()) {
+                throw std::runtime_error("SetHands: hand size mismatch for player " + std::to_string(i));
+            }
+            for (int id : hand_ids[i]) {
+                if (id < 0 || id > 51 || seen_card[id]) {
+                    throw std::runtime_error("SetHands: invalid or duplicate card id " + std::to_string(id));
+                }
+                seen_card[id] = true;
+            }
+        }
+        for (int i = 0; i < 4; ++i) {
+            state.hands[i].clear();
+            for (int id : hand_ids[i]) {
+                state.hands[i].push_back(ActionIdToCard(id));
+            }
+            SortHand(state.hands[i]);
+        }
+    }
 };

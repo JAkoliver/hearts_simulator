@@ -25,5 +25,6 @@ PYBIND11_MODULE(hearts_env, m) {
         .def("get_round_scores", &HeartsEnv::GetRoundScores)
         .def("get_current_player", &HeartsEnv::GetCurrentPlayer)
         .def("is_passing", &HeartsEnv::IsPassing)
-        .def("get_pass_direction", &HeartsEnv::GetPassDirection);
+        .def("get_pass_direction", &HeartsEnv::GetPassDirection)
+        .def("observe_opponent_hands", &HeartsEnv::ObserveOpponentHands);
 }

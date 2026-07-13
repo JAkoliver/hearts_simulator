@@ -20,6 +20,11 @@ add_executable(HeartsSimulator main.cpp)
 target_link_libraries(HeartsSimulator PRIVATE ftxui::screen ftxui::dom ftxui::component ${TORCH_LIBRARIES})
 set_property(TARGET HeartsSimulator PROPERTY CXX_STANDARD 17)
 
+# Decision-time search evaluation harness
+add_executable(SearchEval search_eval.cpp)
+target_link_libraries(SearchEval PRIVATE ${TORCH_LIBRARIES})
+set_property(TARGET SearchEval PROPERTY CXX_STANDARD 17)
+
 # Find Python and Pybind11
 find_package(Python COMPONENTS Interpreter Development REQUIRED)
 find_package(pybind11 CONFIG REQUIRED)
