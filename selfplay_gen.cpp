@@ -59,6 +59,10 @@ int main(int argc, char** argv) {
         return 2;
     }
 
+    // Many SelfPlayGen processes run in parallel; without this each one
+    // spawns LibTorch threads on every core and they thrash each other.
+    torch::set_num_threads(1);
+
     torch::jit::script::Module model;
     try {
         model = torch::jit::load(model_path);
