@@ -56,12 +56,29 @@ def main():
     ap.add_argument('--value-coef', type=float, default=0.5)
     ap.add_argument('--aux-coef', type=float, default=0.5)
     ap.add_argument('--device', default='cuda' if torch.cuda.is_available() else 'cpu')
+    ap.add_argument('--sharpen', type=float, default=1.0,
+                    help='exponent applied to the teacher target (pi^s, renormalized); '
+                         '>1 makes small search preferences decisive, equivalent to '
+                         'lowering the generation temperature after the fact')
+    ap.add_argument('--holdout', type=float, default=0.02,
+                    help='fraction of records held out to report unfit teacher match')
     args = ap.parse_args()
 
     device = torch.device(args.device)
     print(f"Device: {device}")
 
     data = load_data(args.data)
+
+    # Fixed held-out split: measures whether the student generalizes to
+    # teacher decisions it never trained on (argmax match is only meaningful
+    # unfit).
+    split_rng = np.random.default_rng(12345)
+    order = split_rng.permutation(len(data))
+    n_hold = int(len(data) * args.holdout)
+    holdout = data[order[:n_hold]]
+    data = data[order[n_hold:]]
+    if n_hold:
+        print(f"Holding out {n_hold:,} records for unfit metrics")
 
     net = HeartsNet()
     if args.init and os.path.exists(args.init):
@@ -95,6 +112,9 @@ def main():
             actions = torch.from_numpy(b['action'].astype(np.int64)).to(device)
             rewards = torch.from_numpy(b['reward'].astype(np.float32)).to(device)
             pi = pi / pi.sum(dim=1, keepdim=True).clamp_min(1e-6)
+            if args.sharpen != 1.0:
+                pi = pi.pow(args.sharpen)
+                pi = pi / pi.sum(dim=1, keepdim=True).clamp_min(1e-6)
 
             logits, value, belief = net.forward_all(obs, mask)
             # Soft-target cross-entropy against the teacher's value-derived
@@ -119,9 +139,21 @@ def main():
             bce_sum += belief_loss.item() * k
 
         ev = 1.0 - (err2_sum / seen) / reward_var
-        print(f"epoch {epoch + 1}/{args.epochs} | policy CE {ce_sum / seen:.4f} | "
-              f"teacher match {match_sum / seen * 100:.1f}% | value EV {ev:.3f} | "
-              f"belief BCE {bce_sum / seen:.4f}")
+        line = (f"epoch {epoch + 1}/{args.epochs} | policy CE {ce_sum / seen:.4f} | "
+                f"teacher match {match_sum / seen * 100:.1f}% | value EV {ev:.3f} | "
+                f"belief BCE {bce_sum / seen:.4f}")
+        if n_hold:
+            with torch.no_grad():
+                hm = 0
+                for start in range(0, n_hold, args.batch):
+                    hb = holdout[start:start + args.batch]
+                    hobs = torch.from_numpy(np.ascontiguousarray(hb['obs'])).to(device).float() / 255.0
+                    hmask = torch.from_numpy(np.ascontiguousarray(hb['mask'])).to(device).bool()
+                    hact = torch.from_numpy(hb['action'].astype(np.int64)).to(device)
+                    hlogits, _, _ = net.forward_all(hobs, hmask)
+                    hm += (hlogits.argmax(1) == hact).sum().item()
+            line += f" | holdout match {hm / n_hold * 100:.1f}%"
+        print(line)
 
     # Save from CPU so the checkpoint stays device-neutral for the
     # orchestrator gate and export.py.
