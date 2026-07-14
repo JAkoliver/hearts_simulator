@@ -142,6 +142,77 @@ def evaluate_candidate(candidate_path, baseline_path, num_deals=2500, workers=8)
     is_success = bool(p_val < 0.01) and (mean_diff < 0)
     return is_success, cand_mean
 
+# ---------------------------------------------------------------------------
+# Search-level promotion gate
+# ---------------------------------------------------------------------------
+# Raw head-to-head strength and SEARCHED strength can point in opposite
+# directions (measured 2026-07-14: a candidate -0.39 better raw was +1.24
+# worse as a search substrate). The deployed player and the expert-iteration
+# teacher are search players, so promotion additionally requires the
+# candidate to be at least as strong UNDER SEARCH. Opponents must be NEUTRAL
+# (a third-party anchor): evaluating against the baseline's own raw policy
+# hands the baseline a perfect-opponent-model advantage no candidate can
+# match.
+
+NEUTRAL_OPPONENT = os.path.join('legacy_v3_pass238', 'hearts_ai_grandmaster_v3_milestone7.pt')
+SEARCH_EVAL_EXE = os.path.join('build', 'Release', 'SearchEval.exe')
+
+class _SearchExport(torch.nn.Module):
+    def __init__(self, net):
+        super().__init__()
+        self.net = net
+
+    def forward(self, observation, legal_actions_mask):
+        return self.net.forward_all(observation, legal_actions_mask)
+
+def _trace_for_search(checkpoint_path, out_path):
+    net = net_from_checkpoint(checkpoint_path)
+    net.eval()
+    dummy_obs = torch.zeros(1, 550, dtype=torch.float32)
+    dummy_mask = torch.zeros(1, 52, dtype=torch.bool)
+    torch.jit.trace(_SearchExport(net), (dummy_obs, dummy_mask)).save(out_path)
+
+def _search_run(model_pt, opponent_pt, deals, k, seed, out_csv):
+    cmd = [SEARCH_EVAL_EXE, '--search-model', model_pt, '--opponent-model', opponent_pt,
+           '--deals', str(deals), '--k', str(k), '--pass-search',
+           '--seed', str(seed), '--out', out_csv]
+    if torch.cuda.is_available():
+        cmd.append('--cuda')
+    res = subprocess.run(cmd, capture_output=True, text=True)
+    if res.returncode != 0:
+        raise RuntimeError(f"SearchEval failed (exit {res.returncode}): {res.stderr[-500:]}")
+    return np.genfromtxt(out_csv, delimiter=',', names=True)['diff']
+
+def evaluate_candidate_search(candidate_path, deals=500, k=64, alpha=0.05):
+    """Paired search-vs-search gate: candidate and the current teacher trace
+    each play `deals` identical deals (1 search seat vs 3 neutral-anchor raw
+    seats, table B all-anchor), one-sided t-test on the per-deal delta.
+    Returns (success, mean_delta, p)."""
+    if not (os.path.exists(SEARCH_EVAL_EXE) and os.path.exists('hearts_ai_search.pt')):
+        print("Search gate skipped (SearchEval.exe or hearts_ai_search.pt missing).")
+        return True, None, None
+    if os.path.exists(NEUTRAL_OPPONENT):
+        opponent = NEUTRAL_OPPONENT
+    else:
+        print("WARNING: neutral anchor missing; falling back to the baseline's own "
+              "raw trace as opponents (biased toward the baseline).")
+        opponent = 'hearts_ai_grandmaster.pt'
+
+    seed = int(time.time())
+    _trace_for_search(candidate_path, 'search_gate_candidate.pt')
+    print(f"Search gate: {deals} paired deals, K={k}, neutral opponents...")
+    cand = _search_run('search_gate_candidate.pt', opponent, deals, k, seed,
+                       'search_eval_gate_cand.csv')
+    base = _search_run('hearts_ai_search.pt', opponent, deals, k, seed,
+                       'search_eval_gate_base.csv')
+    delta = cand - base
+    t_stat, p_val = stats.ttest_1samp(delta, 0.0, alternative='less')
+    mean = float(delta.mean())
+    print(f"Search gate paired delta (negative = candidate better): {mean:+.3f}")
+    print(f"T-Statistic: {t_stat:.3f}, P-Value: {p_val:.5f}")
+    is_success = bool(p_val < alpha) and (mean < 0)
+    return is_success, mean, float(p_val)
+
 def rollback_config():
     print("Rolling back configuration...")
     if os.path.exists('config_backup.json'):
@@ -231,10 +302,23 @@ def main():
         else:
             print("No baseline exists (fresh start). Auto-promoting first candidate as the initial baseline.")
             success, new_mean = True, None
-        
+
         with open('config.json', 'r') as f:
             cfg = json.load(f)
-            
+
+        # Raw gate is the cheap prefilter; searched strength decides promotion
+        fail_reason = "evaluation_failed"
+        if success and os.path.exists(baseline_model_path):
+            sg_ok, sg_mean, sg_p = evaluate_candidate_search(
+                candidate_model_path,
+                deals=cfg.get('search_gate_deals', 500),
+                k=cfg.get('search_gate_k', 64),
+                alpha=cfg.get('search_gate_alpha', 0.05))
+            if not sg_ok:
+                print("Candidate passed the raw gate but NOT the search gate.")
+                success = False
+                fail_reason = "search_gate_failed"
+
         if success:
             mean_str = f"{new_mean:.3f}" if new_mean is not None else "bootstrap"
             print(f"*** Experiment SUCCESS! Candidate is statistically superior (mean={mean_str}) ***")
@@ -261,7 +345,7 @@ def main():
             restore_optimizer_state()
             ledger["failed_experiments"].append({
                 "config": cfg,
-                "reason": "evaluation_failed"
+                "reason": fail_reason
             })
             write_ledger(ledger)
             

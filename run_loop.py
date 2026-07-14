@@ -44,9 +44,10 @@ def mutate_config(base_config):
         mutated = True
         
     if random.random() < 0.3 or force_mutate == 'update_timestep':
-        delta = random.randint(-15, 15)
-        new_config['games_per_worker'] = max(5, new_config['games_per_worker'] + delta)
-        new_config['update_timestep'] = new_config['games_per_worker'] * new_config['max_workers']
+        # Vectorized train.py consumes update_timestep directly; the old
+        # games_per_worker/max_workers pair is no longer used
+        delta = random.randint(-100, 100)
+        new_config['update_timestep'] = max(200, new_config['update_timestep'] + delta)
         mutated = True
         
     if random.random() < 0.3 or force_mutate == 'gamma':

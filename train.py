@@ -8,11 +8,8 @@ import random
 import os
 import glob
 import json
-import psutil
-import multiprocessing
-import concurrent.futures
 import hearts_env
-from hearts_net import HeartsNet
+from hearts_net import HeartsNet, net_from_checkpoint
 
 # ---------------------------------------------------------
 # 1. The Memory Buffer
@@ -49,29 +46,24 @@ class RolloutBuffer:
         self.hand_labels.extend(other.hand_labels)
 
 # ---------------------------------------------------------
-# 2. Action Selection Function
+# 2. Batched Action Selection
 # ---------------------------------------------------------
-def select_action(network, observation, legal_actions_raw):
-    # Convert 550-float observation list to tensor
-    state_tensor = torch.tensor(observation, dtype=torch.float32).unsqueeze(0) # Shape: (1, 550)
-    
-    # Create boolean mask for legal actions (True = legal, False = illegal)
-    mask_tensor = torch.zeros((1, 52), dtype=torch.bool)
-    for a in legal_actions_raw:
-        if a != -1:
-            mask_tensor[0, a] = True
+def select_actions_batch(network, obs_np, masks_np, device):
+    """Sample actions for a batch of observations in one forward pass.
 
-    # Rollouts never backprop, so skip autograd graph construction entirely
+    Rollouts never backprop, so autograd is skipped entirely. Returns numpy
+    (actions int64, log_probs f32, values f32)."""
+    obs = torch.from_numpy(obs_np).to(device)
+    mask = torch.from_numpy(masks_np).to(device)
     with torch.no_grad():
-        masked_logits, state_value = network(state_tensor, mask_tensor)
-
-        # Because masked_logits has -inf for illegal actions,
-        # Categorical will beautifully assign them 0 probability.
+        masked_logits, state_values = network(obs, mask)
+        # -inf logits on illegal actions give them exactly 0 probability
         dist = Categorical(logits=masked_logits)
-        action = dist.sample()
-        log_prob = dist.log_prob(action)
-
-    return action.item(), log_prob, state_value, mask_tensor
+        actions = dist.sample()
+        log_probs = dist.log_prob(actions)
+    return (actions.cpu().numpy(),
+            log_probs.cpu().numpy(),
+            state_values.squeeze(-1).cpu().numpy())
 
 # ---------------------------------------------------------
 # 3. PPO Update Function
@@ -97,7 +89,7 @@ def compute_gae(rewards, values, dones, gamma=1.0, gae_lambda=0.95):
         next_value = values[t]
     return advantages, advantages + values
 
-def ppo_update(network, optimizer, buffer, gamma=1.0, eps_clip=0.2, k_epochs=4,
+def ppo_update(network, optimizer, buffer, device, gamma=1.0, eps_clip=0.2, k_epochs=4,
                minibatch_size=2048, gae_lambda=0.95, entropy_coef=0.01, aux_coef=0.5):
     if len(buffer.states) == 0:
         return None, None
@@ -112,14 +104,14 @@ def ppo_update(network, optimizer, buffer, gamma=1.0, eps_clip=0.2, k_epochs=4,
     # <= 0.0 = no better than predicting the mean
     explained_var = 1.0 - np.var(returns_np - values_np) / (np.var(returns_np) + 1e-8)
 
-    # Go through numpy: torch.tensor() on large lists-of-lists is very slow
-    old_states = torch.from_numpy(np.asarray(buffer.states, dtype=np.float32))
-    old_actions = torch.from_numpy(np.asarray(buffer.actions, dtype=np.int64))
-    old_log_probs = torch.from_numpy(np.asarray(buffer.log_probs, dtype=np.float32))
-    old_masks = torch.from_numpy(np.asarray(buffer.masks, dtype=np.bool_))
-    returns = torch.from_numpy(returns_np)
-    advantages = torch.from_numpy(advantages_np)
-    hand_labels = torch.from_numpy(np.asarray(buffer.hand_labels, dtype=np.float32))
+    # Go through numpy: torch.tensor() on large lists is very slow
+    old_states = torch.from_numpy(np.asarray(buffer.states, dtype=np.float32)).to(device)
+    old_actions = torch.from_numpy(np.asarray(buffer.actions, dtype=np.int64)).to(device)
+    old_log_probs = torch.from_numpy(np.asarray(buffer.log_probs, dtype=np.float32)).to(device)
+    old_masks = torch.from_numpy(np.asarray(buffer.masks, dtype=np.bool_)).to(device)
+    returns = torch.from_numpy(returns_np).to(device)
+    advantages = torch.from_numpy(advantages_np).to(device)
+    hand_labels = torch.from_numpy(np.asarray(buffer.hand_labels, dtype=np.float32)).to(device)
 
     if len(advantages) > 1:
         advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
@@ -127,7 +119,7 @@ def ppo_update(network, optimizer, buffer, gamma=1.0, eps_clip=0.2, k_epochs=4,
     n = old_states.shape[0]
     belief_bce_sum, belief_bce_count = 0.0, 0
     for epoch in range(k_epochs):
-        perm = torch.randperm(n)
+        perm = torch.randperm(n, device=device)
         for start in range(0, n, minibatch_size):
             idx = perm[start:start + minibatch_size]
 
@@ -167,178 +159,221 @@ def ppo_update(network, optimizer, buffer, gamma=1.0, eps_clip=0.2, k_epochs=4,
     return explained_var, belief_bce
 
 # ---------------------------------------------------------
-# 4. Rollout Worker (Multiprocessing)
+# 4. Vectorized Rollouts
 # ---------------------------------------------------------
-def rollout_worker(network_state_dict, historical_pool_state_dicts, num_games, env_seed):
-    torch.set_num_threads(1)
-    # Initialize environment and networks locally
-    env = hearts_env.HeartsEnv(seed=env_seed)
-    
-    main_network = HeartsNet()
-    main_network.load_state_dict(network_state_dict)
-    
-    historical_networks = []
-    for sd in historical_pool_state_dicts:
-        net = HeartsNet()
-        net.load_state_dict(sd)
-        historical_networks.append(net)
-        
-    buffer_list = [RolloutBuffer() for _ in range(4)]
+# One process, num_envs environments stepped in lockstep. Each lockstep round
+# groups the envs by which network decides next and runs ONE batched forward
+# per network on the device. This replaces the old ProcessPoolExecutor with
+# batch-1 CPU inference per decision: no state-dict shipping to workers, and
+# the GPU sees real batches. Buffer/GAE/terminal-reward semantics are
+# unchanged from the multiprocessing version.
+
+class EnvSlot:
+    __slots__ = ('env', 'nets', 'buffers')
+
+    def __init__(self, seed):
+        self.env = hearts_env.HeartsEnv(seed=seed)
+        self.env.reset()  # a freshly constructed env has no deal yet
+        self.nets = None
+        self.buffers = [RolloutBuffer() for _ in range(4)]
+
+def assign_seats(slot, main_network, active_pool):
+    """Seat 0 is always the learner; each other seat is 50% a pool opponent."""
+    nets = [main_network]
+    for _ in range(1, 4):
+        if active_pool and random.random() < 0.5:
+            nets.append(random.choice(active_pool))
+        else:
+            nets.append(main_network)
+    slot.nets = nets
+
+def run_cycle(slots, main_network, active_pool, games_target, device):
+    """Play games across all slots until games_target games complete.
+
+    Returns (games_played, p0_reward_sum, p0_raw_score_sum). Decision records
+    for the learner's seats accumulate in each slot's buffers."""
+    games_done = 0
     p0_reward_sum = 0.0
-    p0_raw_score_sum = 0.0
-    
-    for _ in range(num_games):
-        env.reset()
-        done = False
-        
-        player_networks = []
-        player_networks.append(main_network)
-        for i in range(1, 4):
-            if historical_networks and random.random() < 0.5:
-                player_networks.append(random.choice(historical_networks))
-            else:
-                player_networks.append(main_network)
-                
-        while not done:
-            obs = env.observe()
-            legal_actions = env.get_legal_actions()
-            player_id = env.get_current_player()
-            
-            action, log_prob, state_value, mask = select_action(player_networks[player_id], obs, legal_actions)
+    p0_raw_sum = 0.0
 
-            # Belief labels must be captured BEFORE stepping: they are relative
-            # to the acting player and describe the state being recorded
-            hand_labels = env.observe_opponent_hands() if player_networks[player_id] is main_network else None
+    while games_done < games_target:
+        # Group envs by the network that decides their next action
+        groups = {}
+        for k, slot in enumerate(slots):
+            net = slot.nets[slot.env.get_current_player()]
+            key = id(net)
+            if key not in groups:
+                groups[key] = (net, [])
+            groups[key][1].append(k)
 
-            result = env.step(action)
-            done = result.done
+        for net, idxs in groups.values():
+            n = len(idxs)
+            obs_np = np.empty((n, 550), dtype=np.float32)
+            masks_np = np.zeros((n, 52), dtype=np.bool_)
+            for j, k in enumerate(idxs):
+                obs_np[j] = slots[k].env.observe()
+                for a in slots[k].env.get_legal_actions():
+                    if a != -1:
+                        masks_np[j, a] = True
 
-            if player_networks[player_id] is main_network:
-                buffer_list[player_id].states.append(obs)
-                buffer_list[player_id].actions.append(action)
-                buffer_list[player_id].log_probs.append(log_prob.item())
-                buffer_list[player_id].rewards.append(0.0)
-                buffer_list[player_id].values.append(state_value.item())
-                buffer_list[player_id].masks.append(mask.tolist()[0])
-                buffer_list[player_id].dones.append(False)
-                buffer_list[player_id].hand_labels.append(hand_labels)
-                
-        # End of round
-        scores = env.get_round_scores()
-        avg = sum(scores) / 4.0
-        rel_rewards = [avg - score for score in scores]
-        
-        p0_reward_sum += rel_rewards[0]
-        p0_raw_score_sum += scores[0]
-        
-        # Only assign the terminal reward to seats the main network actually
-        # played this game; otherwise rewards[-1] belongs to an earlier game
-        for i in range(4):
-            if player_networks[i] is main_network and len(buffer_list[i].rewards) > 0:
-                buffer_list[i].rewards[-1] = rel_rewards[i]
-                buffer_list[i].dones[-1] = True
-                
-    return buffer_list, p0_reward_sum, p0_raw_score_sum
+            actions, log_probs, values = select_actions_batch(net, obs_np, masks_np, device)
+
+            for j, k in enumerate(idxs):
+                slot = slots[k]
+                pid = slot.env.get_current_player()
+                is_main = slot.nets[pid] is main_network
+
+                # Belief labels must be captured BEFORE stepping: they are
+                # relative to the acting player and describe the state being
+                # recorded
+                labels = slot.env.observe_opponent_hands() if is_main else None
+
+                done = slot.env.step(int(actions[j])).done
+
+                if is_main:
+                    b = slot.buffers[pid]
+                    b.states.append(obs_np[j])
+                    b.actions.append(int(actions[j]))
+                    b.log_probs.append(float(log_probs[j]))
+                    b.rewards.append(0.0)
+                    b.values.append(float(values[j]))
+                    b.masks.append(masks_np[j])
+                    b.dones.append(False)
+                    b.hand_labels.append(labels)
+
+                if done:
+                    scores = slot.env.get_round_scores()
+                    avg = sum(scores) / 4.0
+                    rel_rewards = [avg - s for s in scores]
+                    p0_reward_sum += rel_rewards[0]
+                    p0_raw_sum += scores[0]
+                    # Only assign the terminal reward to seats the learner
+                    # actually played this game; otherwise rewards[-1]
+                    # belongs to an earlier game
+                    for i in range(4):
+                        if slot.nets[i] is main_network and len(slot.buffers[i].rewards) > 0:
+                            slot.buffers[i].rewards[-1] = rel_rewards[i]
+                            slot.buffers[i].dones[-1] = True
+                    games_done += 1
+                    slot.env.reset()
+                    assign_seats(slot, main_network, active_pool)
+
+    return games_done, p0_reward_sum, p0_raw_sum
 
 # ---------------------------------------------------------
 # 5. Main Training Loop
 # ---------------------------------------------------------
 def main():
-    print("Initializing Hearts PPO Training Pipeline (Multiprocessing)...")
-    
-    network = HeartsNet()
-    if os.path.exists('hearts_model_final.pth'):
-        network.load_state_dict(torch.load('hearts_model_final.pth', weights_only=True))
-        print("Model Resumption Successful: Loaded weights from hearts_model_final.pth!")
-    elif os.path.exists('hearts_model_interrupted.pth'):
-        network.load_state_dict(torch.load('hearts_model_interrupted.pth', weights_only=True))
-        print("Model Resumption Successful: Loaded weights from hearts_model_interrupted.pth!")
-        
+    print("Initializing Hearts PPO Training Pipeline (vectorized)...")
+
     with open('config.json', 'r') as f:
         config = json.load(f)
+
+    device = torch.device(config.get('device',
+                                     'cuda' if torch.cuda.is_available() else 'cpu'))
+    print(f"Device: {device}")
+    torch.set_num_threads(max(1, (os.cpu_count() or 8) - 2))
+
+    # train_init lets a fine-tune start from a different checkpoint than the
+    # gate baseline (e.g. the big distilled net). Preference: once a
+    # train_init-shaped net has been PROMOTED (hearts_model_final.pth has the
+    # same architecture), continue from the promoted weights; until then,
+    # bootstrap from train_init. Without train_init: normal resume order.
+    def ckpt_shape(path):
+        sd = torch.load(path, weights_only=True, map_location='cpu')
+        return tuple(sd['input_fc.weight'].shape), sum(k.startswith('blocks.') for k in sd)
+
+    init_path = None
+    ti = config.get('train_init')
+    if ti and os.path.exists(ti):
+        if (os.path.exists('hearts_model_final.pth')
+                and ckpt_shape('hearts_model_final.pth') == ckpt_shape(ti)):
+            init_path = 'hearts_model_final.pth'
+        else:
+            init_path = ti
+    else:
+        for candidate in ['hearts_model_final.pth', 'hearts_model_interrupted.pth']:
+            if os.path.exists(candidate):
+                init_path = candidate
+                break
+
+    if init_path:
+        network = net_from_checkpoint(init_path)
+        print(f"Model Resumption Successful: Loaded {init_path} "
+              f"(width {network.input_fc.out_features}, {len(network.blocks)} blocks)")
+    else:
+        network = HeartsNet()
+        print("Fresh default-size network")
+    network.to(device)
 
     optimizer = optim.Adam(network.parameters(), lr=config.get('learning_rate', 5e-5))
 
     # Restore Adam moment estimates from the previous trial so every experiment
-    # doesn't start with a cold optimizer on a warm network
+    # doesn't start with a cold optimizer on a warm network. A shape mismatch
+    # (e.g. after switching network size) falls through to fresh moments.
     if os.path.exists('hearts_optimizer.pth'):
         try:
             optimizer.load_state_dict(torch.load('hearts_optimizer.pth', weights_only=True))
-            # load_state_dict restores the OLD learning rate too; re-apply this
-            # trial's (possibly mutated) value
             for group in optimizer.param_groups:
                 group['lr'] = config.get('learning_rate', 5e-5)
             print("Optimizer state restored: Adam moments carried over from previous trial.")
         except Exception as e:
             print(f"Could not load optimizer state ({e}); starting with fresh Adam moments.")
-    
+
     update_timestep = config.get('update_timestep', 560)
-    games_per_worker = config.get('games_per_worker', 40)
-    max_workers = config.get('max_workers', 14)
-    
+    num_envs = config.get('num_envs', 128)
+    active_pool_size = config.get('active_pool_size', 4)
+
     if os.environ.get('SMOKE_TEST') == '1':
         max_episodes = 100
         print("SMOKE_TEST mode active: max_episodes set to 100")
     else:
         max_episodes = config.get('max_episodes', 250000)
-    
-    historical_pool = [copy.deepcopy(network)]
 
+    historical_pool = [copy.deepcopy(network)]
     for m_file in glob.glob('Hall_of_Fame/hearts_model_milestone_*.pth'):
-        m_net = HeartsNet()
         try:
-            m_net.load_state_dict(torch.load(m_file, weights_only=True))
-        except RuntimeError as e:
-            print(f"Skipping incompatible milestone (old architecture?): {m_file}")
+            m_net = net_from_checkpoint(m_file)
+        except Exception as e:
+            print(f"Skipping unloadable milestone {m_file}: {e}")
             continue
+        m_net.to(device)
+        m_net.eval()
         historical_pool.append(m_net)
         print(f"Loaded milestone opponent: {m_file}")
+
+    slots = [EnvSlot(seed=1000 + i) for i in range(num_envs)]
 
     games_played = 0
     pool_refresh_interval = config.get('pool_refresh_interval', 25000)
     next_pool_refresh = pool_refresh_interval
 
-    executor = concurrent.futures.ProcessPoolExecutor(max_workers=max_workers)
     try:
         while games_played < max_episodes:
-            # Prepare state dicts for workers
-            network_sd = network.state_dict()
-            historical_sds = [net.state_dict() for net in historical_pool]
-            
-            futures = []
-            for i in range(max_workers):
-                seed = games_played + i
-                futures.append(executor.submit(
-                    rollout_worker, 
-                    network_sd, 
-                    historical_sds, 
-                    games_per_worker, 
-                    seed
-                ))
-                
-            master_buffer_list = [RolloutBuffer() for _ in range(4)]
-            avg_p0_reward_batch = 0.0
-            avg_p0_raw_batch = 0.0
-            
-            for future in concurrent.futures.as_completed(futures):
-                local_buffers, p0_reward_sum, p0_raw_score_sum = future.result()
-                avg_p0_reward_batch += p0_reward_sum
-                avg_p0_raw_batch += p0_raw_score_sum
-                
-                for i in range(4):
-                    master_buffer_list[i].extend(local_buffers[i])
-                    
-            games_played += update_timestep
-            avg_p0_reward = avg_p0_reward_batch / update_timestep
-            avg_p0_raw = avg_p0_raw_batch / update_timestep
-            
+            # A small random subset of the pool plays this cycle so per-step
+            # inference batches stay large (fewer distinct nets per round)
+            active_pool = random.sample(historical_pool,
+                                        min(active_pool_size, len(historical_pool)))
+            for slot in slots:
+                if slot.nets is None:
+                    assign_seats(slot, network, active_pool)
+
+            done_games, p0_reward_sum, p0_raw_sum = run_cycle(
+                slots, network, active_pool, update_timestep, device)
+
+            games_played += done_games
+            avg_p0_reward = p0_reward_sum / done_games
+            avg_p0_raw = p0_raw_sum / done_games
+
             # Merge all seats into one dataset: updating per-seat sequentially
             # runs later seats' ratios against log_probs that are already stale
             merged_buffer = RolloutBuffer()
-            for i in range(4):
-                merged_buffer.extend(master_buffer_list[i])
+            for slot in slots:
+                for i in range(4):
+                    merged_buffer.extend(slot.buffers[i])
+                    slot.buffers[i].clear()
 
-            explained_var, belief_bce = ppo_update(network, optimizer, merged_buffer,
+            explained_var, belief_bce = ppo_update(network, optimizer, merged_buffer, device,
                                                    gamma=config.get('gamma', 1.0),
                                                    eps_clip=config.get('eps_clip', 0.2),
                                                    k_epochs=config.get('k_epochs', 4),
@@ -354,35 +389,22 @@ def main():
             # Periodically snapshot the current policy into the opponent pool so
             # in-trial opponents track progress instead of staying frozen
             if games_played >= next_pool_refresh:
-                historical_pool.append(copy.deepcopy(network))
+                snap = copy.deepcopy(network)
+                snap.eval()
+                historical_pool.append(snap)
                 if len(historical_pool) > 50:
                     historical_pool.pop(0)
                 next_pool_refresh += pool_refresh_interval
-                    
+
         print("\nTraining Complete! Saving final model...")
-        torch.save(network.state_dict(), 'hearts_model_final.pth')
+        torch.save(network.cpu().state_dict(), 'hearts_model_final.pth')
         torch.save(optimizer.state_dict(), 'hearts_optimizer.pth')
         print("Model saved to hearts_model_final.pth!")
-        
-        executor.shutdown(wait=True)
-                        
+
     except KeyboardInterrupt:
         print("\nTraining interrupted. Model saved safely!")
-        torch.save(network.state_dict(), 'hearts_model_interrupted.pth')
+        torch.save(network.cpu().state_dict(), 'hearts_model_interrupted.pth')
         torch.save(optimizer.state_dict(), 'hearts_optimizer.pth')
-        
-        print("Shutting down worker pool...")
-        executor.shutdown(wait=False, cancel_futures=True)
-        
-        print("Hard-killing stubborn Windows child processes...")
-        parent = psutil.Process(os.getpid())
-        for child in parent.children(recursive=True):
-            try:
-                child.kill()
-            except psutil.NoSuchProcess:
-                pass
 
 if __name__ == '__main__':
-    # Required for Windows multiprocessing compatibility
-    multiprocessing.freeze_support() if hasattr(multiprocessing, 'freeze_support') else None
     main()
