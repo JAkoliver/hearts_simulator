@@ -59,8 +59,12 @@ def play_round(env, seat_networks):
 
     return env.get_round_scores()
 
-def evaluate_candidate(candidate_path, baseline_path, num_deals=2500):
-    print(f"Evaluating Candidate {candidate_path} vs Baseline {baseline_path}")
+def _eval_chunk(job):
+    """One worker's share of the paired-deal evaluation (own env pair, own
+    seed). Runs in a multiprocessing worker; must stay module-level
+    picklable."""
+    candidate_path, baseline_path, seed, deal_offset, n_deals = job
+    torch.set_num_threads(1)  # N workers x default threads would thrash
 
     candidate_net = HeartsNet()
     candidate_net.load_state_dict(torch.load(candidate_path, weights_only=True))
@@ -70,22 +74,14 @@ def evaluate_candidate(candidate_path, baseline_path, num_deals=2500):
     baseline_net.load_state_dict(torch.load(baseline_path, weights_only=True))
     baseline_net.eval()
 
-    # Paired duplicate deals: the engine's RNG is consumed only by reset()'s
-    # shuffle, so two envs built from the same seed produce identical deal
-    # sequences regardless of play. Each deal is played twice — once with the
-    # candidate seated, once all-baseline — and we test the per-deal score
-    # differential at the same seat. This removes deal/seat luck, the dominant
-    # variance source, and keeps the samples statistically independent.
-    seed = int(time.time())
     env_cand = hearts_env.HeartsEnv(seed=seed)
     env_base = hearts_env.HeartsEnv(seed=seed)
 
     diffs = []
     candidate_scores = []
-
-    for deal_idx in range(num_deals):
-        # Rotate candidate seating
-        candidate_seat = deal_idx % 4
+    for i in range(n_deals):
+        # Global deal index keeps the 4-seat rotation balanced across chunks
+        candidate_seat = (deal_offset + i) % 4
 
         seats = [baseline_net] * 4
         seats[candidate_seat] = candidate_net
@@ -94,6 +90,41 @@ def evaluate_candidate(candidate_path, baseline_path, num_deals=2500):
 
         candidate_scores.append(cand_table_scores[candidate_seat])
         diffs.append(cand_table_scores[candidate_seat] - base_table_scores[candidate_seat])
+    return diffs, candidate_scores
+
+def evaluate_candidate(candidate_path, baseline_path, num_deals=2500, workers=8):
+    print(f"Evaluating Candidate {candidate_path} vs Baseline {baseline_path}")
+
+    # Paired duplicate deals: the engine's RNG is consumed only by reset()'s
+    # shuffle, so two envs built from the same seed produce identical deal
+    # sequences regardless of play. Each deal is played twice — once with the
+    # candidate seated, once all-baseline — and we test the per-deal score
+    # differential at the same seat. This removes deal/seat luck, the dominant
+    # variance source, and keeps the samples statistically independent.
+    #
+    # The deals are split across worker processes, each with its own env pair
+    # on its own seed — chunks are just independent batches of paired samples,
+    # so the pooled t-test is unchanged.
+    seed = int(time.time())
+    base = num_deals // workers
+    jobs = []
+    offset = 0
+    for w in range(workers):
+        n = base + (1 if w < num_deals % workers else 0)
+        if n == 0:
+            continue
+        jobs.append((candidate_path, baseline_path, seed + w, offset, n))
+        offset += n
+
+    import multiprocessing
+    with multiprocessing.Pool(len(jobs)) as pool:
+        results = pool.map(_eval_chunk, jobs)
+
+    diffs = []
+    candidate_scores = []
+    for d, c in results:
+        diffs.extend(d)
+        candidate_scores.extend(c)
 
     diffs = np.array(diffs, dtype=np.float64)
     cand_mean = np.mean(candidate_scores)

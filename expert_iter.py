@@ -32,18 +32,21 @@ SEARCH_TRACE = 'hearts_ai_search.pt'
 BASELINE = 'hearts_model_final.pth'
 CANDIDATE = 'hearts_model_candidate.pth'
 
-def worker_cmd(iter_dir, w, per_worker, k, pass_k, seed):
+def worker_cmd(iter_dir, w, per_worker, k, pass_k, seed, cuda):
     out = os.path.join(iter_dir, f'selfplay_{w}.bin')
-    return [GEN_EXE, '--model', SEARCH_TRACE, '--deals', str(per_worker),
-            '--k', str(k), '--pass-k', str(pass_k),
-            '--seed', str(seed), '--out', out]
+    cmd = [GEN_EXE, '--model', SEARCH_TRACE, '--deals', str(per_worker),
+           '--k', str(k), '--pass-k', str(pass_k),
+           '--seed', str(seed), '--out', out]
+    if cuda:
+        cmd.append('--cuda')
+    return cmd
 
-def generate(iter_dir, deals, workers, k, pass_k, seed0):
+def generate(iter_dir, deals, workers, k, pass_k, seed0, cuda):
     os.makedirs(iter_dir, exist_ok=True)
     per_worker = max(1, deals // workers)
     procs = []
     for w in range(workers):
-        cmd = worker_cmd(iter_dir, w, per_worker, k, pass_k, seed0 + w)
+        cmd = worker_cmd(iter_dir, w, per_worker, k, pass_k, seed0 + w, cuda)
         # Worker 0's progress streams through as a proxy for the whole fleet
         # (all workers advance at roughly the same rate)
         quiet = subprocess.DEVNULL if w > 0 else None
@@ -55,7 +58,7 @@ def generate(iter_dir, deals, workers, k, pass_k, seed0):
         # with a fresh seed rather than aborting hours of healthy work.
         rc = procs[w].returncode
         print(f"  worker {w} exited with code {rc}; retrying its shard with a fresh seed")
-        cmd = worker_cmd(iter_dir, w, per_worker, k, pass_k, seed0 + w + 500000)
+        cmd = worker_cmd(iter_dir, w, per_worker, k, pass_k, seed0 + w + 500000, cuda)
         res = subprocess.run(cmd, stdout=subprocess.DEVNULL)
         if res.returncode != 0:
             raise SystemExit(f"SelfPlayGen worker {w} failed twice "
@@ -73,6 +76,8 @@ def main():
     ap.add_argument('--eval-deals', type=int, default=2500)
     ap.add_argument('--seed', type=int, default=None,
                     help='base seed (default: derived from time)')
+    ap.add_argument('--cuda', action='store_true',
+                    help='run search inference on the GPU (workers + distill)')
     args = ap.parse_args()
 
     base_seed = args.seed if args.seed is not None else int(time.time()) % 1000000
@@ -84,13 +89,14 @@ def main():
 
         print("[1/3] Generating self-play data (search teacher)...")
         generate(iter_dir, args.deals, args.workers, args.k, args.pass_k,
-                 seed0=base_seed + it * args.workers)
+                 seed0=base_seed + it * args.workers, cuda=args.cuda)
 
         print("[2/3] Distilling...")
         res = subprocess.run([sys.executable, 'distill.py',
                               '--data', os.path.join(iter_dir, '*.bin'),
                               '--init', BASELINE, '--out', CANDIDATE,
-                              '--epochs', str(args.epochs)])
+                              '--epochs', str(args.epochs),
+                              '--device', 'cuda' if args.cuda else 'cpu'])
         if res.returncode != 0:
             raise SystemExit("Distillation failed")
 

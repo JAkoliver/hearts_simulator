@@ -28,6 +28,7 @@
 #include <string>
 #include <vector>
 
+#include <torch/cuda.h>
 #include <torch/script.h>
 
 #include "HeartsEnv.hpp"
@@ -46,6 +47,7 @@ int main(int argc, char** argv) {
     std::string model_path, out_path = "selfplay.bin";
     int deals = 1000, k = 16, pass_k = 12, pass_candidates = 12;
     unsigned int seed = 1;
+    bool use_cuda = false;
 
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
@@ -57,7 +59,12 @@ int main(int argc, char** argv) {
         else if (a == "--pass-k") pass_k = std::stoi(next());
         else if (a == "--pass-candidates") pass_candidates = std::stoi(next());
         else if (a == "--seed") seed = static_cast<unsigned int>(std::stoul(next()));
+        else if (a == "--cuda") use_cuda = true;
         else { std::cerr << "Unknown arg: " << a << "\n"; return 2; }
+    }
+    if (use_cuda && !torch::cuda::is_available()) {
+        std::cerr << "--cuda requested but CUDA is not available in this libtorch build\n";
+        return 1;
     }
     if (model_path.empty()) {
         std::cerr << "--model is required\n";
@@ -92,6 +99,7 @@ int main(int argc, char** argv) {
         cfg.pass_k = pass_k;
         cfg.pass_candidates = pass_candidates;
         cfg.seed = seed * 7919u + p * 104729u;
+        cfg.device = use_cuda ? torch::Device(torch::kCUDA) : torch::Device(torch::kCPU);
         players.emplace_back(model, dim, cfg);
     }
 

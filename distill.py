@@ -55,7 +55,11 @@ def main():
     ap.add_argument('--lr', type=float, default=5e-5)
     ap.add_argument('--value-coef', type=float, default=0.5)
     ap.add_argument('--aux-coef', type=float, default=0.5)
+    ap.add_argument('--device', default='cuda' if torch.cuda.is_available() else 'cpu')
     args = ap.parse_args()
+
+    device = torch.device(args.device)
+    print(f"Device: {device}")
 
     data = load_data(args.data)
 
@@ -65,6 +69,7 @@ def main():
         print(f"Warm start from {args.init}")
     else:
         print("Fresh network (no init checkpoint found)")
+    net.to(device)
     optimizer = torch.optim.Adam(net.parameters(), lr=args.lr)
 
     n = len(data)
@@ -78,12 +83,17 @@ def main():
         for start in range(0, n, args.batch):
             idx = perm[start:start + args.batch]
             b = data[idx]
-            obs = torch.from_numpy(b['obs'].astype(np.float32) / 255.0)
-            mask = torch.from_numpy(b['mask'].astype(bool))
-            actions = torch.from_numpy(b['action'].astype(np.int64))
-            labels = torch.from_numpy(b['labels'].astype(np.float32))
-            rewards = torch.from_numpy(b['reward'].astype(np.float32))
-            pi = torch.from_numpy(b['pi'].astype(np.float32))
+            # Ship the u8 fields to the device raw and convert there: 4x less
+            # PCIe traffic than converting to float32 on the host first.
+            # (ascontiguousarray: struct fields are strided views of the
+            # 818-byte records)
+            u8 = lambda name: torch.from_numpy(np.ascontiguousarray(b[name])).to(device)
+            obs = u8('obs').float() / 255.0
+            mask = u8('mask').bool()
+            labels = u8('labels').float()
+            pi = u8('pi').float()
+            actions = torch.from_numpy(b['action'].astype(np.int64)).to(device)
+            rewards = torch.from_numpy(b['reward'].astype(np.float32)).to(device)
             pi = pi / pi.sum(dim=1, keepdim=True).clamp_min(1e-6)
 
             logits, value, belief = net.forward_all(obs, mask)
@@ -113,7 +123,9 @@ def main():
               f"teacher match {match_sum / seen * 100:.1f}% | value EV {ev:.3f} | "
               f"belief BCE {bce_sum / seen:.4f}")
 
-    torch.save(net.state_dict(), args.out)
+    # Save from CPU so the checkpoint stays device-neutral for the
+    # orchestrator gate and export.py.
+    torch.save(net.cpu().state_dict(), args.out)
     print(f"Saved candidate to {args.out}")
 
 if __name__ == '__main__':

@@ -10,6 +10,8 @@ build/
 # ====================================================================
 # Prevents the multi-gigabyte C++ LibTorch library from hitting Git.
 libtorch/
+libtorch-cpu/
+libtorch-cuda.zip
 
 # ====================================================================
 # Machine Learning Weights & Serialized Models

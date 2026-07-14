@@ -2,9 +2,13 @@
 // plus a --selftest mode validating the search machinery.
 //
 // Usage:
-//   SearchEval --search-model <pt> --selftest
+//   SearchEval --search-model <pt> --selftest [--cuda]
 //   SearchEval --search-model <pt> --opponent-model <pt> --deals 300 --k 32
-//              --seed 42 [--uniform-sampling] --out results.csv
+//              --seed 42 [--uniform-sampling] [--pass-search] [--cuda]
+//              --out results.csv
+//
+// --cuda moves the search player's inference to the GPU (the opponent's
+// raw batch-1 policy always stays on CPU, where it is faster).
 
 #include <chrono>
 #include <fstream>
@@ -14,6 +18,7 @@
 #include <string>
 #include <vector>
 
+#include <torch/cuda.h>
 #include <torch/script.h>
 #include <torch/torch.h>
 
@@ -55,10 +60,12 @@ static bool TestCloneFidelity() {
     return e.GetRoundScores() == c.GetRoundScores();
 }
 
-static bool TestDeterminizations(torch::jit::script::Module& model, int obs_dim) {
+static bool TestDeterminizations(torch::jit::script::Module& model, int obs_dim,
+                                 torch::Device device) {
     SearchPlayer::Config cfg;
     cfg.determinizations = 8;
     cfg.seed = 99;
+    cfg.device = device;
     SearchPlayer sp(model, obs_dim, cfg);
     std::mt19937 rr(17);
     HeartsEnv env(23, true);
@@ -134,7 +141,8 @@ static bool TestDeterminizations(torch::jit::script::Module& model, int obs_dim)
     return checked >= 200;
 }
 
-static bool TestBatchEquivalence(torch::jit::script::Module& model, int obs_dim) {
+static bool TestBatchEquivalence(torch::jit::script::Module& model, int obs_dim,
+                                 torch::Device device) {
     HeartsEnv env(31, true);
     env.Reset();
     std::mt19937 rr(3);
@@ -159,14 +167,18 @@ static bool TestBatchEquivalence(torch::jit::script::Module& model, int obs_dim)
         }
     }
     torch::NoGradGuard g;
-    torch::Tensor batched = model.forward({ob, mb}).toTuple()->elements()[0].toTensor();
+    // GPU kernels may reorder reductions between batch sizes; allow a slightly
+    // looser tolerance there than on CPU.
+    double tol = device.is_cuda() ? 1e-3 : 1e-4;
+    torch::Tensor obd = ob.to(device), mbd = mb.to(device);
+    torch::Tensor batched = model.forward({obd, mbd}).toTuple()->elements()[0].toTensor();
     for (int i = 0; i < n; ++i) {
-        torch::Tensor single = model.forward({ob.slice(0, i, i + 1), mb.slice(0, i, i + 1)})
+        torch::Tensor single = model.forward({obd.slice(0, i, i + 1), mbd.slice(0, i, i + 1)})
                                    .toTuple()->elements()[0].toTensor();
-        torch::Tensor mask_row = mb.slice(0, i, i + 1);
+        torch::Tensor mask_row = mbd.slice(0, i, i + 1);
         double diff = (batched.slice(0, i, i + 1).masked_select(mask_row)
                        - single.masked_select(mask_row)).abs().max().item<double>();
-        if (diff > 1e-4) return false;
+        if (diff > tol) return false;
     }
     return true;
 }
@@ -177,7 +189,7 @@ int main(int argc, char** argv) {
     std::string search_path, opp_path, out_path = "search_eval_results.csv";
     int deals = 300, k = 32;
     unsigned int seed = 42;
-    bool uniform = false, selftest = false, pass_search = false;
+    bool uniform = false, selftest = false, pass_search = false, use_cuda = false;
 
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
@@ -191,12 +203,18 @@ int main(int argc, char** argv) {
         else if (a == "--uniform-sampling") uniform = true;
         else if (a == "--pass-search") pass_search = true;
         else if (a == "--selftest") selftest = true;
+        else if (a == "--cuda") use_cuda = true;
         else { std::cerr << "Unknown arg: " << a << "\n"; return 2; }
     }
     if (search_path.empty()) {
         std::cerr << "--search-model is required\n";
         return 2;
     }
+    if (use_cuda && !torch::cuda::is_available()) {
+        std::cerr << "--cuda requested but CUDA is not available in this libtorch build\n";
+        return 1;
+    }
+    torch::Device device = use_cuda ? torch::Device(torch::kCUDA) : torch::Device(torch::kCPU);
 
     torch::jit::script::Module search_model;
     try {
@@ -219,11 +237,11 @@ int main(int argc, char** argv) {
         std::cerr << (t ? "PASS" : "FAIL") << "\n";
         ok &= t;
         std::cerr << "Determinization validity... ";
-        t = TestDeterminizations(search_model, sdim);
+        t = TestDeterminizations(search_model, sdim, device);
         std::cerr << (t ? "PASS" : "FAIL") << "\n";
         ok &= t;
         std::cerr << "Batched-vs-single inference... ";
-        t = TestBatchEquivalence(search_model, sdim);
+        t = TestBatchEquivalence(search_model, sdim, device);
         std::cerr << (t ? "PASS" : "FAIL") << "\n";
         ok &= t;
         std::cerr << (ok ? "SELFTEST PASS" : "SELFTEST FAIL") << "\n";
@@ -253,6 +271,7 @@ int main(int argc, char** argv) {
     cfg.belief_weighted = !uniform;
     cfg.seed = seed + 1000;
     cfg.pass_search = pass_search;
+    cfg.device = device;
     SearchPlayer sp(search_model, sdim, cfg);
     RawPolicy opp(opp_model, odim);
 

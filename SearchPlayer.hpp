@@ -91,10 +91,16 @@ public:
         // Temperature (in points) for the soft teacher target over action
         // values: near-tie actions share mass instead of an arbitrary one-hot.
         float target_temp = 1.0f;
+        // Inference device. jit::Module copies share storage, so moving the
+        // model here moves it for every SearchPlayer built from the same
+        // loaded module - probe obs width BEFORE constructing players.
+        torch::Device device = torch::kCPU;
     };
 
     SearchPlayer(torch::jit::script::Module model, int model_obs_dim, Config cfg = Config())
-        : model_(std::move(model)), obs_dim_(model_obs_dim), cfg_(cfg), rng_(cfg.seed) {}
+        : model_(std::move(model)), obs_dim_(model_obs_dim), cfg_(cfg), rng_(cfg.seed) {
+        model_.to(cfg_.device);
+    }
 
     int ChooseAction(const HeartsEnv& env) {
         std::vector<int> legal = LegalVector(env);
@@ -276,12 +282,14 @@ private:
                     if (lr[i] != -1) mp[j * 52 + lr[i]] = true;
                 }
             }
-            torch::Tensor logits;
+            torch::Tensor acts;
             {
                 torch::NoGradGuard g;
-                logits = model_.forward({o, m}).toTuple()->elements()[0].toTensor();
+                torch::Tensor logits = model_.forward({o.to(cfg_.device), m.to(cfg_.device)})
+                                           .toTuple()->elements()[0].toTensor();
+                // argmax on device; only the tiny index vector crosses back
+                acts = logits.argmax(1).to(torch::kCPU);
             }
-            torch::Tensor acts = logits.argmax(1);
             auto acc = acts.accessor<int64_t, 1>();
             for (size_t j = 0; j < active.size(); ++j) {
                 Sim& s = sims[active[j]];
@@ -352,8 +360,9 @@ private:
         bool* mp = m.data_ptr<bool>();
         for (int a : legal) mp[a] = true;
         torch::NoGradGuard g;
-        auto logits = model_.forward({o, m}).toTuple()->elements()[0].toTensor();
-        torch::Tensor p = torch::softmax(logits, 1);
+        auto logits = model_.forward({o.to(cfg_.device), m.to(cfg_.device)})
+                          .toTuple()->elements()[0].toTensor();
+        torch::Tensor p = torch::softmax(logits, 1).to(torch::kCPU);
         auto acc = p.accessor<float, 2>();
         std::vector<float> probs(legal.size());
         for (size_t i = 0; i < legal.size(); ++i) {
@@ -405,7 +414,8 @@ private:
         bool* mp = m.data_ptr<bool>();
         for (int a : legal) mp[a] = true;
         torch::NoGradGuard g;
-        auto logits = model_.forward({o, m}).toTuple()->elements()[0].toTensor();
+        auto logits = model_.forward({o.to(cfg_.device), m.to(cfg_.device)})
+                          .toTuple()->elements()[0].toTensor();
         return logits.argmax(1).item<int>();
     }
 
@@ -414,9 +424,10 @@ private:
         torch::Tensor o = torch::from_blob((void*)obs.data(), {1, obs_dim_}, torch::kFloat32).clone();
         torch::Tensor m = torch::ones({1, 52}, torch::kBool);
         torch::NoGradGuard g;
-        auto out = model_.forward({o, m}).toTuple();
+        auto out = model_.forward({o.to(cfg_.device), m.to(cfg_.device)}).toTuple();
         if (out->elements().size() < 3) return false;
-        torch::Tensor probs = torch::sigmoid(out->elements()[2].toTensor()).reshape({3, 52});
+        torch::Tensor probs = torch::sigmoid(out->elements()[2].toTensor())
+                                  .reshape({3, 52}).to(torch::kCPU);
         auto acc = probs.accessor<float, 2>();
         for (int k = 0; k < 3; ++k) {
             for (int c = 0; c < 52; ++c) {
