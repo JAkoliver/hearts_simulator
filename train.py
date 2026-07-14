@@ -169,13 +169,14 @@ def ppo_update(network, optimizer, buffer, device, gamma=1.0, eps_clip=0.2, k_ep
 # unchanged from the multiprocessing version.
 
 class EnvSlot:
-    __slots__ = ('env', 'nets', 'buffers')
+    __slots__ = ('env', 'nets', 'buffers', 'steps_this_game')
 
     def __init__(self, seed):
         self.env = hearts_env.HeartsEnv(seed=seed)
         self.env.reset()  # a freshly constructed env has no deal yet
         self.nets = None
         self.buffers = [RolloutBuffer() for _ in range(4)]
+        self.steps_this_game = 0
 
 def assign_seats(slot, main_network, active_pool):
     """Seat 0 is always the learner; each other seat is 50% a pool opponent."""
@@ -196,15 +197,25 @@ def run_cycle(slots, main_network, active_pool, games_target, device):
     p0_reward_sum = 0.0
     p0_raw_sum = 0.0
 
-    while games_done < games_target:
+    while True:
+        # Once the target is reached, DRAIN: only step envs that are mid-game
+        # so every recorded trajectory ends with its true terminal reward.
+        # Merging a truncated episode would train its tail on garbage credit
+        # (GAE bootstraps 0 past the buffer end).
+        draining = games_done >= games_target
+
         # Group envs by the network that decides their next action
         groups = {}
         for k, slot in enumerate(slots):
+            if draining and slot.steps_this_game == 0:
+                continue
             net = slot.nets[slot.env.get_current_player()]
             key = id(net)
             if key not in groups:
                 groups[key] = (net, [])
             groups[key][1].append(k)
+        if not groups:
+            break
 
         for net, idxs in groups.values():
             n = len(idxs)
@@ -229,6 +240,7 @@ def run_cycle(slots, main_network, active_pool, games_target, device):
                 labels = slot.env.observe_opponent_hands() if is_main else None
 
                 done = slot.env.step(int(actions[j])).done
+                slot.steps_this_game += 1
 
                 if is_main:
                     b = slot.buffers[pid]
@@ -257,6 +269,7 @@ def run_cycle(slots, main_network, active_pool, games_target, device):
                     games_done += 1
                     slot.env.reset()
                     assign_seats(slot, main_network, active_pool)
+                    slot.steps_this_game = 0
 
     return games_done, p0_reward_sum, p0_raw_sum
 
