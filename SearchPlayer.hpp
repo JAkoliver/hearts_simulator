@@ -14,6 +14,7 @@
 #include <torch/torch.h>
 
 #include "HeartsEnv.hpp"
+#include "InferenceServer.hpp"
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -91,16 +92,23 @@ public:
         // Temperature (in points) for the soft teacher target over action
         // values: near-tie actions share mass instead of an arbitrary one-hot.
         float target_temp = 1.0f;
-        // Inference device. jit::Module copies share storage, so moving the
-        // model here moves it for every SearchPlayer built from the same
-        // loaded module - probe obs width BEFORE constructing players.
+        // Inference device (used by the module-owning constructor, which
+        // wraps the model in a DirectBackend). jit::Module copies share
+        // storage, so moving the model moves it for every SearchPlayer built
+        // from the same loaded module - probe obs width BEFORE constructing
+        // players.
         torch::Device device = torch::kCPU;
     };
 
+    // Shared-backend constructor: many players (threads) funnel inference
+    // through one backend, e.g. a ServedBackend on an InferenceServer.
+    SearchPlayer(std::shared_ptr<InferenceBackend> backend, int model_obs_dim,
+                 Config cfg = Config())
+        : backend_(std::move(backend)), obs_dim_(model_obs_dim), cfg_(cfg), rng_(cfg.seed) {}
+
     SearchPlayer(torch::jit::script::Module model, int model_obs_dim, Config cfg = Config())
-        : model_(std::move(model)), obs_dim_(model_obs_dim), cfg_(cfg), rng_(cfg.seed) {
-        model_.to(cfg_.device);
-    }
+        : SearchPlayer(std::make_shared<DirectBackend>(std::move(model), cfg.device),
+                       model_obs_dim, cfg) {}
 
     int ChooseAction(const HeartsEnv& env) {
         std::vector<int> legal = LegalVector(env);
@@ -282,14 +290,7 @@ private:
                     if (lr[i] != -1) mp[j * 52 + lr[i]] = true;
                 }
             }
-            torch::Tensor acts;
-            {
-                torch::NoGradGuard g;
-                torch::Tensor logits = model_.forward({o.to(cfg_.device), m.to(cfg_.device)})
-                                           .toTuple()->elements()[0].toTensor();
-                // argmax on device; only the tiny index vector crosses back
-                acts = logits.argmax(1).to(torch::kCPU);
-            }
+            torch::Tensor acts = backend_->Forward(o, m).logits.argmax(1);
             auto acc = acts.accessor<int64_t, 1>();
             for (size_t j = 0; j < active.size(); ++j) {
                 Sim& s = sims[active[j]];
@@ -359,10 +360,7 @@ private:
         torch::Tensor m = torch::zeros({1, 52}, torch::kBool);
         bool* mp = m.data_ptr<bool>();
         for (int a : legal) mp[a] = true;
-        torch::NoGradGuard g;
-        auto logits = model_.forward({o.to(cfg_.device), m.to(cfg_.device)})
-                          .toTuple()->elements()[0].toTensor();
-        torch::Tensor p = torch::softmax(logits, 1).to(torch::kCPU);
+        torch::Tensor p = torch::softmax(backend_->Forward(o, m).logits, 1);
         auto acc = p.accessor<float, 2>();
         std::vector<float> probs(legal.size());
         for (size_t i = 0; i < legal.size(); ++i) {
@@ -413,21 +411,16 @@ private:
         torch::Tensor m = torch::zeros({1, 52}, torch::kBool);
         bool* mp = m.data_ptr<bool>();
         for (int a : legal) mp[a] = true;
-        torch::NoGradGuard g;
-        auto logits = model_.forward({o.to(cfg_.device), m.to(cfg_.device)})
-                          .toTuple()->elements()[0].toTensor();
-        return logits.argmax(1).item<int>();
+        return backend_->Forward(o, m).logits.argmax(1).item<int>();
     }
 
     bool FetchBelief(const HeartsEnv& env) {
         auto obs = env.Observe();
         torch::Tensor o = torch::from_blob((void*)obs.data(), {1, obs_dim_}, torch::kFloat32).clone();
         torch::Tensor m = torch::ones({1, 52}, torch::kBool);
-        torch::NoGradGuard g;
-        auto out = model_.forward({o.to(cfg_.device), m.to(cfg_.device)}).toTuple();
-        if (out->elements().size() < 3) return false;
-        torch::Tensor probs = torch::sigmoid(out->elements()[2].toTensor())
-                                  .reshape({3, 52}).to(torch::kCPU);
+        InferOutputs out = backend_->Forward(o, m);
+        if (!out.belief.defined()) return false;
+        torch::Tensor probs = torch::sigmoid(out.belief).reshape({3, 52});
         auto acc = probs.accessor<float, 2>();
         for (int k = 0; k < 3; ++k) {
             for (int c = 0; c < 52; ++c) {
@@ -566,7 +559,7 @@ private:
         return action;
     }
 
-    torch::jit::script::Module model_;
+    std::shared_ptr<InferenceBackend> backend_;
     int obs_dim_;
     Config cfg_;
     std::mt19937 rng_;

@@ -43,6 +43,30 @@ def worker_cmd(iter_dir, w, per_worker, k, pass_k, seed, cuda):
 
 def generate(iter_dir, deals, workers, k, pass_k, seed0, cuda):
     os.makedirs(iter_dir, exist_ok=True)
+    t0 = time.time()
+
+    if cuda:
+        # One process, N deal-playing threads, one coalescing inference server
+        # on the GPU. Separate processes would serialize their small kernel
+        # launches at the GPU and cap aggregate throughput.
+        cmd = [GEN_EXE, '--model', SEARCH_TRACE, '--deals', str(deals),
+               '--k', str(k), '--pass-k', str(pass_k),
+               '--threads', str(workers), '--cuda',
+               '--seed', str(seed0),
+               '--out', os.path.join(iter_dir, 'selfplay.bin')]
+        res = subprocess.run(cmd, stdout=subprocess.DEVNULL)
+        if res.returncode != 0:
+            print(f"  SelfPlayGen exited with code {res.returncode}; "
+                  f"retrying once with a fresh seed")
+            for f in glob.glob(os.path.join(iter_dir, '*.bin')):
+                os.remove(f)  # partial shards from the failed run
+            cmd[cmd.index('--seed') + 1] = str(seed0 + 500000)
+            res = subprocess.run(cmd, stdout=subprocess.DEVNULL)
+            if res.returncode != 0:
+                raise SystemExit(f"SelfPlayGen failed twice (exit {res.returncode}); aborting")
+        print(f"  generated {deals} deals in {time.time() - t0:.0f}s")
+        return
+
     per_worker = max(1, deals // workers)
     procs = []
     for w in range(workers):
@@ -51,7 +75,6 @@ def generate(iter_dir, deals, workers, k, pass_k, seed0, cuda):
         # (all workers advance at roughly the same rate)
         quiet = subprocess.DEVNULL if w > 0 else None
         procs.append(subprocess.Popen(cmd, stderr=quiet, stdout=subprocess.DEVNULL))
-    t0 = time.time()
     failed = [w for w, p in enumerate(procs) if p.wait() != 0]
     for w in failed:
         # A crashed worker leaves a truncated .bin; redo its whole shard once
