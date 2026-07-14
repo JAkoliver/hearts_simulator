@@ -100,9 +100,9 @@ public:
         return fut.get();  // rethrows if the forward failed
     }
 
-    long Launches() const { return launches_.load(); }
+    long long Launches() const { return launches_.load(); }
     double MeanBatchRows() const {
-        long l = launches_.load();
+        long long l = launches_.load();
         return l ? static_cast<double>(rows_.load()) / l : 0.0;
     }
 
@@ -170,8 +170,9 @@ private:
     std::condition_variable cv_;
     bool stop_ = false;
     std::thread worker_;
-    std::atomic<long> launches_{0};
-    std::atomic<long> rows_{0};
+    // long long: Windows long is 32-bit and total rows overflow it
+    std::atomic<long long> launches_{0};
+    std::atomic<long long> rows_{0};
 };
 
 class ServedBackend : public InferenceBackend {

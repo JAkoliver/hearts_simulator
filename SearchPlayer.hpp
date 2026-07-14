@@ -92,6 +92,13 @@ public:
         // Temperature (in points) for the soft teacher target over action
         // values: near-tie actions share mass instead of an arbitrary one-hot.
         float target_temp = 1.0f;
+        // Rollout depth: -1 (or >=13) rolls every simulation to the end of
+        // the round (classic behavior). N truncates a simulation once N
+        // tricks have completed past its start and scores the leaf with the
+        // VALUE HEAD from the searching seat's perspective - V(s) predicts
+        // the final relative round score in the same units the terminal
+        // rollout would produce.
+        int rollout_tricks = -1;
         // Inference device (used by the module-owning constructor, which
         // wraps the model in a DirectBackend). jit::Module copies share
         // storage, so moving the model moves it for every SearchPlayer built
@@ -124,9 +131,12 @@ public:
 
         std::vector<Sim> sims;
         sims.reserve(legal.size() * dets.size());
+        int start_tricks = env.GetState().tricks_played;
         for (size_t ai = 0; ai < legal.size(); ++ai) {
             for (const auto& det : dets) {
                 Sim s(env.Clone(), static_cast<int>(ai));
+                s.eval_seat = me;
+                s.start_tricks = start_tricks;
                 s.sim_env.SetHands(det);
                 s.done = s.sim_env.Step(legal[ai]).done;
                 sims.push_back(std::move(s));
@@ -136,7 +146,7 @@ public:
 
         std::vector<double> score(legal.size(), 0.0);
         for (const auto& s : sims) {
-            score[s.tag] += RelReward(s.sim_env, me);
+            score[s.tag] += s.result;
         }
         size_t best = 0;
         for (size_t ai = 1; ai < legal.size(); ++ai) {
@@ -231,6 +241,10 @@ private:
         HeartsEnv sim_env;
         int tag;
         bool done = false;
+        bool truncated = false;   // stopped early; leaf goes to the value head
+        int eval_seat = 0;        // the searching seat this sim scores for
+        int start_tricks = 0;     // tricks_played when the sim was spawned
+        double result = 0.0;      // filled by RolloutAll
         // Scripted pass picks: while sim is passing and it's script_seat's
         // turn, play from script instead of the policy
         std::vector<int> script;
@@ -255,9 +269,22 @@ private:
         return legal;
     }
 
-    // Roll every sim to the end of the round: scripted steps play for free,
-    // everything else is batched policy argmax.
+    // Roll every sim forward: scripted steps play for free, everything else
+    // is batched policy argmax. A sim ends either at the round's end
+    // (result = true relative reward) or, with cfg_.rollout_tricks >= 0, at
+    // a trick boundary rollout_tricks past its start (result = value head,
+    // asked from the searching seat's perspective, in the same units).
     void RolloutAll(std::vector<Sim>& sims) {
+        const int T = cfg_.rollout_tricks;
+        const bool truncate = (T >= 0 && T < 13);
+        auto check_truncate = [&](Sim& s) {
+            if (truncate && !s.done && !s.truncated && !s.sim_env.IsPassing()
+                && s.sim_env.GetState().tricks_played - s.start_tricks >= T) {
+                s.truncated = true;
+            }
+        };
+        for (auto& s : sims) check_truncate(s);
+
         std::vector<size_t> active;
         while (true) {
             // Consume any scripted picks first (no inference needed)
@@ -274,7 +301,7 @@ private:
             }
             active.clear();
             for (size_t i = 0; i < sims.size(); ++i) {
-                if (!sims[i].done) active.push_back(i);
+                if (!sims[i].done && !sims[i].truncated) active.push_back(i);
             }
             if (active.empty()) break;
 
@@ -295,7 +322,34 @@ private:
             for (size_t j = 0; j < active.size(); ++j) {
                 Sim& s = sims[active[j]];
                 s.done = s.sim_env.Step(static_cast<int>(acc[j])).done;
+                check_truncate(s);
             }
+        }
+
+        // Resolve results: terminal sims score exactly; truncated leaves are
+        // batched through the value head in one forward.
+        std::vector<size_t> leaves;
+        for (size_t i = 0; i < sims.size(); ++i) {
+            if (sims[i].done) {
+                sims[i].result = RelReward(sims[i].sim_env, sims[i].eval_seat);
+            } else {
+                leaves.push_back(i);
+            }
+        }
+        if (leaves.empty()) return;
+
+        torch::Tensor o = torch::empty({(long)leaves.size(), obs_dim_}, torch::kFloat32);
+        torch::Tensor m = torch::ones({(long)leaves.size(), 52}, torch::kBool);
+        float* op = o.data_ptr<float>();
+        for (size_t j = 0; j < leaves.size(); ++j) {
+            Sim& s = sims[leaves[j]];
+            auto obs = s.sim_env.ObserveFor(s.eval_seat);
+            std::memcpy(op + j * obs_dim_, obs.data(), obs_dim_ * sizeof(float));
+        }
+        torch::Tensor v = backend_->Forward(o, m).value;
+        auto vacc = v.accessor<float, 2>();
+        for (size_t j = 0; j < leaves.size(); ++j) {
+            sims[leaves[j]].result = vacc[j][0];
         }
     }
 
@@ -335,6 +389,8 @@ private:
             for (const auto& det : dets) {
                 Sim s(env.Clone(), static_cast<int>(ci));
                 s.sim_env.ResetForPassSearch(det);
+                s.eval_seat = me;
+                s.start_tricks = 0;  // pass search rewinds to the deal start
                 s.script.assign(combos[ci].begin(), combos[ci].end());
                 s.script_seat = me;
                 sims.push_back(std::move(s));
@@ -344,7 +400,7 @@ private:
 
         std::vector<double> score(combos.size(), 0.0);
         for (const auto& s : sims) {
-            score[s.tag] += RelReward(s.sim_env, me);
+            score[s.tag] += s.result;
         }
         size_t best = 0;
         for (size_t ci = 1; ci < combos.size(); ++ci) {

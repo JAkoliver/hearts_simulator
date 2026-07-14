@@ -187,7 +187,7 @@ static bool TestBatchEquivalence(torch::jit::script::Module& model, int obs_dim,
 
 int main(int argc, char** argv) {
     std::string search_path, opp_path, out_path = "search_eval_results.csv";
-    int deals = 300, k = 32;
+    int deals = 300, k = 32, rollout_tricks = -1;
     unsigned int seed = 42;
     bool uniform = false, selftest = false, pass_search = false, use_cuda = false;
 
@@ -200,6 +200,7 @@ int main(int argc, char** argv) {
         else if (a == "--deals") deals = std::stoi(next());
         else if (a == "--k") k = std::stoi(next());
         else if (a == "--seed") seed = static_cast<unsigned int>(std::stoul(next()));
+        else if (a == "--rollout-tricks") rollout_tricks = std::stoi(next());
         else if (a == "--uniform-sampling") uniform = true;
         else if (a == "--pass-search") pass_search = true;
         else if (a == "--selftest") selftest = true;
@@ -272,6 +273,7 @@ int main(int argc, char** argv) {
     cfg.seed = seed + 1000;
     cfg.pass_search = pass_search;
     cfg.device = device;
+    cfg.rollout_tricks = rollout_tricks;
     SearchPlayer sp(search_model, sdim, cfg);
     RawPolicy opp(opp_model, odim);
 

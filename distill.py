@@ -29,20 +29,26 @@ RECORD = np.dtype([
 ])
 assert RECORD.itemsize == 818
 
-def load_data(patterns):
+# Leaf value records (SelfPlayGen --value-out): trick-boundary observations
+# from EVERY seat's perspective with true final outcomes - the distribution
+# value-bootstrapped search queries at truncated rollout leaves.
+LEAF_RECORD = np.dtype([('obs', 'u1', 550), ('reward', '<f4')])
+assert LEAF_RECORD.itemsize == 554
+
+def load_data(patterns, dtype=RECORD, kind='decision'):
     files = []
     for p in patterns:
         files.extend(glob.glob(p))
     if not files:
         raise SystemExit(f"No data files match {patterns}")
     for f in sorted(files):
-        if os.path.getsize(f) % RECORD.itemsize != 0:
+        if os.path.getsize(f) % dtype.itemsize != 0:
             raise SystemExit(
-                f"{f}: size is not a multiple of {RECORD.itemsize} - generated "
-                f"by an older SelfPlayGen (766-byte records)? Regenerate the data.")
-    chunks = [np.fromfile(f, dtype=RECORD) for f in sorted(files)]
+                f"{f}: size is not a multiple of {dtype.itemsize} - wrong or "
+                f"stale record format? Regenerate the data.")
+    chunks = [np.fromfile(f, dtype=dtype) for f in sorted(files)]
     data = np.concatenate(chunks)
-    print(f"Loaded {len(data):,} records from {len(files)} files")
+    print(f"Loaded {len(data):,} {kind} records from {len(files)} files")
     return data
 
 def main():
@@ -53,6 +59,7 @@ def main():
     ap.add_argument('--epochs', type=int, default=2)
     ap.add_argument('--batch', type=int, default=2048)
     ap.add_argument('--lr', type=float, default=5e-5)
+    ap.add_argument('--policy-coef', type=float, default=1.0)
     ap.add_argument('--value-coef', type=float, default=0.5)
     ap.add_argument('--aux-coef', type=float, default=0.5)
     ap.add_argument('--device', default='cuda' if torch.cuda.is_available() else 'cpu')
@@ -62,12 +69,21 @@ def main():
                          'lowering the generation temperature after the fact')
     ap.add_argument('--holdout', type=float, default=0.02,
                     help='fraction of records held out to report unfit teacher match')
+    ap.add_argument('--leaf-data', nargs='+', default=None,
+                    help='leaf value record files (SelfPlayGen --value-out); trains '
+                         'the value head on the truncated-rollout leaf distribution '
+                         'via interleaved value-only batches')
+    ap.add_argument('--leaf-coef', type=float, default=1.0)
     args = ap.parse_args()
 
     device = torch.device(args.device)
     print(f"Device: {device}")
 
     data = load_data(args.data)
+    leaf = None
+    if args.leaf_data:
+        leaf = load_data(args.leaf_data, dtype=LEAF_RECORD, kind='leaf-value')
+        leaf_var = float(np.var(leaf['reward'])) + 1e-8
 
     # Fixed held-out split: measures whether the student generalizes to
     # teacher decisions it never trained on (argmax match is only meaningful
@@ -96,6 +112,11 @@ def main():
         perm = np.random.permutation(n)
         ce_sum = match_sum = err2_sum = bce_sum = 0.0
         seen = 0
+        if leaf is not None:
+            lperm = np.random.permutation(len(leaf))
+            lpos = 0
+            lerr2_sum = 0.0
+            lseen = 0
 
         for start in range(0, n, args.batch):
             idx = perm[start:start + args.batch]
@@ -124,7 +145,8 @@ def main():
             policy_loss = -(pi * logp).sum(dim=1).mean()
             value_loss = F.mse_loss(value.squeeze(-1), rewards)
             belief_loss = F.binary_cross_entropy_with_logits(belief, labels)
-            loss = policy_loss + args.value_coef * value_loss + args.aux_coef * belief_loss
+            loss = (args.policy_coef * policy_loss + args.value_coef * value_loss
+                    + args.aux_coef * belief_loss)
 
             optimizer.zero_grad()
             loss.backward()
@@ -138,10 +160,33 @@ def main():
             err2_sum += value_loss.item() * k
             bce_sum += belief_loss.item() * k
 
+            # Interleaved value-only batch on the leaf distribution
+            if leaf is not None:
+                if lpos + args.batch > len(lperm):
+                    lperm = np.random.permutation(len(leaf))
+                    lpos = 0
+                lidx = lperm[lpos:lpos + args.batch]
+                lpos += args.batch
+                lb = leaf[lidx]
+                lobs = torch.from_numpy(np.ascontiguousarray(lb['obs'])).to(device).float() / 255.0
+                lmask = torch.ones((len(lidx), 52), dtype=torch.bool, device=device)
+                lrew = torch.from_numpy(lb['reward'].astype(np.float32)).to(device)
+                _, lvalue, _ = net.forward_all(lobs, lmask)
+                leaf_mse = F.mse_loss(lvalue.squeeze(-1), lrew)
+                lloss = args.leaf_coef * leaf_mse
+                optimizer.zero_grad()
+                lloss.backward()
+                nn.utils.clip_grad_norm_(net.parameters(), 0.5)
+                optimizer.step()
+                lerr2_sum += leaf_mse.item() * len(lidx)
+                lseen += len(lidx)
+
         ev = 1.0 - (err2_sum / seen) / reward_var
         line = (f"epoch {epoch + 1}/{args.epochs} | policy CE {ce_sum / seen:.4f} | "
                 f"teacher match {match_sum / seen * 100:.1f}% | value EV {ev:.3f} | "
                 f"belief BCE {bce_sum / seen:.4f}")
+        if leaf is not None and lseen:
+            line += f" | leaf EV {1.0 - (lerr2_sum / lseen) / leaf_var:.3f}"
         if n_hold:
             with torch.no_grad():
                 hm = 0

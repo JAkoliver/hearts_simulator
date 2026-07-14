@@ -22,6 +22,15 @@
 // small ones (separate processes serialize at the GPU and waste it).
 // Each thread writes its own file: --out selfplay.bin -> selfplay_t0.bin ...
 //
+// --value-out <file> additionally writes LEAF VALUE records (554 bytes):
+//     550 x u8   observation from seat s's perspective at a completed-trick
+//                boundary (the exact state distribution value-bootstrapped
+//                search queries at truncated rollout leaves - including
+//                seats that are NOT on turn, which decision records never
+//                cover)
+//       f32      seat s's true final relative round reward (avg - own)
+// One record per seat per boundary (tricks 1..12; trick 13 is terminal).
+//
 // Usage:
 //   SelfPlayGen --model hearts_ai_search.pt --deals 6000 --k 64
 //               --pass-k 24 --pass-candidates 12 --seed 1 --threads 12
@@ -72,7 +81,8 @@ static std::string ThreadOutPath(const std::string& base, int tid, int threads) 
 static void RunWorker(int tid, int deals, unsigned int seed,
                       std::shared_ptr<InferenceBackend> backend, int dim,
                       const SearchPlayer::Config& base_cfg,
-                      const std::string& out_path, GenShared& shared) {
+                      const std::string& out_path, const std::string& value_out_path,
+                      GenShared& shared) {
     try {
         std::vector<SearchPlayer> players;
         for (int p = 0; p < 4; ++p) {
@@ -86,12 +96,26 @@ static void RunWorker(int tid, int deals, unsigned int seed,
         if (!out) {
             throw std::runtime_error("Cannot open output file " + out_path);
         }
+        std::ofstream vout;
+        if (!value_out_path.empty()) {
+            vout.open(value_out_path, std::ios::binary);
+            if (!vout) {
+                throw std::runtime_error("Cannot open value output file " + value_out_path);
+            }
+        }
+
+        struct LeafRec {
+            std::array<uint8_t, 550> obs;
+            uint16_t seat;
+        };
 
         for (int d = 0; d < deals; ++d) {
             if (shared.failed.load()) return;  // another thread died; stop early
             env.Reset();
             std::vector<PendingRec> recs;
             recs.reserve(64);
+            std::vector<LeafRec> leaf_recs;
+            int prev_tricks = 0;
             bool done = false;
 
             while (!done) {
@@ -125,6 +149,25 @@ static void RunWorker(int tid, int deals, unsigned int seed,
                 recs.push_back(r);
 
                 done = env.Step(action).done;
+
+                // Leaf value records at every completed-trick boundary
+                // (except the terminal one, whose value is the exact score)
+                int tp = env.GetState().tricks_played;
+                if (vout.is_open() && tp != prev_tricks && !done) {
+                    for (int s = 0; s < 4; ++s) {
+                        LeafRec lr;
+                        auto lobs = env.ObserveFor(s);
+                        for (int i = 0; i < 550; ++i) {
+                            float v = lobs[i];
+                            if (v < 0.0f) v = 0.0f;
+                            if (v > 1.0f) v = 1.0f;
+                            lr.obs[i] = static_cast<uint8_t>(std::lround(v * 255.0f));
+                        }
+                        lr.seat = static_cast<uint16_t>(s);
+                        leaf_recs.push_back(lr);
+                    }
+                }
+                prev_tricks = tp;
             }
 
             auto sc = env.GetRoundScores();
@@ -138,6 +181,11 @@ static void RunWorker(int tid, int deals, unsigned int seed,
                 out.write(reinterpret_cast<const char*>(&r.action), 2);
                 out.write(reinterpret_cast<const char*>(&r.seat), 2);
                 out.write(reinterpret_cast<const char*>(&reward), 4);
+            }
+            for (const auto& lr : leaf_recs) {
+                float reward = avg - sc[lr.seat];
+                vout.write(reinterpret_cast<const char*>(lr.obs.data()), 550);
+                vout.write(reinterpret_cast<const char*>(&reward), 4);
             }
             shared.records.fetch_add(static_cast<long>(recs.size()));
             long total_done = shared.deals_done.fetch_add(1) + 1;
@@ -158,8 +206,9 @@ static void RunWorker(int tid, int deals, unsigned int seed,
 }
 
 int main(int argc, char** argv) {
-    std::string model_path, out_path = "selfplay.bin";
+    std::string model_path, out_path = "selfplay.bin", value_out_path;
     int deals = 1000, k = 16, pass_k = 12, pass_candidates = 12, threads = 1;
+    int rollout_tricks = -1;
     unsigned int seed = 1;
     bool use_cuda = false;
 
@@ -168,12 +217,14 @@ int main(int argc, char** argv) {
         auto next = [&]() -> std::string { return (i + 1 < argc) ? argv[++i] : ""; };
         if (a == "--model") model_path = next();
         else if (a == "--out") out_path = next();
+        else if (a == "--value-out") value_out_path = next();
         else if (a == "--deals") deals = std::stoi(next());
         else if (a == "--k") k = std::stoi(next());
         else if (a == "--pass-k") pass_k = std::stoi(next());
         else if (a == "--pass-candidates") pass_candidates = std::stoi(next());
         else if (a == "--seed") seed = static_cast<unsigned int>(std::stoul(next()));
         else if (a == "--threads") threads = std::stoi(next());
+        else if (a == "--rollout-tricks") rollout_tricks = std::stoi(next());
         else if (a == "--cuda") use_cuda = true;
         else { std::cerr << "Unknown arg: " << a << "\n"; return 2; }
     }
@@ -226,6 +277,7 @@ int main(int argc, char** argv) {
     base_cfg.pass_search = true;
     base_cfg.pass_k = pass_k;
     base_cfg.pass_candidates = pass_candidates;
+    base_cfg.rollout_tricks = rollout_tricks;
 
     GenShared shared;
     shared.total_deals = deals;
@@ -237,8 +289,11 @@ int main(int argc, char** argv) {
     for (int t = 0; t < threads; ++t) {
         int quota = per_thread + (t < extra ? 1 : 0);
         if (quota == 0) continue;
+        std::string vpath = value_out_path.empty()
+                                ? std::string()
+                                : ThreadOutPath(value_out_path, t, threads);
         pool.emplace_back(RunWorker, t, quota, seed + t, backend, dim, base_cfg,
-                          ThreadOutPath(out_path, t, threads), std::ref(shared));
+                          ThreadOutPath(out_path, t, threads), vpath, std::ref(shared));
     }
     for (auto& th : pool) th.join();
 

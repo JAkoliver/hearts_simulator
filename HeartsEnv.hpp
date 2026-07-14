@@ -364,11 +364,17 @@ public:
     }
 
     std::array<float, 550> Observe() const {
+        return ObserveFor(state.current_player);
+    }
+
+    // Observation from an arbitrary seat's perspective (identical layout).
+    // Decision-time search uses this to ask the value head about the
+    // SEARCHING seat's outlook at a truncated rollout leaf, where the
+    // engine's current_player is whoever happens to be next to act.
+    std::array<float, 550> ObserveFor(int player) const {
         std::array<float, 550> obs;
         obs.fill(0.0f);
-        
-        int player = state.current_player;
-        
+
         // Block 1: Hand (0-51)
         for (const auto& c : state.hands[player]) {
             obs[CardToActionId(c)] = 1.0f;
