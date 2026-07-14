@@ -90,7 +90,8 @@ def compute_gae(rewards, values, dones, gamma=1.0, gae_lambda=0.95):
     return advantages, advantages + values
 
 def ppo_update(network, optimizer, buffer, device, gamma=1.0, eps_clip=0.2, k_epochs=4,
-               minibatch_size=2048, gae_lambda=0.95, entropy_coef=0.01, aux_coef=0.5):
+               minibatch_size=2048, gae_lambda=0.95, entropy_coef=0.01, aux_coef=0.5,
+               actor_coef=1.0):
     if len(buffer.states) == 0:
         return None, None
 
@@ -143,8 +144,11 @@ def ppo_update(network, optimizer, buffer, device, gamma=1.0, eps_clip=0.2, k_ep
             belief_loss = nn.functional.binary_cross_entropy_with_logits(
                 belief_logits, hand_labels[idx])
 
-            loss = (actor_loss + 0.5 * critic_loss
-                    - entropy_coef * entropy.mean() + aux_coef * belief_loss)
+            # actor_coef 0 = critic warmup: the value/belief heads adapt to
+            # the on-policy distribution while the policy stays untouched, so
+            # early garbage advantages can't damage a good warm-start policy
+            loss = (actor_coef * (actor_loss - entropy_coef * entropy.mean())
+                    + 0.5 * critic_loss + aux_coef * belief_loss)
 
             optimizer.zero_grad()
             loss.backward()
@@ -336,6 +340,11 @@ def main():
     update_timestep = config.get('update_timestep', 560)
     num_envs = config.get('num_envs', 128)
     active_pool_size = config.get('active_pool_size', 4)
+    # Critic warmup: freeze the actor for the first N games so the value and
+    # belief heads adapt to the on-policy distribution first (a warm-started
+    # policy with a cold critic otherwise trains on noise advantages)
+    warmup_games = config.get('critic_warmup_games', 20000)
+    train_log = open('train_last_run.log', 'w')
 
     if os.environ.get('SMOKE_TEST') == '1':
         max_episodes = 100
@@ -374,7 +383,10 @@ def main():
             done_games, p0_reward_sum, p0_raw_sum = run_cycle(
                 slots, network, active_pool, update_timestep, device)
 
+            in_warmup = games_played < warmup_games
             games_played += done_games
+            if in_warmup and games_played >= warmup_games:
+                print(f"Critic warmup complete at {games_played} games; actor unfrozen.")
             avg_p0_reward = p0_reward_sum / done_games
             avg_p0_raw = p0_raw_sum / done_games
 
@@ -393,11 +405,18 @@ def main():
                                                    minibatch_size=config.get('minibatch_size', 2048),
                                                    gae_lambda=config.get('gae_lambda', 0.95),
                                                    entropy_coef=config.get('entropy_coef', 0.01),
-                                                   aux_coef=config.get('aux_coef', 0.5))
+                                                   aux_coef=config.get('aux_coef', 0.5),
+                                                   actor_coef=0.0 if in_warmup else 1.0)
 
             ev_str = f"{explained_var:.3f}" if explained_var is not None else "n/a"
             bce_str = f"{belief_bce:.4f}" if belief_bce is not None else "n/a"
-            print(f"Games: {games_played} | Pool: {len(historical_pool)} | P0 Raw: {avg_p0_raw:.2f} | P0 Rel: {avg_p0_reward:+.2f} | Critic EV: {ev_str} | Belief BCE: {bce_str}")
+            line = (f"Games: {games_played} | Pool: {len(historical_pool)} | "
+                    f"P0 Raw: {avg_p0_raw:.2f} | P0 Rel: {avg_p0_reward:+.2f} | "
+                    f"Critic EV: {ev_str} | Belief BCE: {bce_str}"
+                    + (" | WARMUP" if in_warmup else ""))
+            print(line)
+            train_log.write(line + "\n")
+            train_log.flush()
 
             # Periodically snapshot the current policy into the opponent pool so
             # in-trial opponents track progress instead of staying frozen
