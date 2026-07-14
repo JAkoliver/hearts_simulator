@@ -140,7 +140,7 @@ def evaluate_candidate(candidate_path, baseline_path, num_deals=2500, workers=8)
     print(f"T-Statistic: {t_stat:.3f}, P-Value: {p_val:.5f}")
 
     is_success = bool(p_val < 0.01) and (mean_diff < 0)
-    return is_success, cand_mean
+    return is_success, cand_mean, float(mean_diff)
 
 # ---------------------------------------------------------------------------
 # Search-level promotion gate
@@ -297,27 +297,36 @@ def main():
             write_ledger(ledger)
             return
 
-        if os.path.exists(baseline_model_path):
-            success, new_mean = evaluate_candidate(candidate_model_path, baseline_model_path)
-        else:
-            print("No baseline exists (fresh start). Auto-promoting first candidate as the initial baseline.")
-            success, new_mean = True, None
-
         with open('config.json', 'r') as f:
             cfg = json.load(f)
 
-        # Raw gate is the cheap prefilter; searched strength decides promotion
+        # Gate design (2026-07-15): raw play and searched strength can point
+        # in opposite directions, and the deployed player is a SEARCH player.
+        # The raw evaluation is only a sanity guard (reject candidates that
+        # are substantially worse raw); promotion is decided by the search
+        # gate against neutral opponents.
         fail_reason = "evaluation_failed"
-        if success and os.path.exists(baseline_model_path):
-            sg_ok, sg_mean, sg_p = evaluate_candidate_search(
-                candidate_model_path,
-                deals=cfg.get('search_gate_deals', 500),
-                k=cfg.get('search_gate_k', 64),
-                alpha=cfg.get('search_gate_alpha', 0.05))
-            if not sg_ok:
-                print("Candidate passed the raw gate but NOT the search gate.")
+        if os.path.exists(baseline_model_path):
+            raw_sig, new_mean, raw_diff = evaluate_candidate(candidate_model_path, baseline_model_path)
+            guard = cfg.get('raw_guard_threshold', 0.3)
+            if raw_diff > guard:
+                print(f"Raw guard FAILED: candidate {raw_diff:+.3f} vs baseline "
+                      f"(threshold +{guard}). Skipping search gate.")
                 success = False
-                fail_reason = "search_gate_failed"
+                fail_reason = "raw_guard_failed"
+            else:
+                print(f"Raw guard passed ({raw_diff:+.3f} <= +{guard}"
+                      f"{', significantly better' if raw_sig else ''}). Search gate decides.")
+                success, sg_mean, sg_p = evaluate_candidate_search(
+                    candidate_model_path,
+                    deals=cfg.get('search_gate_deals', 800),
+                    k=cfg.get('search_gate_k', 64),
+                    alpha=cfg.get('search_gate_alpha', 0.02))
+                if not success:
+                    fail_reason = "search_gate_failed"
+        else:
+            print("No baseline exists (fresh start). Auto-promoting first candidate as the initial baseline.")
+            success, new_mean = True, None
 
         if success:
             mean_str = f"{new_mean:.3f}" if new_mean is not None else "bootstrap"

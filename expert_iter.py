@@ -130,7 +130,7 @@ def main():
             raise SystemExit("Distillation failed")
 
         print("[3/3] Gate: paired evaluation vs baseline...")
-        success, cand_mean = orchestrator.evaluate_candidate(
+        success, cand_mean, _ = orchestrator.evaluate_candidate(
             CANDIDATE, BASELINE, num_deals=args.eval_deals)
 
         if success:

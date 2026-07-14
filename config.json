@@ -14,7 +14,8 @@
     "train_init": "hearts_model_bignet.pth",
     "num_envs": 128,
     "active_pool_size": 4,
-    "search_gate_deals": 500,
-    "search_gate_alpha": 0.05,
-    "search_gate_k": 64
+    "search_gate_deals": 800,
+    "search_gate_alpha": 0.02,
+    "search_gate_k": 64,
+    "raw_guard_threshold": 0.3
 }
