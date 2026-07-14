@@ -32,23 +32,34 @@ SEARCH_TRACE = 'hearts_ai_search.pt'
 BASELINE = 'hearts_model_final.pth'
 CANDIDATE = 'hearts_model_candidate.pth'
 
+def worker_cmd(iter_dir, w, per_worker, k, pass_k, seed):
+    out = os.path.join(iter_dir, f'selfplay_{w}.bin')
+    return [GEN_EXE, '--model', SEARCH_TRACE, '--deals', str(per_worker),
+            '--k', str(k), '--pass-k', str(pass_k),
+            '--seed', str(seed), '--out', out]
+
 def generate(iter_dir, deals, workers, k, pass_k, seed0):
     os.makedirs(iter_dir, exist_ok=True)
     per_worker = max(1, deals // workers)
     procs = []
     for w in range(workers):
-        out = os.path.join(iter_dir, f'selfplay_{w}.bin')
-        cmd = [GEN_EXE, '--model', SEARCH_TRACE, '--deals', str(per_worker),
-               '--k', str(k), '--pass-k', str(pass_k),
-               '--seed', str(seed0 + w), '--out', out]
+        cmd = worker_cmd(iter_dir, w, per_worker, k, pass_k, seed0 + w)
         # Worker 0's progress streams through as a proxy for the whole fleet
         # (all workers advance at roughly the same rate)
         quiet = subprocess.DEVNULL if w > 0 else None
         procs.append(subprocess.Popen(cmd, stderr=quiet, stdout=subprocess.DEVNULL))
     t0 = time.time()
-    for p in procs:
-        if p.wait() != 0:
-            raise SystemExit("A SelfPlayGen worker failed")
+    failed = [w for w, p in enumerate(procs) if p.wait() != 0]
+    for w in failed:
+        # A crashed worker leaves a truncated .bin; redo its whole shard once
+        # with a fresh seed rather than aborting hours of healthy work.
+        rc = procs[w].returncode
+        print(f"  worker {w} exited with code {rc}; retrying its shard with a fresh seed")
+        cmd = worker_cmd(iter_dir, w, per_worker, k, pass_k, seed0 + w + 500000)
+        res = subprocess.run(cmd, stdout=subprocess.DEVNULL)
+        if res.returncode != 0:
+            raise SystemExit(f"SelfPlayGen worker {w} failed twice "
+                             f"(exit {res.returncode}); aborting")
     print(f"  generated {per_worker * workers} deals in {time.time() - t0:.0f}s")
 
 def main():

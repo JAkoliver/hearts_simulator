@@ -4,10 +4,14 @@
 // teacher, including passing-phase search) and writes one training record per
 // decision:
 //
-//   record (766 bytes, little-endian, no padding):
+//   record (818 bytes, little-endian, no padding):
 //     550 x u8   observation, quantized x*255 (all dims lie in [0,1])
 //      52 x u8   legal-action mask
 //     156 x u8   belief labels (true opponent hands, relative seats)
+//      52 x u8   teacher policy target, quantized p*255 (softmax over the
+//                search's per-action mean values; one-hot for pass picks and
+//                forced moves) - soft targets keep distillation robust to
+//                determinization noise on near-tie decisions
 //       u16      action chosen by the search teacher
 //       u16      acting seat
 //       f32      relative round reward for the acting seat (avg - own score)
@@ -33,6 +37,7 @@ struct PendingRec {
     std::array<uint8_t, 550> obs;
     std::array<uint8_t, 52> mask;
     std::array<uint8_t, 156> labels;
+    std::array<uint8_t, 52> pi;
     uint16_t action;
     uint16_t seat;
 };
@@ -128,6 +133,10 @@ int main(int argc, char** argv) {
             for (int i = 0; i < 156; ++i) {
                 r.labels[i] = labels[i] > 0.5f ? 1 : 0;
             }
+            const auto& pi = players[p].LastPolicy();
+            for (int i = 0; i < 52; ++i) {
+                r.pi[i] = static_cast<uint8_t>(std::lround(pi[i] * 255.0f));
+            }
             r.action = static_cast<uint16_t>(action);
             r.seat = static_cast<uint16_t>(p);
             recs.push_back(r);
@@ -142,6 +151,7 @@ int main(int argc, char** argv) {
             out.write(reinterpret_cast<const char*>(r.obs.data()), 550);
             out.write(reinterpret_cast<const char*>(r.mask.data()), 52);
             out.write(reinterpret_cast<const char*>(r.labels.data()), 156);
+            out.write(reinterpret_cast<const char*>(r.pi.data()), 52);
             out.write(reinterpret_cast<const char*>(&r.action), 2);
             out.write(reinterpret_cast<const char*>(&r.seat), 2);
             out.write(reinterpret_cast<const char*>(&reward), 4);

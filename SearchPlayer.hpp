@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstring>
 #include <random>
 #include <set>
@@ -87,6 +88,9 @@ public:
         bool pass_search = false;
         int pass_candidates = 12;
         int pass_k = 12;
+        // Temperature (in points) for the soft teacher target over action
+        // values: near-tie actions share mass instead of an arbitrary one-hot.
+        float target_temp = 1.0f;
     };
 
     SearchPlayer(torch::jit::script::Module model, int model_obs_dim, Config cfg = Config())
@@ -94,8 +98,8 @@ public:
 
     int ChooseAction(const HeartsEnv& env) {
         std::vector<int> legal = LegalVector(env);
-        if (env.IsPassing()) return ChoosePass(env, legal);
-        if (legal.size() == 1) return legal[0];
+        if (env.IsPassing()) return SetOneHot(ChoosePass(env, legal));
+        if (legal.size() == 1) return SetOneHot(legal[0]);
 
         int me = env.GetCurrentPlayer();
 
@@ -124,8 +128,26 @@ public:
         for (size_t ai = 1; ai < legal.size(); ++ai) {
             if (score[ai] > score[best]) best = ai;
         }
+
+        // Soft teacher target: softmax over mean action values (points).
+        last_pi_.fill(0.0f);
+        double denom = 0.0;
+        std::vector<double> ex(legal.size());
+        for (size_t ai = 0; ai < legal.size(); ++ai) {
+            double gap = (score[ai] - score[best]) / static_cast<double>(dets.size());
+            ex[ai] = std::exp(gap / cfg_.target_temp);
+            denom += ex[ai];
+        }
+        for (size_t ai = 0; ai < legal.size(); ++ai) {
+            last_pi_[legal[ai]] = static_cast<float>(ex[ai] / denom);
+        }
         return legal[best];
     }
+
+    // Teacher target distribution for the most recent ChooseAction call.
+    // Play decisions: softmax over per-action mean search values; pass picks
+    // and forced moves: one-hot.
+    const std::array<float, 52>& LastPolicy() const { return last_pi_; }
 
     // Sample one determinization for the current context (public: selftest).
     // BuildContext(env) must have been called for this state first.
@@ -135,7 +157,12 @@ public:
             std::array<std::vector<int>, 4> hands;
             if (TrySample(use_belief, hands)) return hands;
         }
-        throw std::runtime_error("SampleHands: could not build a consistent determinization");
+        // The randomized greedy can wedge on tightly-constrained endgame
+        // states even though an assignment always exists (the true hands are
+        // one). The exact solver cannot fail on satisfiable constraints.
+        std::array<std::vector<int>, 4> hands;
+        if (TrySampleExact(hands)) return hands;
+        throw std::runtime_error("SampleHands: constraints unsatisfiable (engine state bug)");
     }
 
     void BuildContext(const HeartsEnv& env) {
@@ -459,10 +486,80 @@ private:
         return true;
     }
 
+    // Exact fallback sampler. A card's constraints depend only on its suit
+    // (voids) and the owners' remaining capacities, so a determinization
+    // reduces to a 4-suits x 3-owners transportation problem: how many cards
+    // of each suit each opponent takes. DFS over those 12 counts finds a
+    // solution whenever one exists; cards within a suit are then dealt out
+    // shuffled. No belief weighting - this only runs when the weighted greedy
+    // has already failed 200 times.
+    bool TrySampleExact(std::array<std::vector<int>, 4>& out_hands) {
+        std::array<int, 3> caps = ctx_.cap;
+        std::vector<int> owner(52, -1);
+        std::array<std::vector<int>, 4> suit_cards;
+
+        for (int c : ctx_.unseen) {
+            int pin = ctx_.pinned_rel[c];
+            if (pin >= 0) {
+                if (caps[pin] <= 0 || ctx_.is_void[pin][c / 13]) return false;
+                owner[c] = pin;
+                caps[pin]--;
+            } else {
+                suit_cards[c / 13].push_back(c);
+            }
+        }
+
+        std::array<int, 4> need{};
+        for (int s = 0; s < 4; ++s) need[s] = static_cast<int>(suit_cards[s].size());
+        int x[4][3] = {};
+        if (!AssignSuits(0, need, caps, x)) return false;
+
+        for (int s = 0; s < 4; ++s) {
+            std::shuffle(suit_cards[s].begin(), suit_cards[s].end(), rng_);
+            size_t i = 0;
+            for (int k = 0; k < 3; ++k) {
+                for (int j = 0; j < x[s][k]; ++j) owner[suit_cards[s][i++]] = k;
+            }
+        }
+
+        out_hands[ctx_.me] = ctx_.my_hand;
+        for (int c = 0; c < 52; ++c) {
+            if (owner[c] >= 0) {
+                out_hands[(ctx_.me + owner[c] + 1) % 4].push_back(c);
+            }
+        }
+        return true;
+    }
+
+    bool AssignSuits(int s, const std::array<int, 4>& need, std::array<int, 3>& caps, int x[4][3]) {
+        if (s == 4) return true;
+        int n = need[s];
+        int max0 = ctx_.is_void[0][s] ? 0 : std::min(n, caps[0]);
+        for (int i = 0; i <= max0; ++i) {
+            int max1 = ctx_.is_void[1][s] ? 0 : std::min(n - i, caps[1]);
+            for (int j = 0; j <= max1; ++j) {
+                int k = n - i - j;
+                if (k > (ctx_.is_void[2][s] ? 0 : caps[2])) continue;
+                x[s][0] = i; x[s][1] = j; x[s][2] = k;
+                caps[0] -= i; caps[1] -= j; caps[2] -= k;
+                if (AssignSuits(s + 1, need, caps, x)) return true;
+                caps[0] += i; caps[1] += j; caps[2] += k;
+            }
+        }
+        return false;
+    }
+
+    int SetOneHot(int action) {
+        last_pi_.fill(0.0f);
+        last_pi_[action] = 1.0f;
+        return action;
+    }
+
     torch::jit::script::Module model_;
     int obs_dim_;
     Config cfg_;
     std::mt19937 rng_;
     Context ctx_;
     std::array<std::vector<int>, 4> pending_pass_;  // per-seat queued picks
+    std::array<float, 52> last_pi_{};
 };
