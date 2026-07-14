@@ -186,7 +186,7 @@ static bool TestBatchEquivalence(torch::jit::script::Module& model, int obs_dim,
 // ---------------------------------------------------------------------------
 
 int main(int argc, char** argv) {
-    std::string search_path, opp_path, out_path = "search_eval_results.csv";
+    std::string search_path, opp_path, belief_path, out_path = "search_eval_results.csv";
     int deals = 300, k = 32, rollout_tricks = -1;
     unsigned int seed = 42;
     bool uniform = false, selftest = false, pass_search = false, use_cuda = false;
@@ -196,6 +196,7 @@ int main(int argc, char** argv) {
         auto next = [&]() -> std::string { return (i + 1 < argc) ? argv[++i] : ""; };
         if (a == "--search-model") search_path = next();
         else if (a == "--opponent-model") opp_path = next();
+        else if (a == "--belief-model") belief_path = next();
         else if (a == "--out") out_path = next();
         else if (a == "--deals") deals = std::stoi(next());
         else if (a == "--k") k = std::stoi(next());
@@ -274,6 +275,21 @@ int main(int argc, char** argv) {
     cfg.pass_search = pass_search;
     cfg.device = device;
     cfg.rollout_tricks = rollout_tricks;
+    if (!belief_path.empty()) {
+        torch::jit::script::Module bm;
+        try {
+            bm = torch::jit::load(belief_path);
+            bm.eval();
+        } catch (const c10::Error& e) {
+            std::cerr << "Failed to load belief model: " << e.what() << "\n";
+            return 1;
+        }
+        if (ProbeObsDim(bm) != sdim) {
+            std::cerr << "Belief model obs width must match the search model (" << sdim << ")\n";
+            return 1;
+        }
+        cfg.belief_backend = std::make_shared<DirectBackend>(std::move(bm), device);
+    }
     SearchPlayer sp(search_model, sdim, cfg);
     RawPolicy opp(opp_model, odim);
 

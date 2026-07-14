@@ -105,6 +105,11 @@ public:
         // from the same loaded module - probe obs width BEFORE constructing
         // players.
         torch::Device device = torch::kCPU;
+        // Optional separate net for belief marginals (determinization
+        // sampling only): lets a strong rollout policy borrow a
+        // better-calibrated belief head from another checkpoint. Null =
+        // use the main backend.
+        std::shared_ptr<InferenceBackend> belief_backend;
     };
 
     // Shared-backend constructor: many players (threads) funnel inference
@@ -474,7 +479,8 @@ private:
         auto obs = env.Observe();
         torch::Tensor o = torch::from_blob((void*)obs.data(), {1, obs_dim_}, torch::kFloat32).clone();
         torch::Tensor m = torch::ones({1, 52}, torch::kBool);
-        InferOutputs out = backend_->Forward(o, m);
+        InferenceBackend* bk = cfg_.belief_backend ? cfg_.belief_backend.get() : backend_.get();
+        InferOutputs out = bk->Forward(o, m);
         if (!out.belief.defined()) return false;
         torch::Tensor probs = torch::sigmoid(out.belief).reshape({3, 52});
         auto acc = probs.accessor<float, 2>();
