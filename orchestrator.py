@@ -340,6 +340,10 @@ def main():
                 print("Failed to export deployment asset.")
         else:
             print("Experiment FAILED (Candidate not significantly better). Rolling back.")
+            # Keep the rejected weights for post-hoc analysis (e.g. checking
+            # a raw-gate reject's SEARCHED strength) - rollback used to
+            # discard them irretrievably
+            shutil.copy(candidate_model_path, 'hearts_model_last_rejected.pth')
             rollback_config()
             shutil.copy('hearts_model_baseline_temp.pth', 'hearts_model_final.pth')
             restore_optimizer_state()
