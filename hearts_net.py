@@ -69,6 +69,17 @@ class HeartsNet(nn.Module):
         # Auxiliary Belief Head: per relative opponent, per card, "do they hold it?"
         self.belief_head = nn.Linear(width, 156)
 
+        # Oracle Value Head: predicts the final relative round reward GIVEN the
+        # true opponent hands (156 planes, same layout as the belief labels).
+        # The hands enter only this branch - never the trunk - so no hidden
+        # information can leak into the policy/value/belief heads. Purpose:
+        # leaf evaluator for determinized search, where the sampled hands ARE
+        # known and a visible-info value provably cannot distinguish
+        # determinizations (measured 2026-07-14: truncated search collapsed
+        # +6 pts/deal with a visible-info evaluator).
+        self.oracle_fc1 = nn.Linear(width + 156, width)
+        self.oracle_fc2 = nn.Linear(width, 1)
+
         self._init_weights()
 
     def _init_weights(self):
@@ -83,6 +94,7 @@ class HeartsNet(nn.Module):
         nn.init.orthogonal_(self.policy_head.weight, gain=0.01)
         nn.init.orthogonal_(self.value_head.weight, gain=1.0)
         nn.init.orthogonal_(self.belief_head.weight, gain=1.0)
+        nn.init.orthogonal_(self.oracle_fc2.weight, gain=1.0)
 
     def forward(self, observation, legal_actions_mask):
         """
@@ -125,3 +137,40 @@ class HeartsNet(nn.Module):
         masked_logits = self.policy_head(x).masked_fill(~legal_actions_mask, float('-inf'))
         belief_logits = self.belief_head(x)
         return masked_logits, state_value, belief_logits
+
+    def forward_train(self, observation, legal_actions_mask, true_hands):
+        """Distillation forward: one trunk pass feeding all four heads.
+
+        true_hands: (batch, 156) float 0/1 planes of the opponents' actual
+        hands (same layout as the belief labels). Returns
+        (masked_policy_logits, state_value, belief_logits, oracle_value).
+        """
+        x = self._trunk(observation)
+        state_value = self.value_head(x)
+        masked_logits = self.policy_head(x).masked_fill(~legal_actions_mask, float('-inf'))
+        belief_logits = self.belief_head(x)
+        h = F.gelu(self.oracle_fc1(torch.cat([x, true_hands], dim=-1)))
+        oracle_value = self.oracle_fc2(h)
+        return masked_logits, state_value, belief_logits, oracle_value
+
+    def forward_oracle(self, observation, true_hands):
+        """Oracle value only: expected final relative round reward given the
+        true (or determinized) opponent hands."""
+        x = self._trunk(observation)
+        h = F.gelu(self.oracle_fc1(torch.cat([x, true_hands], dim=-1)))
+        return self.oracle_fc2(h)
+
+
+def net_from_checkpoint(path, map_location=None):
+    """Construct a HeartsNet matching a checkpoint's actual dimensions.
+
+    Infers obs_dim/width/num_blocks from the state dict (checkpoints of any
+    width/depth load without knowing their config), tolerating checkpoints
+    saved before the oracle head existed.
+    """
+    sd = torch.load(path, weights_only=True, map_location=map_location)
+    width, obs_dim = sd['input_fc.weight'].shape
+    num_blocks = 1 + max(int(k.split('.')[1]) for k in sd if k.startswith('blocks.'))
+    net = HeartsNet(obs_dim=obs_dim, width=width, num_blocks=num_blocks)
+    net.load_state_dict(sd, strict=False)
+    return net

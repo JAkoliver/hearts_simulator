@@ -8,7 +8,7 @@ import scipy.stats as stats
 import torch
 import numpy as np
 
-from hearts_net import HeartsNet
+from hearts_net import HeartsNet, net_from_checkpoint
 import hearts_env
 
 LEDGER_FILE = 'experiment_ledger.json'
@@ -66,12 +66,12 @@ def _eval_chunk(job):
     candidate_path, baseline_path, seed, deal_offset, n_deals = job
     torch.set_num_threads(1)  # N workers x default threads would thrash
 
-    candidate_net = HeartsNet()
-    candidate_net.load_state_dict(torch.load(candidate_path, weights_only=True))
+    # net_from_checkpoint infers width/depth, so candidate and baseline may be
+    # different architectures (e.g. capacity-test candidates)
+    candidate_net = net_from_checkpoint(candidate_path)
     candidate_net.eval()
 
-    baseline_net = HeartsNet()
-    baseline_net.load_state_dict(torch.load(baseline_path, weights_only=True))
+    baseline_net = net_from_checkpoint(baseline_path)
     baseline_net.eval()
 
     env_cand = hearts_env.HeartsEnv(seed=seed)

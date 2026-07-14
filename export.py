@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from hearts_net import HeartsNet
+from hearts_net import net_from_checkpoint
 
 class SearchExport(nn.Module):
     """Trace wrapper exposing all three heads (policy, value, belief) for the
@@ -14,8 +14,7 @@ class SearchExport(nn.Module):
     def forward(self, observation, legal_actions_mask):
         return self.net.forward_all(observation, legal_actions_mask)
 
-network = HeartsNet()
-network.load_state_dict(torch.load('hearts_model_final.pth', weights_only=True))
+network = net_from_checkpoint('hearts_model_final.pth')
 network.eval()
 
 dummy_obs = torch.zeros(1, 550, dtype=torch.float32)
