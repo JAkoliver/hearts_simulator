@@ -20,7 +20,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from hearts_net import HeartsNet, net_from_checkpoint
+from hearts_net import HeartsNet, HeartsNetV5, net_from_checkpoint
 
 RECORD = np.dtype([
     ('obs', 'u1', 550), ('mask', 'u1', 52), ('labels', 'u1', 156),
@@ -37,21 +37,34 @@ assert RECORD.itemsize == 818
 LEAF_RECORD = np.dtype([('obs', 'u1', 550), ('hands', 'u1', 156), ('reward', '<f4')])
 assert LEAF_RECORD.itemsize == 710
 
-def load_data(patterns, dtype=RECORD, kind='decision'):
+def load_data(patterns, dtype=RECORD, kind='decision', holdout_frac=0.0):
+    """Load records; optionally split off the contiguous TAIL of each file as
+    holdout. Records within a file are deal-contiguous, so a tail split keeps
+    (almost) whole deals out of training - a random record split leaks
+    same-deal sibling records and inflates every holdout metric (measured:
+    fake 0.99 EVs on the oracle head)."""
     files = []
     for p in patterns:
         files.extend(glob.glob(p))
     if not files:
         raise SystemExit(f"No data files match {patterns}")
+    train_chunks, hold_chunks = [], []
     for f in sorted(files):
         if os.path.getsize(f) % dtype.itemsize != 0:
             raise SystemExit(
                 f"{f}: size is not a multiple of {dtype.itemsize} - wrong or "
                 f"stale record format? Regenerate the data.")
-    chunks = [np.fromfile(f, dtype=dtype) for f in sorted(files)]
-    data = np.concatenate(chunks)
-    print(f"Loaded {len(data):,} {kind} records from {len(files)} files")
-    return data
+        arr = np.fromfile(f, dtype=dtype)
+        cut = len(arr) - int(len(arr) * holdout_frac)
+        train_chunks.append(arr[:cut])
+        if cut < len(arr):
+            hold_chunks.append(arr[cut:])
+    data = np.concatenate(train_chunks)
+    holdout = np.concatenate(hold_chunks) if hold_chunks else None
+    n_hold = len(holdout) if holdout is not None else 0
+    print(f"Loaded {len(data):,} {kind} records from {len(files)} files"
+          + (f" (+{n_hold:,} held out, per-file tails)" if n_hold else ""))
+    return data, holdout
 
 def main():
     ap = argparse.ArgumentParser()
@@ -68,11 +81,15 @@ def main():
                     help='weight of the oracle value head loss (predicts the '
                          'outcome GIVEN the true hands; leaf evaluator for '
                          'determinized search)')
+    ap.add_argument('--arch', choices=['mlp', 'v5'], default='mlp',
+                    help='fresh-network architecture: mlp = flat residual MLP, '
+                         'v5 = card-token transformer (width = d_model, '
+                         'blocks = encoder layers, heads = width // 32)')
     ap.add_argument('--width', type=int, default=512,
-                    help='trunk width for fresh networks (warm starts infer '
-                         'their size from the checkpoint)')
+                    help='trunk width / d_model for fresh networks (warm starts '
+                         'infer their size from the checkpoint)')
     ap.add_argument('--blocks', type=int, default=3,
-                    help='residual blocks for fresh networks')
+                    help='residual blocks / encoder layers for fresh networks')
     ap.add_argument('--device', default='cuda' if torch.cuda.is_available() else 'cpu')
     ap.add_argument('--sharpen', type=float, default=1.0,
                     help='exponent applied to the teacher target (pi^s, renormalized); '
@@ -90,32 +107,26 @@ def main():
     device = torch.device(args.device)
     print(f"Device: {device}")
 
-    data = load_data(args.data)
+    data, holdout = load_data(args.data, holdout_frac=args.holdout)
+    n_hold = len(holdout) if holdout is not None else 0
     leaf = None
     if args.leaf_data:
-        leaf = load_data(args.leaf_data, dtype=LEAF_RECORD, kind='leaf-value')
+        leaf, _ = load_data(args.leaf_data, dtype=LEAF_RECORD, kind='leaf-value')
         leaf_var = float(np.var(leaf['reward'])) + 1e-8
-
-    # Fixed held-out split: measures whether the student generalizes to
-    # teacher decisions it never trained on (argmax match is only meaningful
-    # unfit).
-    split_rng = np.random.default_rng(12345)
-    order = split_rng.permutation(len(data))
-    n_hold = int(len(data) * args.holdout)
-    holdout = data[order[:n_hold]]
-    data = data[order[n_hold:]]
-    if n_hold:
-        print(f"Holding out {n_hold:,} records for unfit metrics")
 
     if args.init and os.path.exists(args.init):
         net = net_from_checkpoint(args.init)
         print(f"Warm start from {args.init} "
               f"(width {net.input_fc.out_features}, {len(net.blocks)} blocks)")
     else:
-        net = HeartsNet(width=args.width, num_blocks=args.blocks)
+        if args.arch == 'v5':
+            net = HeartsNetV5(d_model=args.width, num_layers=args.blocks,
+                              num_heads=max(1, args.width // 32))
+        else:
+            net = HeartsNet(width=args.width, num_blocks=args.blocks)
         n_params = sum(p.numel() for p in net.parameters())
-        print(f"Fresh network: width {args.width}, {args.blocks} blocks, "
-              f"{n_params / 1e6:.2f}M params")
+        print(f"Fresh network ({args.arch}): width {args.width}, {args.blocks} "
+              f"blocks/layers, {n_params / 1e6:.2f}M params")
     net.to(device)
     optimizer = torch.optim.Adam(net.parameters(), lr=args.lr)
 

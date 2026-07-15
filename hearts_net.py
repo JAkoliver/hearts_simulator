@@ -161,16 +161,157 @@ class HeartsNet(nn.Module):
         return self.oracle_fc2(h)
 
 
-def net_from_checkpoint(path, map_location=None):
-    """Construct a HeartsNet matching a checkpoint's actual dimensions.
+class V5Block(nn.Module):
+    """Pre-LN transformer block with explicit (trace-deterministic) attention."""
 
-    Infers obs_dim/width/num_blocks from the state dict (checkpoints of any
-    width/depth load without knowing their config), tolerating checkpoints
-    saved before the oracle head existed.
+    def __init__(self, d_model, num_heads):
+        super(V5Block, self).__init__()
+        self.num_heads = num_heads
+        self.head_dim = d_model // num_heads
+        self.norm1 = nn.LayerNorm(d_model)
+        self.qkv = nn.Linear(d_model, 3 * d_model)
+        self.attn_out = nn.Linear(d_model, d_model)
+        self.norm2 = nn.LayerNorm(d_model)
+        self.fc1 = nn.Linear(d_model, 4 * d_model)
+        self.fc2 = nn.Linear(4 * d_model, d_model)
+
+    def forward(self, x):
+        b, t, d = x.shape
+        h = self.norm1(x)
+        qkv = self.qkv(h).reshape(b, t, 3, self.num_heads, self.head_dim)
+        qkv = qkv.permute(2, 0, 3, 1, 4)  # (3, b, heads, t, head_dim)
+        q, k, v = qkv[0], qkv[1], qkv[2]
+        att = torch.softmax(q @ k.transpose(-2, -1) / math.sqrt(self.head_dim), dim=-1)
+        y = (att @ v).transpose(1, 2).reshape(b, t, d)
+        x = x + self.attn_out(y)
+        h = self.norm2(x)
+        return x + self.fc2(F.gelu(self.fc1(h)))
+
+
+class HeartsNetV5(nn.Module):
+    """Card-token transformer (v5).
+
+    Motivation (2026-07-15): every search-side amplifier — K-scaling, ISMCTS,
+    learned leaf evaluators — plateaus at the same ceiling, so the network is
+    the binding constraint. The flat-MLP nets see the observation as 550
+    anonymous floats; v5 re-encodes the SAME observation as 52 card tokens +
+    1 global token and lets attention relate them:
+
+      - each card token = learned card-identity embedding + projection of
+        that card's 12 per-card channels sliced from the flat observation
+        (in-hand, on-table, played, passed, received, played-by x4, timing)
+      - the global token projects the 30 context dims (scores, trick
+        position, hearts broken, voids, pass direction, in-passing)
+      - policy head reads one logit PER CARD TOKEN (the action space IS the
+        card set), belief reads 3 logits per card token, value reads the
+        global token.
+
+    Public surface matches HeartsNet exactly (forward / forward_all /
+    forward_train over the flat 550-dim observation), so tracing, the C++
+    probe, the gate, distillation, and PPO all work unchanged.
+    """
+
+    # Card-indexed observation blocks -> per-card channels
+    CARD_BLOCKS = [0, 52, 104, 186, 238, 290, 342, 394, 446, 498]  # starts of 52-wide blocks
+    N_CARD_CH = len(CARD_BLOCKS)  # 10 sliced channels (identity embedding adds content)
+    CTX_START, CTX_END = 156, 186  # scores..in_passing (30 dims)
+
+    def __init__(self, obs_dim=550, d_model=192, num_layers=4, num_heads=6):
+        super(HeartsNetV5, self).__init__()
+        self.obs_dim = obs_dim
+        self.d_model = d_model
+
+        self.card_embed = nn.Embedding(52, d_model)
+        self.card_proj = nn.Linear(self.N_CARD_CH, d_model)
+        self.ctx_proj = nn.Linear(self.CTX_END - self.CTX_START, d_model)
+        # Buffer, not an inline torch.arange: traces bake tensor-creation
+        # devices as constants, and a buffer follows .to(device) instead
+        self.register_buffer('card_ids', torch.arange(52), persistent=False)
+
+        # Explicit pre-LN attention blocks (not nn.TransformerEncoder, whose
+        # runtime fast-path makes torch.jit.trace non-deterministic)
+        self.enc_blocks = nn.ModuleList(
+            [V5Block(d_model, num_heads) for _ in range(num_layers)])
+        self.final_norm = nn.LayerNorm(d_model)
+
+        self.policy_head = nn.Linear(d_model, 1)   # per card token
+        self.value_head = nn.Linear(d_model, 1)    # global token
+        self.belief_head = nn.Linear(d_model, 3)   # per card token, 3 opponents
+        # Interface-compat oracle head (measured uninformative; kept so the
+        # distill forward_train code path is architecture-agnostic)
+        self.oracle_fc1 = nn.Linear(d_model + 156, d_model)
+        self.oracle_fc2 = nn.Linear(d_model, 1)
+
+        nn.init.zeros_(self.policy_head.weight)
+        nn.init.zeros_(self.policy_head.bias)
+
+    def _tokens(self, observation):
+        if observation.dim() == 1:
+            observation = observation.unsqueeze(0)
+        b = observation.shape[0]
+        # (batch, 52, n_channels): stack the card-indexed blocks
+        chans = torch.stack([observation[:, s:s + 52] for s in self.CARD_BLOCKS], dim=2)
+        cards = self.card_embed(self.card_ids).unsqueeze(0).expand(b, 52, self.d_model) \
+            + self.card_proj(chans)
+        ctx = self.ctx_proj(observation[:, self.CTX_START:self.CTX_END]).unsqueeze(1)
+        x = torch.cat([ctx, cards], dim=1)  # (batch, 53, d)
+        for block in self.enc_blocks:
+            x = block(x)
+        return self.final_norm(x)
+
+    def _heads(self, x, legal_actions_mask):
+        if legal_actions_mask.dim() == 1:
+            legal_actions_mask = legal_actions_mask.unsqueeze(0)
+        global_tok = x[:, 0, :]
+        card_toks = x[:, 1:, :]  # (batch, 52, d)
+        logits = self.policy_head(card_toks).squeeze(-1)  # (batch, 52)
+        masked_logits = logits.masked_fill(~legal_actions_mask, float('-inf'))
+        state_value = self.value_head(global_tok)
+        # belief: per-card 3 outputs -> label layout (3 opponents x 52 cards)
+        bel = self.belief_head(card_toks)                    # (batch, 52, 3)
+        belief_logits = bel.transpose(1, 2).reshape(-1, 156)  # (batch, 3*52)
+        return masked_logits, state_value, belief_logits, global_tok
+
+    def forward(self, observation, legal_actions_mask):
+        x = self._tokens(observation)
+        masked_logits, state_value, _, _ = self._heads(x, legal_actions_mask)
+        return masked_logits, state_value
+
+    def forward_all(self, observation, legal_actions_mask):
+        x = self._tokens(observation)
+        masked_logits, state_value, belief_logits, _ = self._heads(x, legal_actions_mask)
+        return masked_logits, state_value, belief_logits
+
+    def forward_train(self, observation, legal_actions_mask, true_hands):
+        x = self._tokens(observation)
+        masked_logits, state_value, belief_logits, g = self._heads(x, legal_actions_mask)
+        h = F.gelu(self.oracle_fc1(torch.cat([g, true_hands], dim=-1)))
+        return masked_logits, state_value, belief_logits, self.oracle_fc2(h)
+
+    def forward_oracle(self, observation, true_hands):
+        x = self._tokens(observation)
+        h = F.gelu(self.oracle_fc1(torch.cat([x[:, 0, :], true_hands], dim=-1)))
+        return self.oracle_fc2(h)
+
+
+def net_from_checkpoint(path, map_location=None):
+    """Construct the right network class at the right size for a checkpoint.
+
+    Dispatches on state-dict keys: 'card_embed.weight' -> HeartsNetV5
+    (d_model from the embedding, layer count from encoder keys);
+    'input_fc.weight' -> HeartsNet MLP (width/blocks as before). Tolerates
+    checkpoints saved before the oracle head existed.
     """
     sd = torch.load(path, weights_only=True, map_location=map_location)
-    width, obs_dim = sd['input_fc.weight'].shape
-    num_blocks = 1 + max(int(k.split('.')[1]) for k in sd if k.startswith('blocks.'))
-    net = HeartsNet(obs_dim=obs_dim, width=width, num_blocks=num_blocks)
+    if 'card_embed.weight' in sd:
+        d_model = sd['card_embed.weight'].shape[1]
+        num_layers = 1 + max(int(k.split('.')[1]) for k in sd
+                             if k.startswith('enc_blocks.'))
+        heads = max(1, d_model // 32)
+        net = HeartsNetV5(d_model=d_model, num_layers=num_layers, num_heads=heads)
+    else:
+        width, obs_dim = sd['input_fc.weight'].shape
+        num_blocks = 1 + max(int(k.split('.')[1]) for k in sd if k.startswith('blocks.'))
+        net = HeartsNet(obs_dim=obs_dim, width=width, num_blocks=num_blocks)
     net.load_state_dict(sd, strict=False)
     return net
