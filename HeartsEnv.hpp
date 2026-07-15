@@ -122,6 +122,15 @@ public:
         }
     }
 
+    // Start a FRESH MATCH: zero the running totals and restart the pass
+    // rotation (left first), then deal. Reset() deliberately preserves
+    // totals - it starts the next round of the SAME match.
+    void ResetMatch() {
+        state.total_scores = {0, 0, 0, 0};
+        deal_count = 0;
+        Reset();
+    }
+
     void Reset() {
         // Preserve total scores across resets
         auto preserved_totals = state.total_scores;

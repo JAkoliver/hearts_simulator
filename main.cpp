@@ -445,7 +445,18 @@ int main() {
                     received_cards.clear();
                 }
                 pass_confirmed = false;
-                env.Reset();
+                // Totals >= 100 mean we are returning from a finished match
+                // ("New Game" pressed): start a fresh match instead of the
+                // next round of the old one.
+                bool match_ended = false;
+                for (int i = 0; i < 4; ++i) {
+                    if (env.GetState().total_scores[i] >= 100) match_ended = true;
+                }
+                if (match_ended) {
+                    env.ResetMatch();
+                } else {
+                    env.Reset();
+                }
                 screen.PostEvent(Event::Custom);
             }
             
