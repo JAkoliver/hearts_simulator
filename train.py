@@ -298,7 +298,9 @@ def main():
     # bootstrap from train_init. Without train_init: normal resume order.
     def ckpt_shape(path):
         sd = torch.load(path, weights_only=True, map_location='cpu')
-        return tuple(sd['input_fc.weight'].shape), sum(k.startswith('blocks.') for k in sd)
+        key = 'input_fc.weight' if 'input_fc.weight' in sd else 'card_embed.weight'
+        depth = sum(k.startswith(('blocks.', 'enc_blocks.')) for k in sd)
+        return key, tuple(sd[key].shape), depth
 
     init_path = None
     ti = config.get('train_init')
@@ -316,8 +318,9 @@ def main():
 
     if init_path:
         network = net_from_checkpoint(init_path)
+        n_params = sum(p.numel() for p in network.parameters())
         print(f"Model Resumption Successful: Loaded {init_path} "
-              f"(width {network.input_fc.out_features}, {len(network.blocks)} blocks)")
+              f"({type(network).__name__}, {n_params / 1e6:.2f}M params)")
     else:
         network = HeartsNet()
         print("Fresh default-size network")

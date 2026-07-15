@@ -28,6 +28,9 @@ import time
 import orchestrator
 
 GEN_EXE = os.path.join('build', 'Release', 'SelfPlayGen.exe')
+# Overridable via --teacher: hearts_ai_search_v4m10.pt runs ~4x faster than
+# the v5 trace at (currently) tied searched strength - the efficient teacher
+# until a v5-lineage search beats it on neutral ground.
 SEARCH_TRACE = 'hearts_ai_search.pt'
 BASELINE = 'hearts_model_final.pth'
 CANDIDATE = 'hearts_model_candidate.pth'
@@ -106,7 +109,13 @@ def main():
     ap.add_argument('--rollout-tricks', type=int, default=-1,
                     help='truncate search rollouts after N tricks and score the '
                          'leaf with the value head (-1 = roll to round end)')
+    ap.add_argument('--teacher', default=SEARCH_TRACE,
+                    help='search trace used for generation (default: current '
+                         'teacher; hearts_ai_search_v4m10.pt is ~4x faster at '
+                         'tied strength)')
     args = ap.parse_args()
+    global SEARCH_TRACE
+    SEARCH_TRACE = args.teacher
 
     base_seed = args.seed if args.seed is not None else int(time.time()) % 1000000
     stamp = time.strftime('%m%d_%H%M')

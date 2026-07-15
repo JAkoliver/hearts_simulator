@@ -13,9 +13,9 @@
     "aux_coef": 0.765244,
     "num_envs": 128,
     "active_pool_size": 4,
-    "search_gate_deals": 800,
-    "search_gate_alpha": 0.02,
-    "search_gate_k": 64,
+    "search_gate_deals": 600,
+    "search_gate_alpha": 0.05,
+    "search_gate_k": 32,
     "raw_guard_threshold": 0.3,
     "critic_warmup_games": 20000
 }
