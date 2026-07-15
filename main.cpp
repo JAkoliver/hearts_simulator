@@ -8,6 +8,7 @@
 #include <mutex>
 #include <algorithm>
 #include <memory>
+#include <torch/cuda.h>
 #include <torch/script.h>
 #include <torch/torch.h>
 #include "HeartsEnv.hpp"
@@ -156,7 +157,15 @@ int main() {
             int sdim = ProbeObsDim(sm);
             if (sdim != 0) {
                 SearchPlayer::Config scfg;
-                scfg.determinizations = 24;
+                // K=64 is the measured strength plateau (128/256 gain nothing);
+                // on the GPU a K=64 decision is ~0.1s. CPU fallback keeps K=24
+                // so moves stay responsive without CUDA.
+                if (torch::cuda::is_available()) {
+                    scfg.device = torch::kCUDA;
+                    scfg.determinizations = 64;
+                } else {
+                    scfg.determinizations = 24;
+                }
                 scfg.seed = 777;
                 scfg.pass_search = true;  // AI opponents also search their passes
                 search_ai = std::make_unique<SearchPlayer>(std::move(sm), sdim, scfg);
