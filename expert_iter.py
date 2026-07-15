@@ -94,6 +94,7 @@ def generate(iter_dir, deals, workers, k, pass_k, seed0, cuda, rollout_tricks=-1
     print(f"  generated {per_worker * workers} deals in {time.time() - t0:.0f}s")
 
 def main():
+    global SEARCH_TRACE
     ap = argparse.ArgumentParser()
     ap.add_argument('--iterations', type=int, default=3)
     ap.add_argument('--deals', type=int, default=20000)
@@ -114,7 +115,6 @@ def main():
                          'teacher; hearts_ai_search_v4m10.pt is ~4x faster at '
                          'tied strength)')
     args = ap.parse_args()
-    global SEARCH_TRACE
     SEARCH_TRACE = args.teacher
 
     base_seed = args.seed if args.seed is not None else int(time.time()) % 1000000
