@@ -56,6 +56,7 @@
 #include "HeartsEnv.hpp"
 #include "InferenceServer.hpp"
 #include "SearchPlayer.hpp"
+#include "TreeSearchPlayer.hpp"
 
 struct PendingRec {
     std::array<uint8_t, 550> obs;
@@ -84,14 +85,25 @@ static std::string ThreadOutPath(const std::string& base, int tid, int threads) 
 static void RunWorker(int tid, int deals, unsigned int seed,
                       std::shared_ptr<InferenceBackend> backend, int dim,
                       const SearchPlayer::Config& base_cfg,
+                      int tree_iterations, float tree_c_puct,
                       const std::string& out_path, const std::string& value_out_path,
                       GenShared& shared) {
     try {
-        std::vector<SearchPlayer> players;
+        std::vector<std::unique_ptr<IPlayer>> players;
         for (int p = 0; p < 4; ++p) {
             SearchPlayer::Config cfg = base_cfg;
             cfg.seed = seed * 7919u + p * 104729u;
-            players.emplace_back(backend, dim, cfg);
+            if (tree_iterations > 0) {
+                TreeSearchPlayer::Config tcfg;
+                tcfg.iterations = tree_iterations;
+                tcfg.c_puct = tree_c_puct;
+                tcfg.seed = cfg.seed;
+                tcfg.root_noise = true;  // self-play exploration diversity
+                tcfg.pass_cfg = cfg;
+                players.push_back(std::make_unique<TreeSearchPlayer>(backend, dim, tcfg));
+            } else {
+                players.push_back(std::make_unique<SearchPlayer>(backend, dim, cfg));
+            }
         }
 
         HeartsEnv env(seed, true);
@@ -128,7 +140,7 @@ static void RunWorker(int tid, int deals, unsigned int seed,
                 auto labels = env.ObserveOpponentHands();
                 auto legal_raw = env.GetLegalActions();
 
-                int action = players[p].ChooseAction(env);
+                int action = players[p]->ChooseAction(env);
 
                 PendingRec r;
                 for (int i = 0; i < 550; ++i) {
@@ -144,7 +156,7 @@ static void RunWorker(int tid, int deals, unsigned int seed,
                 for (int i = 0; i < 156; ++i) {
                     r.labels[i] = labels[i] > 0.5f ? 1 : 0;
                 }
-                const auto& pi = players[p].LastPolicy();
+                const auto& pi = players[p]->LastPolicy();
                 for (int i = 0; i < 52; ++i) {
                     r.pi[i] = static_cast<uint8_t>(std::lround(pi[i] * 255.0f));
                 }
@@ -218,6 +230,8 @@ int main(int argc, char** argv) {
     std::string model_path, out_path = "selfplay.bin", value_out_path;
     int deals = 1000, k = 16, pass_k = 12, pass_candidates = 12, threads = 1;
     int rollout_tricks = -1;
+    int tree_iterations = 0;  // 0 = flat search teacher; >0 = ISMCTS tree teacher
+    float tree_c_puct = 1.5f;
     bool oracle_leaves = false;
     unsigned int seed = 1;
     bool use_cuda = false;
@@ -236,6 +250,8 @@ int main(int argc, char** argv) {
         else if (a == "--threads") threads = std::stoi(next());
         else if (a == "--rollout-tricks") rollout_tricks = std::stoi(next());
         else if (a == "--oracle-leaves") oracle_leaves = true;
+        else if (a == "--tree-iterations") tree_iterations = std::stoi(next());
+        else if (a == "--tree-cpuct") tree_c_puct = std::stof(next());
         else if (a == "--cuda") use_cuda = true;
         else { std::cerr << "Unknown arg: " << a << "\n"; return 2; }
     }
@@ -309,6 +325,7 @@ int main(int argc, char** argv) {
                                 ? std::string()
                                 : ThreadOutPath(value_out_path, t, threads);
         pool.emplace_back(RunWorker, t, quota, seed + t, backend, dim, base_cfg,
+                          tree_iterations, tree_c_puct,
                           ThreadOutPath(out_path, t, threads), vpath, std::ref(shared));
     }
     for (auto& th : pool) th.join();

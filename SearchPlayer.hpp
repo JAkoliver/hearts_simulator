@@ -65,6 +65,16 @@ private:
     int obs_dim_;
 };
 
+// Common interface for decision-time players (flat Monte Carlo and the tree
+// search) so generators and evaluators can hold either interchangeably.
+class IPlayer {
+public:
+    virtual ~IPlayer() = default;
+    virtual int ChooseAction(const HeartsEnv& env) = 0;
+    // Soft teacher target for the most recent decision
+    virtual const std::array<float, 52>& LastPolicy() const = 0;
+};
+
 // ---------------------------------------------------------------------------
 // Decision-time determinized search
 // ---------------------------------------------------------------------------
@@ -80,7 +90,7 @@ private:
 // pass state (full 13-card determinized hands, all picks redone): our picks
 // are scripted to the candidate, everyone else picks and plays by policy.
 // Candidates are generated from the policy's own pass distribution.
-class SearchPlayer {
+class SearchPlayer : public IPlayer {
 public:
     struct Config {
         int determinizations = 32;
@@ -128,7 +138,7 @@ public:
         : SearchPlayer(std::make_shared<DirectBackend>(std::move(model), cfg.device),
                        model_obs_dim, cfg) {}
 
-    int ChooseAction(const HeartsEnv& env) {
+    int ChooseAction(const HeartsEnv& env) override {
         std::vector<int> legal = LegalVector(env);
         if (env.IsPassing()) return SetOneHot(ChoosePass(env, legal));
         if (legal.size() == 1) return SetOneHot(legal[0]);
@@ -182,7 +192,7 @@ public:
     // Teacher target distribution for the most recent ChooseAction call.
     // Play decisions: softmax over per-action mean search values; pass picks
     // and forced moves: one-hot.
-    const std::array<float, 52>& LastPolicy() const { return last_pi_; }
+    const std::array<float, 52>& LastPolicy() const override { return last_pi_; }
 
     // Sample one determinization for the current context (public: selftest).
     // BuildContext(env) must have been called for this state first.

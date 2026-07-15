@@ -24,6 +24,7 @@
 
 #include "HeartsEnv.hpp"
 #include "SearchPlayer.hpp"
+#include "TreeSearchPlayer.hpp"
 
 static int RandomLegal(const HeartsEnv& env, std::mt19937& rng) {
     auto lr = env.GetLegalActions();
@@ -141,6 +142,44 @@ static bool TestDeterminizations(torch::jit::script::Module& model, int obs_dim,
     return checked >= 200;
 }
 
+static bool TestTree(torch::jit::script::Module& model, int obs_dim, torch::Device device) {
+    TreeSearchPlayer::Config tcfg;
+    tcfg.iterations = 48;
+    tcfg.leaf_batch = 8;
+    tcfg.seed = 7;
+    tcfg.pass_cfg.device = device;
+    TreeSearchPlayer tp(model, obs_dim, tcfg);
+    std::mt19937 rr(21);
+    HeartsEnv env(37, true);
+    int checked = 0;
+
+    for (int round = 0; round < 8; ++round) {
+        env.Reset();
+        bool done = false;
+        while (!done) {
+            int a;
+            if (!env.IsPassing() && rr() % 4 == 0) {
+                a = tp.ChooseAction(env);
+                auto lr = env.GetLegalActions();
+                bool legal = false;
+                for (int i = 0; i < 13; ++i) {
+                    if (lr[i] == a) legal = true;
+                }
+                if (!legal) return false;
+                float psum = 0.0f;
+                for (int c = 0; c < 52; ++c) psum += tp.LastPolicy()[c];
+                if (std::abs(psum - 1.0f) > 1e-3f) return false;
+                checked++;
+            } else {
+                a = RandomLegal(env, rr);
+            }
+            done = env.Step(a).done;
+        }
+    }
+    std::cerr << "  (tree decisions checked: " << checked << ")\n";
+    return checked >= 30;
+}
+
 static bool TestBatchEquivalence(torch::jit::script::Module& model, int obs_dim,
                                  torch::Device device) {
     HeartsEnv env(31, true);
@@ -188,9 +227,11 @@ static bool TestBatchEquivalence(torch::jit::script::Module& model, int obs_dim,
 int main(int argc, char** argv) {
     std::string search_path, opp_path, belief_path, out_path = "search_eval_results.csv";
     int deals = 300, k = 32, rollout_tricks = -1;
+    int tree_iterations = 400;
+    float tree_c_puct = 1.5f;
     unsigned int seed = 42;
     bool uniform = false, selftest = false, pass_search = false, use_cuda = false;
-    bool oracle_leaves = false;
+    bool oracle_leaves = false, use_tree = false;
 
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
@@ -204,6 +245,9 @@ int main(int argc, char** argv) {
         else if (a == "--seed") seed = static_cast<unsigned int>(std::stoul(next()));
         else if (a == "--rollout-tricks") rollout_tricks = std::stoi(next());
         else if (a == "--oracle-leaves") oracle_leaves = true;
+        else if (a == "--tree") use_tree = true;
+        else if (a == "--iterations") tree_iterations = std::stoi(next());
+        else if (a == "--c-puct") tree_c_puct = std::stof(next());
         else if (a == "--uniform-sampling") uniform = true;
         else if (a == "--pass-search") pass_search = true;
         else if (a == "--selftest") selftest = true;
@@ -246,6 +290,10 @@ int main(int argc, char** argv) {
         ok &= t;
         std::cerr << "Batched-vs-single inference... ";
         t = TestBatchEquivalence(search_model, sdim, device);
+        std::cerr << (t ? "PASS" : "FAIL") << "\n";
+        ok &= t;
+        std::cerr << "Tree search consistency... ";
+        t = TestTree(search_model, sdim, device);
         std::cerr << (t ? "PASS" : "FAIL") << "\n";
         ok &= t;
         std::cerr << (ok ? "SELFTEST PASS" : "SELFTEST FAIL") << "\n";
@@ -297,7 +345,17 @@ int main(int argc, char** argv) {
         }
         cfg.belief_backend = std::make_shared<DirectBackend>(std::move(bm), device);
     }
-    SearchPlayer sp(search_model, sdim, cfg);
+    std::unique_ptr<IPlayer> sp;
+    if (use_tree) {
+        TreeSearchPlayer::Config tcfg;
+        tcfg.iterations = tree_iterations;
+        tcfg.c_puct = tree_c_puct;
+        tcfg.seed = seed + 1000;
+        tcfg.pass_cfg = cfg;  // sampler/pass search inherit device, K, belief settings
+        sp = std::make_unique<TreeSearchPlayer>(search_model, sdim, tcfg);
+    } else {
+        sp = std::make_unique<SearchPlayer>(search_model, sdim, cfg);
+    }
     RawPolicy opp(opp_model, odim);
 
     HeartsEnv env_a(seed, true), env_b(seed, true);
@@ -313,7 +371,7 @@ int main(int argc, char** argv) {
         bool done = false;
         while (!done) {
             int p = env_a.GetCurrentPlayer();
-            int action = (p == seat) ? sp.ChooseAction(env_a) : opp.ChooseAction(env_a);
+            int action = (p == seat) ? sp->ChooseAction(env_a) : opp.ChooseAction(env_a);
             done = env_a.Step(action).done;
         }
         auto sa = env_a.GetRoundScores();
