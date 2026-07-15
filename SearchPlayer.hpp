@@ -99,6 +99,12 @@ public:
         // the final relative round score in the same units the terminal
         // rollout would produce.
         int rollout_tricks = -1;
+        // Evaluate truncated-rollout leaves with the ORACLE head (which sees
+        // the determinized hands) instead of the visible-info value head.
+        // Requires a trace exposing the "oracle" method; measured 2026-07-14
+        // that visible-info leaves collapse because they cannot distinguish
+        // the K determinized worlds.
+        bool oracle_leaves = false;
         // Inference device (used by the module-owning constructor, which
         // wraps the model in a DirectBackend). jit::Module copies share
         // storage, so moving the model moves it for every SearchPlayer built
@@ -344,14 +350,35 @@ private:
         if (leaves.empty()) return;
 
         torch::Tensor o = torch::empty({(long)leaves.size(), obs_dim_}, torch::kFloat32);
-        torch::Tensor m = torch::ones({(long)leaves.size(), 52}, torch::kBool);
         float* op = o.data_ptr<float>();
         for (size_t j = 0; j < leaves.size(); ++j) {
             Sim& s = sims[leaves[j]];
             auto obs = s.sim_env.ObserveFor(s.eval_seat);
             std::memcpy(op + j * obs_dim_, obs.data(), obs_dim_ * sizeof(float));
         }
-        torch::Tensor v = backend_->Forward(o, m).value;
+
+        torch::Tensor v;
+        if (cfg_.oracle_leaves && backend_->HasOracle()) {
+            // The oracle sees the sim's remaining DETERMINIZED hands - the
+            // information a visible-info value head provably lacks
+            torch::Tensor h = torch::zeros({(long)leaves.size(), 156}, torch::kFloat32);
+            float* hp = h.data_ptr<float>();
+            for (size_t j = 0; j < leaves.size(); ++j) {
+                Sim& s = sims[leaves[j]];
+                const auto& hands = s.sim_env.GetState().hands;
+                for (int k = 1; k < 4; ++k) {
+                    int seat = (s.eval_seat + k) % 4;
+                    for (const auto& c : hands[seat]) {
+                        int id = static_cast<int>(c.suit) * 13 + (c.rank - 2);
+                        hp[j * 156 + (k - 1) * 52 + id] = 1.0f;
+                    }
+                }
+            }
+            v = backend_->OracleForward(o, h);
+        } else {
+            torch::Tensor m = torch::ones({(long)leaves.size(), 52}, torch::kBool);
+            v = backend_->Forward(o, m).value;
+        }
         auto vacc = v.accessor<float, 2>();
         for (size_t j = 0; j < leaves.size(); ++j) {
             sims[leaves[j]].result = vacc[j][0];

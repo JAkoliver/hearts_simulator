@@ -22,12 +22,15 @@
 // small ones (separate processes serialize at the GPU and waste it).
 // Each thread writes its own file: --out selfplay.bin -> selfplay_t0.bin ...
 //
-// --value-out <file> additionally writes LEAF VALUE records (554 bytes):
+// --value-out <file> additionally writes LEAF VALUE records (710 bytes):
 //     550 x u8   observation from seat s's perspective at a completed-trick
 //                boundary (the exact state distribution value-bootstrapped
 //                search queries at truncated rollout leaves - including
 //                seats that are NOT on turn, which decision records never
 //                cover)
+//     156 x u8   the true hands of s's three opponents, relative seats
+//                (oracle-head input: at a search leaf the determinized hands
+//                play this role)
 //       f32      seat s's true final relative round reward (avg - own)
 // One record per seat per boundary (tricks 1..12; trick 13 is terminal).
 //
@@ -106,6 +109,7 @@ static void RunWorker(int tid, int deals, unsigned int seed,
 
         struct LeafRec {
             std::array<uint8_t, 550> obs;
+            std::array<uint8_t, 156> hands;
             uint16_t seat;
         };
 
@@ -163,6 +167,10 @@ static void RunWorker(int tid, int deals, unsigned int seed,
                             if (v > 1.0f) v = 1.0f;
                             lr.obs[i] = static_cast<uint8_t>(std::lround(v * 255.0f));
                         }
+                        auto lhands = env.ObserveOpponentHandsFor(s);
+                        for (int i = 0; i < 156; ++i) {
+                            lr.hands[i] = lhands[i] > 0.5f ? 1 : 0;
+                        }
                         lr.seat = static_cast<uint16_t>(s);
                         leaf_recs.push_back(lr);
                     }
@@ -185,6 +193,7 @@ static void RunWorker(int tid, int deals, unsigned int seed,
             for (const auto& lr : leaf_recs) {
                 float reward = avg - sc[lr.seat];
                 vout.write(reinterpret_cast<const char*>(lr.obs.data()), 550);
+                vout.write(reinterpret_cast<const char*>(lr.hands.data()), 156);
                 vout.write(reinterpret_cast<const char*>(&reward), 4);
             }
             shared.records.fetch_add(static_cast<long>(recs.size()));
@@ -209,6 +218,7 @@ int main(int argc, char** argv) {
     std::string model_path, out_path = "selfplay.bin", value_out_path;
     int deals = 1000, k = 16, pass_k = 12, pass_candidates = 12, threads = 1;
     int rollout_tricks = -1;
+    bool oracle_leaves = false;
     unsigned int seed = 1;
     bool use_cuda = false;
 
@@ -225,6 +235,7 @@ int main(int argc, char** argv) {
         else if (a == "--seed") seed = static_cast<unsigned int>(std::stoul(next()));
         else if (a == "--threads") threads = std::stoi(next());
         else if (a == "--rollout-tricks") rollout_tricks = std::stoi(next());
+        else if (a == "--oracle-leaves") oracle_leaves = true;
         else if (a == "--cuda") use_cuda = true;
         else { std::cerr << "Unknown arg: " << a << "\n"; return 2; }
     }
@@ -278,6 +289,11 @@ int main(int argc, char** argv) {
     base_cfg.pass_k = pass_k;
     base_cfg.pass_candidates = pass_candidates;
     base_cfg.rollout_tricks = rollout_tricks;
+    base_cfg.oracle_leaves = oracle_leaves;
+    if (oracle_leaves && !model.find_method("oracle").has_value()) {
+        std::cerr << "--oracle-leaves requires a search model traced with the oracle method\n";
+        return 1;
+    }
 
     GenShared shared;
     shared.total_deals = deals;

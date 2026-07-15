@@ -30,10 +30,12 @@ RECORD = np.dtype([
 assert RECORD.itemsize == 818
 
 # Leaf value records (SelfPlayGen --value-out): trick-boundary observations
-# from EVERY seat's perspective with true final outcomes - the distribution
-# value-bootstrapped search queries at truncated rollout leaves.
-LEAF_RECORD = np.dtype([('obs', 'u1', 550), ('reward', '<f4')])
-assert LEAF_RECORD.itemsize == 554
+# from EVERY seat's perspective with the seat's true opponent hands and final
+# outcome - the distribution value-bootstrapped search queries at truncated
+# rollout leaves. The hands train the ORACLE head (at a real leaf the
+# determinized hands take their place).
+LEAF_RECORD = np.dtype([('obs', 'u1', 550), ('hands', 'u1', 156), ('reward', '<f4')])
+assert LEAF_RECORD.itemsize == 710
 
 def load_data(patterns, dtype=RECORD, kind='decision'):
     files = []
@@ -127,7 +129,7 @@ def main():
         if leaf is not None:
             lperm = np.random.permutation(len(leaf))
             lpos = 0
-            lerr2_sum = 0.0
+            lerr2_sum = loerr2_sum = 0.0
             lseen = 0
 
         for start in range(0, n, args.batch):
@@ -183,16 +185,19 @@ def main():
                 lpos += args.batch
                 lb = leaf[lidx]
                 lobs = torch.from_numpy(np.ascontiguousarray(lb['obs'])).to(device).float() / 255.0
+                lhands = torch.from_numpy(np.ascontiguousarray(lb['hands'])).to(device).float()
                 lmask = torch.ones((len(lidx), 52), dtype=torch.bool, device=device)
                 lrew = torch.from_numpy(lb['reward'].astype(np.float32)).to(device)
-                _, lvalue, _ = net.forward_all(lobs, lmask)
+                _, lvalue, _, loracle = net.forward_train(lobs, lmask, lhands)
                 leaf_mse = F.mse_loss(lvalue.squeeze(-1), lrew)
-                lloss = args.leaf_coef * leaf_mse
+                leaf_oracle_mse = F.mse_loss(loracle.squeeze(-1), lrew)
+                lloss = args.leaf_coef * (leaf_mse + leaf_oracle_mse)
                 optimizer.zero_grad()
                 lloss.backward()
                 nn.utils.clip_grad_norm_(net.parameters(), 0.5)
                 optimizer.step()
                 lerr2_sum += leaf_mse.item() * len(lidx)
+                loerr2_sum += leaf_oracle_mse.item() * len(lidx)
                 lseen += len(lidx)
 
         ev = 1.0 - (err2_sum / seen) / reward_var
@@ -201,7 +206,8 @@ def main():
                 f"teacher match {match_sum / seen * 100:.1f}% | value EV {ev:.3f} | "
                 f"oracle EV {oev:.3f} | belief BCE {bce_sum / seen:.4f}")
         if leaf is not None and lseen:
-            line += f" | leaf EV {1.0 - (lerr2_sum / lseen) / leaf_var:.3f}"
+            line += (f" | leaf EV {1.0 - (lerr2_sum / lseen) / leaf_var:.3f}"
+                     f" | leaf oracle EV {1.0 - (loerr2_sum / lseen) / leaf_var:.3f}")
         if n_hold:
             with torch.no_grad():
                 hm = 0

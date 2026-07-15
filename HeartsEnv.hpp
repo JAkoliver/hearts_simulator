@@ -475,9 +475,14 @@ public:
     // the actual current hands of the three opponents, in relative seats
     // (0-51 left(+1), 52-103 across(+2), 104-155 right(+3)).
     std::array<float, 156> ObserveOpponentHands() const {
+        return ObserveOpponentHandsFor(state.current_player);
+    }
+
+    // Same labels from an arbitrary seat's perspective (leaf value records
+    // for the oracle head, which needs hands relative to the evaluated seat).
+    std::array<float, 156> ObserveOpponentHandsFor(int player) const {
         std::array<float, 156> labels;
         labels.fill(0.0f);
-        int player = state.current_player;
         for (int k = 1; k < 4; ++k) {
             int seat = (player + k) % 4;
             for (const auto& c : state.hands[seat]) {

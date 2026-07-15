@@ -190,6 +190,7 @@ int main(int argc, char** argv) {
     int deals = 300, k = 32, rollout_tricks = -1;
     unsigned int seed = 42;
     bool uniform = false, selftest = false, pass_search = false, use_cuda = false;
+    bool oracle_leaves = false;
 
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
@@ -202,6 +203,7 @@ int main(int argc, char** argv) {
         else if (a == "--k") k = std::stoi(next());
         else if (a == "--seed") seed = static_cast<unsigned int>(std::stoul(next()));
         else if (a == "--rollout-tricks") rollout_tricks = std::stoi(next());
+        else if (a == "--oracle-leaves") oracle_leaves = true;
         else if (a == "--uniform-sampling") uniform = true;
         else if (a == "--pass-search") pass_search = true;
         else if (a == "--selftest") selftest = true;
@@ -275,6 +277,11 @@ int main(int argc, char** argv) {
     cfg.pass_search = pass_search;
     cfg.device = device;
     cfg.rollout_tricks = rollout_tricks;
+    cfg.oracle_leaves = oracle_leaves;
+    if (oracle_leaves && !search_model.find_method("oracle").has_value()) {
+        std::cerr << "--oracle-leaves requires a search model traced with the oracle method\n";
+        return 1;
+    }
     if (!belief_path.empty()) {
         torch::jit::script::Module bm;
         try {

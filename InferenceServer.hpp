@@ -36,6 +36,14 @@ class InferenceBackend {
 public:
     virtual ~InferenceBackend() = default;
     virtual InferOutputs Forward(const torch::Tensor& obs, const torch::Tensor& mask) = 0;
+    // Oracle value head: expected outcome GIVEN hands (leaf evaluation for
+    // determinized search). Only available if the traced module exposes an
+    // "oracle" method.
+    virtual bool HasOracle() const { return false; }
+    virtual torch::Tensor OracleForward(const torch::Tensor& /*obs*/,
+                                        const torch::Tensor& /*hands*/) {
+        throw std::runtime_error("backend has no oracle method");
+    }
 };
 
 namespace infer_detail {
@@ -56,6 +64,7 @@ public:
         : module_(std::move(module)), device_(device) {
         module_.to(device_);
         module_.eval();
+        has_oracle_ = module_.find_method("oracle").has_value();
     }
 
     InferOutputs Forward(const torch::Tensor& obs, const torch::Tensor& mask) override {
@@ -64,9 +73,18 @@ public:
         return infer_detail::Unpack(out);
     }
 
+    bool HasOracle() const override { return has_oracle_; }
+
+    torch::Tensor OracleForward(const torch::Tensor& obs, const torch::Tensor& hands) override {
+        torch::NoGradGuard g;
+        auto method = module_.find_method("oracle");
+        return (*method)({obs.to(device_), hands.to(device_)}).toTensor().to(torch::kCPU);
+    }
+
 private:
     torch::jit::script::Module module_;
     torch::Device device_;
+    bool has_oracle_ = false;
 };
 
 class InferenceServer {
@@ -75,8 +93,11 @@ public:
         : module_(std::move(module)), device_(device) {
         module_.to(device_);
         module_.eval();
+        has_oracle_ = module_.find_method("oracle").has_value();
         worker_ = std::thread([this] { Loop(); });
     }
+
+    bool HasOracle() const { return has_oracle_; }
 
     ~InferenceServer() {
         {
@@ -88,16 +109,12 @@ public:
     }
 
     InferOutputs Submit(const torch::Tensor& obs, const torch::Tensor& mask) {
-        Request r;
-        r.obs = obs;
-        r.mask = mask;
-        std::future<InferOutputs> fut = r.promise.get_future();
-        {
-            std::lock_guard<std::mutex> g(mu_);
-            queue_.push_back(std::move(r));
-        }
-        cv_.notify_one();
-        return fut.get();  // rethrows if the forward failed
+        return Enqueue(obs, mask, false);
+    }
+
+    // Oracle result comes back in InferOutputs.value; logits/belief undefined.
+    torch::Tensor SubmitOracle(const torch::Tensor& obs, const torch::Tensor& hands) {
+        return Enqueue(obs, hands, true).value;
     }
 
     long long Launches() const { return launches_.load(); }
@@ -108,9 +125,76 @@ public:
 
 private:
     struct Request {
-        torch::Tensor obs, mask;
+        torch::Tensor obs, aux;  // aux = mask (normal) or hands (oracle)
+        bool is_oracle = false;
         std::promise<InferOutputs> promise;
     };
+
+    InferOutputs Enqueue(const torch::Tensor& obs, const torch::Tensor& aux, bool is_oracle) {
+        Request r;
+        r.obs = obs;
+        r.aux = aux;
+        r.is_oracle = is_oracle;
+        std::future<InferOutputs> fut = r.promise.get_future();
+        {
+            std::lock_guard<std::mutex> g(mu_);
+            queue_.push_back(std::move(r));
+        }
+        cv_.notify_one();
+        return fut.get();  // rethrows if the forward failed
+    }
+
+    void RunGroup(std::vector<Request*>& group, bool is_oracle) {
+        if (group.empty()) return;
+        torch::Tensor o, a;
+        if (group.size() == 1) {
+            o = group[0]->obs;
+            a = group[0]->aux;
+        } else {
+            std::vector<torch::Tensor> os, as;
+            os.reserve(group.size());
+            as.reserve(group.size());
+            for (const auto* r : group) {
+                os.push_back(r->obs);
+                as.push_back(r->aux);
+            }
+            o = torch::cat(os, 0);
+            a = torch::cat(as, 0);
+        }
+        try {
+            InferOutputs all;
+            if (is_oracle) {
+                auto method = module_.find_method("oracle");
+                all.value = (*method)({o.to(device_), a.to(device_)})
+                                .toTensor().to(torch::kCPU);
+            } else {
+                auto out = module_.forward({o.to(device_), a.to(device_)}).toTuple();
+                all = infer_detail::Unpack(out);
+            }
+            launches_.fetch_add(1);
+            rows_.fetch_add(o.size(0));
+            int64_t row = 0;
+            for (auto* r : group) {
+                int64_t n = r->obs.size(0);
+                InferOutputs res;
+                if (is_oracle) {
+                    res.value = all.value.slice(0, row, row + n);
+                } else {
+                    res.logits = all.logits.slice(0, row, row + n);
+                    res.value = all.value.slice(0, row, row + n);
+                    if (all.belief.defined()) {
+                        res.belief = all.belief.slice(0, row, row + n);
+                    }
+                }
+                r->promise.set_value(std::move(res));
+                row += n;
+            }
+        } catch (...) {
+            for (auto* r : group) {
+                r->promise.set_exception(std::current_exception());
+            }
+        }
+    }
 
     void Loop() {
         torch::NoGradGuard g;
@@ -123,48 +207,18 @@ private:
                 batch.clear();
                 batch.swap(queue_);
             }
-            torch::Tensor o, m;
-            if (batch.size() == 1) {
-                o = batch[0].obs;
-                m = batch[0].mask;
-            } else {
-                std::vector<torch::Tensor> os, ms;
-                os.reserve(batch.size());
-                ms.reserve(batch.size());
-                for (const auto& r : batch) {
-                    os.push_back(r.obs);
-                    ms.push_back(r.mask);
-                }
-                o = torch::cat(os, 0);
-                m = torch::cat(ms, 0);
+            std::vector<Request*> normal, oracle;
+            for (auto& r : batch) {
+                (r.is_oracle ? oracle : normal).push_back(&r);
             }
-            try {
-                auto out = module_.forward({o.to(device_), m.to(device_)}).toTuple();
-                InferOutputs all = infer_detail::Unpack(out);
-                launches_.fetch_add(1);
-                rows_.fetch_add(all.logits.size(0));
-                int64_t row = 0;
-                for (auto& r : batch) {
-                    int64_t n = r.obs.size(0);
-                    InferOutputs res;
-                    res.logits = all.logits.slice(0, row, row + n);
-                    res.value = all.value.slice(0, row, row + n);
-                    if (all.belief.defined()) {
-                        res.belief = all.belief.slice(0, row, row + n);
-                    }
-                    r.promise.set_value(std::move(res));
-                    row += n;
-                }
-            } catch (...) {
-                for (auto& r : batch) {
-                    r.promise.set_exception(std::current_exception());
-                }
-            }
+            RunGroup(normal, false);
+            RunGroup(oracle, true);
         }
     }
 
     torch::jit::script::Module module_;
     torch::Device device_;
+    bool has_oracle_ = false;
     std::vector<Request> queue_;
     std::mutex mu_;
     std::condition_variable cv_;
@@ -181,6 +235,12 @@ public:
 
     InferOutputs Forward(const torch::Tensor& obs, const torch::Tensor& mask) override {
         return server_->Submit(obs, mask);
+    }
+
+    bool HasOracle() const override { return server_->HasOracle(); }
+
+    torch::Tensor OracleForward(const torch::Tensor& obs, const torch::Tensor& hands) override {
+        return server_->SubmitOracle(obs, hands);
     }
 
 private:
