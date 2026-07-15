@@ -55,3 +55,4 @@ selfplay_data/
 *.bin
 hearts_model_candidate.pth
 train_last_run.log
+hearts_match_log.csv

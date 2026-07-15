@@ -1,4 +1,5 @@
 #include <iostream>
+#include <ctime>
 #include <fstream>
 #include <vector>
 #include <string>
@@ -104,16 +105,46 @@ Component MakeCardButton(std::string label, std::function<void()> on_click, bool
     return Make<CardButton>(std::move(label), std::move(on_click), is_legal, suit, std::move(is_selected));
 }
 
+// Append one CSV row per completed round (and a MATCH_END row when someone
+// crosses 100) so human-vs-AI calibration sessions leave an analyzable record.
+// Columns: timestamp,event,round_p0..p3,total_p0..p3[,winner]
+static void AppendMatchLog(const std::string& prefix, const GameState& state, bool match_over) {
+    std::ofstream log(prefix + "hearts_match_log.csv", std::ios::app);
+    if (!log) return;
+    if (log.tellp() == 0) {
+        log << "timestamp,event,round_p0,round_p1,round_p2,round_p3,"
+               "total_p0,total_p1,total_p2,total_p3,winner\n";
+    }
+    std::time_t t = std::time(nullptr);
+    char buf[32];
+    std::strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", std::localtime(&t));
+    log << buf << "," << (match_over ? "MATCH_END" : "round");
+    for (int i = 0; i < 4; ++i) log << "," << state.round_scores[i];
+    for (int i = 0; i < 4; ++i) log << "," << state.total_scores[i];
+    if (match_over) {
+        int w = 0;
+        for (int i = 1; i < 4; ++i) {
+            if (state.total_scores[i] < state.total_scores[w]) w = i;
+        }
+        log << ",P" << w;
+    } else {
+        log << ",";
+    }
+    log << "\n";
+}
+
 int main() {
     // 1. Load the Model. Try the working directory first (running from the
     // repo root), then two levels up (double-clicking the exe in build/Release).
     torch::jit::script::Module ai_model;
     bool model_loaded = false;
+    std::string data_prefix;  // "" (repo root cwd) or "../../" (exe double-clicked)
     for (const char* path : {"hearts_ai_grandmaster.pt", "../../hearts_ai_grandmaster.pt"}) {
         try {
             ai_model = torch::jit::load(path);
             ai_model.eval();
             model_loaded = true;
+            data_prefix = (path[0] == '.') ? "../../" : "";
             break;
         } catch (const c10::Error&) {
             // try the next candidate path
@@ -539,6 +570,7 @@ int main() {
                     for (int i = 0; i < 4; ++i) {
                         if (env.GetState().total_scores[i] >= 100) hit_100 = true;
                     }
+                    AppendMatchLog(data_prefix, env.GetState(), hit_100);
                     if (hit_100) {
                         overall_game_over = true;
                         game_over = true;
@@ -645,6 +677,7 @@ int main() {
                     for (int i = 0; i < 4; ++i) {
                         if (env.GetState().total_scores[i] >= 100) hit_100 = true;
                     }
+                    AppendMatchLog(data_prefix, env.GetState(), hit_100);
                     if (hit_100) {
                         overall_game_over = true;
                         game_over = true;
