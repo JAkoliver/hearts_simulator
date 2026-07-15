@@ -109,9 +109,17 @@ Component MakeCardButton(std::string label, std::function<void()> on_click, bool
 // crosses 100) so human-vs-AI calibration sessions leave an analyzable record.
 // Columns: timestamp,event,round_p0..p3,total_p0..p3[,winner]
 static void AppendMatchLog(const std::string& prefix, const GameState& state, bool match_over) {
-    std::ofstream log(prefix + "hearts_match_log.csv", std::ios::app);
+    const std::string path = prefix + "hearts_match_log.csv";
+    // In append mode tellp() reads 0 before the first write on MSVC, so probe
+    // for an existing non-empty file separately to write the header only once
+    bool need_header = true;
+    {
+        std::ifstream probe(path, std::ios::binary | std::ios::ate);
+        if (probe && probe.tellg() > 0) need_header = false;
+    }
+    std::ofstream log(path, std::ios::app);
     if (!log) return;
-    if (log.tellp() == 0) {
+    if (need_header) {
         log << "timestamp,event,round_p0,round_p1,round_p2,round_p3,"
                "total_p0,total_p1,total_p2,total_p3,winner\n";
     }
