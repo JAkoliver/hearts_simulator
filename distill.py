@@ -117,8 +117,9 @@ def main():
 
     if args.init and os.path.exists(args.init):
         net = net_from_checkpoint(args.init)
+        n_params = sum(p.numel() for p in net.parameters())
         print(f"Warm start from {args.init} "
-              f"(width {net.input_fc.out_features}, {len(net.blocks)} blocks)")
+              f"({type(net).__name__}, {n_params / 1e6:.2f}M params)")
     else:
         if args.arch == 'v5':
             net = HeartsNetV5(d_model=args.width, num_layers=args.blocks,

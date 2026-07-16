@@ -19,6 +19,7 @@ Usage:
 
 import argparse
 import glob
+import json
 import os
 import shutil
 import subprocess
@@ -42,7 +43,7 @@ def worker_cmd(iter_dir, w, per_worker, k, pass_k, seed, cuda, rollout_tricks=-1
            '--rollout-tricks', str(rollout_tricks),
            '--seed', str(seed), '--out', out]
     if cuda:
-        cmd.append('--cuda')
+        cmd.extend(['--cuda', '--bf16'])
     return cmd
 
 def generate(iter_dir, deals, workers, k, pass_k, seed0, cuda, rollout_tricks=-1):
@@ -56,7 +57,7 @@ def generate(iter_dir, deals, workers, k, pass_k, seed0, cuda, rollout_tricks=-1
         cmd = [GEN_EXE, '--model', SEARCH_TRACE, '--deals', str(deals),
                '--k', str(k), '--pass-k', str(pass_k),
                '--rollout-tricks', str(rollout_tricks),
-               '--threads', str(workers), '--cuda',
+               '--threads', str(workers), '--cuda', '--bf16',
                '--seed', str(seed0),
                '--out', os.path.join(iter_dir, 'selfplay.bin')]
         res = subprocess.run(cmd, stdout=subprocess.DEVNULL)
@@ -97,11 +98,11 @@ def main():
     global SEARCH_TRACE
     ap = argparse.ArgumentParser()
     ap.add_argument('--iterations', type=int, default=3)
-    ap.add_argument('--deals', type=int, default=20000)
-    ap.add_argument('--workers', type=int, default=12)
-    ap.add_argument('--k', type=int, default=12)
-    ap.add_argument('--pass-k', type=int, default=10)
-    ap.add_argument('--epochs', type=int, default=2)
+    ap.add_argument('--deals', type=int, default=6000)
+    ap.add_argument('--workers', type=int, default=14)
+    ap.add_argument('--k', type=int, default=64)
+    ap.add_argument('--pass-k', type=int, default=24)
+    ap.add_argument('--epochs', type=int, default=3)
     ap.add_argument('--eval-deals', type=int, default=2500)
     ap.add_argument('--seed', type=int, default=None,
                     help='base seed (default: derived from time)')
@@ -130,17 +131,34 @@ def main():
                  rollout_tricks=args.rollout_tricks)
 
         print("[2/3] Distilling...")
+        # The measured recipe (July sweep): sharpen 2 (sharpen 1 is provably
+        # too soft to flip decisions), reduced aux losses, no oracle loss
         res = subprocess.run([sys.executable, 'distill.py',
                               '--data', os.path.join(iter_dir, '*.bin'),
                               '--init', BASELINE, '--out', CANDIDATE,
-                              '--epochs', str(args.epochs),
+                              '--epochs', str(args.epochs), '--lr', '5e-5',
+                              '--sharpen', '2',
+                              '--value-coef', '0.25', '--aux-coef', '0.25',
+                              '--oracle-coef', '0',
                               '--device', 'cuda' if args.cuda else 'cpu'])
         if res.returncode != 0:
             raise SystemExit("Distillation failed")
 
-        print("[3/3] Gate: paired evaluation vs baseline...")
-        success, cand_mean, _ = orchestrator.evaluate_candidate(
+        print("[3/3] Gates: raw guard, then searched strength decides...")
+        with open('config.json') as f:
+            cfg = json.load(f)
+        raw_sig, cand_mean, raw_diff = orchestrator.evaluate_candidate(
             CANDIDATE, BASELINE, num_deals=args.eval_deals)
+        guard = cfg.get('raw_guard_threshold', 0.3)
+        if raw_diff > guard:
+            print(f"Raw guard FAILED ({raw_diff:+.3f} > +{guard}); skipping search gate.")
+            success = False
+        else:
+            success, sg_mean, sg_p = orchestrator.evaluate_candidate_search(
+                CANDIDATE,
+                deals=cfg.get('search_gate_deals', 600),
+                k=cfg.get('search_gate_k', 32),
+                alpha=cfg.get('search_gate_alpha', 0.05))
 
         if success:
             shutil.copy(CANDIDATE, BASELINE)
