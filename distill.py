@@ -106,6 +106,7 @@ def main():
 
     device = torch.device(args.device)
     print(f"Device: {device}")
+    torch.set_float32_matmul_precision('high')  # TF32 matmuls on Ada
 
     data, holdout = load_data(args.data, holdout_frac=args.holdout)
     n_hold = len(holdout) if holdout is not None else 0

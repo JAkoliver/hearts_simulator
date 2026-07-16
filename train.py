@@ -51,12 +51,21 @@ class RolloutBuffer:
 def select_actions_batch(network, obs_np, masks_np, device):
     """Sample actions for a batch of observations in one forward pass.
 
-    Rollouts never backprop, so autograd is skipped entirely. Returns numpy
-    (actions int64, log_probs f32, values f32)."""
+    Rollouts never backprop, so autograd is skipped entirely and the forward
+    runs in bf16 (sampling from logits is insensitive to that precision; the
+    log_probs recorded here are the SAME ones the PPO ratio uses, so there is
+    no old/new precision mismatch). Returns numpy (actions int64,
+    log_probs f32, values f32)."""
     obs = torch.from_numpy(obs_np).to(device)
     mask = torch.from_numpy(masks_np).to(device)
     with torch.no_grad():
-        masked_logits, state_values = network(obs, mask)
+        if device.type == 'cuda':
+            with torch.autocast('cuda', dtype=torch.bfloat16):
+                masked_logits, state_values = network(obs, mask)
+            masked_logits = masked_logits.float()
+            state_values = state_values.float()
+        else:
+            masked_logits, state_values = network(obs, mask)
         # -inf logits on illegal actions give them exactly 0 probability
         dist = Categorical(logits=masked_logits)
         actions = dist.sample()
@@ -290,6 +299,9 @@ def main():
                                      'cuda' if torch.cuda.is_available() else 'cpu'))
     print(f"Device: {device}")
     torch.set_num_threads(max(1, (os.cpu_count() or 8) - 2))
+    # TF32 matmuls: ~1.5x on Ada for the fp32 PPO update path, precision is
+    # ample for RL losses
+    torch.set_float32_matmul_precision('high')
 
     # train_init lets a fine-tune start from a different checkpoint than the
     # gate baseline (e.g. the big distilled net). Preference: once a

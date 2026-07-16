@@ -234,7 +234,7 @@ int main(int argc, char** argv) {
     float tree_c_puct = 1.5f;
     bool oracle_leaves = false;
     unsigned int seed = 1;
-    bool use_cuda = false;
+    bool use_cuda = false, use_bf16 = false;
 
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
@@ -253,6 +253,7 @@ int main(int argc, char** argv) {
         else if (a == "--tree-iterations") tree_iterations = std::stoi(next());
         else if (a == "--tree-cpuct") tree_c_puct = std::stof(next());
         else if (a == "--cuda") use_cuda = true;
+        else if (a == "--bf16") use_bf16 = true;
         else { std::cerr << "Unknown arg: " << a << "\n"; return 2; }
     }
     if (model_path.empty()) {
@@ -292,10 +293,10 @@ int main(int argc, char** argv) {
     std::unique_ptr<InferenceServer> server;
     std::shared_ptr<InferenceBackend> backend;
     if (use_cuda) {
-        server = std::make_unique<InferenceServer>(model, device);
+        server = std::make_unique<InferenceServer>(model, device, use_bf16);
         backend = std::make_shared<ServedBackend>(server.get());
     } else {
-        backend = std::make_shared<DirectBackend>(model, device);
+        backend = std::make_shared<DirectBackend>(model, device, use_bf16);
     }
 
     SearchPlayer::Config base_cfg;

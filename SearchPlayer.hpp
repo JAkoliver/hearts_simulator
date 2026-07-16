@@ -121,6 +121,9 @@ public:
         // from the same loaded module - probe obs width BEFORE constructing
         // players.
         torch::Device device = torch::kCPU;
+        // bf16 inference on CUDA (~1.5-2x): safe for search - logits feed
+        // argmax/sampling and values are averaged over many rollouts
+        bool bf16 = false;
         // Optional separate net for belief marginals (determinization
         // sampling only): lets a strong rollout policy borrow a
         // better-calibrated belief head from another checkpoint. Null =
@@ -135,7 +138,7 @@ public:
         : backend_(std::move(backend)), obs_dim_(model_obs_dim), cfg_(cfg), rng_(cfg.seed) {}
 
     SearchPlayer(torch::jit::script::Module model, int model_obs_dim, Config cfg = Config())
-        : SearchPlayer(std::make_shared<DirectBackend>(std::move(model), cfg.device),
+        : SearchPlayer(std::make_shared<DirectBackend>(std::move(model), cfg.device, cfg.bf16),
                        model_obs_dim, cfg) {}
 
     int ChooseAction(const HeartsEnv& env) override {

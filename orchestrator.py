@@ -172,15 +172,18 @@ def _trace_for_search(checkpoint_path, out_path):
     dummy_mask = torch.zeros(1, 52, dtype=torch.bool)
     torch.jit.trace(_SearchExport(net), (dummy_obs, dummy_mask)).save(out_path)
 
-def _search_run(model_pt, opponent_pt, deals, k, seed, out_csv):
+def _search_start(model_pt, opponent_pt, deals, k, seed, out_csv):
     cmd = [SEARCH_EVAL_EXE, '--search-model', model_pt, '--opponent-model', opponent_pt,
            '--deals', str(deals), '--k', str(k), '--pass-search',
            '--seed', str(seed), '--out', out_csv]
     if torch.cuda.is_available():
-        cmd.append('--cuda')
-    res = subprocess.run(cmd, capture_output=True, text=True)
-    if res.returncode != 0:
-        raise RuntimeError(f"SearchEval failed (exit {res.returncode}): {res.stderr[-500:]}")
+        cmd.extend(['--cuda', '--bf16'])
+    return subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+
+def _search_finish(proc, out_csv):
+    _, err = proc.communicate()
+    if proc.returncode != 0:
+        raise RuntimeError(f"SearchEval failed (exit {proc.returncode}): {err[-500:]}")
     return np.genfromtxt(out_csv, delimiter=',', names=True)['diff']
 
 def evaluate_candidate_search(candidate_path, deals=500, k=64, alpha=0.05):
@@ -200,11 +203,16 @@ def evaluate_candidate_search(candidate_path, deals=500, k=64, alpha=0.05):
 
     seed = int(time.time())
     _trace_for_search(candidate_path, 'search_gate_candidate.pt')
-    print(f"Search gate: {deals} paired deals, K={k}, neutral opponents...")
-    cand = _search_run('search_gate_candidate.pt', opponent, deals, k, seed,
-                       'search_eval_gate_cand.csv')
-    base = _search_run('hearts_ai_search.pt', opponent, deals, k, seed,
-                       'search_eval_gate_base.csv')
+    print(f"Search gate: {deals} paired deals, K={k}, neutral opponents "
+          f"(candidate and reference run concurrently)...")
+    # Both runs share the GPU; their small batches leave it plenty of headroom,
+    # so running them concurrently roughly halves gate wall-clock
+    p_cand = _search_start('search_gate_candidate.pt', opponent, deals, k, seed,
+                           'search_eval_gate_cand.csv')
+    p_base = _search_start('hearts_ai_search.pt', opponent, deals, k, seed,
+                           'search_eval_gate_base.csv')
+    cand = _search_finish(p_cand, 'search_eval_gate_cand.csv')
+    base = _search_finish(p_base, 'search_eval_gate_base.csv')
     delta = cand - base
     t_stat, p_val = stats.ttest_1samp(delta, 0.0, alternative='less')
     mean = float(delta.mean())

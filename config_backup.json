@@ -1,10 +1,10 @@
 {
     "learning_rate": 1e-05,
-    "update_timestep": 364,
+    "update_timestep": 271,
     "games_per_worker": 26,
     "max_workers": 14,
     "gamma": 1.0,
-    "eps_clip": 0.2294,
+    "eps_clip": 0.19927,
     "k_epochs": 4,
     "max_episodes": 250000,
     "gae_lambda": 0.898754,

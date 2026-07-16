@@ -63,7 +63,8 @@ public:
           flat_(backend_, model_obs_dim, cfg.pass_cfg) {}
 
     TreeSearchPlayer(torch::jit::script::Module model, int model_obs_dim, Config cfg)
-        : TreeSearchPlayer(std::make_shared<DirectBackend>(std::move(model), cfg.pass_cfg.device),
+        : TreeSearchPlayer(std::make_shared<DirectBackend>(std::move(model), cfg.pass_cfg.device,
+                                                           cfg.pass_cfg.bf16),
                            model_obs_dim, cfg) {}
 
     int ChooseAction(const HeartsEnv& env) override {

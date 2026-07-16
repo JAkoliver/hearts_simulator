@@ -231,7 +231,7 @@ int main(int argc, char** argv) {
     float tree_c_puct = 1.5f;
     unsigned int seed = 42;
     bool uniform = false, selftest = false, pass_search = false, use_cuda = false;
-    bool oracle_leaves = false, use_tree = false;
+    bool oracle_leaves = false, use_tree = false, use_bf16 = false;
 
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
@@ -252,6 +252,7 @@ int main(int argc, char** argv) {
         else if (a == "--pass-search") pass_search = true;
         else if (a == "--selftest") selftest = true;
         else if (a == "--cuda") use_cuda = true;
+        else if (a == "--bf16") use_bf16 = true;
         else { std::cerr << "Unknown arg: " << a << "\n"; return 2; }
     }
     if (search_path.empty()) {
@@ -324,6 +325,7 @@ int main(int argc, char** argv) {
     cfg.seed = seed + 1000;
     cfg.pass_search = pass_search;
     cfg.device = device;
+    cfg.bf16 = use_bf16;
     cfg.rollout_tricks = rollout_tricks;
     cfg.oracle_leaves = oracle_leaves;
     if (oracle_leaves && !search_model.find_method("oracle").has_value()) {

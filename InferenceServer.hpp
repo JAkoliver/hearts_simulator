@@ -23,7 +23,30 @@
 #include <utility>
 #include <vector>
 
+#include <ATen/autocast_mode.h>
 #include <torch/script.h>
+
+// RAII guard: bf16 autocast for CUDA inference. The module stays fp32 (a
+// traced module converted wholesale to bf16 crashes natively); autocast
+// runs the matmul-heavy ops in bf16 the same way train.py does.
+class AutocastGuard {
+public:
+    explicit AutocastGuard(bool enable) : enabled_(enable) {
+        if (enabled_) {
+            at::autocast::set_autocast_enabled(at::kCUDA, true);
+            at::autocast::set_autocast_dtype(at::kCUDA, at::kBFloat16);
+        }
+    }
+    ~AutocastGuard() {
+        if (enabled_) {
+            at::autocast::clear_cache();
+            at::autocast::set_autocast_enabled(at::kCUDA, false);
+        }
+    }
+
+private:
+    bool enabled_;
+};
 
 struct InferOutputs {
     // CPU tensors; belief is undefined for 2-output (policy+value) traces.
@@ -47,12 +70,17 @@ public:
 };
 
 namespace infer_detail {
+inline torch::Tensor ToHost(const torch::Tensor& t) {
+    // Upcast covers bf16 inference; a no-op for fp32
+    return t.to(torch::kFloat).to(torch::kCPU);
+}
+
 inline InferOutputs Unpack(const c10::intrusive_ptr<c10::ivalue::Tuple>& out) {
     InferOutputs res;
-    res.logits = out->elements()[0].toTensor().to(torch::kCPU);
-    res.value = out->elements()[1].toTensor().to(torch::kCPU);
+    res.logits = ToHost(out->elements()[0].toTensor());
+    res.value = ToHost(out->elements()[1].toTensor());
     if (out->elements().size() >= 3) {
-        res.belief = out->elements()[2].toTensor().to(torch::kCPU);
+        res.belief = ToHost(out->elements()[2].toTensor());
     }
     return res;
 }
@@ -60,8 +88,8 @@ inline InferOutputs Unpack(const c10::intrusive_ptr<c10::ivalue::Tuple>& out) {
 
 class DirectBackend : public InferenceBackend {
 public:
-    DirectBackend(torch::jit::script::Module module, torch::Device device)
-        : module_(std::move(module)), device_(device) {
+    DirectBackend(torch::jit::script::Module module, torch::Device device, bool bf16 = false)
+        : module_(std::move(module)), device_(device), bf16_(bf16 && device.is_cuda()) {
         module_.to(device_);
         module_.eval();
         has_oracle_ = module_.find_method("oracle").has_value();
@@ -69,6 +97,7 @@ public:
 
     InferOutputs Forward(const torch::Tensor& obs, const torch::Tensor& mask) override {
         torch::NoGradGuard g;
+        AutocastGuard ac(bf16_);
         auto out = module_.forward({obs.to(device_), mask.to(device_)}).toTuple();
         return infer_detail::Unpack(out);
     }
@@ -77,20 +106,23 @@ public:
 
     torch::Tensor OracleForward(const torch::Tensor& obs, const torch::Tensor& hands) override {
         torch::NoGradGuard g;
+        AutocastGuard ac(bf16_);
         auto method = module_.find_method("oracle");
-        return (*method)({obs.to(device_), hands.to(device_)}).toTensor().to(torch::kCPU);
+        return infer_detail::ToHost(
+            (*method)({obs.to(device_), hands.to(device_)}).toTensor());
     }
 
 private:
     torch::jit::script::Module module_;
     torch::Device device_;
+    bool bf16_ = false;
     bool has_oracle_ = false;
 };
 
 class InferenceServer {
 public:
-    InferenceServer(torch::jit::script::Module module, torch::Device device)
-        : module_(std::move(module)), device_(device) {
+    InferenceServer(torch::jit::script::Module module, torch::Device device, bool bf16 = false)
+        : module_(std::move(module)), device_(device), bf16_(bf16 && device.is_cuda()) {
         module_.to(device_);
         module_.eval();
         has_oracle_ = module_.find_method("oracle").has_value();
@@ -163,10 +195,11 @@ private:
         }
         try {
             InferOutputs all;
+            AutocastGuard ac(bf16_);
             if (is_oracle) {
                 auto method = module_.find_method("oracle");
-                all.value = (*method)({o.to(device_), a.to(device_)})
-                                .toTensor().to(torch::kCPU);
+                all.value = infer_detail::ToHost(
+                    (*method)({o.to(device_), a.to(device_)}).toTensor());
             } else {
                 auto out = module_.forward({o.to(device_), a.to(device_)}).toTuple();
                 all = infer_detail::Unpack(out);
@@ -218,6 +251,7 @@ private:
 
     torch::jit::script::Module module_;
     torch::Device device_;
+    bool bf16_ = false;
     bool has_oracle_ = false;
     std::vector<Request> queue_;
     std::mutex mu_;
