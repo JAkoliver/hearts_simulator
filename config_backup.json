@@ -11,11 +11,12 @@
     "entropy_coef": 0.002,
     "minibatch_size": 2048,
     "aux_coef": 0.765244,
-    "num_envs": 128,
+    "num_envs": 256,
     "active_pool_size": 4,
     "search_gate_deals": 600,
     "search_gate_alpha": 0.05,
     "search_gate_k": 32,
     "raw_guard_threshold": 0.3,
-    "critic_warmup_games": 20000
+    "critic_warmup_games": 20000,
+    "vec_env": true
 }

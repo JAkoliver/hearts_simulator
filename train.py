@@ -287,6 +287,82 @@ def run_cycle(slots, main_network, active_pool, games_target, device):
     return games_done, p0_reward_sum, p0_raw_sum
 
 # ---------------------------------------------------------
+# 4b. Vectorized Rollouts (HeartsVecEnv)
+# ---------------------------------------------------------
+# Same semantics as run_cycle, but all per-env work (observations, masks,
+# labels, stepping) happens in C++ through batched numpy arrays - the
+# measured bottleneck was pybind list marshaling at ~16us/decision.
+# seat_net maps (env, seat) -> index into a STABLE net registry (0 = the
+# learner); games straddle cycle boundaries, so assignments must not
+# reference per-cycle pool subsets.
+
+def run_cycle_vec(vec, registry, active_ids, seat_net, steps_this_game,
+                  buffers, games_target, device):
+    n = vec.size()
+    env_ids = np.arange(n, dtype=np.int64)
+    games_done = 0
+    p0_reward_sum = 0.0
+    p0_raw_sum = 0.0
+
+    while True:
+        draining = games_done >= games_target
+        if draining:
+            active = env_ids[steps_this_game > 0]
+            if active.size == 0:
+                break
+        else:
+            active = env_ids
+
+        cp = vec.current_players()
+        deciding = seat_net[env_ids, cp]  # registry index per env
+
+        for k in np.unique(deciding[active]):
+            g = active[deciding[active] == k]
+            obs = vec.observe_batch(g)
+            mask = vec.legal_mask_batch(g)
+            actions, log_probs, values = select_actions_batch(
+                registry[k], obs, mask, device)
+            is_learner = (k == 0)
+            if is_learner:
+                # Belief labels must be captured BEFORE stepping
+                labels = vec.labels_batch(g)
+
+            dones, scores = vec.step_batch(g, actions.astype(np.int64))
+            steps_this_game[g] += 1
+
+            if is_learner:
+                for j in range(len(g)):
+                    b = buffers[int(g[j])][int(cp[g[j]])]
+                    b.states.append(obs[j])
+                    b.actions.append(int(actions[j]))
+                    b.log_probs.append(float(log_probs[j]))
+                    b.rewards.append(0.0)
+                    b.values.append(float(values[j]))
+                    b.masks.append(mask[j])
+                    b.dones.append(False)
+                    b.hand_labels.append(labels[j])
+
+            for j in np.flatnonzero(dones):
+                e = int(g[j])
+                sc = scores[j]
+                avg = float(sc.sum()) / 4.0
+                p0_reward_sum += avg - float(sc[0])
+                p0_raw_sum += float(sc[0])
+                # Only learner seats that actually played this game carry the
+                # terminal reward (same rule as the slot path)
+                for seat in range(4):
+                    if seat_net[e, seat] == 0 and len(buffers[e][seat].rewards) > 0:
+                        buffers[e][seat].rewards[-1] = avg - float(sc[seat])
+                        buffers[e][seat].dones[-1] = True
+                games_done += 1
+                steps_this_game[e] = 0
+                for seat in range(1, 4):
+                    seat_net[e, seat] = (random.choice(active_ids)
+                                         if active_ids and random.random() < 0.5 else 0)
+
+    return games_done, p0_reward_sum, p0_raw_sum
+
+# ---------------------------------------------------------
 # 5. Main Training Loop
 # ---------------------------------------------------------
 def main():
@@ -379,7 +455,26 @@ def main():
         historical_pool.append(m_net)
         print(f"Loaded milestone opponent: {m_file}")
 
-    slots = [EnvSlot(seed=1000 + i) for i in range(num_envs)]
+    use_vec = bool(config.get('vec_env', True))
+    if use_vec:
+        # Stable net registry: index 0 is the learner; pool nets get
+        # append-only indices so mid-game seat assignments survive both the
+        # per-cycle active-subset change and pool trimming.
+        registry = [network] + list(historical_pool)
+        pool_ids = list(range(1, len(registry)))
+        vec = hearts_env.HeartsVecEnv(num_envs, 1000)
+        seat_net = np.zeros((num_envs, 4), dtype=np.int64)
+        steps_this_game = np.zeros(num_envs, dtype=np.int64)
+        vec_buffers = [[RolloutBuffer() for _ in range(4)] for _ in range(num_envs)]
+        init_ids = random.sample(pool_ids, min(active_pool_size, len(pool_ids)))
+        for e in range(num_envs):
+            for seat in range(1, 4):
+                seat_net[e, seat] = (random.choice(init_ids)
+                                     if init_ids and random.random() < 0.5 else 0)
+        print(f"Vectorized rollouts: HeartsVecEnv({num_envs})")
+    else:
+        slots = [EnvSlot(seed=1000 + i) for i in range(num_envs)]
+        print("Slot rollouts (vec_env disabled)")
 
     games_played = 0
     pool_refresh_interval = config.get('pool_refresh_interval', 25000)
@@ -389,14 +484,20 @@ def main():
         while games_played < max_episodes:
             # A small random subset of the pool plays this cycle so per-step
             # inference batches stay large (fewer distinct nets per round)
-            active_pool = random.sample(historical_pool,
-                                        min(active_pool_size, len(historical_pool)))
-            for slot in slots:
-                if slot.nets is None:
-                    assign_seats(slot, network, active_pool)
-
-            done_games, p0_reward_sum, p0_raw_sum = run_cycle(
-                slots, network, active_pool, update_timestep, device)
+            if use_vec:
+                active_ids = random.sample(pool_ids,
+                                           min(active_pool_size, len(pool_ids)))
+                done_games, p0_reward_sum, p0_raw_sum = run_cycle_vec(
+                    vec, registry, active_ids, seat_net, steps_this_game,
+                    vec_buffers, update_timestep, device)
+            else:
+                active_pool = random.sample(historical_pool,
+                                            min(active_pool_size, len(historical_pool)))
+                for slot in slots:
+                    if slot.nets is None:
+                        assign_seats(slot, network, active_pool)
+                done_games, p0_reward_sum, p0_raw_sum = run_cycle(
+                    slots, network, active_pool, update_timestep, device)
 
             in_warmup = games_played < warmup_games
             games_played += done_games
@@ -408,10 +509,16 @@ def main():
             # Merge all seats into one dataset: updating per-seat sequentially
             # runs later seats' ratios against log_probs that are already stale
             merged_buffer = RolloutBuffer()
-            for slot in slots:
-                for i in range(4):
-                    merged_buffer.extend(slot.buffers[i])
-                    slot.buffers[i].clear()
+            if use_vec:
+                for env_bufs in vec_buffers:
+                    for b in env_bufs:
+                        merged_buffer.extend(b)
+                        b.clear()
+            else:
+                for slot in slots:
+                    for i in range(4):
+                        merged_buffer.extend(slot.buffers[i])
+                        slot.buffers[i].clear()
 
             explained_var, belief_bce = ppo_update(network, optimizer, merged_buffer, device,
                                                    gamma=config.get('gamma', 1.0),
@@ -439,8 +546,15 @@ def main():
                 snap = copy.deepcopy(network)
                 snap.eval()
                 historical_pool.append(snap)
+                if use_vec:
+                    registry.append(snap)
+                    pool_ids.append(len(registry) - 1)
                 if len(historical_pool) > 50:
                     historical_pool.pop(0)
+                    if use_vec:
+                        # registry keeps the entry (in-flight games may still
+                        # reference it); it just stops being sampled
+                        pool_ids.pop(0)
                 next_pool_refresh += pool_refresh_interval
 
         print("\nTraining Complete! Saving final model...")
