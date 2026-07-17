@@ -4,13 +4,19 @@ project(HeartsSimulator CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-include(FetchContent)
-FetchContent_Declare(
-  ftxui
-  GIT_REPOSITORY https://github.com/ArthurSonzogni/FTXUI
-  GIT_TAG v5.0.0
-)
-FetchContent_MakeAvailable(ftxui)
+# Cloud generation containers build ONLY SelfPlayGen + SearchEval: no FTXUI
+# game, no pybind module (and none of their toolchain deps).
+option(HEARTS_CLOUD_ONLY "Build only the headless generation/eval targets" OFF)
+
+if(NOT HEARTS_CLOUD_ONLY)
+  include(FetchContent)
+  FetchContent_Declare(
+    ftxui
+    GIT_REPOSITORY https://github.com/ArthurSonzogni/FTXUI
+    GIT_TAG v5.0.0
+  )
+  FetchContent_MakeAvailable(ftxui)
+endif()
 
 # Torch: wired manually instead of find_package(Torch). The CUDA-enabled
 # prebuilt libtorch's TorchConfig.cmake demands a full CUDA Toolkit install at
@@ -39,11 +45,22 @@ if(EXISTS ${TORCH_ROOT}/lib/torch_cuda.lib)
   # directly); anchor one so CUDA registers at runtime. Documented in the
   # PyTorch Windows FAQ.
   target_link_options(torch_manual INTERFACE "/INCLUDE:?warp_size@cuda@at@@YAHXZ")
+elseif(EXISTS ${TORCH_ROOT}/lib/libtorch_cuda.so)
+  # Same dead-strip problem on Linux ld: wrap the CUDA libs in
+  # --no-as-needed so they load (and register CUDA) at runtime even though
+  # we call none of their symbols directly. rpath-link lets ld resolve
+  # libtorch_cuda's own deps (cudart/cublas/cudnn ship in the same lib dir).
+  target_link_libraries(torch_manual INTERFACE
+    "-Wl,--no-as-needed" torch_cuda c10_cuda "-Wl,--as-needed")
+  target_link_options(torch_manual INTERFACE
+    "-Wl,-rpath-link,${TORCH_ROOT}/lib")
 endif()
 
-add_executable(HeartsSimulator main.cpp)
-target_link_libraries(HeartsSimulator PRIVATE ftxui::screen ftxui::dom ftxui::component torch_manual)
-set_property(TARGET HeartsSimulator PROPERTY CXX_STANDARD 17)
+if(NOT HEARTS_CLOUD_ONLY)
+  add_executable(HeartsSimulator main.cpp)
+  target_link_libraries(HeartsSimulator PRIVATE ftxui::screen ftxui::dom ftxui::component torch_manual)
+  set_property(TARGET HeartsSimulator PROPERTY CXX_STANDARD 17)
+endif()
 
 # Decision-time search evaluation harness
 add_executable(SearchEval search_eval.cpp)
@@ -55,9 +72,11 @@ add_executable(SelfPlayGen selfplay_gen.cpp)
 target_link_libraries(SelfPlayGen PRIVATE torch_manual)
 set_property(TARGET SelfPlayGen PROPERTY CXX_STANDARD 17)
 
-# Find Python and Pybind11
-find_package(Python COMPONENTS Interpreter Development REQUIRED)
-find_package(pybind11 CONFIG REQUIRED)
+if(NOT HEARTS_CLOUD_ONLY)
+  # Find Python and Pybind11
+  find_package(Python COMPONENTS Interpreter Development REQUIRED)
+  find_package(pybind11 CONFIG REQUIRED)
 
-# Build the Python module (creates a .pyd on Windows or .so on Linux/Mac)
-pybind11_add_module(hearts_env bindings.cpp)
+  # Build the Python module (creates a .pyd on Windows or .so on Linux/Mac)
+  pybind11_add_module(hearts_env bindings.cpp)
+endif()

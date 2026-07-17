@@ -133,13 +133,22 @@ public:
 
     // Shared-backend constructor: many players (threads) funnel inference
     // through one backend, e.g. a ServedBackend on an InferenceServer.
+    // (Default-Config overloads instead of `Config cfg = Config()` default
+    // arguments: GCC rejects an NSDMI class as a default arg inside the
+    // enclosing class; MSVC accepted it silently.)
     SearchPlayer(std::shared_ptr<InferenceBackend> backend, int model_obs_dim,
-                 Config cfg = Config())
+                 Config cfg)
         : backend_(std::move(backend)), obs_dim_(model_obs_dim), cfg_(cfg), rng_(cfg.seed) {}
 
-    SearchPlayer(torch::jit::script::Module model, int model_obs_dim, Config cfg = Config())
+    SearchPlayer(std::shared_ptr<InferenceBackend> backend, int model_obs_dim)
+        : SearchPlayer(std::move(backend), model_obs_dim, Config()) {}
+
+    SearchPlayer(torch::jit::script::Module model, int model_obs_dim, Config cfg)
         : SearchPlayer(std::make_shared<DirectBackend>(std::move(model), cfg.device, cfg.bf16),
                        model_obs_dim, cfg) {}
+
+    SearchPlayer(torch::jit::script::Module model, int model_obs_dim)
+        : SearchPlayer(std::move(model), model_obs_dim, Config()) {}
 
     int ChooseAction(const HeartsEnv& env) override {
         std::vector<int> legal = LegalVector(env);
