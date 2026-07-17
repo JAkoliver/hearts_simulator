@@ -181,8 +181,12 @@ class V5Block(nn.Module):
         qkv = self.qkv(h).reshape(b, t, 3, self.num_heads, self.head_dim)
         qkv = qkv.permute(2, 0, 3, 1, 4)  # (3, b, heads, t, head_dim)
         q, k, v = qkv[0], qkv[1], qkv[2]
-        att = torch.softmax(q @ k.transpose(-2, -1) / math.sqrt(self.head_dim), dim=-1)
-        y = (att @ v).transpose(1, 2).reshape(b, t, d)
+        # Fused attention kernel: identical math to the explicit
+        # softmax(qk/sqrt(dk))v (default scale IS 1/sqrt(head_dim)), one
+        # kernel instead of ~6, and still a plain traced ATen op (the
+        # nn.TransformerEncoder fast-path problem does not apply).
+        y = F.scaled_dot_product_attention(q, k, v)
+        y = y.transpose(1, 2).reshape(b, t, d)
         x = x + self.attn_out(y)
         h = self.norm2(x)
         return x + self.fc2(F.gelu(self.fc1(h)))

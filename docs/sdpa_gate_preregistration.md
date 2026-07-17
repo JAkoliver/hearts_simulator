@@ -70,3 +70,19 @@ FAIL otherwise.
    c. Check whether disagreeing decisions concentrate in the passing phase
       (pass-search evaluates C(13,3) combos where near-tie flips could bias
       pass selection systematically rather than symmetrically).
+
+## RESULT (appended 2026-07-17 after run 2 completed)
+
+- Run 1 (n=600, seed 20260716): delta mean +0.4700
+- Run 2 (n=3000, seed 555001): delta mean -0.0123
+  (sdpa vs anchor -0.0447, old vs anchor -0.0323)
+- POOLED n=3600: mean +0.0681, SE 0.1326, one-sided 95% UB +0.2862
+- Criterion 1 (mean < +0.20): MET. Criterion 2 (UB < +0.30): MET.
+
+**VERDICT: PASS** — executing the PASS branch. Deviations from plan (full
+detail in docs/gate_result_report.md): run 2's two sides ran sequentially,
+not concurrently (launcher shell bug killed the reference side at start;
+outcomes are seed-deterministic so this is timing-only), and diagnosing that
+failure exposed the SDPA side's marginal mean before the reference side ran
+(no remaining degrees of freedom: criterion was committed and the reference
+data was seed-fixed).
