@@ -176,23 +176,42 @@ private:
         return fut.get();  // rethrows if the forward failed
     }
 
+    // Round row counts up to a small fixed set of bucket sizes. The server
+    // otherwise produces thousands of DISTINCT batch shapes, and every
+    // shape-keyed cache in the stack (JIT plan specialization, CUDA
+    // allocator size classes) grows without bound - measured on the v5
+    // transformer as stepwise VRAM growth to 24 GB and a 2 -> 15 s/deal
+    // decay. Padding rows are zeros; results are sliced back to true rows.
+    static int64_t BucketRows(int64_t n) {
+        int64_t b = 32;
+        while (b < n) b *= 2;
+        return b;
+    }
+
     void RunGroup(std::vector<Request*>& group, bool is_oracle) {
         if (group.empty()) return;
-        torch::Tensor o, a;
-        if (group.size() == 1) {
-            o = group[0]->obs;
-            a = group[0]->aux;
-        } else {
-            std::vector<torch::Tensor> os, as;
-            os.reserve(group.size());
-            as.reserve(group.size());
-            for (const auto* r : group) {
-                os.push_back(r->obs);
-                as.push_back(r->aux);
-            }
-            o = torch::cat(os, 0);
-            a = torch::cat(as, 0);
+        int64_t true_rows = 0;
+        for (const auto* r : group) true_rows += r->obs.size(0);
+        int64_t padded = BucketRows(true_rows);
+
+        std::vector<torch::Tensor> os, as;
+        os.reserve(group.size() + 1);
+        as.reserve(group.size() + 1);
+        for (const auto* r : group) {
+            os.push_back(r->obs);
+            as.push_back(r->aux);
         }
+        if (padded > true_rows) {
+            os.push_back(torch::zeros({padded - true_rows, os[0].size(1)},
+                                      os[0].options()));
+            as.push_back(is_oracle
+                             ? torch::zeros({padded - true_rows, as[0].size(1)},
+                                            as[0].options())
+                             : torch::ones({padded - true_rows, as[0].size(1)},
+                                           as[0].options()));  // masks: all-legal dummies
+        }
+        torch::Tensor o = torch::cat(os, 0);
+        torch::Tensor a = torch::cat(as, 0);
         try {
             InferOutputs all;
             AutocastGuard ac(bf16_);

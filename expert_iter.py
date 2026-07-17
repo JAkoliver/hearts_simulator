@@ -52,24 +52,45 @@ def generate(iter_dir, deals, workers, k, pass_k, seed0, cuda, rollout_tricks=-1
 
     if cuda:
         # One process, N deal-playing threads, one coalescing inference server
-        # on the GPU. Separate processes would serialize their small kernel
-        # launches at the GPU and cap aggregate throughput.
-        cmd = [GEN_EXE, '--model', SEARCH_TRACE, '--deals', str(deals),
-               '--k', str(k), '--pass-k', str(pass_k),
-               '--rollout-tricks', str(rollout_tricks),
-               '--threads', str(workers), '--cuda', '--bf16',
-               '--seed', str(seed0),
-               '--out', os.path.join(iter_dir, 'selfplay.bin')]
-        res = subprocess.run(cmd, stdout=subprocess.DEVNULL)
-        if res.returncode != 0:
-            print(f"  SelfPlayGen exited with code {res.returncode}; "
-                  f"retrying once with a fresh seed")
-            for f in glob.glob(os.path.join(iter_dir, '*.bin')):
-                os.remove(f)  # partial shards from the failed run
-            cmd[cmd.index('--seed') + 1] = str(seed0 + 500000)
+        # on the GPU - but run in CHUNKS of fresh processes: (a) a long v5
+        # generation was measured leaking GPU memory until it thrashed
+        # (2 -> 15 s/deal over 9h), and a process boundary hard-resets any
+        # leak; (b) a chunk failure retries ONLY that chunk instead of
+        # deleting the whole iteration's data (which a whole-run retry once
+        # did, destroying 9 hours of deals).
+        # 250: throughput decays with process age even with memory contained
+        # (bucketed batches hold VRAM flat, but v5 rates decay ~2 -> 9 s/deal
+        # by deal 260; cause unidentified, resets with a fresh process).
+        # Chunked restarts hold the average near ~3.5 s/deal; model-load
+        # overhead per chunk is ~10s - negligible.
+        chunk = 250
+        done = 0
+        c = 0
+        while done < deals:
+            n = min(chunk, deals - done)
+            out = os.path.join(iter_dir, f'selfplay_c{c}.bin')
+            cmd = [GEN_EXE, '--model', SEARCH_TRACE, '--deals', str(n),
+                   '--k', str(k), '--pass-k', str(pass_k),
+                   '--rollout-tricks', str(rollout_tricks),
+                   '--threads', str(workers), '--cuda', '--bf16',
+                   '--seed', str(seed0 + c * 1000),
+                   '--out', out]
             res = subprocess.run(cmd, stdout=subprocess.DEVNULL)
             if res.returncode != 0:
-                raise SystemExit(f"SelfPlayGen failed twice (exit {res.returncode}); aborting")
+                print(f"  chunk {c} exited with code {res.returncode}; "
+                      f"retrying this chunk with a fresh seed")
+                stale = glob.glob(os.path.join(iter_dir, f'selfplay_c{c}_*.bin'))
+                if os.path.exists(out):
+                    stale.append(out)
+                for f in stale:
+                    os.remove(f)
+                cmd[cmd.index('--seed') + 1] = str(seed0 + c * 1000 + 500000)
+                res = subprocess.run(cmd, stdout=subprocess.DEVNULL)
+                if res.returncode != 0:
+                    raise SystemExit(f"chunk {c} failed twice (exit {res.returncode}); aborting")
+            done += n
+            c += 1
+            print(f"  chunk {c} done: {done}/{deals} deals, {time.time() - t0:.0f}s elapsed")
         print(f"  generated {deals} deals in {time.time() - t0:.0f}s")
         return
 

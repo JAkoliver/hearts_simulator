@@ -270,6 +270,7 @@ int main(int argc, char** argv) {
     // must not fan out on top of them.
     torch::set_num_threads(1);
 
+
     torch::jit::script::Module model;
     try {
         model = torch::jit::load(model_path);
