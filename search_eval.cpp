@@ -225,6 +225,12 @@ static bool TestBatchEquivalence(torch::jit::script::Module& model, int obs_dim,
 // ---------------------------------------------------------------------------
 
 int main(int argc, char** argv) {
+    // Engine work is plain C++ on this thread; without this, libtorch's
+    // intra-op pool fans tiny CPU ops across every core - harmless on a
+    // 16-thread desktop, but on a 224-thread cloud box the spin-wait
+    // coordination cost STALLED the process entirely (measured 2026-07-17:
+    // 0 deals in 25 min vs 0.95 s/deal with the pool pinned).
+    torch::set_num_threads(1);
     std::string search_path, opp_path, belief_path, out_path = "search_eval_results.csv";
     int deals = 300, k = 32, rollout_tricks = -1;
     int tree_iterations = 400;
