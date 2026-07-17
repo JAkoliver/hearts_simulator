@@ -56,3 +56,6 @@ selfplay_data/
 hearts_model_candidate.pth
 train_last_run.log
 hearts_match_log.csv
+
+# MCP config carries the RunPod API key - never commit
+.mcp.json
