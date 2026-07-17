@@ -1,5 +1,5 @@
 {
-    "baseline_score": 5.275,
+    "baseline_score": 6.4476,
     "failed_experiments": [
         {
             "config": {
@@ -998,6 +998,102 @@
                 "search_gate_deals": 800,
                 "search_gate_alpha": 0.02,
                 "search_gate_k": 64,
+                "raw_guard_threshold": 0.3,
+                "critic_warmup_games": 20000
+            },
+            "reason": "search_gate_failed"
+        },
+        {
+            "config": {
+                "learning_rate": 1e-05,
+                "update_timestep": 271,
+                "games_per_worker": 26,
+                "max_workers": 14,
+                "gamma": 1.0,
+                "eps_clip": 0.19927,
+                "k_epochs": 4,
+                "max_episodes": 250000,
+                "gae_lambda": 0.898754,
+                "entropy_coef": 0.002,
+                "minibatch_size": 2048,
+                "aux_coef": 0.759466,
+                "num_envs": 128,
+                "active_pool_size": 4,
+                "search_gate_deals": 600,
+                "search_gate_alpha": 0.05,
+                "search_gate_k": 32,
+                "raw_guard_threshold": 0.3,
+                "critic_warmup_games": 20000
+            },
+            "reason": "search_gate_failed"
+        },
+        {
+            "config": {
+                "learning_rate": 7e-06,
+                "update_timestep": 271,
+                "games_per_worker": 26,
+                "max_workers": 14,
+                "gamma": 1.0,
+                "eps_clip": 0.176076,
+                "k_epochs": 4,
+                "max_episodes": 250000,
+                "gae_lambda": 0.880364,
+                "entropy_coef": 0.002479,
+                "minibatch_size": 2048,
+                "aux_coef": 0.765244,
+                "num_envs": 128,
+                "active_pool_size": 4,
+                "search_gate_deals": 600,
+                "search_gate_alpha": 0.05,
+                "search_gate_k": 32,
+                "raw_guard_threshold": 0.3,
+                "critic_warmup_games": 20000
+            },
+            "reason": "search_gate_failed"
+        },
+        {
+            "config": {
+                "learning_rate": 1e-05,
+                "update_timestep": 271,
+                "games_per_worker": 26,
+                "max_workers": 14,
+                "gamma": 1.0,
+                "eps_clip": 0.19927,
+                "k_epochs": 4,
+                "max_episodes": 250000,
+                "gae_lambda": 0.926553,
+                "entropy_coef": 0.001734,
+                "minibatch_size": 2048,
+                "aux_coef": 0.765244,
+                "num_envs": 128,
+                "active_pool_size": 4,
+                "search_gate_deals": 600,
+                "search_gate_alpha": 0.05,
+                "search_gate_k": 32,
+                "raw_guard_threshold": 0.3,
+                "critic_warmup_games": 20000
+            },
+            "reason": "search_gate_failed"
+        },
+        {
+            "config": {
+                "learning_rate": 8e-06,
+                "update_timestep": 327,
+                "games_per_worker": 26,
+                "max_workers": 14,
+                "gamma": 1.0,
+                "eps_clip": 0.191291,
+                "k_epochs": 4,
+                "max_episodes": 250000,
+                "gae_lambda": 0.898754,
+                "entropy_coef": 0.002037,
+                "minibatch_size": 2048,
+                "aux_coef": 0.765244,
+                "num_envs": 128,
+                "active_pool_size": 4,
+                "search_gate_deals": 600,
+                "search_gate_alpha": 0.05,
+                "search_gate_k": 32,
                 "raw_guard_threshold": 0.3,
                 "critic_warmup_games": 20000
             },

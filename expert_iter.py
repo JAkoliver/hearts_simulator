@@ -52,17 +52,19 @@ def generate(iter_dir, deals, workers, k, pass_k, seed0, cuda, rollout_tricks=-1
 
     if cuda:
         # One process, N deal-playing threads, one coalescing inference server
-        # on the GPU - but run in CHUNKS of fresh processes: (a) a long v5
-        # generation was measured leaking GPU memory until it thrashed
-        # (2 -> 15 s/deal over 9h), and a process boundary hard-resets any
-        # leak; (b) a chunk failure retries ONLY that chunk instead of
-        # deleting the whole iteration's data (which a whole-run retry once
-        # did, destroying 9 hours of deals).
-        # 250: throughput decays with process age even with memory contained
-        # (bucketed batches hold VRAM flat, but v5 rates decay ~2 -> 9 s/deal
-        # by deal 260; cause unidentified, resets with a fresh process).
-        # Chunked restarts hold the average near ~3.5 s/deal; model-load
-        # overhead per chunk is ~10s - negligible.
+        # on the GPU - run in CHUNKS of fresh processes purely for RETRY
+        # GRANULARITY: a chunk failure redoes only that chunk instead of
+        # deleting the whole iteration's data (a whole-run retry once
+        # destroyed 9 hours of deals). Model-load overhead is ~10s/chunk.
+        #
+        # There is NO process-age decay (July 16 instrumented runs: per-launch
+        # forward time at fixed batch shapes flat over 70k+ launches / 400
+        # deals). The historical "2 -> 15 s/deal decay" was the unbucketed
+        # server's shape-cache/VRAM leak (fixed by BucketRows), and the
+        # residual "decay despite bucketing" was a measurement artifact:
+        # short byte-rate windows read synchronized early-deal completions as
+        # ~3 s/deal, then desynced steady state as ~9. True steady rate with
+        # the v5 teacher at K=64 / 14 threads: ~9.5-10 s/deal.
         chunk = 250
         done = 0
         c = 0

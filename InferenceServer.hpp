@@ -15,8 +15,12 @@
 // ServedBackend     - client handle submitting to an InferenceServer
 
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
+#include <cstdio>
+#include <cstdlib>
 #include <future>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <thread>
@@ -126,6 +130,22 @@ public:
         module_.to(device_);
         module_.eval();
         has_oracle_ = module_.find_method("oracle").has_value();
+        if (std::getenv("HEARTS_SRV_OFI") != nullptr) {
+            // Measured on the v5 transformer (July 2026): ~17% SLOWER per
+            // launch under bf16 autocast (freezing weights to constants
+            // defeats the autocast cast cache). Kept env-gated for future
+            // re-measurement on other models; do not enable by default.
+            try {
+                std::vector<std::string> keep;
+                if (has_oracle_) keep.push_back("oracle");
+                auto frozen = torch::jit::freeze(module_, keep);
+                module_ = torch::jit::optimize_for_inference(frozen, keep);
+                std::fprintf(stderr, "[srv] optimize_for_inference applied\n");
+            } catch (const std::exception& e) {
+                std::fprintf(stderr, "[srv] optimize_for_inference failed (%s); "
+                                     "using the plain module\n", e.what());
+            }
+        }
         worker_ = std::thread([this] { Loop(); });
     }
 
@@ -159,7 +179,46 @@ private:
     struct Request {
         torch::Tensor obs, aux;  // aux = mask (normal) or hands (oracle)
         bool is_oracle = false;
+        std::chrono::steady_clock::time_point t_enq;
         std::promise<InferOutputs> promise;
+    };
+
+    // HEARTS_SRV_PERF=1: windowed per-bucket forward timings to stderr.
+    // Diagnostic for the process-age throughput decay - if ms/launch at a
+    // FIXED bucket size grows over the run, the degradation is inside the
+    // forward (JIT executor / allocator), not in the callers.
+    struct PerfWindow {
+        // bucket rows -> (launches, total forward ms); touched only by the
+        // server thread, no locking needed
+        std::map<int64_t, std::pair<long, double>> fwd;
+        double wait_ms = 0.0;
+        long n = 0;
+        long long true_rows = 0, pad_rows = 0;
+        std::chrono::steady_clock::time_point window_t0 =
+            std::chrono::steady_clock::now();
+
+        void Report(long long total_launches) {
+            auto now = std::chrono::steady_clock::now();
+            double win_s = std::chrono::duration<double>(now - window_t0).count();
+            std::fprintf(stderr,
+                         "[srv] launch %lld  window %.0fs  wait %.2fms  pad %.1f%% |",
+                         total_launches, win_s, n ? wait_ms / n : 0.0,
+                         pad_rows ? 100.0 * (pad_rows - true_rows) / pad_rows : 0.0);
+            for (const auto& kv : fwd) {
+                std::fprintf(stderr, "  %lld: %.2fms x%ld",
+                             static_cast<long long>(kv.first),
+                             kv.second.first ? kv.second.second / kv.second.first : 0.0,
+                             kv.second.first);
+            }
+            std::fprintf(stderr, "\n");
+            std::fflush(stderr);
+            fwd.clear();
+            wait_ms = 0.0;
+            n = 0;
+            true_rows = 0;
+            pad_rows = 0;
+            window_t0 = now;
+        }
     };
 
     InferOutputs Enqueue(const torch::Tensor& obs, const torch::Tensor& aux, bool is_oracle) {
@@ -167,6 +226,7 @@ private:
         r.obs = obs;
         r.aux = aux;
         r.is_oracle = is_oracle;
+        r.t_enq = std::chrono::steady_clock::now();
         std::future<InferOutputs> fut = r.promise.get_future();
         {
             std::lock_guard<std::mutex> g(mu_);
@@ -184,8 +244,12 @@ private:
     // decay. Padding rows are zeros; results are sliced back to true rows.
     static int64_t BucketRows(int64_t n) {
         int64_t b = 32;
-        while (b < n) b *= 2;
-        return b;
+        while (b < n && b < 512) b *= 2;
+        if (n <= b) return b;
+        // Multiples of 512 above 512: mean padding waste ~5% instead of the
+        // ~33% of pure powers of 2, while the shape set stays small enough
+        // (~20 sizes) that shape-keyed caches remain bounded.
+        return (n + 511) / 512 * 512;
     }
 
     void RunGroup(std::vector<Request*>& group, bool is_oracle) {
@@ -213,8 +277,8 @@ private:
         torch::Tensor o = torch::cat(os, 0);
         torch::Tensor a = torch::cat(as, 0);
         try {
+            auto t0 = std::chrono::steady_clock::now();
             InferOutputs all;
-            AutocastGuard ac(bf16_);
             if (is_oracle) {
                 auto method = module_.find_method("oracle");
                 all.value = infer_detail::ToHost(
@@ -225,6 +289,22 @@ private:
             }
             launches_.fetch_add(1);
             rows_.fetch_add(o.size(0));
+            if (perf_on_) {
+                // ToHost's .to(kCPU) synchronizes, so t1 - t0 is the true
+                // wall cost of this launch (H2D + forward + D2H)
+                auto t1 = std::chrono::steady_clock::now();
+                auto& slot = perf_.fwd[padded];
+                slot.first += 1;
+                slot.second += std::chrono::duration<double, std::milli>(t1 - t0).count();
+                perf_.true_rows += true_rows;
+                perf_.pad_rows += padded;
+                for (const auto* r : group) {
+                    perf_.wait_ms +=
+                        std::chrono::duration<double, std::milli>(t0 - r->t_enq).count();
+                    perf_.n += 1;
+                }
+                if (launches_.load() % 500 == 0) perf_.Report(launches_.load());
+            }
             int64_t row = 0;
             for (auto* r : group) {
                 int64_t n = r->obs.size(0);
@@ -250,6 +330,12 @@ private:
 
     void Loop() {
         torch::NoGradGuard g;
+        // Autocast held for the server thread's whole life (all forwards run
+        // here): the bf16 weight-cast cache then persists across launches
+        // instead of re-casting every parameter on every batch, which a
+        // per-launch guard forced via clear_cache(). Cache footprint is one
+        // bf16 copy of the weights (~15 MB) - bounded.
+        AutocastGuard ac(bf16_);
         std::vector<Request> batch;
         while (true) {
             {
@@ -272,6 +358,8 @@ private:
     torch::Device device_;
     bool bf16_ = false;
     bool has_oracle_ = false;
+    bool perf_on_ = std::getenv("HEARTS_SRV_PERF") != nullptr;
+    PerfWindow perf_;
     std::vector<Request> queue_;
     std::mutex mu_;
     std::condition_variable cv_;
