@@ -39,3 +39,25 @@ figures are quoted.
 
 This ledger is the local baseline for all H100 cost/speed comparisons
 (cloud/REQUIREMENTS.md R5).
+
+## H100 validation session (2026-07-17, RunPod Secure, H100 SXM $2.99/hr)
+
+| Metric | Measured |
+|---|---|
+| Steady generation (300-deal, seed 777, threads 52) | **3.24 s/deal** = 1.95× local 6.32 |
+| 50-deal A/B seed 4242 (threads 14/26/52/96) | 184/174/169/170 s — GPU-bound, threads ~flat |
+| $ per 1,000 deals (on-demand) | **$2.69** |
+| 3,500-deal generation | ~3.15 h ≈ $9.42 (vs ~6.1 h local, $0 cloud) |
+| Queue-over-tunnel chunk (250 deals, sha-verified model) | PASS, 3.23 s/deal, validated both sides |
+| GPU util (trace, 5 s samples) | generation 85% mean / 525 W; gate workload 52% / 263 W |
+| Session actual spend | 2.50 h × $2.99 = **$7.48** |
+
+**R1 cross-hardware gate: FAIL (on power, not effect).** n=3,000 paired
+deals seed 20260718: mean **−0.010** (dead parity, H100 nominally better),
+SE 0.2072, one-sided 95% UB +0.331 vs +0.30. Cross-hardware bf16 flips
+decorrelate the pairing (per-deal delta std 11.35 vs the ~7.6 the criterion
+assumed), so n=3,000 cannot certify the +0.30 margin. Per R1: cloud data
+feeds no real iteration yet. Proposed fresh re-attempt (needs approval):
+n=8,000, new seed, ~2.2 h ≈ $6.50 → SE ≈ 0.127, passes if true parity holds.
+Session learnings committed: SearchEval thread-pool pin (e973243) - the
+default libtorch pool stalls entirely on a 224-core box.
