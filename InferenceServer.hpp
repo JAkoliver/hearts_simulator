@@ -28,6 +28,8 @@
 #include <vector>
 
 #include <ATen/autocast_mode.h>
+#include <ATen/cuda/CUDAGraph.h>
+#include <c10/cuda/CUDAStream.h>
 #include <torch/script.h>
 
 // RAII guard: bf16 autocast for CUDA inference. The module stays fp32 (a
@@ -242,14 +244,112 @@ private:
     // allocator size classes) grows without bound - measured on the v5
     // transformer as stepwise VRAM growth to 24 GB and a 2 -> 15 s/deal
     // decay. Padding rows are zeros; results are sliced back to true rows.
-    static int64_t BucketRows(int64_t n) {
+    int64_t BucketRows(int64_t n) const {
+        if (graphs_on_) {
+            // Graph path: fewest possible shapes - every captured graph owns
+            // a PRIVATE memory pool (shared pools require replaying in
+            // capture order, which the server can't guarantee), and padding
+            // compute is nearly free once the launches are fused.
+            int64_t b = 256;
+            while (b < n) b *= 2;
+            return b;
+        }
         int64_t b = 32;
         while (b < n && b < 512) b *= 2;
         if (n <= b) return b;
-        // Multiples of 512 above 512: mean padding waste ~5% instead of the
+        // Multiples of 512 above 512: mean padding waste ~10% instead of the
         // ~33% of pure powers of 2, while the shape set stays small enough
         // (~20 sizes) that shape-keyed caches remain bounded.
         return (n + 511) / 512 * 512;
+    }
+
+    // ---- CUDA Graph replay (HEARTS_SRV_GRAPH=1) ----
+    // The v5 forward is launch-overhead-bound: hundreds of tiny JIT-
+    // dispatched kernels put the 4090 at ~1% of its bf16 peak (22 us/row).
+    // With batch shapes drawn from a small fixed set, each (rows, method)
+    // pair is captured once and replayed thereafter, skipping all per-op
+    // CPU dispatch and per-kernel launch latency.
+    struct GraphEntry {
+        at::cuda::CUDAGraph graph;
+        torch::Tensor obs, aux;           // static device-side inputs
+        std::vector<torch::Tensor> outs;  // static outputs (graph pool)
+        bool ok = false;
+    };
+
+    std::unique_ptr<GraphEntry> CaptureGraph(bool is_oracle,
+                                             const torch::Tensor& o,
+                                             const torch::Tensor& a) {
+        auto e = std::make_unique<GraphEntry>();
+        // Bake the fp32->bf16 weight casts INTO the graph: with the autocast
+        // cast cache enabled, the captured graph would hold pointers into a
+        // cache that any outside clear_cache() could free (use-after-free on
+        // replay). Self-contained costs well under a millisecond per replay.
+        at::autocast::set_autocast_cache_enabled(false);
+        at::autocast::clear_cache();
+        try {
+            e->obs = o.to(device_);
+            e->aux = a.to(device_);
+            auto run = [&]() {
+                std::vector<torch::Tensor> outs;
+                if (is_oracle) {
+                    auto method = module_.find_method("oracle");
+                    outs.push_back((*method)({e->obs, e->aux}).toTensor());
+                } else {
+                    auto out = module_.forward({e->obs, e->aux}).toTuple();
+                    for (const auto& v : out->elements()) {
+                        outs.push_back(v.toTensor());
+                    }
+                }
+                return outs;
+            };
+            // Settle JIT plan specialization and kernel autotuning for this
+            // shape before recording
+            for (int i = 0; i < 3; ++i) run();
+            c10::cuda::getCurrentCUDAStream().synchronize();
+            e->graph.capture_begin();
+            e->outs = run();
+            e->graph.capture_end();
+            e->graph.replay();  // validate before declaring the graph usable
+            c10::cuda::getCurrentCUDAStream().synchronize();
+            e->ok = true;
+        } catch (const std::exception& ex) {
+            std::fprintf(stderr, "[srv] cuda graph capture failed (rows %lld%s): %s\n",
+                         static_cast<long long>(o.size(0)),
+                         is_oracle ? ", oracle" : "", ex.what());
+            e->ok = false;
+        }
+        at::autocast::set_autocast_cache_enabled(true);
+        return e;
+    }
+
+    // Returns false if this shape must run eagerly (capture failed / too big)
+    bool ForwardGraph(int64_t padded, bool is_oracle, const torch::Tensor& o,
+                      const torch::Tensor& a, InferOutputs& all) {
+        auto key = std::make_pair(padded, is_oracle);
+        auto it = graphs_.find(key);
+        if (it == graphs_.end()) {
+            it = graphs_.emplace(key, CaptureGraph(is_oracle, o, a)).first;
+            if (it->second->ok) {
+                std::fprintf(stderr, "[srv] cuda graph ready: %lld rows%s\n",
+                             static_cast<long long>(padded),
+                             is_oracle ? " (oracle)" : "");
+            }
+        }
+        GraphEntry& g = *it->second;
+        if (!g.ok) return false;
+        g.obs.copy_(o);
+        g.aux.copy_(a);
+        g.graph.replay();
+        if (is_oracle) {
+            all.value = infer_detail::ToHost(g.outs[0]);
+        } else {
+            all.logits = infer_detail::ToHost(g.outs[0]);
+            all.value = infer_detail::ToHost(g.outs[1]);
+            if (g.outs.size() >= 3) {
+                all.belief = infer_detail::ToHost(g.outs[2]);
+            }
+        }
+        return true;
     }
 
     void RunGroup(std::vector<Request*>& group, bool is_oracle) {
@@ -279,13 +379,19 @@ private:
         try {
             auto t0 = std::chrono::steady_clock::now();
             InferOutputs all;
-            if (is_oracle) {
-                auto method = module_.find_method("oracle");
-                all.value = infer_detail::ToHost(
-                    (*method)({o.to(device_), a.to(device_)}).toTensor());
-            } else {
-                auto out = module_.forward({o.to(device_), a.to(device_)}).toTuple();
-                all = infer_detail::Unpack(out);
+            bool ran = false;
+            if (graphs_on_ && device_.is_cuda() && padded <= 8192) {
+                ran = ForwardGraph(padded, is_oracle, o, a, all);
+            }
+            if (!ran) {
+                if (is_oracle) {
+                    auto method = module_.find_method("oracle");
+                    all.value = infer_detail::ToHost(
+                        (*method)({o.to(device_), a.to(device_)}).toTensor());
+                } else {
+                    auto out = module_.forward({o.to(device_), a.to(device_)}).toTuple();
+                    all = infer_detail::Unpack(out);
+                }
             }
             launches_.fetch_add(1);
             rows_.fetch_add(o.size(0));
@@ -336,6 +442,13 @@ private:
         // per-launch guard forced via clear_cache(). Cache footprint is one
         // bf16 copy of the weights (~15 MB) - bounded.
         AutocastGuard ac(bf16_);
+        // Graph capture is illegal on the default stream; give the server
+        // thread its own stream for everything (warmup, capture, replay,
+        // eager fallback) so all work stays consistently ordered.
+        if (graphs_on_ && device_.is_cuda()) {
+            c10::cuda::setCurrentCUDAStream(
+                c10::cuda::getStreamFromPool(false, device_.index()));
+        }
         std::vector<Request> batch;
         while (true) {
             {
@@ -359,7 +472,9 @@ private:
     bool bf16_ = false;
     bool has_oracle_ = false;
     bool perf_on_ = std::getenv("HEARTS_SRV_PERF") != nullptr;
+    bool graphs_on_ = std::getenv("HEARTS_SRV_GRAPH") != nullptr;
     PerfWindow perf_;
+    std::map<std::pair<int64_t, bool>, std::unique_ptr<GraphEntry>> graphs_;
     std::vector<Request> queue_;
     std::mutex mu_;
     std::condition_variable cv_;

@@ -21,7 +21,11 @@ set(TORCH_ROOT ${CMAKE_SOURCE_DIR}/libtorch)
 add_library(torch_manual INTERFACE)
 target_include_directories(torch_manual INTERFACE
   ${TORCH_ROOT}/include
-  ${TORCH_ROOT}/include/torch/csrc/api/include)
+  ${TORCH_ROOT}/include/torch/csrc/api/include
+  # CUDA runtime HEADERS only (vendored from pip nvidia-cuda-runtime-cu12
+  # 12.6.77; no toolkit install needed) - required by ATen/cuda/CUDAGraph.h.
+  # All CUDA symbols still come from libtorch's own DLLs.
+  ${CMAKE_SOURCE_DIR}/third_party/cuda_include)
 target_link_directories(torch_manual INTERFACE ${TORCH_ROOT}/lib)
 target_link_libraries(torch_manual INTERFACE torch torch_cpu c10)
 if(MSVC)
