@@ -63,8 +63,9 @@ def generate(iter_dir, deals, workers, k, pass_k, seed0, cuda, rollout_tricks=-1
         # server's shape-cache/VRAM leak (fixed by BucketRows), and the
         # residual "decay despite bucketing" was a measurement artifact:
         # short byte-rate windows read synchronized early-deal completions as
-        # ~3 s/deal, then desynced steady state as ~9. True steady rate with
-        # the v5 teacher at K=64 / 14 threads: ~9.5-10 s/deal.
+        # ~3 s/deal, then desynced steady state as ~9. Measured steady rate
+        # with the v5 teacher at K=64 / 14 threads: 6.32 s/deal (400-deal
+        # run, 2026-07-17, SDPA traces; see docs/speed_ledger.md).
         chunk = 250
         done = 0
         c = 0
