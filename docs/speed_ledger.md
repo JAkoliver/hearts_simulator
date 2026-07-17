@@ -8,7 +8,7 @@ CUDA bf16, single process. Two measurement conventions, never mixed:
 
 | Config (chronological) | A/B 50-deal | Steady (long-run avg) |
 |---|---|---|
-| Power-of-2 buckets, per-launch autocast (commit 3422383) | 693 s = 13.86 s/deal | 12.20 s/deal (200-deal, seed 4242) |
+| Power-of-2 buckets, per-launch autocast (commit 3422383) | 693 s = 13.86 s/deal | 12.20 s/deal (200-deal, seed 4242)* |
 | + finer buckets + persistent autocast (d790ef8) | 489 s = 9.78 s/deal | 9.56 s/deal (400-deal, seed 777) |
 | **+ SDPA fused attention (24bb45d) — current production** | **328 s = 6.56 s/deal** | **6.32 s/deal (400-deal, seed 777, 2026-07-17)** |
 
@@ -17,9 +17,14 @@ Current-production steady detail: 2527 s / 400 deals; per-100-deal bins
 record count 24,424 — identical to the pre-SDPA seed-777 run, i.e. the
 teacher's play is unchanged at this seed.
 
+*Directly measured (2440 s / 200 deals, the pre-change characterization
+run), but 200 deals at seed 4242 rather than 400 at seed 777 like the other
+two steady entries - the original config was superseded before a
+same-length/same-seed run existed. Treat ratios against it as ~±5% soft.
+
 **Measured steady speedups (same-convention ratios):**
-- vs previous steady 9.56: **1.51×**
-- vs original-config steady 12.20: **1.93×**
+- vs previous steady 9.56: **1.51×** (clean: same seed, length, method)
+- vs original-config steady 12.20: **1.93×** (soft: see * above)
 - The often-quoted 2.11× (693→328 s) is the A/B convention vs the 13.86
   s/deal mark; dividing steady 6.32 into A/B 13.86 would mix conventions
   and overstate the gain — do not do it.
