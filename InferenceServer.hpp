@@ -19,6 +19,7 @@
 #include <condition_variable>
 #include <cstdio>
 #include <cstdlib>
+#include <deque>
 #include <future>
 #include <map>
 #include <memory>
@@ -402,8 +403,314 @@ private:
         return true;
     }
 
+    // ---- P1 pinned staging (default on CUDA; HEARTS_SRV_NOSTAGE=1 reverts) ----
+    // Replaces the per-batch torch::cat + pageable-memory transfers with
+    // reusable pinned host buffers per (bucket, method): requests memcpy
+    // straight into the staging rows, H2D/D2H run async on the stream, and
+    // one event sync replaces the blocking .to(kCPU). Kills the per-batch
+    // allocation churn that inflated queue waits (measured 19-35 ms mean
+    // wait on H100 vs 11-45 ms forwards).
+    struct Staging {
+        torch::Tensor h_obs, h_aux;        // pinned host inputs
+        torch::Tensor d_obs, d_aux;        // persistent device inputs
+        std::vector<torch::Tensor> h_out;  // pinned host outputs (lazy, f32)
+    };
+
+    Staging& GetStaging(int slot, int64_t bucket, bool is_oracle, int64_t obs_dim,
+                        int64_t aux_dim, c10::ScalarType aux_type) {
+        auto key = std::make_pair(bucket, is_oracle);
+        auto& map = staging_[slot];
+        auto it = map.find(key);
+        if (it == map.end()) {
+            Staging s;
+            s.h_obs = torch::empty({bucket, obs_dim},
+                torch::TensorOptions().dtype(torch::kFloat32).pinned_memory(true));
+            s.h_aux = torch::empty({bucket, aux_dim},
+                torch::TensorOptions().dtype(aux_type).pinned_memory(true));
+            s.d_obs = torch::empty({bucket, obs_dim},
+                torch::TensorOptions().dtype(torch::kFloat32).device(device_));
+            s.d_aux = torch::empty({bucket, aux_dim},
+                torch::TensorOptions().dtype(aux_type).device(device_));
+            it = map.emplace(key, std::move(s)).first;
+        }
+        return it->second;
+    }
+
+    void RunGroupStaged(std::vector<Request*>& group, bool is_oracle) {
+        int64_t true_rows = 0;
+        for (const auto* r : group) true_rows += r->obs.size(0);
+        int64_t padded = BucketRows(true_rows);
+        Staging& st = GetStaging(0, padded, is_oracle, group[0]->obs.size(1),
+                                 group[0]->aux.size(1),
+                                 group[0]->aux.scalar_type());
+        int64_t row = 0;
+        for (const auto* r : group) {
+            int64_t n = r->obs.size(0);
+            st.h_obs.slice(0, row, row + n).copy_(r->obs);
+            st.h_aux.slice(0, row, row + n).copy_(r->aux);
+            row += n;
+        }
+        if (padded > true_rows) {
+            st.h_obs.slice(0, true_rows, padded).zero_();
+            if (is_oracle) {
+                st.h_aux.slice(0, true_rows, padded).zero_();
+            } else {
+                st.h_aux.slice(0, true_rows, padded).fill_(1);  // all-legal dummies
+            }
+        }
+        try {
+            auto t0 = std::chrono::steady_clock::now();
+            st.d_obs.copy_(st.h_obs, /*non_blocking=*/true);
+            st.d_aux.copy_(st.h_aux, /*non_blocking=*/true);
+            std::vector<torch::Tensor> outs;
+#ifdef __linux__
+            if (aoti_ && !is_oracle) {
+                outs = aoti_->run({st.d_obs, st.d_aux});
+            } else
+#endif
+            if (is_oracle) {
+                auto method = module_.find_method("oracle");
+                outs.push_back((*method)({st.d_obs, st.d_aux}).toTensor());
+            } else {
+                auto out = module_.forward({st.d_obs, st.d_aux}).toTuple();
+                for (const auto& v : out->elements()) outs.push_back(v.toTensor());
+            }
+            if (st.h_out.size() != outs.size()) {
+                st.h_out.clear();
+                for (const auto& o : outs) {
+                    st.h_out.push_back(torch::empty(o.sizes(),
+                        torch::TensorOptions().dtype(torch::kFloat32).pinned_memory(true)));
+                }
+            }
+            // D2H (with bf16->f32 conversion) into pinned buffers; one event
+            // sync instead of a blocking .to(kCPU) per output
+            for (size_t i = 0; i < outs.size(); ++i) {
+                st.h_out[i].copy_(outs[i], /*non_blocking=*/true);
+            }
+            // One stream sync covers H2D + forward + all D2H copies (all on
+            // this thread's stream) - replaces a blocking .to(kCPU) per output
+            c10::cuda::getCurrentCUDAStream().synchronize();
+            launches_.fetch_add(1);
+            rows_.fetch_add(padded);
+            if (perf_on_) {
+                auto t1 = std::chrono::steady_clock::now();
+                auto& slot = perf_.fwd[padded];
+                slot.first += 1;
+                slot.second += std::chrono::duration<double, std::milli>(t1 - t0).count();
+                perf_.true_rows += true_rows;
+                perf_.pad_rows += padded;
+                for (const auto* r : group) {
+                    perf_.wait_ms +=
+                        std::chrono::duration<double, std::milli>(t0 - r->t_enq).count();
+                    perf_.n += 1;
+                }
+                if (launches_.load() % 500 == 0) perf_.Report(launches_.load());
+            }
+            row = 0;
+            for (auto* r : group) {
+                int64_t n = r->obs.size(0);
+                InferOutputs res;
+                // clone: the pinned buffers are reused by the next batch
+                if (is_oracle) {
+                    res.value = st.h_out[0].slice(0, row, row + n).clone();
+                } else {
+                    res.logits = st.h_out[0].slice(0, row, row + n).clone();
+                    res.value = st.h_out[1].slice(0, row, row + n).clone();
+                    if (st.h_out.size() >= 3) {
+                        res.belief = st.h_out[2].slice(0, row, row + n).clone();
+                    }
+                }
+                r->promise.set_value(std::move(res));
+                row += n;
+            }
+        } catch (...) {
+            for (auto* r : group) {
+                r->promise.set_exception(std::current_exception());
+            }
+        }
+    }
+
+    // ---- P2 two-slot pipeline (HEARTS_SRV_PIPE=1) ----
+    // While slot A's kernels run, slot B's batch is assembled on the CPU and
+    // its async chain launched on a second stream; retirement (sync +
+    // fulfill) of A then usually finds the GPU already done. Recovers the
+    // CPU gaps BETWEEN forwards; the in-forward queueing wait is intrinsic
+    // to a saturated GPU and stays.
+    struct Pipe {
+        std::vector<Request> owned;
+        std::vector<Request*> group;
+        bool is_oracle = false;
+        int64_t true_rows = 0, padded = 0;
+        Staging* st = nullptr;
+        std::chrono::steady_clock::time_point t0;
+        bool active = false;
+    };
+
+    void LaunchPipe(Pipe& p, int slot) {
+        p.true_rows = 0;
+        for (const auto* r : p.group) p.true_rows += r->obs.size(0);
+        p.padded = BucketRows(p.true_rows);
+        p.st = &GetStaging(slot, p.padded, p.is_oracle, p.group[0]->obs.size(1),
+                           p.group[0]->aux.size(1),
+                           p.group[0]->aux.scalar_type());
+        Staging& st = *p.st;
+        int64_t row = 0;
+        for (const auto* r : p.group) {
+            int64_t n = r->obs.size(0);
+            st.h_obs.slice(0, row, row + n).copy_(r->obs);
+            st.h_aux.slice(0, row, row + n).copy_(r->aux);
+            row += n;
+        }
+        if (p.padded > p.true_rows) {
+            st.h_obs.slice(0, p.true_rows, p.padded).zero_();
+            if (p.is_oracle) st.h_aux.slice(0, p.true_rows, p.padded).zero_();
+            else st.h_aux.slice(0, p.true_rows, p.padded).fill_(1);
+        }
+        try {
+            p.t0 = std::chrono::steady_clock::now();
+            st.d_obs.copy_(st.h_obs, /*non_blocking=*/true);
+            st.d_aux.copy_(st.h_aux, /*non_blocking=*/true);
+            std::vector<torch::Tensor> outs;
+#ifdef __linux__
+            if (aoti_ && !p.is_oracle) {
+                outs = aoti_->run({st.d_obs, st.d_aux});
+            } else
+#endif
+            if (p.is_oracle) {
+                auto method = module_.find_method("oracle");
+                outs.push_back((*method)({st.d_obs, st.d_aux}).toTensor());
+            } else {
+                auto out = module_.forward({st.d_obs, st.d_aux}).toTuple();
+                for (const auto& v : out->elements()) outs.push_back(v.toTensor());
+            }
+            if (st.h_out.size() != outs.size()) {
+                st.h_out.clear();
+                for (const auto& o : outs) {
+                    st.h_out.push_back(torch::empty(o.sizes(),
+                        torch::TensorOptions().dtype(torch::kFloat32).pinned_memory(true)));
+                }
+            }
+            for (size_t i = 0; i < outs.size(); ++i) {
+                st.h_out[i].copy_(outs[i], /*non_blocking=*/true);
+            }
+            p.active = true;
+        } catch (...) {
+            for (auto* r : p.group) {
+                r->promise.set_exception(std::current_exception());
+            }
+            p.owned.clear();
+            p.group.clear();
+            p.active = false;
+        }
+    }
+
+    void RetirePipe(Pipe& p) {
+        try {
+            c10::cuda::getCurrentCUDAStream().synchronize();
+            launches_.fetch_add(1);
+            rows_.fetch_add(p.padded);
+            if (perf_on_) {
+                auto t1 = std::chrono::steady_clock::now();
+                auto& slot = perf_.fwd[p.padded];
+                slot.first += 1;
+                slot.second += std::chrono::duration<double, std::milli>(t1 - p.t0).count();
+                perf_.true_rows += p.true_rows;
+                perf_.pad_rows += p.padded;
+                for (const auto* r : p.group) {
+                    perf_.wait_ms +=
+                        std::chrono::duration<double, std::milli>(p.t0 - r->t_enq).count();
+                    perf_.n += 1;
+                }
+                if (launches_.load() % 500 == 0) perf_.Report(launches_.load());
+            }
+            int64_t row = 0;
+            Staging& st = *p.st;
+            for (auto* r : p.group) {
+                int64_t n = r->obs.size(0);
+                InferOutputs res;
+                if (p.is_oracle) {
+                    res.value = st.h_out[0].slice(0, row, row + n).clone();
+                } else {
+                    res.logits = st.h_out[0].slice(0, row, row + n).clone();
+                    res.value = st.h_out[1].slice(0, row, row + n).clone();
+                    if (st.h_out.size() >= 3) {
+                        res.belief = st.h_out[2].slice(0, row, row + n).clone();
+                    }
+                }
+                r->promise.set_value(std::move(res));
+                row += n;
+            }
+        } catch (...) {
+            for (auto* r : p.group) {
+                r->promise.set_exception(std::current_exception());
+            }
+        }
+        p.owned.clear();
+        p.group.clear();
+        p.active = false;
+    }
+
+    void LoopPipelined() {
+        c10::cuda::CUDAStream streams[2] = {
+            c10::cuda::getStreamFromPool(false, device_.index()),
+            c10::cuda::getStreamFromPool(false, device_.index())};
+        Pipe pipes[2];
+        struct Unit { std::vector<Request> owned; bool is_oracle; };
+        std::deque<Unit> pending;
+        int oldest = -1;
+        int n_active = 0;
+        while (true) {
+            std::vector<Request> batch;
+            {
+                std::unique_lock<std::mutex> lk(mu_);
+                if (queue_.empty() && pending.empty() && n_active == 0) {
+                    cv_.wait(lk, [this] { return stop_ || !queue_.empty(); });
+                }
+                if (stop_ && queue_.empty() && pending.empty() && n_active == 0) {
+                    return;
+                }
+                batch.swap(queue_);
+            }
+            if (!batch.empty()) {
+                std::vector<Request> normal, oracle;
+                for (auto& r : batch) {
+                    (r.is_oracle ? oracle : normal).push_back(std::move(r));
+                }
+                if (!normal.empty()) pending.push_back({std::move(normal), false});
+                if (!oracle.empty()) pending.push_back({std::move(oracle), true});
+            }
+            if (!pending.empty() && n_active < 2) {
+                int slot = (n_active == 0) ? 0 : (oldest ^ 1);
+                Pipe& p = pipes[slot];
+                p.owned = std::move(pending.front().owned);
+                p.is_oracle = pending.front().is_oracle;
+                pending.pop_front();
+                p.group.clear();
+                for (auto& r : p.owned) p.group.push_back(&r);
+                c10::cuda::setCurrentCUDAStream(streams[slot]);
+                LaunchPipe(p, slot);
+                if (p.active) {
+                    if (n_active == 0) oldest = slot;
+                    ++n_active;
+                }
+                continue;  // try to fill the second slot before retiring
+            }
+            if (n_active > 0) {
+                int slot = oldest;
+                c10::cuda::setCurrentCUDAStream(streams[slot]);
+                RetirePipe(pipes[slot]);
+                --n_active;
+                oldest = (n_active > 0) ? (slot ^ 1) : -1;
+            }
+        }
+    }
+
     void RunGroup(std::vector<Request*>& group, bool is_oracle) {
         if (group.empty()) return;
+        if (staged_on_ && device_.is_cuda() && !graphs_on_) {
+            RunGroupStaged(group, is_oracle);
+            return;
+        }
         int64_t true_rows = 0;
         for (const auto* r : group) true_rows += r->obs.size(0);
         int64_t padded = BucketRows(true_rows);
@@ -508,6 +815,10 @@ private:
             c10::cuda::setCurrentCUDAStream(
                 c10::cuda::getStreamFromPool(false, device_.index()));
         }
+        if (pipe_on_ && device_.is_cuda() && !graphs_on_) {
+            LoopPipelined();
+            return;
+        }
         std::vector<Request> batch;
         while (true) {
             {
@@ -532,6 +843,13 @@ private:
     bool has_oracle_ = false;
     bool perf_on_ = std::getenv("HEARTS_SRV_PERF") != nullptr;
     bool graphs_on_ = std::getenv("HEARTS_SRV_GRAPH") != nullptr;
+    // P1 measured neutral on the 4090 (319s == 319s, waits unchanged):
+    // pinned copies don't touch the dominant wait source, which is
+    // queueing behind in-flight forwards. Opt-in only; P2's pipeline
+    // (HEARTS_SRV_PIPE=1) builds on it and is where overlap happens.
+    bool staged_on_ = std::getenv("HEARTS_SRV_STAGE") != nullptr;
+    bool pipe_on_ = std::getenv("HEARTS_SRV_PIPE") != nullptr;
+    std::map<std::pair<int64_t, bool>, Staging> staging_[2];
 #ifdef __linux__
     std::unique_ptr<torch::inductor::AOTIModelPackageLoader> aoti_;
 #endif
