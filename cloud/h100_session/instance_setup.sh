@@ -7,6 +7,9 @@
 # Expects in /workspace: hearts_src.tar (git archive of the repo commit),
 # hearts_ai_search.pt, hearts_ai_grandmaster_v3_milestone7.pt
 set -euo pipefail
+# PEP 668 (ubuntu 24.04 images): allow system-site pip installs; the env var
+# form is ignored by older pips, unlike the --break-system-packages flag
+export PIP_BREAK_SYSTEM_PACKAGES=1
 
 cd /workspace
 apt-get update
