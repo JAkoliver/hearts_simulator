@@ -25,7 +25,13 @@ if [ ! -d /opt/libtorch ]; then
         nvidia-cublas-cu12 nvidia-cudnn-cu12 nvidia-cufft-cu12 nvidia-cufile-cu12 \
         nvidia-curand-cu12 nvidia-cusparse-cu12 nvidia-cusparselt-cu12 \
         nvidia-nccl-cu12 nvidia-nvjitlink-cu12 nvidia-nvshmem-cu12
-    PYNV=$(python3 -c "import glob; print(glob.glob('/usr/local/lib/python3.*/dist-packages/nvidia')[0])")
+    # Resolve the REAL site dir via pip (a glob can hit a preexisting torch
+    # install's nvidia dir), and force-reinstall nccl: base images often
+    # carry a satisfying-but-older nccl whose symbols libtorch 2.12 lacks
+    # (bit us twice: ncclDevComm*/ncclAlltoAll undefined at link).
+    pip3 install --no-cache-dir --force-reinstall \
+        --index-url https://download.pytorch.org/whl/cu126 nvidia-nccl-cu12
+    PYNV="$(pip3 show nvidia-cuda-runtime-cu12 | grep '^Location' | cut -d' ' -f2)/nvidia"
     cp -a "$PYNV"/*/lib/*.so* /opt/libtorch/lib/
 fi
 
