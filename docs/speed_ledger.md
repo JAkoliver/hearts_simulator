@@ -81,3 +81,14 @@ feeds no real iteration yet. Proposed fresh re-attempt (needs approval):
 n=8,000, new seed, ~2.2 h ≈ $6.50 → SE ≈ 0.127, passes if true parity holds.
 Session learnings committed: SearchEval thread-pool pin (e973243) - the
 default libtorch pool stalls entirely on a 224-core box.
+
+## Queue-wait investigation (2026-07-18, local 4090, commit b3f1a55)
+
+Verdict: the 19-35 ms server queue waits are INTRINSIC queueing on a
+saturated GPU (requests wait behind in-flight forwards), not overhead.
+- P1 pinned staging + async copies: neutral (319 s == 319 s, waits flat).
+- P2 two-slot pipeline: NEGATIVE locally (355 s, waits 23 -> 51 ms) -
+  two-deep queueing costs more latency than the recovered CPU gaps.
+Both env-gated off (HEARTS_SRV_STAGE / HEARTS_SRV_PIPE). Optional cheap
+follow-up: 15-min HEARTS_SRV_PIPE=1 re-test on H100+AOTI in a future paid
+session (faster forwards there = proportionally larger CPU gaps).
