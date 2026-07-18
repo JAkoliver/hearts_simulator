@@ -1,0 +1,11 @@
+# AOTInductor compile environment: hearts-worker + Python torch matching
+# libtorch exactly (2.12.1+cu126). Used to run export_aoti.py ON the target
+# GPU (Inductor autotunes for the present device arch: 4090=sm_89 locally,
+# H100=sm_90 on the pod - the .pt2 is compiled per-arch at session start).
+#
+# Build FROM THE REPO ROOT:  docker build -f cloud/Dockerfile.aoti -t hearts-aoti .
+FROM hearts-worker
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3-pip g++ && rm -rf /var/lib/apt/lists/*
+RUN pip3 install --no-cache-dir --index-url https://download.pytorch.org/whl/cu126 \
+    torch==2.12.1+cu126
