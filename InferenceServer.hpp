@@ -105,10 +105,38 @@ public:
         module_.to(device_);
         module_.eval();
         has_oracle_ = module_.find_method("oracle").has_value();
+#ifdef __linux__
+        // Same env-gated AOTI path as InferenceServer, so SearchEval (which
+        // is batch-1 through DirectBackend) exercises the SAME compiled
+        // numerics the generation server uses - required for the R1 gate to
+        // actually gate the AOTI stack.
+        if (const char* pkg = std::getenv("HEARTS_SRV_AOTI")) {
+            if (device_.is_cuda()) {
+                try {
+                    aoti_ = std::make_unique<torch::inductor::AOTIModelPackageLoader>(pkg);
+                    std::fprintf(stderr, "[direct] AOTI package loaded: %s\n", pkg);
+                } catch (const std::exception& e) {
+                    std::fprintf(stderr, "[direct] AOTI load failed (%s); JIT serves\n",
+                                 e.what());
+                }
+            }
+        }
+#endif
     }
 
     InferOutputs Forward(const torch::Tensor& obs, const torch::Tensor& mask) override {
         torch::NoGradGuard g;
+#ifdef __linux__
+        if (aoti_) {
+            // bf16 baked into the compiled graph; no autocast needed
+            auto outs = aoti_->run({obs.to(device_), mask.to(device_)});
+            InferOutputs res;
+            res.logits = infer_detail::ToHost(outs[0]);
+            res.value = infer_detail::ToHost(outs[1]);
+            if (outs.size() >= 3) res.belief = infer_detail::ToHost(outs[2]);
+            return res;
+        }
+#endif
         AutocastGuard ac(bf16_);
         auto out = module_.forward({obs.to(device_), mask.to(device_)}).toTuple();
         return infer_detail::Unpack(out);
@@ -129,6 +157,9 @@ private:
     torch::Device device_;
     bool bf16_ = false;
     bool has_oracle_ = false;
+#ifdef __linux__
+    std::unique_ptr<torch::inductor::AOTIModelPackageLoader> aoti_;
+#endif
 };
 
 class InferenceServer {
