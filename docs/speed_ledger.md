@@ -52,7 +52,27 @@ This ledger is the local baseline for all H100 cost/speed comparisons
 | GPU util (trace, 5 s samples) | generation 85% mean / 525 W; gate workload 52% / 263 W |
 | Session actual spend | 2.50 h × $2.99 = **$7.48** |
 
-**R1 cross-hardware gate: FAIL (on power, not effect).** n=3,000 paired
+## H100 AOTI session (2026-07-18, RunPod Secure, H100 SXM $2.99/hr, pod 2)
+
+| Metric | Measured |
+|---|---|
+| AOTI forward, 2048 rows | 10.79 ms (JIT H100: 15.6; local JIT: 45.5) |
+| 50-deal A/B seed 4242 | JIT 166 s → **AOTI 119 s = 1.39×** (threads 52≈96, still flat) |
+| **Steady (300-deal, seed 777, AOTI)** | **2.22 s/deal = 1.46× H100-JIT, 2.85× local 6.32** |
+| $ per 1,000 deals | **$1.84** — 3,500-deal generation ≈ 2.2 h ≈ $6.45 |
+| GPU during AOTI generation | 92% SM, 59% mem-BW, **667 W of 700 W cap** (power-limited; JIT was 535 W) |
+| Gate wall rate (8 shards) | 0.47 s/deal (vs 0.95 single-process JIT) |
+| **R1 gate (AOTI stack vs local reference)** | **PASS**: n=8,000, seed 20260719, mean **−0.139**, SE 0.123, UB **+0.064** < +0.30 |
+| Session spend | ~2.55 h ≈ **$7.60** |
+
+The AOTI stack is certified for real generation. Remaining H100 headroom is
+small: the card runs at its power cap during generation; server-overlap
+(L2) may recover the 19-35 ms queue waits (~10-20%), nothing structural.
+Iteration economics now: 3,500-deal generation = 2.2 h/$6.45 on one H100
+(or ~35 min across four), distill+gates local ≈ 1 h → **~3 h iterations
+vs ~7 h all-local**.
+
+**R1 cross-hardware gate, session 1 (JIT stack): FAIL (on power, not effect).** n=3,000 paired
 deals seed 20260718: mean **−0.010** (dead parity, H100 nominally better),
 SE 0.2072, one-sided 95% UB +0.331 vs +0.30. Cross-hardware bf16 flips
 decorrelate the pairing (per-deal delta std 11.35 vs the ~7.6 the criterion
