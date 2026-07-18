@@ -59,3 +59,6 @@ hearts_match_log.csv
 
 # MCP config carries the RunPod API key - never commit
 .mcp.json
+
+# AOTI packages are per-arch build artifacts
+*.pt2

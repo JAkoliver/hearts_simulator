@@ -31,6 +31,12 @@
 #include <ATen/cuda/CUDAGraph.h>
 #include <c10/cuda/CUDAStream.h>
 #include <torch/script.h>
+#ifdef __linux__
+// AOTInductor-compiled forward (HEARTS_SRV_AOTI=<pkg.pt2>): fused kernels
+// from torch.export, compiled per-arch by cloud/export_aoti.py. Linux-only
+// serving path (cloud); Windows keeps the JIT trace.
+#include <torch/csrc/inductor/aoti_package/model_package_loader.h>
+#endif
 
 // RAII guard: bf16 autocast for CUDA inference. The module stays fp32 (a
 // traced module converted wholesale to bf16 crashes natively); autocast
@@ -132,6 +138,19 @@ public:
         module_.to(device_);
         module_.eval();
         has_oracle_ = module_.find_method("oracle").has_value();
+#ifdef __linux__
+        if (const char* pkg = std::getenv("HEARTS_SRV_AOTI")) {
+            // bf16 is baked into the exported graph (see export_aoti.py);
+            // outputs come back fp32. Oracle calls stay on the JIT module.
+            try {
+                aoti_ = std::make_unique<torch::inductor::AOTIModelPackageLoader>(pkg);
+                std::fprintf(stderr, "[srv] AOTI package loaded: %s\n", pkg);
+            } catch (const std::exception& e) {
+                std::fprintf(stderr, "[srv] AOTI load failed (%s); JIT trace "
+                                     "will serve instead\n", e.what());
+            }
+        }
+#endif
         if (std::getenv("HEARTS_SRV_OFI") != nullptr) {
             // Measured on the v5 transformer (July 2026): ~17% SLOWER per
             // launch under bf16 autocast (freezing weights to constants
@@ -380,7 +399,16 @@ private:
             auto t0 = std::chrono::steady_clock::now();
             InferOutputs all;
             bool ran = false;
-            if (graphs_on_ && device_.is_cuda() && padded <= 8192) {
+#ifdef __linux__
+            if (aoti_ && !is_oracle) {
+                auto outs = aoti_->run({o.to(device_), a.to(device_)});
+                all.logits = infer_detail::ToHost(outs[0]);
+                all.value = infer_detail::ToHost(outs[1]);
+                if (outs.size() >= 3) all.belief = infer_detail::ToHost(outs[2]);
+                ran = true;
+            }
+#endif
+            if (!ran && graphs_on_ && device_.is_cuda() && padded <= 8192) {
                 ran = ForwardGraph(padded, is_oracle, o, a, all);
             }
             if (!ran) {
@@ -473,6 +501,9 @@ private:
     bool has_oracle_ = false;
     bool perf_on_ = std::getenv("HEARTS_SRV_PERF") != nullptr;
     bool graphs_on_ = std::getenv("HEARTS_SRV_GRAPH") != nullptr;
+#ifdef __linux__
+    std::unique_ptr<torch::inductor::AOTIModelPackageLoader> aoti_;
+#endif
     PerfWindow perf_;
     std::map<std::pair<int64_t, bool>, std::unique_ptr<GraphEntry>> graphs_;
     std::vector<Request> queue_;

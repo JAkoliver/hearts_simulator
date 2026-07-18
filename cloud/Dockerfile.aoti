@@ -6,6 +6,19 @@
 # Build FROM THE REPO ROOT:  docker build -f cloud/Dockerfile.aoti -t hearts-aoti .
 FROM hearts-worker
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3-pip g++ && rm -rf /var/lib/apt/lists/*
+    python3-pip python3-dev g++ && rm -rf /var/lib/apt/lists/*
 RUN pip3 install --no-cache-dir --index-url https://download.pytorch.org/whl/cu126 \
     torch==2.12.1+cu126
+
+# Inductor's AOTI packaging wants CUDA_HOME for include/lib paths. Assemble
+# a minimal one from the pip cuda_runtime headers (a torch dependency) and
+# libtorch's own libs - no toolkit install; Triton bundles its own ptxas.
+# nvcc (crt/) and CCCL (nv/target, libcu++) headers come from PyPI - the
+# PyTorch index doesn't host them
+RUN pip3 install --no-cache-dir "nvidia-cuda-nvcc-cu12==12.6.*" "nvidia-cuda-cccl-cu12==12.6.*" \
+ && mkdir -p /opt/cuda_home/include \
+ && cp -r /usr/local/lib/python3.10/dist-packages/nvidia/cuda_runtime/include/. /opt/cuda_home/include/ \
+ && cp -r /usr/local/lib/python3.10/dist-packages/nvidia/cuda_nvcc/include/crt /opt/cuda_home/include/ \
+ && cp -r /usr/local/lib/python3.10/dist-packages/nvidia/cuda_cccl/include/. /opt/cuda_home/include/ \
+ && ln -s /opt/libtorch/lib /opt/cuda_home/lib64
+ENV CUDA_HOME=/opt/cuda_home
