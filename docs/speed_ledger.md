@@ -108,3 +108,18 @@ Operationally clean end to end; strength verdict: gate FAIL.
 Ops incident: a scratchpad gate driver without the __main__ guard
 crash-respawned pool workers for 2.3 h; driver now committed
 (cloud/run_gates.py, 38eb8b3) and watchdog discipline adopted.
+
+## Gate re-powering + candidate re-verdict (2026-07-19, commit 7f484f9)
+
+search_gate_deals 600 -> 2400, sharded 4-way in orchestrator (stride-1M
+pair seeds, SE + n in every verdict). Measured: n=2400 gate = 4,927 s
+(~82 min) on the 4090 with 8 concurrent SearchEval processes; promotion
+bar moves from -0.51 to ~-0.26 at alpha=0.05.
+
+First full-power verdict - cloud-iter-0 candidate re-gate:
+**+0.679 (SE 0.169, n=2400, t=4.0): definitively WORSE, not noise.**
+The n=600 FAIL is confirmed and sharpened. Diagnostic value: raw play
+was dead-even (+0.003) while searched play degraded ~0.7 - the
+"distillation erodes search-carrying properties" pattern visible within
+a single 3,500-deal same-teacher iteration. Rejected candidate archived
+as hearts_model_last_rejected.pth.
