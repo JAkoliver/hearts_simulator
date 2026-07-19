@@ -186,10 +186,25 @@ def _search_finish(proc, out_csv):
         raise RuntimeError(f"SearchEval failed (exit {proc.returncode}): {err[-500:]}")
     return np.genfromtxt(out_csv, delimiter=',', names=True)['diff']
 
-def evaluate_candidate_search(candidate_path, deals=500, k=64, alpha=0.05):
+# Shard seed stride: matches cloud/gate_shard.py so pairing holds per-row
+# whenever both sides of ANY comparison run the same shard layout.
+_GATE_SHARD_STRIDE = 1_000_000
+
+def evaluate_candidate_search(candidate_path, deals=500, k=64, alpha=0.05,
+                              shards=4):
     """Paired search-vs-search gate: candidate and the current teacher trace
     each play `deals` identical deals (1 search seat vs 3 neutral-anchor raw
     seats, table B all-anchor), one-sided t-test on the per-deal delta.
+
+    Sharded (2*shards concurrent SearchEval processes): the gate was
+    re-powered 2026-07-19 from n=600 to n=2400 because at per-deal std ~7.6
+    the old gate only promoted effects stronger than -0.51/deal (~25% power
+    against a true -0.3) - early-era promotions were -0.7..-1.2 so it never
+    mattered, but mature gains are -0.1..-0.3 and were being discarded.
+    n=2400 puts the promotion bar near -0.26 at the same alpha; sharding
+    keeps wall-clock manageable (~1.2x single-process rate on the 4090,
+    ~2x on high-core cloud GPUs).
+
     Returns (success, mean_delta, p)."""
     if not (os.path.exists(SEARCH_EVAL_EXE) and os.path.exists('hearts_ai_search.pt')):
         print("Search gate skipped (SearchEval.exe or hearts_ai_search.pt missing).")
@@ -203,20 +218,41 @@ def evaluate_candidate_search(candidate_path, deals=500, k=64, alpha=0.05):
 
     seed = int(time.time())
     _trace_for_search(candidate_path, 'search_gate_candidate.pt')
-    print(f"Search gate: {deals} paired deals, K={k}, neutral opponents "
-          f"(candidate and reference run concurrently)...")
-    # Both runs share the GPU; their small batches leave it plenty of headroom,
-    # so running them concurrently roughly halves gate wall-clock
-    p_cand = _search_start('search_gate_candidate.pt', opponent, deals, k, seed,
-                           'search_eval_gate_cand.csv')
-    p_base = _search_start('hearts_ai_search.pt', opponent, deals, k, seed,
-                           'search_eval_gate_base.csv')
-    cand = _search_finish(p_cand, 'search_eval_gate_cand.csv')
-    base = _search_finish(p_base, 'search_eval_gate_base.csv')
+    shards = max(1, min(shards, deals))
+    print(f"Search gate: {deals} paired deals, K={k}, {shards} shard pairs, "
+          f"neutral opponents (all {2 * shards} runs concurrent)...")
+    per = deals // shards
+    extra = deals % shards
+    procs = []  # (shard_idx, n, cand_proc, cand_csv, base_proc, base_csv)
+    for i in range(shards):
+        n = per + (1 if i < extra else 0)
+        if n == 0:
+            continue
+        s = seed + i * _GATE_SHARD_STRIDE
+        c_csv = f'search_eval_gate_cand_s{i}.csv'
+        b_csv = f'search_eval_gate_base_s{i}.csv'
+        procs.append((i, n,
+                      _search_start('search_gate_candidate.pt', opponent, n, k, s, c_csv),
+                      c_csv,
+                      _search_start('hearts_ai_search.pt', opponent, n, k, s, b_csv),
+                      b_csv))
+    cand_parts, base_parts = [], []
+    for i, n, pc, c_csv, pb, b_csv in procs:
+        c = _search_finish(pc, c_csv)
+        b = _search_finish(pb, b_csv)
+        if len(np.atleast_1d(c)) != n or len(np.atleast_1d(b)) != n:
+            raise RuntimeError(f"gate shard {i}: row count mismatch "
+                               f"({len(np.atleast_1d(c))}/{len(np.atleast_1d(b))} vs {n})")
+        cand_parts.append(np.atleast_1d(c))
+        base_parts.append(np.atleast_1d(b))
+    cand = np.concatenate(cand_parts)
+    base = np.concatenate(base_parts)
     delta = cand - base
     t_stat, p_val = stats.ttest_1samp(delta, 0.0, alternative='less')
     mean = float(delta.mean())
-    print(f"Search gate paired delta (negative = candidate better): {mean:+.3f}")
+    se = float(delta.std(ddof=1) / np.sqrt(len(delta)))
+    print(f"Search gate paired delta (negative = candidate better): {mean:+.3f} "
+          f"(SE {se:.3f}, n={len(delta)})")
     print(f"T-Statistic: {t_stat:.3f}, P-Value: {p_val:.5f}")
     is_success = bool(p_val < alpha) and (mean < 0)
     return is_success, mean, float(p_val)
