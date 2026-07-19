@@ -92,3 +92,19 @@ saturated GPU (requests wait behind in-flight forwards), not overhead.
 Both env-gated off (HEARTS_SRV_STAGE / HEARTS_SRV_PIPE). Optional cheap
 follow-up: 15-min HEARTS_SRV_PIPE=1 re-test on H100+AOTI in a future paid
 session (faster forwards there = proportionally larger CPU gaps).
+
+## First cloud-generated expert iteration (2026-07-18/19, pod qbc4d63x46myg7)
+
+Operationally clean end to end; strength verdict: gate FAIL.
+- Generate (H100+AOTI, queue over tunnel): 3,500 deals / 14 chunks, seed
+  20260720, 2.30 s/deal sustained, zero retries, every shard validated
+  twice. Pod 2.35 h = $7.02.
+- Distill (local 4090): 210,966 records, 3 epochs, teacher match 58.4%,
+  holdout 59.6%.
+- Gates (local, measured v5 durations for the record): raw guard 2,500
+  deals = 551 s (+0.003, PASS); search gate 600 deals = 1,274 s
+  (+0.450, p 0.90, FAIL). Baseline unchanged.
+- Iteration wall-clock ~3.5 h (vs ~7 h all-local) at $7.02 cloud.
+Ops incident: a scratchpad gate driver without the __main__ guard
+crash-respawned pool workers for 2.3 h; driver now committed
+(cloud/run_gates.py, 38eb8b3) and watchdog discipline adopted.
