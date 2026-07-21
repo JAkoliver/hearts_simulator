@@ -123,3 +123,26 @@ was dead-even (+0.003) while searched play degraded ~0.7 - the
 "distillation erodes search-carrying properties" pattern visible within
 a single 3,500-deal same-teacher iteration. Rejected candidate archived
 as hearts_model_last_rejected.pth.
+
+## PPO-on-v5 round 2 under the powered gate (2026-07-19/20, 4 trials)
+
+run_loop campaign on the v5-M baseline, all gates n=2400 / K=32 /
+alpha=0.05 (bar ~ -0.26). Trial wall-clock ~2.1-2.25 h each, matching the
+ledger phase estimates (train 35-45 min, raw guard ~9 min, gate ~82 min).
+
+| Trial | Mutation (vs base)              | Raw guard (head-to-head)  | Search gate (n=2400)  | p     |
+|---|---|---|---|---|
+| 1 | lr 7e-6, clip .166, lam .917, aux .582 | -0.659 (t=-4.86, sig) | -0.078 (SE 0.165) | 0.318 |
+| 2 | lam .891                        | -0.626 (t=-4.57, sig)     | -0.146 (SE 0.163)     | 0.184 |
+| 3 | lr 7e-6, gamma .993             | -0.775 (t=-5.81, sig)     | -0.062 (SE 0.157)     | 0.348 |
+| 4 | lr 1.2e-5                       | -0.187 (t=-1.32, ns)      | -0.026 (SE 0.164)     | 0.437 |
+
+**Pooled search delta: -0.078, SE 0.081 (9,600 paired deals); 95% CI
+[-0.24, +0.08].** All four FAIL individually; pooled effect
+indistinguishable from zero and the CI excludes every historically
+promotion-worthy effect size (-0.5..-1.2). Raw-gain size does not
+predict search delta (strongest raw trial had the weakest search lean).
+Verdict: this recipe (PPO from the current baseline, single-trial
+mutations) does not move SEARCHED strength; its consistent -0.6..-0.8
+raw gains vs the training opponent do not carry through search.
+Full analysis + next-step options: docs/ppo_v5_round2_findings.md.
