@@ -146,3 +146,18 @@ Verdict: this recipe (PPO from the current baseline, single-trial
 mutations) does not move SEARCHED strength; its consistent -0.6..-0.8
 raw gains vs the training opponent do not carry through search.
 Full analysis + next-step options: docs/ppo_v5_round2_findings.md.
+
+## Diagnostics A + B (2026-07-21)
+
+- **B, promotion re-gate** (pre-PPO milestone vs post-PPO baseline,
+  n=2400): pre-PPO **+1.025 (SE 0.180, t=5.68)** worse - the 07-15 PPO
+  promotion was real and the n=600 gate UNDERestimated it (-0.712).
+  Wall: 4,942 s, right on the 82-min ledger figure.
+- **A, neutral raw eval** (new neutral_raw_eval.py, n=2500 paired deals
+  vs 3x v3-m7 anchors, ~131 s at 12 workers): trial-3-repro candidate
+  **-0.654 (SE 0.143)**, trial-4 rejected candidate **-0.636 (SE
+  0.144)** - PPO raw gains are genuine strength, not opponent
+  exploitation. Trial-3 repro train run: 73.4 min (config lr 7e-06 /
+  gamma 0.993).
+- Verdict + raw-line promotion recommendation (pending user decision):
+  docs/ppo_v5_round2_findings.md.

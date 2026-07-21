@@ -97,3 +97,62 @@ proposing after A/B/C inform the picture.
 Recommended order: **B tonight (fully unattended, uses existing
 artifacts), A next session, then decide between C and the raw-line based
 on what A and B say.** Nothing here spends cloud money.
+
+---
+
+# Diagnostics A and B: results (2026-07-21)
+
+**B - re-gate of the 2026-07-15 PPO promotion at n=2400
+(regate_ppo_promotion.py, pre-PPO milestone 1784120250 as candidate vs
+the post-PPO baseline trace, neutral opponents):**
+
+    pre-PPO delta +1.025 (SE 0.180, n=2400, t=5.68)
+
+The promotion was REAL and the weak gate UNDERestimated it (-0.712
+claimed at n=600; true searched gap ~1.0). PPO-on-v5 demonstrably can
+move searched strength; round 2's four nulls mean the searched gains
+available from the current baseline were already harvested, not that PPO
+never worked.
+
+**A - neutral-opponent raw evaluation (neutral_raw_eval.py: candidate
+and baseline each seated vs 3x v3-m7 anchors on identical deals,
+n=2500 paired):**
+
+| Candidate | Head-to-head raw (vs own baseline) | Neutral raw delta |
+|---|---|---|
+| trial-3 config repro (cand_A_trial3repro.pth) | -0.775 (orig trial) | **-0.654 (SE 0.143, t=-4.57, p<1e-5)** |
+| trial-4 rejected (hearts_model_last_rejected.pth) | -0.187 (ns) | **-0.636 (SE 0.144, t=-4.43, p<1e-5)** |
+
+The raw gains are GENUINE strength, not opponent exploitation - they
+fully survive against neutral opponents the candidates never trained
+against. (Note trial 4: head-to-head raw understated its true neutral
+gain by 3x - the head-to-head raw guard is a noisy, biased measure in
+both directions.)
+
+## Combined interpretation
+
+PPO keeps producing genuinely stronger RAW nets (~-0.65/deal per trial,
+robust across mutations); full-rollout search then flattens the
+difference because it already computes at play time most of what PPO
+internalizes. The project goal is a raw net at best-human level - the
+current promoter measures the one axis (searched strength) that is
+saturated and discards the axis (raw strength) that is both improving
+and goal-relevant.
+
+## Raw-line promotion: RECOMMENDED, with guardrails
+
+1. **Promoter**: neutral raw gate (neutral_raw_eval measurement),
+   n=2500, alpha=0.05 -> promotion bar ~-0.24; measured effects ~-0.65
+   give >99% power. Runs in ~2 min (vs 82 for the search gate).
+2. **Search non-regression guard**: keep the n=2400 search gate but as a
+   REJECT-IF-WORSE check (fail only if the one-sided 95% bound shows
+   searched strength degraded beyond +0.3). The deployed search player
+   must never get worse.
+3. **Anchor-overfit watch**: promoting repeatedly against a fixed v3-m7
+   anchor invites anchor exploitation over generations. Mitigate by
+   adding a second anchor family (v4-m10) to the neutral table mix
+   and/or periodic user calibration matches.
+4. **Compounding check**: the point of the raw line is STACKING gains.
+   After each promotion, the next trial's neutral delta is measured
+   against the new baseline; if raw gains stop compounding after 1-2
+   promotions, the raw axis has its own ceiling and we reassess.
