@@ -143,7 +143,94 @@ def evaluate_candidate(candidate_path, baseline_path, num_deals=2500, workers=8)
     return is_success, cand_mean, float(mean_diff)
 
 # ---------------------------------------------------------------------------
-# Search-level promotion gate
+# Neutral-opponent raw promotion gate (raw-line promotion, 2026-07-21)
+# ---------------------------------------------------------------------------
+# The head-to-head raw evaluation above seats the candidate among the very
+# baseline it trained against; measured 2026-07-21, it is biased in BOTH
+# directions (a candidate whose head-to-head read -0.187 ns was truly -0.636
+# vs neutral tables). The promoter therefore seats candidate and baseline,
+# one at a time, at the same seat of identical deals against three neutral
+# v3-m7 anchor seats and tests the paired per-deal differential. Rationale
+# and the A/B diagnostics behind this design: docs/ppo_v5_round2_findings.md.
+
+class _LegacySeat(torch.nn.Module):
+    """Adapts the 238-dim v3 anchor trace to the current 550-dim observation
+    (prefix layout, same convention SearchPlayer.hpp probes for)."""
+
+    def __init__(self, traced):
+        super().__init__()
+        self.traced = traced
+
+    def forward(self, observation, legal_actions_mask):
+        return self.traced(observation[:, :238], legal_actions_mask)
+
+
+def _neutral_chunk(job):
+    candidate_path, baseline_path, anchor_path, seed, deal_offset, n_deals = job
+    torch.set_num_threads(1)
+
+    cand = net_from_checkpoint(candidate_path)
+    cand.eval()
+    base = net_from_checkpoint(baseline_path)
+    base.eval()
+    neutral = _LegacySeat(torch.jit.load(anchor_path))
+    neutral.eval()
+
+    # Same-seed envs stay deal-synchronized (RNG consumed only by reset()).
+    env_a = hearts_env.HeartsEnv(seed=seed)
+    env_b = hearts_env.HeartsEnv(seed=seed)
+
+    diffs = []
+    for i in range(n_deals):
+        seat = (deal_offset + i) % 4
+        seats_a = [neutral] * 4
+        seats_a[seat] = cand
+        a_scores = play_round(env_a, seats_a)
+        seats_b = [neutral] * 4
+        seats_b[seat] = base
+        b_scores = play_round(env_b, seats_b)
+        diffs.append(a_scores[seat] - b_scores[seat])
+    return diffs
+
+
+def evaluate_candidate_neutral_raw(candidate_path, baseline_path,
+                                   num_deals=2500, workers=12, alpha=0.05):
+    """Raw-line promoter. Returns (success, mean, se, p)."""
+    anchor = NEUTRAL_OPPONENT
+    if not os.path.exists(anchor):
+        raise RuntimeError(f"neutral anchor missing ({anchor}); "
+                           "cannot run the raw promotion gate")
+    seed = int(time.time())
+    print(f"Neutral raw gate (promoter): {num_deals} paired deals, "
+          f"candidate/baseline @ seat vs 3x v3-m7 anchors, seed {seed}")
+
+    per = num_deals // workers
+    extra = num_deals % workers
+    jobs, offset = [], 0
+    for w in range(workers):
+        n = per + (1 if w < extra else 0)
+        if n == 0:
+            continue
+        jobs.append((candidate_path, baseline_path, anchor,
+                     seed + w * _GATE_SHARD_STRIDE, offset, n))
+        offset += n
+
+    import multiprocessing
+    with multiprocessing.Pool(len(jobs)) as pool:
+        results = pool.map(_neutral_chunk, jobs)
+
+    diffs = np.array([d for r in results for d in r], dtype=np.float64)
+    mean = float(diffs.mean())
+    se = float(diffs.std(ddof=1) / np.sqrt(len(diffs)))
+    t_stat, p_val = stats.ttest_1samp(diffs, 0.0, alternative='less')
+    print(f"Neutral raw delta (negative = candidate better): {mean:+.3f} "
+          f"(SE {se:.3f}, n={len(diffs)})")
+    print(f"T-Statistic: {t_stat:.3f}, P-Value: {p_val:.5f}")
+    success = bool(p_val < alpha) and (mean < 0)
+    return success, mean, se, float(p_val)
+
+# ---------------------------------------------------------------------------
+# Search-level gate (promoter until 2026-07-21; non-regression guard since)
 # ---------------------------------------------------------------------------
 # Raw head-to-head strength and SEARCHED strength can point in opposite
 # directions (measured 2026-07-14: a candidate -0.39 better raw was +1.24
@@ -205,10 +292,14 @@ def evaluate_candidate_search(candidate_path, deals=500, k=64, alpha=0.05,
     keeps wall-clock manageable (~1.2x single-process rate on the 4090,
     ~2x on high-core cloud GPUs).
 
-    Returns (success, mean_delta, p)."""
+    Since 2026-07-21 this gate no longer promotes: the raw-line promoter
+    (evaluate_candidate_neutral_raw) decides, and main() uses this gate's
+    mean/se as a non-regression guard on the deployed search player.
+
+    Returns (success, mean_delta, p, se)."""
     if not (os.path.exists(SEARCH_EVAL_EXE) and os.path.exists('hearts_ai_search.pt')):
         print("Search gate skipped (SearchEval.exe or hearts_ai_search.pt missing).")
-        return True, None, None
+        return True, None, None, None
     if os.path.exists(NEUTRAL_OPPONENT):
         opponent = NEUTRAL_OPPONENT
     else:
@@ -255,7 +346,7 @@ def evaluate_candidate_search(candidate_path, deals=500, k=64, alpha=0.05,
           f"(SE {se:.3f}, n={len(delta)})")
     print(f"T-Statistic: {t_stat:.3f}, P-Value: {p_val:.5f}")
     is_success = bool(p_val < alpha) and (mean < 0)
-    return is_success, mean, float(p_val)
+    return is_success, mean, float(p_val), se
 
 def rollback_config():
     print("Rolling back configuration...")
@@ -344,30 +435,48 @@ def main():
         with open('config.json', 'r') as f:
             cfg = json.load(f)
 
-        # Gate design (2026-07-15): raw play and searched strength can point
-        # in opposite directions, and the deployed player is a SEARCH player.
-        # The raw evaluation is only a sanity guard (reject candidates that
-        # are substantially worse raw); promotion is decided by the search
-        # gate against neutral opponents.
+        # Gate design (2026-07-21, raw-line promotion): the project goal is a
+        # RAW net at best-human level, and diagnostics A/B showed PPO's raw
+        # gains are genuine vs neutral opponents while searched strength is
+        # saturated from this baseline (docs/ppo_v5_round2_findings.md).
+        # Promotion is decided by the neutral raw gate; the search gate
+        # remains only as a non-regression guard so the deployed search
+        # player never gets measurably worse.
         fail_reason = "evaluation_failed"
         if os.path.exists(baseline_model_path):
-            raw_sig, new_mean, raw_diff = evaluate_candidate(candidate_model_path, baseline_model_path)
-            guard = cfg.get('raw_guard_threshold', 0.3)
-            if raw_diff > guard:
-                print(f"Raw guard FAILED: candidate {raw_diff:+.3f} vs baseline "
-                      f"(threshold +{guard}). Skipping search gate.")
+            raw_success, new_mean, raw_se, raw_p = evaluate_candidate_neutral_raw(
+                candidate_model_path, baseline_model_path,
+                num_deals=cfg.get('raw_gate_deals', 2500),
+                workers=cfg.get('raw_gate_workers', 12),
+                alpha=cfg.get('raw_gate_alpha', 0.05))
+            if not raw_success:
+                print(f"Neutral raw gate FAILED ({new_mean:+.3f}, p={raw_p:.3f}). "
+                      "Skipping search guard.")
                 success = False
-                fail_reason = "raw_guard_failed"
+                fail_reason = "neutral_raw_gate_failed"
             else:
-                print(f"Raw guard passed ({raw_diff:+.3f} <= +{guard}"
-                      f"{', significantly better' if raw_sig else ''}). Search gate decides.")
-                success, sg_mean, sg_p = evaluate_candidate_search(
+                print(f"Neutral raw gate PASSED ({new_mean:+.3f}, p={raw_p:.5f}). "
+                      "Search non-regression guard decides.")
+                _, sg_mean, sg_p, sg_se = evaluate_candidate_search(
                     candidate_model_path,
-                    deals=cfg.get('search_gate_deals', 800),
-                    k=cfg.get('search_gate_k', 64),
-                    alpha=cfg.get('search_gate_alpha', 0.02))
-                if not success:
-                    fail_reason = "search_gate_failed"
+                    deals=cfg.get('search_gate_deals', 2400),
+                    k=cfg.get('search_gate_k', 32),
+                    alpha=cfg.get('search_gate_alpha', 0.05))
+                if sg_mean is None:
+                    # Guard infrastructure missing; evaluate_candidate_search
+                    # already printed the skip. Do not promote blind.
+                    success = False
+                    fail_reason = "search_guard_unavailable"
+                else:
+                    margin = cfg.get('search_guard_margin', 0.3)
+                    ub = sg_mean + float(stats.t.ppf(0.95,
+                        cfg.get('search_gate_deals', 2400) - 1)) * sg_se
+                    success = ub <= margin
+                    print(f"Search non-regression guard: delta {sg_mean:+.3f} "
+                          f"(SE {sg_se:.3f}), one-sided 95% UB {ub:+.3f} vs "
+                          f"margin +{margin} -> {'PASS' if success else 'FAIL'}")
+                    if not success:
+                        fail_reason = "search_regression"
         else:
             print("No baseline exists (fresh start). Auto-promoting first candidate as the initial baseline.")
             success, new_mean = True, None

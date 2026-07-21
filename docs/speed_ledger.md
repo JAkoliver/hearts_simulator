@@ -161,3 +161,23 @@ Full analysis + next-step options: docs/ppo_v5_round2_findings.md.
   gamma 0.993).
 - Verdict + raw-line promotion recommendation (pending user decision):
   docs/ppo_v5_round2_findings.md.
+
+## Raw-line promotion adopted + first promotion (2026-07-21)
+
+User approved the raw-line design. orchestrator.main now promotes on the
+neutral raw gate (n=2500, alpha=0.05, ~2.5 min at 12 workers) with the
+n=2400 search gate demoted to a non-regression guard (one-sided 95% UB
+vs +0.3 margin); promote_raw_line.py added as the manual driver.
+
+**First raw-line promotion - cand_A_trial3repro.pth (trial-3 config
+repro):**
+- Neutral raw gate: **-0.619 (SE 0.141, n=2500, p=0.00001)** PASS -
+  third independent replication of the ~-0.63 effect (fresh seed).
+- Search non-regression guard: -0.070 (SE 0.156, n=2400), UB +0.187
+  vs +0.3 -> PASS (searched play unchanged, leaning better).
+- Milestone: hearts_model_milestone_1784674184.pth; traces re-exported
+  and hash-verified. Known caveat: the candidate's Adam optimizer state
+  was not preserved (diag-A restore) - the first post-promotion PPO
+  trial starts from the old baseline's moments.
+- Raw-line trial economics: raw-FAIL trials cost ~1.3 h (train ~74 min
+  + 2.5 min gate); only raw-PASS trials pay the 82-min guard (~2.7 h).

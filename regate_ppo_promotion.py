@@ -32,7 +32,7 @@ def main():
         "hearts_model_final.pth is not the post-PPO milestone; "
         "the re-gate would measure the wrong pair")
     print("Baseline identity verified: hearts_model_final.pth == milestone 1784156801")
-    success, mean, p = orchestrator.evaluate_candidate_search(
+    success, mean, p, se = orchestrator.evaluate_candidate_search(
         PRE_PPO, deals=2400, k=32, alpha=0.05)
     print(f"RE-GATE RESULT: pre-PPO-vs-post-PPO delta {mean:+.3f}, p={p:.5f} "
         f"(positive delta = post-PPO baseline genuinely stronger)")

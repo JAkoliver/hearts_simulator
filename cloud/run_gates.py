@@ -33,7 +33,11 @@ def main():
         success = False
     else:
         t1 = time.time()
-        success, sg_mean, sg_p = orchestrator.evaluate_candidate_search(
+        # NOTE (2026-07-21): local promotion is now raw-line (neutral raw gate
+        # promotes, search gate guards - see orchestrator.main). This cloud
+        # driver still uses search-gate promotion; rework it before the next
+        # cloud expert iteration.
+        success, sg_mean, sg_p, sg_se = orchestrator.evaluate_candidate_search(
             CANDIDATE,
             deals=cfg.get('search_gate_deals', 600),
             k=cfg.get('search_gate_k', 32),

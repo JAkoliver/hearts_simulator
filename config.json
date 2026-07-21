@@ -1,10 +1,10 @@
 {
     "learning_rate": 1e-05,
-    "update_timestep": 271,
+    "update_timestep": 340,
     "games_per_worker": 26,
     "max_workers": 14,
     "gamma": 1.0,
-    "eps_clip": 0.19927,
+    "eps_clip": 0.202892,
     "k_epochs": 4,
     "max_episodes": 250000,
     "gae_lambda": 0.898754,
@@ -18,5 +18,9 @@
     "search_gate_k": 32,
     "raw_guard_threshold": 0.3,
     "critic_warmup_games": 20000,
-    "vec_env": true
+    "vec_env": true,
+    "raw_gate_deals": 2500,
+    "raw_gate_workers": 12,
+    "raw_gate_alpha": 0.05,
+    "search_guard_margin": 0.3
 }
