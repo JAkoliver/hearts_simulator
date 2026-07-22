@@ -196,6 +196,31 @@ OOMing - 24 GB "allocated", 0% GPU util, idle wattage, ~1000x slowdown.
 distill.py defaults to batch 2048 (fine for v5-M d=320 L=6 at ~13 GB);
 pass --batch 1024 for v5-L-size nets, or add bf16 autocast.
 
+## v5-L from-bank distills: data is the constraint (2026-07-22 overnight)
+
+Both from-scratch distills from the 2.1M-record bank (107 files, all
+decision dirs; leaf/oracle dirs auto-excluded by record size) failed the
+neutral raw gate by ~4 points vs the twice-promoted baseline:
+
+| Candidate | Holdout match | Neutral raw vs baseline (n=2500) |
+|---|---|---|
+| v5-L d=448 L=8, 6 epochs (52 min) | 51.9% | **+3.988 (SE 0.175)** |
+| + one PPO step (2.35 h, minibatch 1024) | - | **+3.102 (SE 0.175)** |
+| control d=384 L=8, 10 epochs (52 min) | 53.8% | **+3.776 (SE 0.174)** |
+
+Size/epochs changed nothing (both plateau ~52-54% teacher match; value
+head overfits from ~epoch 4). The bank's teacher predates two promotions;
+its records cannot produce a net that beats today's baseline. Notable:
+the PPO step on the weak fresh net gained **-0.89** - the largest
+single-step PPO gain measured (vs -0.6 near the ceiling), consistent
+with PPO gains scaling with distance from the ceiling. Baseline
+hash-verified untouched after every phase.
+
+**Fresh-teacher bank started 2026-07-22 06:30am:** 3,250 deals local
+(selfplay_data/0722_fresh_iter0, seed 20260722, current teacher trace,
+K=64/pass-k 24/14 threads) - first installment of the >=12k cumulative
+fresh bank; ~5.7 h at the 6.32 s/deal ledger rate.
+
 ## Raw-line round 1 vs the NEW baseline (2026-07-21 evening, 3 trials)
 
 | Trial | Neutral raw delta (n=2500) | p |
