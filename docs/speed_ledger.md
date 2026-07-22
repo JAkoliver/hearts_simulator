@@ -216,10 +216,12 @@ single-step PPO gain measured (vs -0.6 near the ceiling), consistent
 with PPO gains scaling with distance from the ceiling. Baseline
 hash-verified untouched after every phase.
 
-**Fresh-teacher bank started 2026-07-22 06:30am:** 3,250 deals local
-(selfplay_data/0722_fresh_iter0, seed 20260722, current teacher trace,
-K=64/pass-k 24/14 threads) - first installment of the >=12k cumulative
-fresh bank; ~5.7 h at the 6.32 s/deal ledger rate.
+**Fresh-teacher bank installment 1 COMPLETE (2026-07-22, 06:30-12:16):**
+3,250 deals local (selfplay_data/0722_fresh_iter0, seed 20260722,
+current teacher trace, K=64/pass-k 24/14 threads): 20,749 s = **6.38
+s/deal** (ledger steady 6.32 confirmed again), 182 files, **199,264
+records** (61.3/deal, matching the cloud iteration's 60.3). Fresh bank
+now 3,250 of the >=12k target.
 
 ## Raw-line round 1 vs the NEW baseline (2026-07-21 evening, 3 trials)
 
