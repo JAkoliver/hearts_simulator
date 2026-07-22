@@ -181,3 +181,20 @@ repro):**
   trial starts from the old baseline's moments.
 - Raw-line trial economics: raw-FAIL trials cost ~1.3 h (train ~74 min
   + 2.5 min gate); only raw-PASS trials pay the 82-min guard (~2.7 h).
+
+## Raw-line round 1 vs the NEW baseline (2026-07-21 evening, 3 trials)
+
+| Trial | Neutral raw delta (n=2500) | p |
+|---|---|---|
+| 1 | -0.159 (SE 0.129) | 0.109 |
+| 2 | +0.009 (SE 0.128) | 0.529 |
+| 3 | -0.128 (SE 0.129) | 0.162 |
+
+**Pooled: -0.093, SE 0.074 (7,500 paired deals)** - vs the -0.62..-0.65
+per-trial gains every candidate showed against the PREVIOUS baseline.
+The one-step PPO raw gain is substantially ONE-SHOT: once promoted into
+the baseline, further PPO steps recover ~5x less. Caveat: all three
+trials warmed up from stale Adam moments (promotion did not carry the
+candidate's optimizer state). Loop stopped after trial 3 by user
+request; state verified clean (config restore needed - the kill raced
+the loop's 5s sleep and caught a mutated config pre-launch).
