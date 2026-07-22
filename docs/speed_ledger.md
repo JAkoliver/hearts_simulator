@@ -182,6 +182,20 @@ repro):**
 - Raw-line trial economics: raw-FAIL trials cost ~1.3 h (train ~74 min
   + 2.5 min gate); only raw-PASS trials pay the 82-min guard (~2.7 h).
 
+## v5-L distill throughput (2026-07-21, measured on the 4090)
+
+fp32 forward_train+backward, batch 1024, synthetic batches:
+- d=384 L=8 (14.4M params): 197 ms/step = 5,199 rec/s -> **9.4 min per
+  2.93M-record epoch** (11.8 GB reserved)
+- d=448 L=8 (19.6M params): 247 ms/step = 4,152 rec/s -> **11.8 min per
+  epoch** (13.8 GB reserved)
+
+**Batch 2048 does NOT fit v5-L in fp32** (~21+ GB activations for d=384
+L=8): Windows CUDA sysmem fallback silently oversubscribes instead of
+OOMing - 24 GB "allocated", 0% GPU util, idle wattage, ~1000x slowdown.
+distill.py defaults to batch 2048 (fine for v5-M d=320 L=6 at ~13 GB);
+pass --batch 1024 for v5-L-size nets, or add bf16 autocast.
+
 ## Raw-line round 1 vs the NEW baseline (2026-07-21 evening, 3 trials)
 
 | Trial | Neutral raw delta (n=2500) | p |
