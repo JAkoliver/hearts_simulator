@@ -231,6 +231,13 @@ chunk-13 files deleted). Sizing lesson: the 3,500-deal target assumed a
 from the ACTUAL launch timestamp, not the planning timestamp. Fresh
 bank total: **6,250 deals / 383,200 records** of the >=12k target.
 
+**Installment 3 (2026-07-23 02:05-08:38am, selfplay_data/
+0723_fresh_iter0_am, seed 40260723):** 3,750 deals / 229,920 records /
+210 files in 23,591 s = **6.29 s/deal**, zero retries, finished 21 min
+inside the 9:00am cutoff (sized from the verified launch clock; 8:55
+hard-stop guard armed but not needed). Fresh bank total: **10,000 deals
+/ 613,120 records** - one short session from the >=12k target.
+
 ## Raw-line round 1 vs the NEW baseline (2026-07-21 evening, 3 trials)
 
 | Trial | Neutral raw delta (n=2500) | p |
