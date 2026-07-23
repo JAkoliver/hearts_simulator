@@ -8,6 +8,7 @@ Runs the full raw-line promotion pipeline for an arbitrary candidate:
 Usage: python promote_raw_line.py [candidate.pth]
 """
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -51,6 +52,20 @@ def main():
     shutil.copy(candidate, 'hearts_model_final.pth')
     milestone = f"Hall_of_Fame/hearts_model_milestone_{int(time.time())}.pth"
     shutil.copy('hearts_model_final.pth', milestone)
+
+    # Optimizer carry-through (2026-07-23): hearts_optimizer.pth must match
+    # hearts_model_final.pth. A stale mismatch either starts future PPO from
+    # wrong Adam moments (same arch) or crashes train.py (different arch) -
+    # all three post-promotion PPO trials of 2026-07-21 ran on stale moments.
+    optim_stash = os.path.splitext(candidate)[0] + '.optim.pth'
+    if os.path.exists(optim_stash):
+        shutil.copy(optim_stash, 'hearts_optimizer.pth')
+        print(f"Optimizer state carried through from {optim_stash}.")
+    elif os.path.exists('hearts_optimizer.pth'):
+        os.remove('hearts_optimizer.pth')
+        print("No optimizer stash for this candidate - stale "
+              "hearts_optimizer.pth removed (future PPO starts from fresh "
+              "Adam moments rather than wrong ones).")
 
     ledger = orchestrator.get_ledger()
     ledger['baseline_score'] = mean
