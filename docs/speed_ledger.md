@@ -265,6 +265,23 @@ back into its own PPO-sharpened policy net makes it worse - plausibly
 because soft value-derived targets UN-sharpen an RL-sharpened policy.
 Candidate parked as cand_fresh_iter1.pth. Baseline hash-verified.
 
+## Step 2: three distill variants, all quick-gate FAIL (2026-07-23)
+
+| Variant | Neutral raw vs baseline (n=2500) |
+|---|---|
+| A: warm-start on fresh bank + **--sharpen 2.0** | **+0.248 (SE 0.139)** |
+| B: fresh v5-L d=448, fresh data only (766k) | +5.276 (SE 0.183) |
+| C: fresh v5-L d=448, fresh+old mixed (2.87M) | +3.292 (SE 0.168) |
+
+Reads: (1) **sharpening halved the warm-start degradation** (+0.479
+unsharpened -> +0.248 at sharpen 2.0) - supports the "soft search
+targets un-sharpen an RL-sharpened policy" hypothesis; higher sharpen
+untested. (2) v5-L from static distillation cannot reach the baseline
+on ANY data mix - the baseline's strength includes two RL steps that
+imitation targets do not encode. From-scratch v5-L needs its own
+PPO steps, not more imitation. Candidates parked: cand_fresh_sharp.pth,
+cand_v5L_fresh.pth, cand_v5L_mixed.pth. Baseline hash-verified.
+
 ## Raw-line round 1 vs the NEW baseline (2026-07-21 evening, 3 trials)
 
 | Trial | Neutral raw delta (n=2500) | p |
