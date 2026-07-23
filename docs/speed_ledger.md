@@ -245,6 +245,26 @@ COMPLETE: 12,500 deals / 766,400 records across 4 installments (all
 current-teacher, disjoint seed ranges), 100% local, $0.** Exceeds the
 >=12k prescription from the expert-iteration post-mortem.
 
+## Step 1: powered expert iteration - FAIL (2026-07-23)
+
+Warm-start distill of the current baseline on the full fresh bank
+(766,400 records / 12,500 deals, 3 epochs, **4.5 min** on the 4090 -
+v5-M at batch 2048 runs ~9,500 rec/s), then the raw-line gate:
+
+**Neutral raw +0.479 (SE 0.144, n=2500, p=0.9996) - significantly
+WORSE. Same-lineage distillation degrades the net even with a fresh
+teacher and 3.6x the data of the failed 3.5k recipe.** Train teacher
+match 56.6%. (Holdout metrics this run are late-trick-biased and not
+comparable: 2% tail cuts on 700 small ~1,100-record files keep only
+~20 late-trick records each - split by DEAL for honest metrics on
+many-small-file banks.)
+
+Pattern now measured three ways: cloud-iter-0 (3.5k deals: raw +0.003,
+search +0.68), fresh 12.5k (raw +0.48). Distilling a search teacher
+back into its own PPO-sharpened policy net makes it worse - plausibly
+because soft value-derived targets UN-sharpen an RL-sharpened policy.
+Candidate parked as cand_fresh_iter1.pth. Baseline hash-verified.
+
 ## Raw-line round 1 vs the NEW baseline (2026-07-21 evening, 3 trials)
 
 | Trial | Neutral raw delta (n=2500) | p |
