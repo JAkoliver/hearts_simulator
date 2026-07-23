@@ -238,6 +238,13 @@ inside the 9:00am cutoff (sized from the verified launch clock; 8:55
 hard-stop guard armed but not needed). Fresh bank total: **10,000 deals
 / 613,120 records** - one short session from the >=12k target.
 
+**Installment 4 - FINAL (2026-07-23 day, selfplay_data/
+0723_fresh_iter0_day, seed 50260723):** 2,500 deals / 153,280 records /
+140 files in 15,801 s = 6.32 s/deal, zero retries. **FRESH BANK
+COMPLETE: 12,500 deals / 766,400 records across 4 installments (all
+current-teacher, disjoint seed ranges), 100% local, $0.** Exceeds the
+>=12k prescription from the expert-iteration post-mortem.
+
 ## Raw-line round 1 vs the NEW baseline (2026-07-21 evening, 3 trials)
 
 | Trial | Neutral raw delta (n=2500) | p |
