@@ -223,6 +223,14 @@ s/deal** (ledger steady 6.32 confirmed again), 182 files, **199,264
 records** (61.3/deal, matching the cloud iteration's 60.3). Fresh bank
 now 3,250 of the >=12k target.
 
+**Installment 2 (2026-07-22 pm, selfplay_data/0722_fresh_iter0_pm, seed
+30260722):** 3,000 deals / 183,936 records / 168 files at 6.28 s/deal,
+stopped cleanly at the chunk-12 boundary on user request (partial
+chunk-13 files deleted). Sizing lesson: the 3,500-deal target assumed a
+12:25pm launch but the run started ~1:57pm - size end-time-capped runs
+from the ACTUAL launch timestamp, not the planning timestamp. Fresh
+bank total: **6,250 deals / 383,200 records** of the >=12k target.
+
 ## Raw-line round 1 vs the NEW baseline (2026-07-21 evening, 3 trials)
 
 | Trial | Neutral raw delta (n=2500) | p |
