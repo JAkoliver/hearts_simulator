@@ -313,6 +313,15 @@ self-comparisons. Correct out-of-band gates vs model_step3_base.pth are
 the numbers above. Symptom to remember: SE exactly 0.000 = you gated a
 net against itself.
 
+## Deployed player vs the 2026-07-14 calibration opponent (2026-07-23)
+
+eval_search_pair.py, both sides K=64 search vs neutral anchors, 1,200
+paired deals: current hearts_ai_search.pt vs hearts_ai_search_v4m10.pt
+(the deployed player the user beat by ~3.3 pts/round on 07-14):
+**-1.016 (SE 0.234, t=-4.34, p=0.00002) - the current best is a full
+point per deal stronger than the 07-14 opponent.** Matches the
+predicted chain (v5~=v4 searched tie, +1.025 PPO gap, raw-line lean).
+
 Verdict: the distill-refresh + PPO-finish recipe CANNOT beat the
 current baseline from same-lineage data. All candidates parked
 (cand_fresh_sharp{,3,4}.pth, cand_step3_s{1,2,3}.pth + .optim stashes).
