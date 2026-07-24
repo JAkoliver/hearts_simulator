@@ -282,6 +282,44 @@ imitation targets do not encode. From-scratch v5-L needs its own
 PPO steps, not more imitation. Candidates parked: cand_fresh_sharp.pth,
 cand_v5L_fresh.pth, cand_v5L_mixed.pth. Baseline hash-verified.
 
+## Step 3: sharpen sweep + staged PPO-finish - FAIL (2026-07-23 evening)
+
+Sweep (warm-start fresh-bank distills, quick gates n=2500 + policy
+entropy over 8,192 bank observations):
+
+| Sharpen | Neutral raw | Entropy (nats) |
+|---|---|---|
+| 2.0 | +0.248 (SE 0.139) | 0.9736 |
+| 3.0 | +0.254 (SE 0.142) | 0.9651 |
+| 4.0 | +0.470 (SE 0.138) | 0.9534 |
+
+Sharpening saturates at 2.0; 4.0 is actively worse WITHOUT meaningful
+entropy collapse (0.95 vs 0.97) - over-sharpening degrades the policy
+directly, not via exploration loss. Winner (entropy tie-break): 2.0.
+
+Staged PPO-finish on the 2.0 candidate (3 x 85k games, warmup
+20k/0/0, per-stage neutral-raw gates vs the snapshotted baseline):
+start +0.248 -> s1 +0.159 (re-measured +0.326 on a second seed; avg
+~+0.24) -> s2 +0.337 -> s3 +0.428 (SE ~0.14 each). **255k games of PPO
+produced zero-to-negative movement.** The -0.6..-0.9 PPO gain does NOT
+transfer to a candidate starting near the baseline's level -
+re-confirming PPO-near-ceiling is one-shot; the sharpened distill
+apparently consumes the same improvement PPO would have made.
+
+Measurement bug for the record: the driver's in-loop stage gates
+compared checkpoints against hearts_model_final.pth, which DURING PPO
+stages is the working candidate itself -> +0.000 (SE 0.000)
+self-comparisons. Correct out-of-band gates vs model_step3_base.pth are
+the numbers above. Symptom to remember: SE exactly 0.000 = you gated a
+net against itself.
+
+Verdict: the distill-refresh + PPO-finish recipe CANNOT beat the
+current baseline from same-lineage data. All candidates parked
+(cand_fresh_sharp{,3,4}.pth, cand_step3_s{1,2,3}.pth + .optim stashes).
+Baseline hash-verified untouched. Per user rule: stopped here; fallback
+directions (visit-count targets, exploiter league, v5-L RL ladder,
+bigger data) await discussion.
+
 ## Raw-line round 1 vs the NEW baseline (2026-07-21 evening, 3 trials)
 
 | Trial | Neutral raw delta (n=2500) | p |
