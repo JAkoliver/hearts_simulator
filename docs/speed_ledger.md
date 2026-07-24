@@ -302,6 +302,23 @@ Measured:
   per-deal strength translates weakly to match wins, as the
   score-conditioning thesis predicts.
 
+## Phase 1 COMPLETE: match-mode training + gates (2026-07-24, 77d38b6)
+
+- MatchVecEnv batch wrapper: equivalence-tested vs single MatchEnv over
+  14,640 decisions including match resets - bit-identical obs+ctx,
+  dones, placements.
+- train.py match_mode smoke (SMOKE_TEST, 256 envs): 2,589 deals / 256
+  matches in one cycle+drain; learner avg placement 2.006, win 37.8%
+  vs pool; belief BCE normal; critic EV -0.755 as EXPECTED (value head
+  has never seen match returns - warmup exists for this).
+- Orchestrator: match gate promotes when config match_mode=true
+  (placement paired t-test, alpha=0.05, n=800 ~= 10 min); neutral raw
+  demoted to a telemetry line; search non-regression guard unchanged.
+- config keys: match_mode (false until launch), match_reward_scale 4.0,
+  match_gate_matches 800, match_gate_alpha 0.05.
+Ready for the first score-aware PPO run: set match_mode=true, launch
+run_loop per launcher discipline.
+
 ## Step 3: sharpen sweep + staged PPO-finish - FAIL (2026-07-23 evening)
 
 Sweep (warm-start fresh-bank distills, quick gates n=2500 + policy
