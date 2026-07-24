@@ -95,13 +95,24 @@ def load_model(path):
         net.eval()
         return net, "v1"
 
+    if 'card_embed.weight' in sd:
+        # v5 card-token transformer (2026-07-15+); net_from_checkpoint infers
+        # width/depth. Same forward(obs, mask) surface as every other lineage.
+        from hearts_net import net_from_checkpoint
+        net = net_from_checkpoint(path)
+        net.eval()
+        return net, "v5"
+
     obs_dim = sd['input_fc.weight'].shape[1]
     net = HeartsNet(obs_dim=obs_dim)
     # Pre-belief checkpoints lack the belief head; leave it randomly
     # initialized (unused by forward()). Anything else missing is a real error.
     missing, unexpected = net.load_state_dict(sd, strict=False)
     assert not unexpected, f"unexpected keys in {path}: {unexpected}"
-    assert all(k.startswith('belief_head.') for k in missing), f"missing keys: {missing}"
+    # Pre-belief checkpoints lack belief_head; pre-oracle (pre-2026-07)
+    # checkpoints lack oracle_fc1/2. Neither is used by forward().
+    assert all(k.startswith(('belief_head.', 'oracle_fc')) for k in missing), \
+        f"missing keys: {missing}"
     net.eval()
     arch = {550: "v4", 238: "v3"}.get(obs_dim, f"{obs_dim}d")
     if obs_dim < 550:
