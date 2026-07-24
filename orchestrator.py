@@ -8,6 +8,8 @@ import scipy.stats as stats
 import torch
 import numpy as np
 
+import headroom
+
 from hearts_net import HeartsNet, net_from_checkpoint
 import hearts_env
 
@@ -196,6 +198,7 @@ def _neutral_chunk(job):
 def evaluate_candidate_neutral_raw(candidate_path, baseline_path,
                                    num_deals=2500, workers=12, alpha=0.05):
     """Raw-line promoter. Returns (success, mean, se, p)."""
+    workers = headroom.scaled_workers(workers)
     anchor = NEUTRAL_OPPONENT
     if not os.path.exists(anchor):
         raise RuntimeError(f"neutral anchor missing ({anchor}); "
@@ -216,7 +219,8 @@ def evaluate_candidate_neutral_raw(candidate_path, baseline_path,
         offset += n
 
     import multiprocessing
-    with multiprocessing.Pool(len(jobs)) as pool:
+    with multiprocessing.Pool(len(jobs),
+                              initializer=headroom.apply_process_priority) as pool:
         results = pool.map(_neutral_chunk, jobs)
 
     diffs = np.array([d for r in results for d in r], dtype=np.float64)
@@ -276,7 +280,9 @@ def _search_start(model_pt, opponent_pt, deals, k, seed, out_csv):
            '--seed', str(seed), '--out', out_csv]
     if torch.cuda.is_available():
         cmd.extend(['--cuda', '--bf16'])
-    return subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+    proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
+    headroom.child_priority(proc.pid)
+    return proc
 
 def _search_finish(proc, out_csv):
     _, err = proc.communicate()
@@ -320,7 +326,7 @@ def evaluate_candidate_search(candidate_path, deals=500, k=64, alpha=0.05,
 
     seed = int(time.time())
     _trace_for_search(candidate_path, 'search_gate_candidate.pt')
-    shards = max(1, min(shards, deals))
+    shards = headroom.scaled_shards(max(1, min(shards, deals)))
     print(f"Search gate: {deals} paired deals, K={k}, {shards} shard pairs, "
           f"neutral opponents (all {2 * shards} runs concurrent)...")
     per = deals // shards

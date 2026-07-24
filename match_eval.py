@@ -18,6 +18,7 @@ import numpy as np
 import scipy.stats as stats
 import torch
 
+import headroom
 from hearts_match_env import MatchEnv
 from hearts_net import net_from_checkpoint
 from orchestrator import NEUTRAL_OPPONENT, _LegacySeat
@@ -83,6 +84,7 @@ def _chunk(job):
 def run_gate(cand, base, matches=800, workers=12, seed=None):
     """Run the paired match gate; prints the report and returns a stats dict."""
     seed = seed if seed is not None else int(time.time())
+    workers = headroom.scaled_workers(workers)
     print(f"Match gate: {cand} vs {base} @ shared seat, 3x v3-m7 "
           f"anchors, {matches} paired matches to 100, seed {seed}")
 
@@ -98,7 +100,8 @@ def run_gate(cand, base, matches=800, workers=12, seed=None):
 
     import multiprocessing
     t0 = time.time()
-    with multiprocessing.Pool(len(jobs)) as pool:
+    with multiprocessing.Pool(len(jobs),
+                              initializer=headroom.apply_process_priority) as pool:
         results = pool.map(_chunk, jobs)
     rows = [r for chunk in results for r in chunk]
 

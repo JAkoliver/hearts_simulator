@@ -20,6 +20,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+import headroom
 from hearts_net import HeartsNet, HeartsNetV5, net_from_checkpoint
 
 RECORD = np.dtype([
@@ -106,6 +107,8 @@ def main():
 
     device = torch.device(args.device)
     print(f"Device: {device}")
+    headroom.apply_process_priority()
+    headroom.banner()
     torch.set_float32_matmul_precision('high')  # TF32 matmuls on Ada
 
     data, holdout = load_data(args.data, holdout_frac=args.holdout)
@@ -146,6 +149,7 @@ def main():
             lseen = 0
 
         for start in range(0, n, args.batch):
+            headroom.pace()
             idx = perm[start:start + args.batch]
             b = data[idx]
             # Ship the u8 fields to the device raw and convert there: 4x less

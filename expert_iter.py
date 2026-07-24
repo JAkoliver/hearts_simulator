@@ -47,6 +47,9 @@ def worker_cmd(iter_dir, w, per_worker, k, pass_k, seed, cuda, rollout_tricks=-1
     return cmd
 
 def generate(iter_dir, deals, workers, k, pass_k, seed0, cuda, rollout_tricks=-1):
+    import headroom
+    workers = headroom.scaled_workers(workers)
+    headroom.banner()
     os.makedirs(iter_dir, exist_ok=True)
     t0 = time.time()
 
@@ -78,7 +81,8 @@ def generate(iter_dir, deals, workers, k, pass_k, seed0, cuda, rollout_tricks=-1
                    '--threads', str(workers), '--cuda', '--bf16',
                    '--seed', str(seed0 + c * 1000),
                    '--out', out]
-            res = subprocess.run(cmd, stdout=subprocess.DEVNULL)
+            res = subprocess.run(cmd, stdout=subprocess.DEVNULL,
+                                 creationflags=headroom.popen_creationflags())
             if res.returncode != 0:
                 print(f"  chunk {c} exited with code {res.returncode}; "
                       f"retrying this chunk with a fresh seed")

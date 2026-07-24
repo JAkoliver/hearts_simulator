@@ -8,6 +8,7 @@ import random
 import os
 import glob
 import json
+import headroom
 import hearts_env
 from hearts_match_env import MatchVecEnv
 from hearts_net import HeartsNet, HeartsNetV5, net_from_checkpoint
@@ -145,6 +146,7 @@ def ppo_update(network, optimizer, buffer, device, gamma=1.0, eps_clip=0.2, k_ep
     for epoch in range(k_epochs):
         perm = torch.randperm(n, device=device)
         for start in range(0, n, minibatch_size):
+            headroom.pace()
             idx = perm[start:start + minibatch_size]
 
             masked_logits, state_values, belief_logits = network.forward_all(old_states[idx], old_masks[idx])
@@ -319,6 +321,7 @@ def run_cycle_vec(vec, registry, active_ids, seat_net, steps_this_game,
     p0_raw_sum = 0.0
 
     while True:
+        headroom.pace()
         draining = games_done >= games_target
         if draining:
             active = env_ids[steps_this_game > 0]
@@ -396,6 +399,7 @@ def run_cycle_vec_match(vec, registry, active_ids, seat_net, steps_this_match,
     seats_counted = 0
 
     while True:
+        headroom.pace()
         draining = deals_done >= deals_target
         if draining:
             active = env_ids[steps_this_match > 0]
@@ -458,6 +462,8 @@ def run_cycle_vec_match(vec, registry, active_ids, seat_net, steps_this_match,
 # ---------------------------------------------------------
 def main():
     print("Initializing Hearts PPO Training Pipeline (vectorized)...")
+    headroom.apply_process_priority()
+    headroom.banner()
 
     with open('config.json', 'r') as f:
         config = json.load(f)
