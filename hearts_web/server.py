@@ -61,6 +61,7 @@ class Session:
         self.last_deal = None     # round scores of the most recent deal
         self.deal_no = 1
         self.passed_cards = []    # human's picks this pass phase
+        self.events = []          # ordered happenings since the last human action
         self.log = {'start': time.time(), 'human_seat': self.human_seat,
                     'deals': [], 'actions': 0}
         self.finished = False
@@ -83,6 +84,8 @@ class Session:
         in_play = not self.menv.is_passing()
         if in_play:
             self.trick.append((seat, action))
+            self.events.append({'type': 'play', 'seat': seat,
+                                'name': card_name(action)})
         deal_done, match_done, round_scores = self.menv.step(action)
         self.log['actions'] += 1
         if in_play and len(self.trick) == 4:
@@ -90,10 +93,21 @@ class Session:
             # unless the deal just ended (then round_scores tell the story)
             winner = None if deal_done else self.menv.get_current_player()
             self.last_trick = {'cards': list(self.trick), 'winner': winner}
+            self.events.append({'type': 'trick_end', 'winner': winner,
+                                'cards': [{'seat': s, 'name': card_name(c)}
+                                          for s, c in self.last_trick['cards']]})
             self.trick = []
         if deal_done:
             self.trick = []
             self.last_deal = list(map(int, round_scores))
+            srt = sorted(round_scores)
+            self.events.append({
+                'type': 'deal_end',
+                'round_scores': list(map(int, round_scores)),
+                'totals': list(map(int, self.menv.match_scores)),
+                'moon_by': (int(np.argmin(round_scores))
+                            if srt[0] == 0 and all(v == 26 for v in srt[1:])
+                            else None)})
             self.passed_cards = []
             self.log['deals'].append({
                 'round_scores': list(map(int, round_scores)),
@@ -120,6 +134,14 @@ class Session:
         my_turn = obs is not None and not self.finished
         hand = [int(c) for c in np.flatnonzero(obs[:52] > 0)] if my_turn else []
         legal = self._legal() if my_turn else []
+        # Obs block 9 (238-289): cards received in this deal's pass
+        received = ([card_name(int(c)) for c in np.flatnonzero(obs[238:290] > 0)]
+                    if my_turn else [])
+        try:
+            pass_dir = ['left', 'right', 'across', 'hold'][
+                int(self.menv.env.get_pass_direction())]
+        except Exception:
+            pass_dir = None
         return {
             'sid': self.sid,
             'finished': self.finished,
@@ -128,6 +150,9 @@ class Session:
             'passing': bool(self.menv.is_passing()) if my_turn else False,
             'passed_so_far': [card_name(c) for c in self.passed_cards],
             'deal_no': self.deal_no,
+            'pass_direction': pass_dir,
+            'received': received,
+            'round_scores': list(map(int, self.menv.env.get_round_scores())),
             'match_scores': list(map(int, self.menv.match_scores)),
             'hand': [{'card': c, 'name': card_name(c)} for c in sorted(hand)],
             'legal': sorted(legal),
@@ -190,8 +215,11 @@ def play(sid: str, body: PlayBody):
             raise HTTPException(409, 'not your turn')
         if body.card not in s._legal():
             raise HTTPException(400, f'illegal card {body.card}')
+        s.events = []
         if s.menv.is_passing():
             s.passed_cards.append(body.card)
         s._apply(s.human_seat, body.card)
         s.run_ai_turns()
-        return s.state()
+        out = s.state()
+        out['events'] = s.events
+        return out
