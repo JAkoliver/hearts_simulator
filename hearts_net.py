@@ -220,6 +220,16 @@ class HeartsNetV5(nn.Module):
     N_CARD_CH = len(CARD_BLOCKS)  # 10 sliced channels (identity embedding adds content)
     CTX_START, CTX_END = 156, 186  # scores..in_passing (30 dims)
 
+    # Match-to-100 context, APPENDED past the 550-dim per-deal observation
+    # (docs/ROADMAP.md phase 1). Layout (all /100 or /20 normalized, rotated
+    # to the observing seat): [self, left, across, right match scores,
+    # deals_elapsed, distance_of_leader_to_100]. The projection is
+    # ZERO-INITIALIZED so a net extended from a per-deal checkpoint is
+    # behavior-identical until training moves these weights; per-deal callers
+    # passing plain 550-dim observations skip the term entirely.
+    MATCH_CTX_START = 550
+    MATCH_CTX_DIM = 6
+
     def __init__(self, obs_dim=550, d_model=192, num_layers=4, num_heads=6):
         super(HeartsNetV5, self).__init__()
         self.obs_dim = obs_dim
@@ -228,6 +238,9 @@ class HeartsNetV5(nn.Module):
         self.card_embed = nn.Embedding(52, d_model)
         self.card_proj = nn.Linear(self.N_CARD_CH, d_model)
         self.ctx_proj = nn.Linear(self.CTX_END - self.CTX_START, d_model)
+        self.match_proj = nn.Linear(self.MATCH_CTX_DIM, d_model)
+        nn.init.zeros_(self.match_proj.weight)
+        nn.init.zeros_(self.match_proj.bias)
         # Buffer, not an inline torch.arange: traces bake tensor-creation
         # devices as constants, and a buffer follows .to(device) instead
         self.register_buffer('card_ids', torch.arange(52), persistent=False)
@@ -257,8 +270,12 @@ class HeartsNetV5(nn.Module):
         chans = torch.stack([observation[:, s:s + 52] for s in self.CARD_BLOCKS], dim=2)
         cards = self.card_embed(self.card_ids).unsqueeze(0).expand(b, 52, self.d_model) \
             + self.card_proj(chans)
-        ctx = self.ctx_proj(observation[:, self.CTX_START:self.CTX_END]).unsqueeze(1)
-        x = torch.cat([ctx, cards], dim=1)  # (batch, 53, d)
+        ctx = self.ctx_proj(observation[:, self.CTX_START:self.CTX_END])
+        if observation.shape[-1] >= self.MATCH_CTX_START + self.MATCH_CTX_DIM:
+            ctx = ctx + self.match_proj(
+                observation[:, self.MATCH_CTX_START:
+                            self.MATCH_CTX_START + self.MATCH_CTX_DIM])
+        x = torch.cat([ctx.unsqueeze(1), cards], dim=1)  # (batch, 53, d)
         for block in self.enc_blocks:
             x = block(x)
         return self.final_norm(x)

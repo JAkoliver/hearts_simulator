@@ -282,6 +282,26 @@ imitation targets do not encode. From-scratch v5-L needs its own
 PPO steps, not more imitation. Candidates parked: cand_fresh_sharp.pth,
 cand_v5L_fresh.pth, cand_v5L_mixed.pth. Baseline hash-verified.
 
+## Phase 1 match-to-100 infrastructure (2026-07-23 night)
+
+Built + verified (commit follows): HeartsNetV5 match-context extension
+(6 appended dims, zero-init projection - extended net BIT-IDENTICAL to
+the baseline on 550-dim AND 556-dim inputs, trace path unchanged vs the
+deployed .pt), hearts_match_env.py (score carry, 100-termination,
+tie-aware placements, pairing-deterministic deal sequences), and
+match_eval.py (paired match gate + telemetry rider).
+
+Measured:
+- Null calibration (baseline vs itself, 24 matches): ALL paired deltas
+  exactly 0, discordant 0:0 - pairing airtight.
+- Match gate cost: 60 paired matches = 45 s at 12 workers ->
+  **n=800 gate ~= 10 min** (placement SE ~0.04, score-diff SE ~0.9,
+  ~110 discordant pairs at n=800).
+- Headroom teaser: the score-blind baseline (~2 pts/deal above the v3
+  anchors raw) wins only ~30-37% of 4-seat matches (chance 25%) -
+  per-deal strength translates weakly to match wins, as the
+  score-conditioning thesis predicts.
+
 ## Step 3: sharpen sweep + staged PPO-finish - FAIL (2026-07-23 evening)
 
 Sweep (warm-start fresh-bank distills, quick gates n=2500 + policy
