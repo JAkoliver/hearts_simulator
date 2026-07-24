@@ -334,6 +334,18 @@ Score-conditioned PPO from the zero-init extended baseline, first trial,
 The score-conditioning thesis paid out on trial 1. Loop continues from
 the new baseline (match-era compounding question now open).
 
+**Match-era night 1 complete (trials 1-4, ~23:50-12:16): THREE
+promotions.** Trial 3: -0.059 (SE 0.038, p=0.059) near-miss FAIL, raw
+flat. Trial 4: **-0.087 (SE 0.036, p=0.008), win 39.8% vs 35.9%
+(p=0.025)**, raw flat (-0.068 ns), guard UB +0.261 PASS -> milestone
+1784920549 (10abe622). Cumulative vs the fixed anchor field: win rate
+26.8% -> 39.8%, placement 2.44 -> 2.05, summed placement delta ~-0.31.
+Later gains are pure match-strategy (raw telemetry flat after trial 2).
+Guard margins all narrow-positive (+0.292/+0.218/+0.261): searched
+strength holding. WATCHPOINT: gate anchors are a FIXED v3-m7 field -
+anchor-overfit risk compounds with each promotion; diversify anchor
+family soon (same caveat as the raw-line era).
+
 **Trial 2 (~08:40): SECOND promotion - match PPO COMPOUNDS.** vs the
 trial-1 baseline: placement **-0.133 (SE 0.040, n=800, p=0.00044)**,
 win rate **36.0% vs 31.5% (discordant 136:100, p=0.011 - significant)**,
