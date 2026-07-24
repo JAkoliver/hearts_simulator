@@ -319,6 +319,21 @@ Measured:
 Ready for the first score-aware PPO run: set match_mode=true, launch
 run_loop per launcher discipline.
 
+## FIRST MATCH-AWARE PROMOTION (2026-07-24 ~03:15, trial 1 of the match era)
+
+Score-conditioned PPO from the zero-init extended baseline, first trial,
+25% headroom pace (~3.4 h wall):
+- Training: critic EV climbed -0.755 (cold) -> **0.92** - the value head
+  fully learned match returns in one 250k-deal run.
+- Match gate (promoter): placement **-0.085 (SE 0.041, n=800, p=0.018)**;
+  win rate 28.5% vs 26.8% (discordant 109:95, p=0.18).
+- Neutral raw telemetry: **-0.233 (SE 0.136, p=0.043)** - match training
+  ADDED per-deal strength rather than trading it away.
+- Search guard: +0.033 (SE 0.158), UB +0.292 vs +0.3 -> PASS (narrow).
+- Milestone 1784888158 (hash 25db6f93...), traces re-exported+verified.
+The score-conditioning thesis paid out on trial 1. Loop continues from
+the new baseline (match-era compounding question now open).
+
 ## Step 3: sharpen sweep + staged PPO-finish - FAIL (2026-07-23 evening)
 
 Sweep (warm-start fresh-bank distills, quick gates n=2500 + policy
