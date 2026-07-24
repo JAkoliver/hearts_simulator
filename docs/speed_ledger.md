@@ -334,6 +334,16 @@ Score-conditioned PPO from the zero-init extended baseline, first trial,
 The score-conditioning thesis paid out on trial 1. Loop continues from
 the new baseline (match-era compounding question now open).
 
+**Trial 2 (~08:40): SECOND promotion - match PPO COMPOUNDS.** vs the
+trial-1 baseline: placement **-0.133 (SE 0.040, n=800, p=0.00044)**,
+win rate **36.0% vs 31.5% (discordant 136:100, p=0.011 - significant)**,
+neutral raw telemetry -0.358 (p=0.003), search guard UB +0.218 -> PASS
+(more room than trial 1's +0.292). Milestone 1784900322 (9cb0ba9f),
+traces verified. Win rate tracking placement = no placement-bias
+signature; the win-bonus reward change stays unneeded on current
+evidence. Unlike the per-deal axis (second step always died), the match
+axis is compounding.
+
 ## Step 3: sharpen sweep + staged PPO-finish - FAIL (2026-07-23 evening)
 
 Sweep (warm-start fresh-bank distills, quick gates n=2500 + policy
