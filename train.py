@@ -143,46 +143,60 @@ def ppo_update(network, optimizer, buffer, device, gamma=1.0, eps_clip=0.2, k_ep
 
     n = old_states.shape[0]
     belief_bce_sum, belief_bce_count = 0.0, 0
+    # Under headroom mode the minibatch is processed as 512-row micro-batches
+    # with gradient accumulation: mathematically identical for this
+    # LayerNorm-only net (micro-grads are size-weighted and summed before the
+    # single optimizer step), but the worst-case kernel length drops ~4x and
+    # pace() runs between micro-batches - this is what un-freezes the Windows
+    # compositor during the long update bursts.
+    micro = 512 if headroom.enabled else minibatch_size
     for epoch in range(k_epochs):
         perm = torch.randperm(n, device=device)
         for start in range(0, n, minibatch_size):
-            headroom.pace()
             idx = perm[start:start + minibatch_size]
-
-            masked_logits, state_values, belief_logits = network.forward_all(old_states[idx], old_masks[idx])
-            dist = Categorical(logits=masked_logits)
-
-            new_log_probs = dist.log_prob(old_actions[idx])
-            entropy = dist.entropy()
-
-            ratios = torch.exp(new_log_probs - old_log_probs[idx])
-
-            mb_advantages = advantages[idx]
-            surr1 = ratios * mb_advantages
-            surr2 = torch.clamp(ratios, 1 - eps_clip, 1 + eps_clip) * mb_advantages
-
-            actor_loss = -torch.min(surr1, surr2).mean()
-
-            critic_loss = nn.MSELoss()(state_values.squeeze(-1), returns[idx])
-
-            # Auxiliary belief loss: supervised prediction of opponents' hands
-            belief_loss = nn.functional.binary_cross_entropy_with_logits(
-                belief_logits, hand_labels[idx])
-
-            # actor_coef 0 = critic warmup: the value/belief heads adapt to
-            # the on-policy distribution while the policy stays untouched, so
-            # early garbage advantages can't damage a good warm-start policy
-            loss = (actor_coef * (actor_loss - entropy_coef * entropy.mean())
-                    + 0.5 * critic_loss + aux_coef * belief_loss)
+            mb_n = len(idx)
 
             optimizer.zero_grad()
-            loss.backward()
+            for mstart in range(0, mb_n, micro):
+                headroom.pace()
+                midx = idx[mstart:mstart + micro]
+
+                masked_logits, state_values, belief_logits = network.forward_all(old_states[midx], old_masks[midx])
+                dist = Categorical(logits=masked_logits)
+
+                new_log_probs = dist.log_prob(old_actions[midx])
+                entropy = dist.entropy()
+
+                ratios = torch.exp(new_log_probs - old_log_probs[midx])
+
+                mb_advantages = advantages[midx]
+                surr1 = ratios * mb_advantages
+                surr2 = torch.clamp(ratios, 1 - eps_clip, 1 + eps_clip) * mb_advantages
+
+                actor_loss = -torch.min(surr1, surr2).mean()
+
+                critic_loss = nn.MSELoss()(state_values.squeeze(-1), returns[midx])
+
+                # Auxiliary belief loss: supervised prediction of opponents' hands
+                belief_loss = nn.functional.binary_cross_entropy_with_logits(
+                    belief_logits, hand_labels[midx])
+
+                # actor_coef 0 = critic warmup: the value/belief heads adapt to
+                # the on-policy distribution while the policy stays untouched, so
+                # early garbage advantages can't damage a good warm-start policy
+                loss = (actor_coef * (actor_loss - entropy_coef * entropy.mean())
+                        + 0.5 * critic_loss + aux_coef * belief_loss)
+
+                # Size-weighted so accumulated micro-grads equal the full
+                # minibatch gradient exactly
+                (loss * (len(midx) / mb_n)).backward()
+
+                if epoch == k_epochs - 1:
+                    belief_bce_sum += belief_loss.item() * (len(midx) / mb_n)
+            belief_bce_count += 1 if epoch == k_epochs - 1 else 0
+
             nn.utils.clip_grad_norm_(network.parameters(), 0.5)
             optimizer.step()
-
-            if epoch == k_epochs - 1:
-                belief_bce_sum += belief_loss.item()
-                belief_bce_count += 1
 
     belief_bce = belief_bce_sum / belief_bce_count if belief_bce_count else None
     return explained_var, belief_bce
@@ -334,6 +348,7 @@ def run_cycle_vec(vec, registry, active_ids, seat_net, steps_this_game,
         deciding = seat_net[env_ids, cp]  # registry index per env
 
         for k in np.unique(deciding[active]):
+            headroom.pace()
             g = active[deciding[active] == k]
             obs = vec.observe_batch(g)
             mask = vec.legal_mask_batch(g)
@@ -412,6 +427,7 @@ def run_cycle_vec_match(vec, registry, active_ids, seat_net, steps_this_match,
         deciding = seat_net[env_ids, cp]
 
         for k in np.unique(deciding[active]):
+            headroom.pace()
             g = active[deciding[active] == k]
             obs = vec.observe_batch(g)
             mask = vec.legal_mask_batch(g)

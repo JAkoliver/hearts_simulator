@@ -49,15 +49,24 @@ def child_priority(pid):
         pass
 
 
+_owed = 0.0
+_MIN_SLEEP = 0.06   # sleep in >=60 ms blocks: the Windows compositor needs
+_MAX_SLEEP = 0.40   # CHUNKY idle windows (several frames), not milli-gaps
+
+
 def pace():
-    """Sleep FRACTION/(1-FRACTION) of the time since the last call (capped
-    at 250 ms so a long stall never doubles up)."""
-    global _last
+    """Accrue FRACTION/(1-FRACTION) of measured work time as sleep debt and
+    pay it in >=60 ms chunks so the GPU gets real idle windows."""
+    global _last, _owed
     if not enabled:
         return
     now = time.perf_counter()
     if _last is not None and now > _last:
-        time.sleep(min(0.25, (now - _last) * FRACTION / (1.0 - FRACTION)))
+        _owed += (now - _last) * FRACTION / (1.0 - FRACTION)
+    if _owed >= _MIN_SLEEP:
+        chunk = min(_owed, _MAX_SLEEP)
+        time.sleep(chunk)
+        _owed -= chunk
     _last = time.perf_counter()
 
 
