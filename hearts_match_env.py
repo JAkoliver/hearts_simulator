@@ -23,6 +23,33 @@ MATCH_CTX_DIM = 6
 _MAX_DEALS_NORM = 20.0
 
 
+def match_ctx_row(match_scores, deals_played, seat):
+    """6 dims, rotated to `seat`: [self, left, across, right]/100,
+    deals_played/20, leader_distance_to_100/100."""
+    rot = np.array([match_scores[(seat + i) % 4] for i in range(4)],
+                   dtype=np.float64)
+    return np.concatenate([
+        rot / float(TARGET),
+        [deals_played / _MAX_DEALS_NORM],
+        [(TARGET - match_scores.max()) / float(TARGET)],
+    ]).astype(np.float32)
+
+
+def placements_of(match_scores):
+    """1 = winner (lowest total); ties share the mean of their ranks."""
+    order = np.argsort(match_scores, kind='stable')
+    ranks = np.empty(4, dtype=np.float64)
+    i = 0
+    while i < 4:
+        j = i
+        while (j + 1 < 4 and
+               match_scores[order[j + 1]] == match_scores[order[i]]):
+            j += 1
+        ranks[order[i:j + 1]] = (i + j) / 2.0 + 1.0
+        i = j + 1
+    return ranks
+
+
 class MatchEnv:
     def __init__(self, seed):
         self.env = hearts_env.HeartsEnv(seed=seed)
@@ -46,14 +73,7 @@ class MatchEnv:
 
     # --- observation with appended match context ---------------------------
     def match_ctx(self, seat):
-        """6 dims, rotated to `seat`: [self, left, across, right]/100,
-        deals_played/20, leader_distance_to_100/100."""
-        rot = np.array([self.match_scores[(seat + i) % 4] for i in range(4)])
-        return np.concatenate([
-            rot / float(TARGET),
-            [self.deals_played / _MAX_DEALS_NORM],
-            [(TARGET - self.match_scores.max()) / float(TARGET)],
-        ]).astype(np.float32)
+        return match_ctx_row(self.match_scores, self.deals_played, seat)
 
     def observe(self):
         obs = np.asarray(self.env.observe(), dtype=np.float32)
@@ -78,16 +98,61 @@ class MatchEnv:
 
     # --- outcomes ----------------------------------------------------------
     def placements(self):
-        """1 = winner (lowest total); ties share the mean of their ranks."""
         assert self.match_over
-        order = np.argsort(self.match_scores, kind='stable')
-        ranks = np.empty(4, dtype=np.float64)
-        i = 0
-        while i < 4:
-            j = i
-            while (j + 1 < 4 and
-                   self.match_scores[order[j + 1]] == self.match_scores[order[i]]):
-                j += 1
-            ranks[order[i:j + 1]] = (i + j) / 2.0 + 1.0
-            i = j + 1
-        return ranks
+        return placements_of(self.match_scores)
+
+
+class MatchVecEnv:
+    """Match-state manager over the C++ HeartsVecEnv batch API.
+
+    Mirrors the HeartsVecEnv surface run_cycle_vec-style loops use, with two
+    differences: observe_batch appends the per-env match context (obs becomes
+    550 + MATCH_CTX_DIM dims), and step_batch additionally reports match
+    terminations with placements. The C++ env auto-resets each finished deal;
+    this wrapper only resets its own score state at match end, so the next
+    deal seamlessly starts the next match.
+    """
+
+    def __init__(self, num_envs, seed0):
+        self.vec = hearts_env.HeartsVecEnv(num_envs, seed0)
+        self.num_envs = num_envs
+        self.match_scores = np.zeros((num_envs, 4), dtype=np.float64)
+        self.deals_played = np.zeros(num_envs, dtype=np.int64)
+
+    def size(self):
+        return self.num_envs
+
+    def current_players(self):
+        return self.vec.current_players()
+
+    def legal_mask_batch(self, g):
+        return self.vec.legal_mask_batch(g)
+
+    def labels_batch(self, g):
+        return self.vec.labels_batch(g)
+
+    def observe_batch(self, g):
+        obs = self.vec.observe_batch(g)
+        cp = self.vec.current_players()
+        ctx = np.stack([
+            match_ctx_row(self.match_scores[int(e)],
+                          int(self.deals_played[int(e)]), int(cp[int(e)]))
+            for e in g])
+        return np.concatenate([obs, ctx], axis=1).astype(np.float32)
+
+    def step_batch(self, g, actions):
+        """Returns (deal_dones, match_dones, placements, round_scores).
+        placements[j] is a 4-vector for match-done envs, else None."""
+        deal_dones, scores = self.vec.step_batch(g, actions)
+        match_dones = np.zeros(len(g), dtype=bool)
+        placements = [None] * len(g)
+        for j in np.flatnonzero(deal_dones):
+            e = int(g[j])
+            self.match_scores[e] += np.asarray(scores[j], dtype=np.float64)
+            self.deals_played[e] += 1
+            if self.match_scores[e].max() >= TARGET:
+                match_dones[j] = True
+                placements[j] = placements_of(self.match_scores[e])
+                self.match_scores[e] = 0.0
+                self.deals_played[e] = 0
+        return deal_dones, match_dones, placements, scores

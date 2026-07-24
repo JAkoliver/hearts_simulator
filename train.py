@@ -9,7 +9,21 @@ import os
 import glob
 import json
 import hearts_env
-from hearts_net import HeartsNet, net_from_checkpoint
+from hearts_match_env import MatchVecEnv
+from hearts_net import HeartsNet, HeartsNetV5, net_from_checkpoint
+
+
+class Slice550(nn.Module):
+    """Seat a legacy 550-dim net at a match table: the appended match-context
+    dims are sliced off before its forward (mirrors the prefix-slicing
+    convention used for v3/v1 opponents everywhere else)."""
+
+    def __init__(self, net):
+        super(Slice550, self).__init__()
+        self.net = net
+
+    def forward(self, observation, legal_actions_mask):
+        return self.net(observation[:, :550], legal_actions_mask)
 
 # ---------------------------------------------------------
 # 1. The Memory Buffer
@@ -362,6 +376,83 @@ def run_cycle_vec(vec, registry, active_ids, seat_net, steps_this_game,
 
     return games_done, p0_reward_sum, p0_raw_sum
 
+
+def run_cycle_vec_match(vec, registry, active_ids, seat_net, steps_this_match,
+                        buffers, deals_target, device, match_reward_scale):
+    """Match-to-100 variant of run_cycle_vec (docs/ROADMAP.md phase 1).
+
+    Differences: seats are FIXED for a whole match (reassigned only at match
+    end); learner rewards are zero until the MATCH terminal step, which gets
+    (2.5 - placement) * match_reward_scale (zero-sum across seats); the cycle
+    target counts DEALS so update cadence and max_episodes stay comparable
+    with per-deal training, and draining waits for in-flight matches.
+    """
+    n = vec.size()
+    env_ids = np.arange(n, dtype=np.int64)
+    deals_done = 0
+    matches_done = 0
+    placement_sum = 0.0
+    win_sum = 0
+    seats_counted = 0
+
+    while True:
+        draining = deals_done >= deals_target
+        if draining:
+            active = env_ids[steps_this_match > 0]
+            if active.size == 0:
+                break
+        else:
+            active = env_ids
+
+        cp = vec.current_players()
+        deciding = seat_net[env_ids, cp]
+
+        for k in np.unique(deciding[active]):
+            g = active[deciding[active] == k]
+            obs = vec.observe_batch(g)
+            mask = vec.legal_mask_batch(g)
+            actions, log_probs, values = select_actions_batch(
+                registry[k], obs, mask, device)
+            is_learner = (k == 0)
+            if is_learner:
+                labels = vec.labels_batch(g)
+
+            deal_dones, match_dones, placements, _ = vec.step_batch(
+                g, actions.astype(np.int64))
+            steps_this_match[g] += 1
+
+            if is_learner:
+                for j in range(len(g)):
+                    b = buffers[int(g[j])][int(cp[g[j]])]
+                    b.states.append(obs[j])
+                    b.actions.append(int(actions[j]))
+                    b.log_probs.append(float(log_probs[j]))
+                    b.rewards.append(0.0)
+                    b.values.append(float(values[j]))
+                    b.masks.append(mask[j])
+                    b.dones.append(False)
+                    b.hand_labels.append(labels[j])
+
+            deals_done += int(deal_dones.sum())
+            for j in np.flatnonzero(match_dones):
+                e = int(g[j])
+                pl = placements[j]
+                matches_done += 1
+                for seat in range(4):
+                    if seat_net[e, seat] == 0 and len(buffers[e][seat].rewards) > 0:
+                        buffers[e][seat].rewards[-1] = \
+                            (2.5 - float(pl[seat])) * match_reward_scale
+                        buffers[e][seat].dones[-1] = True
+                        placement_sum += float(pl[seat])
+                        win_sum += int(pl[seat] == 1.0)
+                        seats_counted += 1
+                steps_this_match[e] = 0
+                for seat in range(1, 4):
+                    seat_net[e, seat] = (random.choice(active_ids)
+                                         if active_ids and random.random() < 0.5 else 0)
+
+    return deals_done, matches_done, placement_sum, win_sum, seats_counted
+
 # ---------------------------------------------------------
 # 5. Main Training Loop
 # ---------------------------------------------------------
@@ -456,13 +547,27 @@ def main():
         print(f"Loaded milestone opponent: {m_file}")
 
     use_vec = bool(config.get('vec_env', True))
+    match_mode = bool(config.get('match_mode', False))
+    if match_mode and not use_vec:
+        raise SystemExit("match_mode requires vec_env")
+    match_reward_scale = float(config.get('match_reward_scale', 4.0))
     if use_vec:
         # Stable net registry: index 0 is the learner; pool nets get
         # append-only indices so mid-game seat assignments survive both the
         # per-cycle active-subset change and pool trimming.
         registry = [network] + list(historical_pool)
         pool_ids = list(range(1, len(registry)))
-        vec = hearts_env.HeartsVecEnv(num_envs, 1000)
+        if match_mode:
+            # Legacy 550-dim opponents get the appended ctx sliced off; v5
+            # pool nets consume it natively (zero-proj checkpoints stay
+            # score-blind, exactly as they played historically).
+            for i in range(1, len(registry)):
+                if not isinstance(registry[i], HeartsNetV5):
+                    registry[i] = Slice550(registry[i]).to(device).eval()
+            vec = MatchVecEnv(num_envs, 1000)
+            print(f"MATCH MODE: matches to 100, placement reward x{match_reward_scale}")
+        else:
+            vec = hearts_env.HeartsVecEnv(num_envs, 1000)
         seat_net = np.zeros((num_envs, 4), dtype=np.int64)
         steps_this_game = np.zeros(num_envs, dtype=np.int64)
         vec_buffers = [[RolloutBuffer() for _ in range(4)] for _ in range(num_envs)]
@@ -487,9 +592,17 @@ def main():
             if use_vec:
                 active_ids = random.sample(pool_ids,
                                            min(active_pool_size, len(pool_ids)))
-                done_games, p0_reward_sum, p0_raw_sum = run_cycle_vec(
-                    vec, registry, active_ids, seat_net, steps_this_game,
-                    vec_buffers, update_timestep, device)
+                if match_mode:
+                    (done_games, matches_done, placement_sum, win_sum,
+                     seats_counted) = run_cycle_vec_match(
+                        vec, registry, active_ids, seat_net, steps_this_game,
+                        vec_buffers, update_timestep, device,
+                        match_reward_scale)
+                    p0_reward_sum, p0_raw_sum = 0.0, 0.0
+                else:
+                    done_games, p0_reward_sum, p0_raw_sum = run_cycle_vec(
+                        vec, registry, active_ids, seat_net, steps_this_game,
+                        vec_buffers, update_timestep, device)
             else:
                 active_pool = random.sample(historical_pool,
                                             min(active_pool_size, len(historical_pool)))
@@ -532,10 +645,19 @@ def main():
 
             ev_str = f"{explained_var:.3f}" if explained_var is not None else "n/a"
             bce_str = f"{belief_bce:.4f}" if belief_bce is not None else "n/a"
-            line = (f"Games: {games_played} | Pool: {len(historical_pool)} | "
-                    f"P0 Raw: {avg_p0_raw:.2f} | P0 Rel: {avg_p0_reward:+.2f} | "
-                    f"Critic EV: {ev_str} | Belief BCE: {bce_str}"
-                    + (" | WARMUP" if in_warmup else ""))
+            if match_mode:
+                avg_pl = placement_sum / max(1, seats_counted)
+                win_pct = 100.0 * win_sum / max(1, seats_counted)
+                line = (f"Deals: {games_played} | Matches: {matches_done} | "
+                        f"Pool: {len(historical_pool)} | "
+                        f"Avg Place: {avg_pl:.3f} | Win%: {win_pct:.1f} | "
+                        f"Critic EV: {ev_str} | Belief BCE: {bce_str}"
+                        + (" | WARMUP" if in_warmup else ""))
+            else:
+                line = (f"Games: {games_played} | Pool: {len(historical_pool)} | "
+                        f"P0 Raw: {avg_p0_raw:.2f} | P0 Rel: {avg_p0_reward:+.2f} | "
+                        f"Critic EV: {ev_str} | Belief BCE: {bce_str}"
+                        + (" | WARMUP" if in_warmup else ""))
             print(line)
             train_log.write(line + "\n")
             train_log.flush()

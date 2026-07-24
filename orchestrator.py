@@ -229,6 +229,17 @@ def evaluate_candidate_neutral_raw(candidate_path, baseline_path,
     success = bool(p_val < alpha) and (mean < 0)
     return success, mean, se, float(p_val)
 
+def evaluate_candidate_match(candidate_path, baseline_path,
+                             matches=800, workers=12, alpha=0.05):
+    """Match-to-100 promoter (docs/ROADMAP.md phase 1): paired matches vs
+    neutral anchors via match_eval.run_gate. Promotes on significantly
+    better mean placement. Returns (success, dplace_mean, dplace_se, p)."""
+    import match_eval  # deferred: match_eval imports from this module
+    r = match_eval.run_gate(candidate_path, baseline_path,
+                            matches=matches, workers=workers)
+    success = bool(r['p_place'] < alpha) and (r['dplace_mean'] < 0)
+    return success, r['dplace_mean'], r['dplace_se'], r['p_place']
+
 # ---------------------------------------------------------------------------
 # Search-level gate (promoter until 2026-07-21; non-regression guard since)
 # ---------------------------------------------------------------------------
@@ -444,18 +455,37 @@ def main():
         # player never gets measurably worse.
         fail_reason = "evaluation_failed"
         if os.path.exists(baseline_model_path):
-            raw_success, new_mean, raw_se, raw_p = evaluate_candidate_neutral_raw(
-                candidate_model_path, baseline_model_path,
-                num_deals=cfg.get('raw_gate_deals', 2500),
-                workers=cfg.get('raw_gate_workers', 12),
-                alpha=cfg.get('raw_gate_alpha', 0.05))
-            if not raw_success:
-                print(f"Neutral raw gate FAILED ({new_mean:+.3f}, p={raw_p:.3f}). "
+            if cfg.get('match_mode', False):
+                # Match-era promoter (2026-07-23): placement across paired
+                # matches decides; the neutral raw gate is demoted to an
+                # informational telemetry line (experiment_rules.md #5).
+                promo_success, new_mean, promo_se, promo_p = evaluate_candidate_match(
+                    candidate_model_path, baseline_model_path,
+                    matches=cfg.get('match_gate_matches', 800),
+                    workers=cfg.get('raw_gate_workers', 12),
+                    alpha=cfg.get('match_gate_alpha', 0.05))
+                _, info_raw, info_se, info_p = evaluate_candidate_neutral_raw(
+                    candidate_model_path, baseline_model_path,
+                    num_deals=cfg.get('raw_gate_deals', 2500),
+                    workers=cfg.get('raw_gate_workers', 12),
+                    alpha=cfg.get('raw_gate_alpha', 0.05))
+                print(f"[telemetry] neutral raw delta {info_raw:+.3f} "
+                      f"(SE {info_se:.3f}, p={info_p:.3f}) - informational only")
+                gate_name = "Match gate"
+            else:
+                promo_success, new_mean, promo_se, promo_p = evaluate_candidate_neutral_raw(
+                    candidate_model_path, baseline_model_path,
+                    num_deals=cfg.get('raw_gate_deals', 2500),
+                    workers=cfg.get('raw_gate_workers', 12),
+                    alpha=cfg.get('raw_gate_alpha', 0.05))
+                gate_name = "Neutral raw gate"
+            if not promo_success:
+                print(f"{gate_name} FAILED ({new_mean:+.3f}, p={promo_p:.3f}). "
                       "Skipping search guard.")
                 success = False
-                fail_reason = "neutral_raw_gate_failed"
+                fail_reason = gate_name.lower().replace(' ', '_') + "_failed"
             else:
-                print(f"Neutral raw gate PASSED ({new_mean:+.3f}, p={raw_p:.5f}). "
+                print(f"{gate_name} PASSED ({new_mean:+.3f}, p={promo_p:.5f}). "
                       "Search non-regression guard decides.")
                 _, sg_mean, sg_p, sg_se = evaluate_candidate_search(
                     candidate_model_path,

@@ -80,27 +80,20 @@ def _chunk(job):
     return rows
 
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument('--cand', required=True)
-    ap.add_argument('--base', default='hearts_model_final.pth')
-    ap.add_argument('--matches', type=int, default=800)
-    ap.add_argument('--workers', type=int, default=12)
-    ap.add_argument('--seed', type=int, default=None)
-    args = ap.parse_args()
+def run_gate(cand, base, matches=800, workers=12, seed=None):
+    """Run the paired match gate; prints the report and returns a stats dict."""
+    seed = seed if seed is not None else int(time.time())
+    print(f"Match gate: {cand} vs {base} @ shared seat, 3x v3-m7 "
+          f"anchors, {matches} paired matches to 100, seed {seed}")
 
-    seed = args.seed if args.seed is not None else int(time.time())
-    print(f"Match gate: {args.cand} vs {args.base} @ shared seat, 3x v3-m7 "
-          f"anchors, {args.matches} paired matches to 100, seed {seed}")
-
-    per = args.matches // args.workers
-    extra = args.matches % args.workers
+    per = matches // workers
+    extra = matches % workers
     jobs, offset = [], 0
-    for w in range(args.workers):
+    for w in range(workers):
         n = per + (1 if w < extra else 0)
         if n == 0:
             continue
-        jobs.append((args.cand, args.base, seed + w * _SEED_STRIDE, offset, n))
+        jobs.append((cand, base, seed + w * _SEED_STRIDE, offset, n))
         offset += n
 
     import multiprocessing
@@ -141,6 +134,28 @@ def main():
     print(f"  moons shot (test seat): A {int(a[:, 3].sum())}  B {int(b[:, 3].sum())}")
     print(f"  moons conceded at table: A {int(a[:, 4].sum())}  B {int(b[:, 4].sum())}")
     print(f"  [{time.time() - t0:.0f}s]")
+
+    return {
+        'n': n, 'win_a': float(win_a.mean()), 'win_b': float(win_b.mean()),
+        'discordant': (a_only, b_only), 'p_win': float(p_win),
+        'dplace_mean': float(dplace.mean()),
+        'dplace_se': float(dplace.std(ddof=1) / np.sqrt(n)),
+        'p_place': float(p_pl),
+        'dscore_mean': float(dscore.mean()),
+        'dscore_se': float(dscore.std(ddof=1) / np.sqrt(n)),
+        'p_score': float(p_sc),
+    }
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--cand', required=True)
+    ap.add_argument('--base', default='hearts_model_final.pth')
+    ap.add_argument('--matches', type=int, default=800)
+    ap.add_argument('--workers', type=int, default=12)
+    ap.add_argument('--seed', type=int, default=None)
+    args = ap.parse_args()
+    run_gate(args.cand, args.base, args.matches, args.workers, args.seed)
 
 
 if __name__ == '__main__':

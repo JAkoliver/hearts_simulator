@@ -1,10 +1,10 @@
 {
     "learning_rate": 1e-05,
-    "update_timestep": 340,
+    "update_timestep": 271,
     "games_per_worker": 26,
     "max_workers": 14,
     "gamma": 1.0,
-    "eps_clip": 0.202892,
+    "eps_clip": 0.19927,
     "k_epochs": 4,
     "max_episodes": 250000,
     "gae_lambda": 0.898754,
@@ -22,5 +22,9 @@
     "raw_gate_deals": 2500,
     "raw_gate_workers": 12,
     "raw_gate_alpha": 0.05,
-    "search_guard_margin": 0.3
+    "search_guard_margin": 0.3,
+    "match_mode": false,
+    "match_reward_scale": 4.0,
+    "match_gate_matches": 800,
+    "match_gate_alpha": 0.05
 }
