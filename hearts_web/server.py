@@ -25,6 +25,7 @@ import time
 import numpy as np
 import torch
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -56,6 +57,8 @@ class Session:
         self.menv = MatchEnv(seed=secrets.randbits(31))
         self.human_seat = secrets.randbelow(4)
         self.trick = []           # [(seat, card)] of the current trick
+        self.last_trick = None    # {'cards': [(seat, card)], 'winner': seat}
+        self.last_deal = None     # round scores of the most recent deal
         self.deal_no = 1
         self.passed_cards = []    # human's picks this pass phase
         self.log = {'start': time.time(), 'human_seat': self.human_seat,
@@ -77,14 +80,20 @@ class Session:
         return int(torch.argmax(logits, dim=1).item())
 
     def _apply(self, seat, action):
-        if not self.menv.is_passing():
+        in_play = not self.menv.is_passing()
+        if in_play:
             self.trick.append((seat, action))
-            if len(self.trick) > 4:
-                self.trick = self.trick[-4:]
         deal_done, match_done, round_scores = self.menv.step(action)
         self.log['actions'] += 1
+        if in_play and len(self.trick) == 4:
+            # The next current player is the trick winner (they lead next),
+            # unless the deal just ended (then round_scores tell the story)
+            winner = None if deal_done else self.menv.get_current_player()
+            self.last_trick = {'cards': list(self.trick), 'winner': winner}
+            self.trick = []
         if deal_done:
             self.trick = []
+            self.last_deal = list(map(int, round_scores))
             self.passed_cards = []
             self.log['deals'].append({
                 'round_scores': list(map(int, round_scores)),
@@ -123,6 +132,11 @@ class Session:
             'hand': [{'card': c, 'name': card_name(c)} for c in sorted(hand)],
             'legal': sorted(legal),
             'trick': [{'seat': s, 'name': card_name(c)} for s, c in self.trick],
+            'last_trick': (None if self.last_trick is None else {
+                'cards': [{'seat': s, 'name': card_name(c)}
+                          for s, c in self.last_trick['cards']],
+                'winner': self.last_trick['winner']}),
+            'last_deal': self.last_deal,
             'placements': list(self.menv.placements()) if self.finished else None,
             'target': TARGET,
         }
@@ -130,6 +144,12 @@ class Session:
 
 class PlayBody(BaseModel):
     card: int
+
+
+@app.get('/')
+def index():
+    return FileResponse(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                     'static', 'index.html'))
 
 
 @app.post('/api/new')

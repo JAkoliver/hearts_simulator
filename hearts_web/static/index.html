@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hearts vs AI &mdash; match to 100</title>
+<style>
+  :root { --felt:#1d6b3c; --felt-dark:#155230; --card-bg:#fdfdf8; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:system-ui, sans-serif; background:var(--felt-dark); color:#eee;
+         min-height:100vh; display:flex; flex-direction:column; align-items:center; }
+  header { width:100%; text-align:center; padding:10px; background:#0e3a20; }
+  header h1 { font-size:1.15rem; font-weight:600; }
+  header .sub { font-size:.8rem; color:#9fd4b3; }
+  #table { position:relative; width:min(96vw, 780px); height:min(60vh, 440px);
+           background:radial-gradient(ellipse at center, var(--felt) 0%, var(--felt-dark) 100%);
+           border-radius:16px; margin:14px 0 6px; box-shadow:0 4px 18px rgba(0,0,0,.5); }
+  .seat { position:absolute; text-align:center; font-size:.85rem; color:#cfe9d8; }
+  .seat .tag { background:rgba(0,0,0,.35); padding:2px 10px; border-radius:10px; }
+  .seat.active .tag { background:#e8b923; color:#222; font-weight:600; }
+  #seat-top { top:8px; left:50%; transform:translateX(-50%); }
+  #seat-left { left:8px; top:50%; transform:translateY(-50%); }
+  #seat-right { right:8px; top:50%; transform:translateY(-50%); }
+  #seat-bottom { bottom:8px; left:50%; transform:translateX(-50%); }
+  #trick { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; }
+  .tcard { position:absolute; }
+  .tcard.pos0 { transform:translateY(52px); }   /* bottom = human default */
+  .tcard.pos1 { transform:translateX(-78px); }
+  .tcard.pos2 { transform:translateY(-52px); }
+  .tcard.pos3 { transform:translateX(78px); }
+  #banner { position:absolute; top:42%; width:100%; text-align:center; font-size:1rem;
+            color:#ffe28a; text-shadow:0 1px 3px #000; pointer-events:none; }
+  .card { display:inline-flex; flex-direction:column; justify-content:space-between;
+          width:52px; height:74px; background:var(--card-bg); color:#111; border-radius:7px;
+          border:1px solid #999; padding:4px 5px; font-weight:700; font-size:.95rem;
+          box-shadow:0 2px 5px rgba(0,0,0,.35); user-select:none; }
+  .card .suit { font-size:1.25rem; line-height:1; align-self:flex-end; }
+  .card.red { color:#c22; }
+  #hand { display:flex; flex-wrap:wrap; gap:6px; justify-content:center;
+          padding:10px 8px 4px; max-width:96vw; min-height:92px; }
+  #hand .card { cursor:pointer; transition:transform .08s; }
+  #hand .card.illegal { opacity:.38; cursor:not-allowed; }
+  #hand .card:not(.illegal):hover { transform:translateY(-8px); }
+  #status { padding:6px 12px; font-size:.95rem; text-align:center; min-height:2em; }
+  #scores { display:flex; gap:18px; font-size:.9rem; padding:4px; }
+  #scores b { color:#ffe28a; }
+  button { background:#e8b923; border:0; color:#222; font-weight:600; padding:9px 22px;
+           border-radius:8px; font-size:1rem; cursor:pointer; margin:8px; }
+  button:hover { filter:brightness(1.08); }
+  #overlay { position:fixed; inset:0; background:rgba(0,0,0,.72); display:none;
+             align-items:center; justify-content:center; z-index:10; }
+  #overlay .panel { background:#12331f; border-radius:14px; padding:26px 34px; text-align:center;
+                    max-width:420px; }
+  #overlay h2 { color:#ffe28a; margin-bottom:12px; }
+  #overlay table { margin:0 auto 10px; border-collapse:collapse; }
+  #overlay td, #overlay th { padding:4px 14px; text-align:center; }
+  footer { font-size:.72rem; color:#88ab96; padding:8px; text-align:center; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Hearts vs AI</h1>
+  <div class="sub">You are playing three copies of a trained AI &mdash; match to 100, lowest score wins.</div>
+</header>
+
+<div id="table">
+  <div class="seat" id="seat-top"><span class="tag">AI</span></div>
+  <div class="seat" id="seat-left"><span class="tag">AI</span></div>
+  <div class="seat" id="seat-right"><span class="tag">AI</span></div>
+  <div class="seat" id="seat-bottom"><span class="tag">You</span></div>
+  <div id="trick"></div>
+  <div id="banner"></div>
+</div>
+
+<div id="scores"></div>
+<div id="status">Starting&hellip;</div>
+<div id="hand"></div>
+
+<div id="overlay"><div class="panel">
+  <h2 id="result-title"></h2>
+  <table id="result-table"></table>
+  <button onclick="newMatch()">Play again</button>
+</div></div>
+
+<footer>An experiment in training a match-aware Hearts AI. Every match is recorded (anonymously) to help improve it.</footer>
+
+<script>
+const SUIT_CHAR = {C:'♣', D:'♦', S:'♠', H:'♥'};
+let sid = null, state = null, busy = false;
+
+function el(id) { return document.getElementById(id); }
+
+function cardHTML(name, cls='') {
+  const suit = name.slice(-1), rank = name.slice(0, -1);
+  const red = (suit === 'D' || suit === 'H') ? ' red' : '';
+  return `<div class="card${red} ${cls}" data-name="${name}">
+            <span>${rank}</span><span class="suit">${SUIT_CHAR[suit]}</span></div>`;
+}
+
+// Map absolute seat -> screen position (human always bottom)
+function pos(seat) { return (seat - state.your_seat + 4) % 4; }
+const SEAT_IDS = ['seat-bottom', 'seat-left', 'seat-top', 'seat-right'];
+
+function render() {
+  // seats + scores
+  for (let s = 0; s < 4; s++) {
+    const node = el(SEAT_IDS[pos(s)]);
+    const label = (s === state.your_seat) ? 'You' : 'AI';
+    node.innerHTML = `<span class="tag">${label} &middot; ${state.match_scores[s]}</span>`;
+    node.classList.toggle('active', !state.finished && state.your_turn && s === state.your_seat);
+  }
+  el('scores').innerHTML =
+    `<span>Deal <b>${state.deal_no}</b></span><span>Target <b>${state.target}</b></span>`;
+
+  // trick area (falls back to last completed trick so wins are visible)
+  const trick = state.trick.length ? state.trick
+              : (state.last_trick ? state.last_trick.cards : []);
+  el('trick').innerHTML = trick.map(t =>
+    `<div class="tcard pos${pos(t.seat)}">${cardHTML(t.name)}</div>`).join('');
+
+  // banner + status
+  let msg = '';
+  if (state.finished) msg = '';
+  else if (state.passing) msg = `Pick a card to pass (${state.passed_so_far.length}/3)`;
+  else if (state.your_turn) msg = 'Your turn - click a card';
+  el('status').textContent = msg;
+  el('banner').textContent =
+    (!state.trick.length && state.last_trick && state.last_trick.winner !== null)
+      ? `${state.last_trick.winner === state.your_seat ? 'You' : 'AI'} took the trick` : '';
+
+  // hand
+  const legal = new Set(state.legal);
+  el('hand').innerHTML = state.hand.map(h =>
+    cardHTML(h.name, legal.has(h.card) ? '' : 'illegal')).join('');
+  document.querySelectorAll('#hand .card:not(.illegal)').forEach(node => {
+    const card = state.hand.find(h => h.name === node.dataset.name).card;
+    node.onclick = () => play(card);
+  });
+
+  // match end
+  if (state.finished) {
+    const order = [0,1,2,3].sort((a,b) => state.placements[a] - state.placements[b]);
+    el('result-title').textContent =
+      state.placements[state.your_seat] === 1 ? 'You won the match!' :
+      `You placed ${['','1st','2nd','3rd','4th'][Math.round(state.placements[state.your_seat])] || state.placements[state.your_seat]}`;
+    el('result-table').innerHTML = '<tr><th>Place</th><th>Player</th><th>Score</th></tr>' +
+      order.map(s => `<tr><td>${state.placements[s]}</td>
+        <td>${s === state.your_seat ? 'You' : 'AI'}</td>
+        <td>${state.match_scores[s]}</td></tr>`).join('');
+    el('overlay').style.display = 'flex';
+  } else {
+    el('overlay').style.display = 'none';
+  }
+}
+
+async function api(path, opts) {
+  const r = await fetch(path, opts);
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+async function play(card) {
+  if (busy || !state.your_turn) return;
+  busy = true;
+  try { state = await api(`/api/play/${sid}`,
+    {method:'POST', headers:{'Content-Type':'application/json'},
+     body: JSON.stringify({card})}); render(); }
+  catch (e) { el('status').textContent = 'Error: ' + e.message; }
+  finally { busy = false; }
+}
+
+async function newMatch() {
+  state = await api('/api/new', {method:'POST'});
+  sid = state.sid;
+  render();
+}
+
+newMatch();
+</script>
+</body>
+</html>
