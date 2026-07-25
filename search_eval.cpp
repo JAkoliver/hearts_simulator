@@ -287,7 +287,7 @@ int main(int argc, char** argv) {
     // 0 deals in 25 min vs 0.95 s/deal with the pool pinned).
     torch::set_num_threads(1);
     std::string search_path, opp_path, belief_path, match_path, probe_log,
-        out_path = "search_eval_results.csv";
+        b_search_path, equity_path, out_path = "search_eval_results.csv";
     int deals = 300, k = 32, rollout_tricks = -1, matches = 200, probe_every = 5,
         k_endgame = 0;
     int tree_iterations = 400;
@@ -308,6 +308,8 @@ int main(int argc, char** argv) {
         else if (a == "--probe-log") probe_log = next();
         else if (a == "--probe-every") probe_every = std::stoi(next());
         else if (a == "--k-endgame") k_endgame = std::stoi(next());
+        else if (a == "--b-search-model") b_search_path = next();
+        else if (a == "--equity-model") equity_path = next();
         else if (a == "--deals") deals = std::stoi(next());
         else if (a == "--k") k = std::stoi(next());
         else if (a == "--seed") seed = static_cast<unsigned int>(std::stoul(next()));
@@ -399,6 +401,18 @@ int main(int argc, char** argv) {
     cfg.probe_log = probe_log;
     cfg.probe_every = probe_every;
     cfg.k_endgame = k_endgame;
+    if (!equity_path.empty()) {
+        // Arm A becomes MATCH-AWARE: 556-dim search trace + equity leaf scoring
+        try {
+            cfg.equity_model = std::make_shared<torch::jit::script::Module>(
+                torch::jit::load(equity_path));
+            cfg.equity_model->eval();
+        } catch (const c10::Error& e) {
+            std::cerr << "Failed to load equity model: " << e.what() << "\n";
+            return 1;
+        }
+        cfg.match_aware = true;
+    }
     if (oracle_leaves && !search_model.find_method("oracle").has_value()) {
         std::cerr << "--oracle-leaves requires a search model traced with the oracle method\n";
         return 1;
@@ -431,23 +445,51 @@ int main(int argc, char** argv) {
     }
     RawPolicy opp(opp_model, odim);
 
-    if (!match_path.empty()) {
-        // Paired matches to 100: table A = search player at the test seat,
-        // table B = the 556-dim match-aware raw net at the same seat, both
-        // vs three anchor seats on identical deal-sequence seeds.
-        torch::jit::script::Module mm;
-        try {
-            mm = torch::jit::load(match_path);
-            mm.eval();
-        } catch (const c10::Error& e) {
-            std::cerr << "Failed to load match model: " << e.what() << "\n";
-            return 1;
+    if (!match_path.empty() || !b_search_path.empty()) {
+        // Paired matches to 100: table A = the (possibly match-aware) search
+        // player at the test seat; table B = EITHER a second search player
+        // (--b-search-model, e.g. the frozen match-blind reference - the
+        // validation design) OR the 556-dim match-aware raw net
+        // (--match-model, the original bridge measurement). Both arms play
+        // identical deal-sequence seeds vs three anchor seats and, per rules
+        // #15, share the same K schedule.
+        std::unique_ptr<MatchRawPolicy> mp;
+        std::unique_ptr<SearchPlayer> b_sp;
+        if (!b_search_path.empty()) {
+            torch::jit::script::Module bm;
+            try {
+                bm = torch::jit::load(b_search_path);
+                bm.eval();
+            } catch (const c10::Error& e) {
+                std::cerr << "Failed to load B search model: " << e.what() << "\n";
+                return 1;
+            }
+            int bdim = ProbeObsDim(bm);
+            if (bdim == 0) {
+                std::cerr << "B search model rejected all known obs widths\n";
+                return 1;
+            }
+            SearchPlayer::Config bcfg = cfg;   // same K schedule, seeds offset
+            bcfg.match_aware = false;          // arm B is the match-BLIND reference
+            bcfg.equity_model.reset();
+            bcfg.probe_log.clear();
+            bcfg.seed = seed + 777000;
+            b_sp = std::make_unique<SearchPlayer>(bm, bdim, bcfg);
+        } else {
+            torch::jit::script::Module mm;
+            try {
+                mm = torch::jit::load(match_path);
+                mm.eval();
+            } catch (const c10::Error& e) {
+                std::cerr << "Failed to load match model: " << e.what() << "\n";
+                return 1;
+            }
+            if (ProbeObsDim(mm) != 556) {
+                std::cerr << "--match-model must be a 556-dim match trace\n";
+                return 1;
+            }
+            mp = std::make_unique<MatchRawPolicy>(std::move(mm));
         }
-        if (ProbeObsDim(mm) != 556) {
-            std::cerr << "--match-model must be a 556-dim match trace\n";
-            return 1;
-        }
-        MatchRawPolicy mp(std::move(mm));
 
         std::ofstream mcsv(out_path);
         mcsv << "match,seat,deals_a,final_a,place_a,win_a,deals_b,final_b,place_b,win_b\n";
@@ -468,6 +510,9 @@ int main(int argc, char** argv) {
                 if (search_side && sp_flat) {
                     sp_flat->SetMatchContext(totals, deals_played);
                 }
+                if (!search_side && b_sp) {
+                    b_sp->SetMatchContext(totals, deals_played);
+                }
                 env.Reset();
                 bool done = false;
                 while (!done) {
@@ -475,7 +520,8 @@ int main(int argc, char** argv) {
                     int action;
                     if (p != test_seat) action = opp.ChooseAction(env);
                     else if (search_side) action = sp->ChooseAction(env);
-                    else action = mp.ChooseAction(env, totals, deals_played);
+                    else if (b_sp) action = b_sp->ChooseAction(env);
+                    else action = mp->ChooseAction(env, totals, deals_played);
                     done = env.Step(action).done;
                 }
                 auto rs = env.GetRoundScores();

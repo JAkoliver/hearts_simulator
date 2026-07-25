@@ -127,6 +127,14 @@ public:
         // ~sqrt(K); endgame states are ~16% of decisions so the cost is
         // ~1.5x, not 4x.
         int k_endgame = 0;
+        // MATCH-AWARE MODE (docs/match_aware_search_design.md): the model is
+        // a 556-dim trace; every net call carries the ACTING seat's match
+        // context (silent-null rule: never score one seat's decision from
+        // another's perspective), and completed rollouts are scored by the
+        // equity model (win objective: P(place 1) incl. tie mass) instead of
+        // deal points. Requires FULL rollouts.
+        bool match_aware = false;
+        std::shared_ptr<torch::jit::script::Module> equity_model;
         // Evaluate truncated-rollout leaves with the ORACLE head (which sees
         // the determinized hands) instead of the visible-info value head.
         // Requires a trace exposing the "oracle" method; measured 2026-07-14
@@ -156,7 +164,17 @@ public:
     // enclosing class; MSVC accepted it silently.)
     SearchPlayer(std::shared_ptr<InferenceBackend> backend, int model_obs_dim,
                  Config cfg)
-        : backend_(std::move(backend)), obs_dim_(model_obs_dim), cfg_(cfg), rng_(cfg.seed) {}
+        : backend_(std::move(backend)), obs_dim_(model_obs_dim), cfg_(cfg), rng_(cfg.seed) {
+        if (cfg_.match_aware) {
+            if (obs_dim_ != 556)
+                throw std::runtime_error("match_aware requires a 556-dim trace");
+            if (!cfg_.equity_model)
+                throw std::runtime_error("match_aware requires an equity model");
+            if (cfg_.rollout_tricks >= 0)
+                throw std::runtime_error("match_aware requires FULL rollouts "
+                                         "(equity units != value-head units)");
+        }
+    }
 
     SearchPlayer(std::shared_ptr<InferenceBackend> backend, int model_obs_dim)
         : SearchPlayer(std::move(backend), model_obs_dim, Config()) {}
@@ -347,6 +365,79 @@ private:
         return avg - sc[seat];
     }
 
+    // Match-aware helpers ---------------------------------------------------
+
+    // Write the 6 match-context floats (indices 550..555) for `seat`.
+    void WriteCtx(float* row, int seat) const {
+        double mx = *std::max_element(probe_totals_.begin(), probe_totals_.end());
+        for (int i = 0; i < 4; ++i) {
+            row[550 + i] = static_cast<float>(probe_totals_[(seat + i) % 4] / 100.0);
+        }
+        row[554] = static_cast<float>(probe_deals_ / 20.0);
+        row[555] = static_cast<float>((100.0 - mx) / 100.0);
+    }
+
+    // Copy an engine observation (550 floats) into a row of width obs_dim_,
+    // appending ctx for `seat` when running the 556-dim match trace.
+    template <typename Obs>
+    void FillObsRow(float* row, const Obs& obs, int seat) const {
+        std::memcpy(row, obs.data(), 550 * sizeof(float));
+        if (obs_dim_ == 556) WriteCtx(row, seat);
+    }
+
+    // Score completed rollouts by match equity: exact placements when the
+    // match ends this deal, else the equity net's P(place 1) for the
+    // evaluating seat at the post-deal score state.
+    void ScoreEquity(std::vector<Sim>& sims, const std::vector<size_t>& idx) {
+        std::vector<size_t> live;
+        std::vector<std::array<double, 4>> after(idx.size());
+        for (size_t j = 0; j < idx.size(); ++j) {
+            auto sc = sims[idx[j]].sim_env.GetRoundScores();
+            auto t = probe_totals_;
+            for (int i = 0; i < 4; ++i) t[i] += sc[i];
+            after[j] = t;
+            if (*std::max_element(t.begin(), t.end()) >= 100.0) {
+                sims[idx[j]].result = TerminalWinValue(t, sims[idx[j]].eval_seat);
+            } else {
+                live.push_back(j);
+            }
+        }
+        if (live.empty()) return;
+        const int deals_after = probe_deals_ + 1;
+        torch::Tensor x = torch::zeros({(long)live.size(), 10}, torch::kFloat32);
+        float* xp = x.data_ptr<float>();
+        for (size_t k = 0; k < live.size(); ++k) {
+            const auto& t = after[live[k]];
+            int seat = sims[idx[live[k]]].eval_seat;
+            double mx = *std::max_element(t.begin(), t.end());
+            float* row = xp + k * 10;
+            for (int i = 0; i < 4; ++i) row[i] = (float)(t[(seat + i) % 4] / 100.0);
+            row[4] = (float)(deals_after / 20.0);
+            row[5] = (float)((100.0 - mx) / 100.0);
+            row[6 + (deals_after % 4)] = 1.0f;
+        }
+        torch::NoGradGuard g;
+        auto probs = torch::softmax(
+            cfg_.equity_model->forward({x}).toTensor(), 1);
+        auto acc = probs.accessor<float, 2>();
+        for (size_t k = 0; k < live.size(); ++k) {
+            sims[idx[live[k]]].result = acc[k][0];  // P(place 1)
+        }
+    }
+
+    // Exact win value (P1 with tie mass) from final totals for `seat`.
+    static double TerminalWinValue(const std::array<double, 4>& totals, int seat) {
+        double mine = totals[seat];
+        int better = 0, tied = 0;
+        for (int i = 0; i < 4; ++i) {
+            if (i == seat) continue;
+            if (totals[i] < mine) ++better;
+            else if (totals[i] == mine) ++tied;
+        }
+        if (better > 0) return 0.0;
+        return 1.0 / (1 + tied);
+    }
+
     std::vector<int> LegalVector(const HeartsEnv& env) {
         std::vector<int> legal;
         auto lr = env.GetLegalActions();
@@ -398,7 +489,8 @@ private:
             bool* mp = m.data_ptr<bool>();
             for (size_t j = 0; j < active.size(); ++j) {
                 auto obs = sims[active[j]].sim_env.Observe();
-                std::memcpy(op + j * obs_dim_, obs.data(), obs_dim_ * sizeof(float));
+                FillObsRow(op + j * obs_dim_, obs,
+                           sims[active[j]].sim_env.GetCurrentPlayer());
                 auto lr = sims[active[j]].sim_env.GetLegalActions();
                 for (int i = 0; i < 13; ++i) {
                     if (lr[i] != -1) mp[j * 52 + lr[i]] = true;
@@ -414,15 +506,23 @@ private:
         }
 
         // Resolve results: terminal sims score exactly; truncated leaves are
-        // batched through the value head in one forward.
+        // batched through the value head in one forward. In match-aware
+        // mode completed rollouts are scored by MATCH EQUITY instead of
+        // deal points (win objective).
         std::vector<size_t> leaves;
+        std::vector<size_t> eq_batch;
         for (size_t i = 0; i < sims.size(); ++i) {
             if (sims[i].done) {
-                sims[i].result = RelReward(sims[i].sim_env, sims[i].eval_seat);
+                if (cfg_.match_aware) {
+                    eq_batch.push_back(i);
+                } else {
+                    sims[i].result = RelReward(sims[i].sim_env, sims[i].eval_seat);
+                }
             } else {
                 leaves.push_back(i);
             }
         }
+        if (!eq_batch.empty()) ScoreEquity(sims, eq_batch);
         if (leaves.empty()) return;
 
         torch::Tensor o = torch::empty({(long)leaves.size(), obs_dim_}, torch::kFloat32);
@@ -430,7 +530,7 @@ private:
         for (size_t j = 0; j < leaves.size(); ++j) {
             Sim& s = sims[leaves[j]];
             auto obs = s.sim_env.ObserveFor(s.eval_seat);
-            std::memcpy(op + j * obs_dim_, obs.data(), obs_dim_ * sizeof(float));
+            FillObsRow(op + j * obs_dim_, obs, s.eval_seat);
         }
 
         torch::Tensor v;
@@ -520,7 +620,8 @@ private:
 
     std::vector<float> PolicyProbs(const HeartsEnv& env, const std::vector<int>& legal) {
         auto obs = env.Observe();
-        torch::Tensor o = torch::from_blob((void*)obs.data(), {1, obs_dim_}, torch::kFloat32).clone();
+        torch::Tensor o = torch::zeros({1, obs_dim_}, torch::kFloat32);
+        FillObsRow(o.data_ptr<float>(), obs, env.GetCurrentPlayer());
         torch::Tensor m = torch::zeros({1, 52}, torch::kBool);
         bool* mp = m.data_ptr<bool>();
         for (int a : legal) mp[a] = true;
@@ -571,7 +672,8 @@ private:
 
     int ArgmaxSingle(const HeartsEnv& env, const std::vector<int>& legal) {
         auto obs = env.Observe();
-        torch::Tensor o = torch::from_blob((void*)obs.data(), {1, obs_dim_}, torch::kFloat32).clone();
+        torch::Tensor o = torch::zeros({1, obs_dim_}, torch::kFloat32);
+        FillObsRow(o.data_ptr<float>(), obs, env.GetCurrentPlayer());
         torch::Tensor m = torch::zeros({1, 52}, torch::kBool);
         bool* mp = m.data_ptr<bool>();
         for (int a : legal) mp[a] = true;
@@ -580,7 +682,8 @@ private:
 
     bool FetchBelief(const HeartsEnv& env) {
         auto obs = env.Observe();
-        torch::Tensor o = torch::from_blob((void*)obs.data(), {1, obs_dim_}, torch::kFloat32).clone();
+        torch::Tensor o = torch::zeros({1, obs_dim_}, torch::kFloat32);
+        FillObsRow(o.data_ptr<float>(), obs, env.GetCurrentPlayer());
         torch::Tensor m = torch::ones({1, 52}, torch::kBool);
         InferenceBackend* bk = cfg_.belief_backend ? cfg_.belief_backend.get() : backend_.get();
         InferOutputs out = bk->Forward(o, m);
