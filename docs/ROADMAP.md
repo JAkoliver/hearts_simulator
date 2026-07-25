@@ -44,9 +44,28 @@ per rental.
   spots (e.g. the measured 2x moon-concession hole of the per-deal
   lineage).
 
+## Queued: match-aware search (added 2026-07-24 after the first guard veto)
+The search player is match-BLIND (rollouts score deal points), while the
+raw net is now match-aware - their advantages are incomparable and the
+guard currently protects the possibly-wrong crown jewel (trial 6:
+best-ever match candidate vetoed for search-substrate regression +0.48).
+Sequenced plan:
+1. PREREQUISITE (cheap, do soon): C++ bridge to seat the search player
+   in the match harness -> measure match-blind search vs match-aware raw
+   AT MATCH PLAY. If raw already wins matches, re-point the guard at raw
+   per-deal strength; if search still wins, its protection stays earned.
+2. BUILD match-aware search when EITHER (a) guard rejections become the
+   norm (recurring match-vs-substrate trade, not a one-off) OR (b)
+   Phase 2 starts in earnest - the self-improvement loop's teacher must
+   be match-aware or its targets pull the student back toward per-deal
+   play. Scope: match context into SearchPlayer rollout evaluation +
+   556-dim traced value path + guard swap to match-level search.
+   This is also the ceiling configuration (search strength + score
+   awareness) for "best AI possible."
+
 ## Deliberately deferred / skipped
-- Search-side match-awareness in C++ (end-goal is a raw net; revisit
-  only if search deployment stays primary).
+- (superseded by the queued item above) Search-side match-awareness was
+  deferred outright while the end-goal was framed as raw-only.
 - Standalone exploiter league (folded into match training unless gaps
   persist).
 - Any further per-deal refresh recipes (closed; see experiment_rules.md).
