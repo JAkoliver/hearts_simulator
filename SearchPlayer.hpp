@@ -4,6 +4,7 @@
 #include <array>
 #include <cmath>
 #include <cstring>
+#include <fstream>
 #include <random>
 #include <set>
 #include <stdexcept>
@@ -113,6 +114,13 @@ public:
         // the final relative round score in the same units the terminal
         // rollout would produce.
         int rollout_tricks = -1;
+        // Probe logging (docs/match_aware_search_design.md, SNR/flip-rate
+        // gates): when non-empty, every probe_every-th play decision dumps
+        // per-action x per-determinization completed-rollout DEAL SCORES plus
+        // the harness-provided match context. LOGGING ONLY - no scoring
+        // change. Requires full rollouts (rows skipped under truncation).
+        std::string probe_log;
+        int probe_every = 5;
         // Evaluate truncated-rollout leaves with the ORACLE head (which sees
         // the determinized hands) instead of the visible-info value head.
         // Requires a trace exposing the "oracle" method; measured 2026-07-14
@@ -181,6 +189,28 @@ public:
         }
         RolloutAll(sims);
 
+        if (!cfg_.probe_log.empty() && cfg_.rollout_tricks < 0
+            && (++probe_decisions_ % cfg_.probe_every == 0)) {
+            if (!probe_out_.is_open()) {
+                probe_out_.open(cfg_.probe_log);
+                probe_out_ << "decision,seat,deals_played,t0,t1,t2,t3,"
+                              "n_actions,action_card,det,s0,s1,s2,s3\n";
+            }
+            const size_t K = dets.size();
+            for (size_t i = 0; i < sims.size(); ++i) {
+                const auto& s = sims[i];
+                if (!s.done) continue;
+                auto sc = s.sim_env.GetRoundScores();
+                probe_out_ << probe_decisions_ << ',' << me << ','
+                           << probe_deals_ << ',' << probe_totals_[0] << ','
+                           << probe_totals_[1] << ',' << probe_totals_[2] << ','
+                           << probe_totals_[3] << ',' << legal.size() << ','
+                           << legal[s.tag] << ',' << (i % K) << ',' << sc[0]
+                           << ',' << sc[1] << ',' << sc[2] << ',' << sc[3] << '\n';
+            }
+            probe_out_.flush();
+        }
+
         std::vector<double> score(legal.size(), 0.0);
         for (const auto& s : sims) {
             score[s.tag] += s.result;
@@ -209,6 +239,14 @@ public:
     // Play decisions: softmax over per-action mean search values; pass picks
     // and forced moves: one-hot.
     const std::array<float, 52>& LastPolicy() const override { return last_pi_; }
+
+    // Probe-log context: the match harness updates carried totals/deals so
+    // logged decisions carry the score state (SearchPlayer itself remains
+    // match-blind - this feeds the OFFLINE flip-rate/SNR analysis only).
+    void SetMatchContext(const std::array<double, 4>& totals, int deals) {
+        probe_totals_ = totals;
+        probe_deals_ = deals;
+    }
 
     // Sample one determinization for the current context (public: selftest).
     // BuildContext(env) must have been called for this state first.
@@ -679,6 +717,10 @@ private:
     Config cfg_;
     std::mt19937 rng_;
     Context ctx_;
+    std::ofstream probe_out_;
+    long probe_decisions_ = 0;
+    std::array<double, 4> probe_totals_{};
+    int probe_deals_ = 0;
     std::array<std::vector<int>, 4> pending_pass_;  // per-seat queued picks
     std::array<float, 52> last_pi_{};
 };

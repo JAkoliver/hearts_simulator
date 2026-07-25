@@ -286,8 +286,9 @@ int main(int argc, char** argv) {
     // coordination cost STALLED the process entirely (measured 2026-07-17:
     // 0 deals in 25 min vs 0.95 s/deal with the pool pinned).
     torch::set_num_threads(1);
-    std::string search_path, opp_path, belief_path, match_path, out_path = "search_eval_results.csv";
-    int deals = 300, k = 32, rollout_tricks = -1, matches = 200;
+    std::string search_path, opp_path, belief_path, match_path, probe_log,
+        out_path = "search_eval_results.csv";
+    int deals = 300, k = 32, rollout_tricks = -1, matches = 200, probe_every = 5;
     int tree_iterations = 400;
     float tree_c_puct = 1.5f;
     unsigned int seed = 42;
@@ -303,6 +304,8 @@ int main(int argc, char** argv) {
         else if (a == "--out") out_path = next();
         else if (a == "--match-model") match_path = next();
         else if (a == "--matches") matches = std::stoi(next());
+        else if (a == "--probe-log") probe_log = next();
+        else if (a == "--probe-every") probe_every = std::stoi(next());
         else if (a == "--deals") deals = std::stoi(next());
         else if (a == "--k") k = std::stoi(next());
         else if (a == "--seed") seed = static_cast<unsigned int>(std::stoul(next()));
@@ -391,6 +394,8 @@ int main(int argc, char** argv) {
     cfg.bf16 = use_bf16;
     cfg.rollout_tricks = rollout_tricks;
     cfg.oracle_leaves = oracle_leaves;
+    cfg.probe_log = probe_log;
+    cfg.probe_every = probe_every;
     if (oracle_leaves && !search_model.find_method("oracle").has_value()) {
         std::cerr << "--oracle-leaves requires a search model traced with the oracle method\n";
         return 1;
@@ -447,9 +452,19 @@ int main(int argc, char** argv) {
         int wins_a = 0, wins_b = 0;
         auto mt0 = std::chrono::steady_clock::now();
 
+        SearchPlayer* sp_flat = use_tree ? nullptr
+                                         : static_cast<SearchPlayer*>(sp.get());
+        if (!probe_log.empty() && sp_flat == nullptr) {
+            std::cerr << "--probe-log requires the flat search player (no --tree)\n";
+            return 2;
+        }
+
         auto play_match = [&](HeartsEnv& env, std::array<double, 4>& totals,
                               int& deals_played, int test_seat, bool search_side) {
             while (true) {
+                if (search_side && sp_flat) {
+                    sp_flat->SetMatchContext(totals, deals_played);
+                }
                 env.Reset();
                 bool done = false;
                 while (!done) {
