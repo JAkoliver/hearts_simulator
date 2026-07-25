@@ -210,8 +210,28 @@ resamples), never state-level.
    over P(place 1..4)) <= 0.03 aggregate AND <= 0.05 per stratum
    (S1/S2/S3); Brier reported alongside. S2 denominator >= 500 matches
    (extension rule) before this gate can pass.
+   **ECE noise floor (sixth review)**: binned ECE is biased upward at
+   small N - a perfectly calibrated model scores nonzero. Compute the
+   floor by parametric bootstrap (resample outcomes FROM the model's own
+   predicted probabilities at the actual N and binning, 200 reps, 95th
+   pct; per-row independent resampling - a stated approximation, since
+   real labels correlate within matches). Pre-registered pass rule:
+   measured ECE <= max(pre-registered threshold, floor + 0.015). Report
+   ECE against the floor, never against zero.
+   **S2 extension fallback (pre-registered BEFORE the hit-rate probe)**:
+   the extension is HARD-CAPPED at +4 h wall-clock of natural
+   generation. If S2 < 500 matches at the cap: accept, with (a)
+   match-count CIs honestly widened to the realized S2 denominator and
+   (b) the S2 calibration claim explicitly downgraded in the verdict
+   artifact (pass threshold unchanged; the verdict records the weaker
+   evidentiary basis). No hour-12 improvisation.
 2. **Beat-the-baseline** (binned lookup over (my score, max opponent,
-   deals) + small logistic, built from the SAME training matches):
+   deals) + small logistic, built from the SAME training matches -
+   specifically the net's own 90% fit split, same by-match partition,
+   so neither model sees the other's validation matches; bins
+   10x10x11 with min 80 rows/cell before trusting a cell, logistic
+   fallback below that - regularized so the gate cannot be passed
+   merely because a fine-grained lookup overfit):
    net Brier <= baseline Brier - 0.005 aggregate, and net no worse
    than baseline + 0.002 in ANY stratum. Fail => the net is not
    load-bearing: use the lookup in the rollout scorer or halt.
