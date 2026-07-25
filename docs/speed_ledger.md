@@ -346,6 +346,21 @@ strength holding. WATCHPOINT: gate anchors are a FIXED v3-m7 field -
 anchor-overfit risk compounds with each promotion; diversify anchor
 family soon (same caveat as the raw-line era).
 
+## Match bridge measurement: search vs match-aware raw AT MATCH PLAY (07-24)
+
+SearchEval --match-pair (new C++ mode, 8c934be): deployed search player
+(K=64, pass-search, match-BLIND) vs the match-aware raw net (556 trace),
+same seat, paired match seeds, 3x v3-m7 anchors, n=200 matches, run
+concurrently with trial-7 training at below-normal priority (37 s/match).
+
+**Search still wins matches: win rate 50.5% vs 38.0% (discordant 51:26,
+p=0.006); placement diff -0.175 (SE 0.095, p=0.068).** Per-deal search
+strength currently outweighs score-awareness at match level. Verdicts:
+(1) the search guard's protection of the search player is JUSTIFIED with
+data - guard stays; (2) match-aware search (roadmap queued item) is
+confirmed as the ceiling configuration: score-awareness worth ~+11 win
+points on the raw side would stack on search's +12.5-point edge.
+
 **Trials 5-6 (07-24 afternoon/evening):** T5 FAIL at match gate (-0.043,
 SE 0.036, p=0.11 - variance, not saturation). T6: match gate STRONG PASS
 (-0.121, SE 0.037, p=0.0006; win 40.2% vs 36.5%, p=0.026) but **FIRST
