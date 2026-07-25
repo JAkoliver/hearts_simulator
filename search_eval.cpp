@@ -26,6 +26,61 @@
 #include "SearchPlayer.hpp"
 #include "TreeSearchPlayer.hpp"
 
+// ---------------------------------------------------------------------------
+// Match-to-100 bridge (docs/ROADMAP.md "Queued: match-aware search", step 1)
+// ---------------------------------------------------------------------------
+
+// Raw policy over a 556-dim match trace: engine obs (550) + the 6 match
+// context dims, mirroring hearts_match_env.match_ctx_row exactly:
+// [self,left,across,right scores]/100, deals/20, leader-distance-to-100/100.
+class MatchRawPolicy {
+public:
+    MatchRawPolicy(torch::jit::script::Module model) : model_(std::move(model)) {}
+
+    int ChooseAction(const HeartsEnv& env, const std::array<double, 4>& totals,
+                     int deals_played) {
+        auto obs = env.Observe();  // 550 floats
+        int me = env.GetCurrentPlayer();
+        torch::Tensor o = torch::zeros({1, 556}, torch::kFloat32);
+        float* op = o.data_ptr<float>();
+        std::copy(obs.begin(), obs.end(), op);
+        double mx = *std::max_element(totals.begin(), totals.end());
+        for (int i = 0; i < 4; ++i) op[550 + i] = (float)(totals[(me + i) % 4] / 100.0);
+        op[554] = (float)(deals_played / 20.0);
+        op[555] = (float)((100.0 - mx) / 100.0);
+
+        auto legal_raw = env.GetLegalActions();
+        torch::Tensor m = torch::zeros({1, 52}, torch::kBool);
+        bool* mp = m.data_ptr<bool>();
+        for (int i = 0; i < 13; ++i) {
+            if (legal_raw[i] != -1) mp[legal_raw[i]] = true;
+        }
+        torch::NoGradGuard g;
+        auto out = model_.forward({o, m}).toTuple();
+        return out->elements()[0].toTensor().argmax(1).item<int>();
+    }
+
+private:
+    torch::jit::script::Module model_;
+};
+
+// 1 = winner (lowest total); ties share the mean of their ranks.
+static std::array<double, 4> Placements(const std::array<double, 4>& totals) {
+    std::array<int, 4> order = {0, 1, 2, 3};
+    std::stable_sort(order.begin(), order.end(),
+                     [&](int a, int b) { return totals[a] < totals[b]; });
+    std::array<double, 4> ranks{};
+    int i = 0;
+    while (i < 4) {
+        int j = i;
+        while (j + 1 < 4 && totals[order[j + 1]] == totals[order[i]]) ++j;
+        double shared = (i + j) / 2.0 + 1.0;
+        for (int t = i; t <= j; ++t) ranks[order[t]] = shared;
+        i = j + 1;
+    }
+    return ranks;
+}
+
 static int RandomLegal(const HeartsEnv& env, std::mt19937& rng) {
     auto lr = env.GetLegalActions();
     std::vector<int> legal;
@@ -231,8 +286,8 @@ int main(int argc, char** argv) {
     // coordination cost STALLED the process entirely (measured 2026-07-17:
     // 0 deals in 25 min vs 0.95 s/deal with the pool pinned).
     torch::set_num_threads(1);
-    std::string search_path, opp_path, belief_path, out_path = "search_eval_results.csv";
-    int deals = 300, k = 32, rollout_tricks = -1;
+    std::string search_path, opp_path, belief_path, match_path, out_path = "search_eval_results.csv";
+    int deals = 300, k = 32, rollout_tricks = -1, matches = 200;
     int tree_iterations = 400;
     float tree_c_puct = 1.5f;
     unsigned int seed = 42;
@@ -246,6 +301,8 @@ int main(int argc, char** argv) {
         else if (a == "--opponent-model") opp_path = next();
         else if (a == "--belief-model") belief_path = next();
         else if (a == "--out") out_path = next();
+        else if (a == "--match-model") match_path = next();
+        else if (a == "--matches") matches = std::stoi(next());
         else if (a == "--deals") deals = std::stoi(next());
         else if (a == "--k") k = std::stoi(next());
         else if (a == "--seed") seed = static_cast<unsigned int>(std::stoul(next()));
@@ -365,6 +422,84 @@ int main(int argc, char** argv) {
         sp = std::make_unique<SearchPlayer>(search_model, sdim, cfg);
     }
     RawPolicy opp(opp_model, odim);
+
+    if (!match_path.empty()) {
+        // Paired matches to 100: table A = search player at the test seat,
+        // table B = the 556-dim match-aware raw net at the same seat, both
+        // vs three anchor seats on identical deal-sequence seeds.
+        torch::jit::script::Module mm;
+        try {
+            mm = torch::jit::load(match_path);
+            mm.eval();
+        } catch (const c10::Error& e) {
+            std::cerr << "Failed to load match model: " << e.what() << "\n";
+            return 1;
+        }
+        if (ProbeObsDim(mm) != 556) {
+            std::cerr << "--match-model must be a 556-dim match trace\n";
+            return 1;
+        }
+        MatchRawPolicy mp(std::move(mm));
+
+        std::ofstream mcsv(out_path);
+        mcsv << "match,seat,deals_a,final_a,place_a,win_a,deals_b,final_b,place_b,win_b\n";
+        double sum_dp = 0.0;
+        int wins_a = 0, wins_b = 0;
+        auto mt0 = std::chrono::steady_clock::now();
+
+        auto play_match = [&](HeartsEnv& env, std::array<double, 4>& totals,
+                              int& deals_played, int test_seat, bool search_side) {
+            while (true) {
+                env.Reset();
+                bool done = false;
+                while (!done) {
+                    int p = env.GetCurrentPlayer();
+                    int action;
+                    if (p != test_seat) action = opp.ChooseAction(env);
+                    else if (search_side) action = sp->ChooseAction(env);
+                    else action = mp.ChooseAction(env, totals, deals_played);
+                    done = env.Step(action).done;
+                }
+                auto rs = env.GetRoundScores();
+                for (int i2 = 0; i2 < 4; ++i2) totals[i2] += rs[i2];
+                ++deals_played;
+                if (deals_played >= 60 ||
+                    *std::max_element(totals.begin(), totals.end()) >= 100.0) break;
+            }
+        };
+
+        for (int mi = 0; mi < matches; ++mi) {
+            int seat = mi % 4;
+            unsigned mseed = seed + (unsigned)mi * 1000u;
+            std::array<double, 4> ta{}, tb{};
+            int da = 0, db = 0;
+            HeartsEnv ea(mseed, true), eb(mseed, true);
+            play_match(ea, ta, da, seat, true);
+            play_match(eb, tb, db, seat, false);
+            auto pa = Placements(ta), pb = Placements(tb);
+            sum_dp += pa[seat] - pb[seat];
+            wins_a += (pa[seat] == 1.0);
+            wins_b += (pb[seat] == 1.0);
+            mcsv << mi << "," << seat << "," << da << "," << ta[seat] << ","
+                 << pa[seat] << "," << (pa[seat] == 1.0 ? 1 : 0) << ","
+                 << db << "," << tb[seat] << "," << pb[seat] << ","
+                 << (pb[seat] == 1.0 ? 1 : 0) << "\n";
+            if ((mi + 1) % 5 == 0) {
+                auto el = std::chrono::duration_cast<std::chrono::seconds>(
+                              std::chrono::steady_clock::now() - mt0).count();
+                std::cerr << "match " << (mi + 1) << "/" << matches
+                          << "  mean place diff (search-raw) " << (sum_dp / (mi + 1))
+                          << "  wins " << wins_a << ":" << wins_b
+                          << "  elapsed " << el << "s\n";
+            }
+        }
+        mcsv.close();
+        std::cout << "matches " << matches
+                  << " mean_place_diff_search_minus_raw " << (sum_dp / matches)
+                  << " wins_search " << wins_a << " wins_raw " << wins_b << "\n";
+        std::cout << "results " << out_path << "\n";
+        return 0;
+    }
 
     HeartsEnv env_a(seed, true), env_b(seed, true);
     std::ofstream csv(out_path);

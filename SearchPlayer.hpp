@@ -24,7 +24,11 @@
 // layout is prefix-stable across engine versions, so feeding an older model
 // the prefix of the current observation is always valid.
 inline int ProbeObsDim(torch::jit::script::Module& m) {
-    for (int dim : {550, 238, 181}) {
+    // 550 MUST precede 556: a 550-traced v5 net is all fixed-index slices and
+    // would silently accept 556 input (ignoring the tail), while a 556 match
+    // trace errors on 550 input - so probing 550 first resolves both
+    // correctly. (556 = 550 + MATCH_CTX_DIM, hearts_net.py.)
+    for (int dim : {550, 556, 238, 181}) {
         try {
             std::vector<torch::jit::IValue> probe;
             probe.push_back(torch::zeros({1, dim}, torch::kFloat32));
