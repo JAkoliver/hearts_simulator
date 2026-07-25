@@ -354,12 +354,24 @@ same seat, paired match seeds, 3x v3-m7 anchors, n=200 matches, run
 concurrently with trial-7 training at below-normal priority (37 s/match).
 
 **Search still wins matches: win rate 50.5% vs 38.0% (discordant 51:26,
-p=0.006); placement diff -0.175 (SE 0.095, p=0.068).** Per-deal search
-strength currently outweighs score-awareness at match level. Verdicts:
-(1) the search guard's protection of the search player is JUSTIFIED with
-data - guard stays; (2) match-aware search (roadmap queued item) is
-confirmed as the ceiling configuration: score-awareness worth ~+11 win
-points on the raw side would stack on search's +12.5-point edge.
+McNemar p=0.006); placement diff -0.175 (SE 0.095, two-sided p=0.068).**
+Stats clarifications (2026-07-24 review): the two win rates are per-table
+vs the ANCHOR field (not shares of one contest - anchors won the rest:
+98/200 at search's table, 122/200 at raw's); tied-firsts (1 search, 2
+raw) counted as non-wins symmetrically, moving the 12.5-pt gap <=1 pt
+either way. The p=0.006-vs-p=0.068 split is real, not contradictory:
+the effect CONCENTRATES at the P2->P1 boundary (placement floor-dist
+search 102/35/37/26 vs raw 78/50/43/29 - ~15 second-places converted to
+firsts, P3/P4 nearly unchanged), which the win-indicator statistic
+captures at full power while mean placement dilutes it against SD 1.35
+per-match noise. Verdicts: (1) the search guard's protection of the
+search player is JUSTIFIED with data - guard stays; (2) match-aware
+search is the queued ceiling configuration - NO additivity assumed
+between search's edge and raw's score-awareness (overlap expected: a
+stronger per-deal player reaches fewer desperate positions); success
+gate = significantly beats match-blind search, nothing more specific.
+Trial 7 is treated as UNINFORMATIVE (GPU contention), not evidence
+against PPO - the case for pivoting is trial 6's guard veto.
 
 **Trials 5-6 (07-24 afternoon/evening):** T5 FAIL at match gate (-0.043,
 SE 0.036, p=0.11 - variance, not saturation). T6: match gate STRONG PASS
