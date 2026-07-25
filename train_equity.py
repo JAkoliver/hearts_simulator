@@ -351,80 +351,62 @@ def main():
     Pb = Pb_fine if brier(Pb_fine, Yho) <= brier(Pb_coarse, Yho) else Pb_coarse
     base_branch = 'fine20' if Pb is Pb_fine else 'coarse80'
 
-    # Gate 1: calibration, measured against the parametric-bootstrap ECE
-    # noise floor (pass rule: ece <= max(threshold, floor + 0.015))
-    m = {'ece_agg': ece(Pn, Yho), 'brier_agg': brier(Pn, Yho),
+    # ---- A. DIAGNOSTICS (report; halt only on degeneracy) ----------------
+    m = {'brier_agg': brier(Pn, Yho), 'logloss_agg': logloss(Pn, Yho),
+         'ece_agg': ece(Pn, Yho), 'ece_floor_agg': ece_noise_floor(Pn, Mho),
+         'ece_agg_ci95': cluster_ci(ece, Pn, Yho, Mho),
          'n_s2_matches': n_s2}
-    ci = cluster_ci(ece, Pn, Yho, Mho)
-    m['ece_agg_ci95'] = ci
-    m['ece_floor_agg'] = ece_noise_floor(Pn, Mho)
-    ok1 = (m['ece_agg'] <= max(0.03, m['ece_floor_agg'] + 0.015)
-           and n_s2 >= 500)
     for s, name in ((0, 'S3'), (1, 'S1'), (2, 'S2')):
         sel = st_of_row == s
         if sel.sum() == 0:
-            ok1 = False
-            m[f'ece_{name}'] = None
+            m[f'brier_{name}'] = None
             continue
-        m[f'ece_{name}'] = ece(Pn[sel], Yho[sel])
         m[f'brier_{name}'] = brier(Pn[sel], Yho[sel])
+        m[f'logloss_{name}'] = logloss(Pn[sel], Yho[sel])
+        m[f'ece_{name}'] = ece(Pn[sel], Yho[sel])
         m[f'ece_floor_{name}'] = ece_noise_floor(Pn[sel], Mho[sel])
-        if m[f'ece_{name}'] > max(0.05, m[f'ece_floor_{name}'] + 0.015):
-            ok1 = False
-    emit_verdict('calibration', m,
-                 {'ece_agg': 0.03, 'ece_stratum': 0.05, 'min_s2_matches': 500,
-                  'floor_rule': 'ece <= max(threshold, floor + 0.015)'},
-                 ok1, data_sha=data_sha)
+    m['brier_near_terminal'] = brier(Pn[Lho], Yho[Lho])
+    m['ece_near_terminal'] = ece(Pn[Lho], Yho[Lho])
+    m['prob_spread_mean'] = float((Pn.max(1) - Pn.min(1)).mean())
 
-    # Gate 2: beat the BETTER of the two frozen baseline variants
-    m2 = {'net_brier': brier(Pn, Yho), 'base_brier': brier(Pb, Yho),
-          'base_fine20_brier': brier(Pb_fine, Yho),
-          'base_coarse80_brier': brier(Pb_coarse, Yho),
-          'base_variant_used': base_branch}
-    ok2 = m2['net_brier'] <= m2['base_brier'] - 0.005
-    for s, name in ((0, 'S3'), (1, 'S1'), (2, 'S2')):
-        sel = st_of_row == s
-        if sel.sum() == 0:
-            ok2 = False
-            continue
-        nb, bb = brier(Pn[sel], Yho[sel]), brier(Pb[sel], Yho[sel])
-        m2[f'net_{name}'], m2[f'base_{name}'] = nb, bb
-        if nb > bb + 0.002:
-            ok2 = False
-    emit_verdict('beat_baseline', m2,
-                 {'agg_margin': 0.005, 'stratum_tolerance': 0.002}, ok2,
-                 data_sha=data_sha)
-
-    # Gate 3: near-terminal (last boundary row of each holdout match)
-    sel = Lho
-    m3 = {'ece_nt': ece(Pn[sel], Yho[sel]),
-          'net_brier_nt': brier(Pn[sel], Yho[sel]),
-          'base_brier_nt': brier(Pb[sel], Yho[sel]), 'n_rows': int(sel.sum())}
-    ok3 = m3['ece_nt'] <= 0.06 and m3['net_brier_nt'] <= m3['base_brier_nt']
-    emit_verdict('near_terminal', m3, {'ece_nt': 0.06, 'brier_vs_base': 0.0},
-                 ok3, data_sha=data_sha)
-
-    # Gate 4: canonicalization branch
-    Xc_tr, _, _, _ = make_rows(tr, canonical=True)
-    Xc_ho, _, _, _ = make_rows(ho, canonical=True)
-    cnet, _ = fit_net(Xc_tr, Ytr, Mtr, seed=1)
-    ll_full = logloss(Pn, Yho)
-    ll_canon = logloss(net_probs(cnet, Xc_ho), Yho)
-    adopt = (ll_canon - ll_full) < 0.005
-    emit_verdict('canonicalization',
-                 {'logloss_full': ll_full, 'logloss_canonical': ll_canon,
-                  'degradation': ll_canon - ll_full},
-                 {'max_degradation': 0.005}, True,
-                 branch=('canonical' if adopt else 'full'), data_sha=data_sha)
-
-    chosen = cnet if adopt else net
-    torch.save({'state_dict': chosen.state_dict(),
-                'canonical': adopt, 'in_dim': 10}, args.out)
-    print(f"saved {args.out} (branch={'canonical' if adopt else 'full'}); "
-          f"gates: cal={ok1} baseline={ok2} near_term={ok3}")
-    if not (ok1 and ok2 and ok3):
-        print("HALT: one or more gates failed - do not proceed to probe/C++")
+    degenerate = (not np.isfinite(Pn).all()
+                  or m['prob_spread_mean'] < 0.05
+                  or m['brier_near_terminal'] > 0.75)
+    emit_verdict('diagnostics', m,
+                 {'halt_only_on': 'NaN/inf | prob_spread<0.05 | '
+                                  'near_terminal_brier>0.75'},
+                 not degenerate, data_sha=data_sha)
+    if degenerate:
+        print("HALT: degenerate equity model outputs")
         raise SystemExit(1)
+
+    # ---- B. COMPONENT SELECTION (not pass/fail) --------------------------
+    cands = {'net': Pn, 'lookup_fine20': Pb_fine, 'lookup_coarse80': Pb_coarse}
+    briers = {k: brier(P, Yho) for k, P in cands.items()}
+    chosen_name = min(briers, key=briers.get)
+    m2 = dict(briers)
+    m2['chosen'] = chosen_name
+    m2['k_buyback_candidate'] = chosen_name != 'net'  # table = ~ns per call
+    for s, name in ((1, 'S1'), (2, 'S2')):
+        sel = st_of_row == s
+        for k, P in cands.items():
+            m2[f'{k}_{name}'] = brier(P[sel], Yho[sel])
+    emit_verdict('selection', m2, {'rule': 'min holdout Brier of frozen set'},
+                 True, branch=chosen_name, data_sha=data_sha)
+
+    if chosen_name == 'net':
+        torch.save({'state_dict': net.state_dict(), 'in_dim': 10}, args.out)
+    else:
+        lb = base_fine if chosen_name == 'lookup_fine20' else base_coarse
+        keys = np.array(list(lb.table.keys()), dtype=np.int64)
+        vals = np.array([lb.table[tuple(k)] for k in keys], dtype=np.float32)
+        with torch.no_grad():
+            lw = lb.logistic.weight.numpy()
+            lbias = lb.logistic.bias.numpy()
+        np.savez(args.out.replace('.pth', '_lookup.npz'),
+                 keys=keys, vals=vals, logistic_w=lw, logistic_b=lbias,
+                 variant=chosen_name)
+    print(f"selection: {chosen_name} (briers {briers}); artifacts saved")
 
 
 def run_selftest():

@@ -78,20 +78,13 @@ K, same anchors, paired seeds), n>=200. Gate per the top of this doc.
 - **Design: anchor-field, identical to the bridge measurement** - each
   arm plays the test seat vs three v3-m7 anchors on paired seeds. NOT
   2v2 (which changes game dynamics and breaks comparability).
-- **N = 400 with one interim look at 200** (Haybittle-Peto: interim
-  alpha 0.005, final ~0.048). POWER CAVEAT (third review): N=400's MDE
-  of 3.9-5.6 win-pts holds only if CRN takes discordance to q<=0.16 -
-  at q=0.28 (inside the range the n=200 arithmetic itself treated as
-  plausible) MDE is 7.4 pts, ABOVE the 6.25-pt half-bridge benchmark.
-  The bridge run realized q=0.385 WITH common deals, so CRN delivering
-  q~0.10 is currently an assumption, not a measurement. Therefore:
-  **pre-registered BLINDED sample-size re-estimation** - at the interim
-  look, read realized q WITHOUT unblinding the split direction,
-  recompute required N for MDE<=6.25 at 80% power, extend accordingly.
-  q is a nuisance parameter; blinded re-estimation does not inflate
-  type I error and needs no alpha adjustment. **Max funded N = 800
-  pairs** (the rule terminates there; ~5 h local single-process or
-  ~1.2 h sharded at measured rates).
+- **N = 8000, FIXED, single analysis (ninth review - supersedes the
+  interim/blinded-SSR design, which was correct machinery for expensive
+  samples applied to ~21 s samples).** One overnight sharded local run
+  (~5.8 h at 8 shards). MDE ~1.4 win-pts at q=0.2 - the S1/S2
+  stratified analysis and the dose-response secondary become genuinely
+  powered rather than decorative. No interim looks, no alpha spending,
+  no re-estimation. Alpha 0.05 one-sided on the primary.
 - **Common random numbers beyond deals**: both arms share the search
   stack, so pair identical determinization sets and rollout seeds
   wherever the action sets agree. Report the realized paired placement
@@ -145,12 +138,8 @@ K, same anchors, paired seeds), n>=200. Gate per the top of this doc.
 - **Terminal states analytic**: max>=100 states excluded from training
   (exact placements known); near-terminal net outputs checked against
   analytic placements as a correctness probe.
-- **Canonicalization test before adoption**: candidate input (my score,
-  sorted opponent scores) is ~6x data-efficient IF seats are
-  exchangeable - but next-deal pass direction breaks neighbor symmetry
-  at deal boundaries, so exchangeability is tested on held-out natural
-  data (full-input vs canonical log-loss; permutation-spread of the
-  full model) and adopted only if the cost is negligible.
+- Canonicalization: CUT at the ninth review (see Gate structure) -
+  full input unconditionally.
 
 ## SNR probe implementation (resolves the ordering question)
 
@@ -212,59 +201,54 @@ the one thing that must not be).
 - Standing rule: every cloud-trained checkpoint is evaluated locally
   against a locally-run baseline before any promotion decision.
 
-## Gate thresholds (pre-registered 2026-07-25, BEFORE data; fifth review)
+## Gate structure (SIMPLIFIED ninth review - approved)
 
-**HALT IS THE DEFAULT.** Proceeding past any gate requires an explicit
-numeric PASS; ambiguous, missing, or errored results halt and report.
+The equity scorer is a supporting component; the decision spine is
+flip-rate/SNR -> behavioral diagnostics -> N=8000 validation, and
+**HALT-IS-DEFAULT governs the spine** (gates 5-7 below). Gates 1-4 are
+collapsed into:
+
+A. **Diagnostics (REPORT, not gate)**: Brier + log-loss (resolution-
+   sensitive) + ECE-vs-clustered-floor, aggregate / S1 / S2 /
+   near-terminal slice, match-count CIs. HALT only on DEGENERACY:
+   any NaN/inf; uniform collapse (mean per-row prob spread < 0.05);
+   near-terminal Brier worse than uniform (0.75).
+B. **Component SELECTION (not pass/fail)**: rollout scorer = the best
+   holdout Brier among {net, frozen fine20 lookup, frozen coarse80
+   lookup}. A lookup win is a POSITIVE: a table in the rollout inner
+   loop costs ~nanoseconds vs a traced-net call, and the verdict must
+   report whether that buys back enough per-decision budget to raise K.
+   No baseline adjustment after seeing results (frozen variants stand).
+C. Canonicalization: CUT (data measured abundant; a permanent input
+   branch buys nothing).
+
+Verdict JSONs are emitted for A (informational) and B (records the
+choice) and remain REQUIRED for the spine gates.
+
+## Spine gate thresholds (unchanged, halt-default)
 Every gate emits a machine-readable verdict JSON
 (equity_data/verdicts/<gate>.json): {gate, metrics, thresholds, pass,
 branch (if any), git_sha, data_sha256, timestamp}. All CIs and ECE/Brier
 denominators are MATCH-level (cluster bootstrap by match_id, 1000
 resamples), never state-level.
 
-1. **Calibration** (natural holdout): ECE (10 equal-mass bins, averaged
-   over P(place 1..4)) <= 0.03 aggregate AND <= 0.05 per stratum
-   (S1/S2/S3); Brier reported alongside. S2 denominator >= 500 matches
-   (extension rule) before this gate can pass.
-   **ECE noise floor (sixth review)**: binned ECE is biased upward at
-   small N - a perfectly calibrated model scores nonzero. Compute the
-   floor by parametric bootstrap (resample outcomes FROM the model's own
-   predicted probabilities at the actual N and binning, 200 reps, 95th
-   pct; per-row independent resampling - a stated approximation, since
-   real labels correlate within matches). Pre-registered pass rule:
-   measured ECE <= max(pre-registered threshold, floor + 0.015). Report
-   ECE against the floor, never against zero.
-   **S2 extension fallback (pre-registered BEFORE the hit-rate probe)**:
-   the extension is HARD-CAPPED at +4 h wall-clock of natural
-   generation. If S2 < 500 matches at the cap: accept, with (a)
-   match-count CIs honestly widened to the realized S2 denominator and
-   (b) the S2 calibration claim explicitly downgraded in the verdict
-   artifact (pass threshold unchanged; the verdict records the weaker
-   evidentiary basis). No hour-12 improvisation.
-2. **Beat-the-baseline** (binned lookup over (my score, max opponent,
-   deals) + small logistic, built from the SAME training matches -
-   specifically the net's own 90% fit split, same by-match partition,
-   so neither model sees the other's validation matches; bins
-   10x10x11 with min 80 rows/cell before trusting a cell, logistic
-   fallback below that - regularized so the gate cannot be passed
-   merely because a fine-grained lookup overfit):
-   net Brier <= baseline Brier - 0.005 aggregate, and net no worse
-   than baseline + 0.002 in ANY stratum. Fail => the net is not
-   load-bearing: use the lookup in the rollout scorer or halt.
-3. **Near-terminal correctness**: on holdout states whose match ended
-   within the NEXT deal: ECE <= 0.06 and net Brier <= baseline Brier
-   on the same slice.
-4. **Canonicalization (a BRANCH, not pass/fail)**: adopt (my score,
-   sorted opponents) iff holdout log-loss degrades by < 0.005
-   nats/state vs the full-input model; automation picks the branch and
-   records which in the verdict artifact.
-5. **Flip-rate floor** (from --probe-log offline analysis): S2
-   action-flip rate >= 5% required to proceed to the C++ scoring
-   integration; below => HALT and reconsider (the edge is structurally
-   small regardless of equity-model quality).
-6. **SNR**: median |per-action equity gap| / SE(K=64 mean) >= 1.0
-   within S2 decisions to proceed; report alongside the same ratio for
-   deal-point scoring as the known-good reference.
+(Former numbered gates 1-4 are superseded by the Gate structure section
+above: diagnostics report + degeneracy halts + component selection.
+Details preserved there: clustered ECE floor is reported diagnostically;
+the S2-extension +4h cap governs the DIAGNOSTIC denominator; the frozen
+dual-variant baseline is the selection competitor, fit on the net's own
+90% by-match split, bins 10x10x11 at min 20 / min 80 rows per variant.)
+
+1. **Flip-rate floor** (from --probe-log offline analysis, using the
+   SELECTED scorer; lookup-based early read reported first):
+   DECISION-LEVEL tension-state flip rate >= 5% required to proceed to
+   the C++ scoring integration; below => HALT and reconsider (the edge
+   is structurally small regardless of equity-model quality).
+2. **SNR**: median |per-action equity gap| / SE(K=64 mean) >= 1.0
+   within tension-state decisions to proceed; report alongside the same
+   ratio for deal-point scoring as the known-good reference.
+3. **Behavioral diagnostics** (existing section): directional moon and
+   leader-dump behaviors present outside the desperation carve-out.
 
 ## Regeneration-round default (fifth review, point 10)
 
@@ -275,10 +259,12 @@ target - same match budget, substantially lower label variance. (v1,
 already in flight, uses one outcome per state; acceptable for the first
 model, superseded at regeneration.)
 
-## Build order
-freeze match-blind reference -> equity data gen (CPU, seeded) -> equity
-model + natural-holdout calibration + canonicalization test ->
---probe-log C++ addition + offline SNR probe (go/no-go) -> full C++
-integration -> behavioral diagnostics (with desperation carve-out) ->
-paired validation per the pre-registration -> ledger + guard-evolution
+## Build order (ninth revision)
+[done: frozen reference, data generator, --probe-log C++, harnesses] ->
+equity data lands -> diagnostics report + degeneracy check -> component
+SELECTION (net vs frozen lookups; K-buyback noted) -> lookup-based
+early flip read + decision-level flip/SNR analysis (SPINE GATE,
+halt-default) -> full C++ scoring integration -> behavioral diagnostics
+(SPINE GATE) -> N=8000 fixed CRN validation, single analysis, S1-vs-S2
++ dose-response secondaries (SPINE GATE) -> ledger + guard-evolution
 decision.
