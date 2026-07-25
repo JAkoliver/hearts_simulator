@@ -121,6 +121,12 @@ public:
         // change. Requires full rollouts (rows skipped under truncation).
         std::string probe_log;
         int probe_every = 5;
+        // Adaptive-K probe (2026-07-25): when >0 and the harness-provided
+        // match context shows an endgame state (max total >= 85), use this
+        // many determinizations instead of `determinizations`. SNR scales
+        // ~sqrt(K); endgame states are ~16% of decisions so the cost is
+        // ~1.5x, not 4x.
+        int k_endgame = 0;
         // Evaluate truncated-rollout leaves with the ORACLE head (which sees
         // the determinized hands) instead of the visible-info value head.
         // Requires a trace exposing the "oracle" method; measured 2026-07-14
@@ -170,8 +176,14 @@ public:
         int me = env.GetCurrentPlayer();
 
         // Sample K determinizations, shared across candidate actions
+        // (K boosted in endgame score states when k_endgame is set)
+        int n_dets = cfg_.determinizations;
+        if (cfg_.k_endgame > 0 &&
+            *std::max_element(probe_totals_.begin(), probe_totals_.end()) >= 85.0) {
+            n_dets = cfg_.k_endgame;
+        }
         BuildContext(env);
-        std::vector<std::array<std::vector<int>, 4>> dets(cfg_.determinizations);
+        std::vector<std::array<std::vector<int>, 4>> dets(n_dets);
         for (auto& d : dets) d = SampleHands(env);
 
         std::vector<Sim> sims;

@@ -288,7 +288,8 @@ int main(int argc, char** argv) {
     torch::set_num_threads(1);
     std::string search_path, opp_path, belief_path, match_path, probe_log,
         out_path = "search_eval_results.csv";
-    int deals = 300, k = 32, rollout_tricks = -1, matches = 200, probe_every = 5;
+    int deals = 300, k = 32, rollout_tricks = -1, matches = 200, probe_every = 5,
+        k_endgame = 0;
     int tree_iterations = 400;
     float tree_c_puct = 1.5f;
     unsigned int seed = 42;
@@ -306,6 +307,7 @@ int main(int argc, char** argv) {
         else if (a == "--matches") matches = std::stoi(next());
         else if (a == "--probe-log") probe_log = next();
         else if (a == "--probe-every") probe_every = std::stoi(next());
+        else if (a == "--k-endgame") k_endgame = std::stoi(next());
         else if (a == "--deals") deals = std::stoi(next());
         else if (a == "--k") k = std::stoi(next());
         else if (a == "--seed") seed = static_cast<unsigned int>(std::stoul(next()));
@@ -396,6 +398,7 @@ int main(int argc, char** argv) {
     cfg.oracle_leaves = oracle_leaves;
     cfg.probe_log = probe_log;
     cfg.probe_every = probe_every;
+    cfg.k_endgame = k_endgame;
     if (oracle_leaves && !search_model.find_method("oracle").has_value()) {
         std::cerr << "--oracle-leaves requires a search model traced with the oracle method\n";
         return 1;
