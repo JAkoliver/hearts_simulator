@@ -19,7 +19,11 @@ per-deal player reaches fewer desperate positions).
   for v1 = `win`, revisit against gate design later. Tie outcomes train
   as soft targets (rank 1.5 -> half mass on P1 and P2).
 - Input: rotated totals/100 (self, left, across, right), deals/20,
-  leader-distance/100 - identical layout to the net's match ctx.
+  leader-distance/100, **plus pass direction of the upcoming deal
+  (one-hot 4: deal index mod 4 drives the rotation and therefore
+  future play - third review point 4)**. Verified: HeartsEnv advances
+  the rotation on every Reset(), so seeded states align direction via
+  deals_played mod 4 extra resets.
 - **Training data (review 5): seeded, not natural.** Matches start from
   SAMPLED score vectors: 50% uniform on [0,99]^4 (max<100), 30% one seat
   in 85-99 (threshold tails), 10% two seats >=85 (near-threshold ties /
@@ -74,11 +78,20 @@ K, same anchors, paired seeds), n>=200. Gate per the top of this doc.
 - **Design: anchor-field, identical to the bridge measurement** - each
   arm plays the test seat vs three v3-m7 anchors on paired seeds. NOT
   2v2 (which changes game dynamics and breaks comparability).
-- **N = 400 with one interim look at 200** (interim alpha 0.005, final
-  ~0.048, O'Brien-Fleming-flavored). MDE at N=400: 3.9-5.6 win-rate
-  points across plausible CRN discordance (q=0.10-0.20), below the
-  6.25-pt "half of bridge effect" benchmark; N=200 alone cannot detect
-  a half-sized effect (MDE 5.6-10.4) and is pre-declared insufficient.
+- **N = 400 with one interim look at 200** (Haybittle-Peto: interim
+  alpha 0.005, final ~0.048). POWER CAVEAT (third review): N=400's MDE
+  of 3.9-5.6 win-pts holds only if CRN takes discordance to q<=0.16 -
+  at q=0.28 (inside the range the n=200 arithmetic itself treated as
+  plausible) MDE is 7.4 pts, ABOVE the 6.25-pt half-bridge benchmark.
+  The bridge run realized q=0.385 WITH common deals, so CRN delivering
+  q~0.10 is currently an assumption, not a measurement. Therefore:
+  **pre-registered BLINDED sample-size re-estimation** - at the interim
+  look, read realized q WITHOUT unblinding the split direction,
+  recompute required N for MDE<=6.25 at 80% power, extend accordingly.
+  q is a nuisance parameter; blinded re-estimation does not inflate
+  type I error and needs no alpha adjustment. **Max funded N = 800
+  pairs** (the rule terminates there; ~5 h local single-process or
+  ~1.2 h sharded at measured rates).
 - **Common random numbers beyond deals**: both arms share the search
   stack, so pair identical determinization sets and rollout seeds
   wherever the action sets agree. Report the realized paired placement
@@ -129,6 +142,16 @@ passes. Caveat stated: probe rollouts use the match-BLIND rollout
 policy, so measured SNR is an approximation of the final system's -
 acceptable for go/no-go.
 
+**Action-flip rate (third review, part of the same offline analysis):**
+over logged decisions, report how often argmax under
+equity(totals + deal scores) differs from argmax under raw deal points,
+BROKEN OUT BY the pre-registered strata S1/S2/S3. This bounds the
+achievable effect before any C++ scoring work or 400-match validation:
+low flip rate outside S2 => the edge is structurally small regardless
+of equity-model quality (change the plan); high flip rate concentrated
+in S2 => power the validation on that stratum rather than the diluted
+aggregate. Upgrades the SNR gate from one bit to a magnitude estimate.
+
 ## Behavioral suite addendum: desperation pre-registration
 
 Under the `win` objective, P(place 1) ~= 0 makes variance free:
@@ -137,6 +160,25 @@ play. Pre-registered as correct behavior. The suite therefore separates
 "hopeless" states (P1 below ~2%) - where erratic play is expected and
 not a plumbing failure - from "trailing but alive" states, which carry
 the moon-attempt diagnostic.
+
+## Cloud policy (third review, accepted in full)
+- Everything through behavioral diagnostics runs LOCAL. Equity data
+  generation especially: one machine per dataset (a half-4090/half-H100
+  dataset encodes a bf16-blended policy in the ground truth).
+- Cloud only for the paired validation at N>=400, only after SNR +
+  action-flip go/no-go, and only if local wall-time actually binds:
+  measured local rate (bridge run, contended) = 36.8 s/match-pair
+  (~98 pairs/h); clean single-process estimate ~21 s/pair (~170/h),
+  shardable ~4x (~700/h) -> N=400 ~= 35-40 min sharded locally, N=800
+  ~= 1.2 h. Cloud is likely UNNECESSARY at funded N; revisit only if
+  the machine is unavailable.
+- If rented: **4090s, not H100s** (same arch dissolves the bf16
+  equivalence problem; small-batch latency-bound workload doesn't use
+  H100 advantages). Shard by MATCH INDEX with both arms of every pair
+  on the SAME node (hardware differences cancel inside the paired
+  diff). Run a cheap A/A first (match-blind vs match-blind, expect
+  ~0 with local-comparable paired SD) to retire equivalence questions
+  before the real run.
 
 ## Build order
 freeze match-blind reference -> equity data gen (CPU, seeded) -> equity
