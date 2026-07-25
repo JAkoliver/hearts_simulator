@@ -1,0 +1,24 @@
+{
+  "gate": "selection",
+  "metrics": {
+    "net": 0.6141303181648254,
+    "lookup_fine20": 0.64528489112854,
+    "lookup_coarse80": 0.6452950835227966,
+    "chosen": "net",
+    "k_buyback_candidate": false,
+    "net_S1": 0.5754619240760803,
+    "lookup_fine20_S1": 0.6091145277023315,
+    "lookup_coarse80_S1": 0.6094516515731812,
+    "net_S2": 0.6520942449569702,
+    "lookup_fine20_S2": 0.6815148591995239,
+    "lookup_coarse80_S2": 0.6811768412590027
+  },
+  "thresholds": {
+    "rule": "min holdout Brier of frozen set"
+  },
+  "pass": true,
+  "branch": "net",
+  "git_sha": "c29cde580131aebe97a52a643bbca62433f5cc81",
+  "data_sha256": "670f1f3826522a6c+089e062ef17d59f6",
+  "timestamp": 1784975429.169496
+}

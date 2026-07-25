@@ -1,0 +1,36 @@
+{
+  "gate": "flip_snr",
+  "metrics": {
+    "tension": {
+      "n": 630,
+      "flip_win": 0.3682539682539683,
+      "flip_place": 0.28253968253968254,
+      "snr_equity": 0.40589700785466953,
+      "snr_dealpoints": 0.5730983589760199
+    },
+    "runaway": {
+      "n": 1150,
+      "flip_win": 0.3356521739130435,
+      "flip_place": 0.26,
+      "snr_equity": 0.43754750893014654,
+      "snr_dealpoints": 0.5574036322381695
+    },
+    "early": {
+      "n": 9465,
+      "flip_win": 0.16714210248283148,
+      "flip_place": 0.093608029582673,
+      "snr_equity": 0.47079000075893584,
+      "snr_dealpoints": 0.5991901464167899
+    }
+  },
+  "thresholds": {
+    "tension_flip_win_min": 0.05,
+    "tension_snr_min": 1.0,
+    "tension_n_min": 300
+  },
+  "pass": false,
+  "branch": null,
+  "git_sha": "1ade4dbde9f1c034f84d9097b217911fd11a47c1",
+  "data_sha256": "3eb52833c79a0e15",
+  "timestamp": 1784979371.312211
+}

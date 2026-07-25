@@ -1,0 +1,37 @@
+{
+  "gate": "diagnostics",
+  "metrics": {
+    "brier_agg": 0.6141303181648254,
+    "logloss_agg": 1.1439133882522583,
+    "ece_agg": 0.0036710116546601057,
+    "ece_floor_agg": 0.057549288123846055,
+    "ece_agg_ci95": [
+      0.0036924806016031654,
+      0.005114984675310552
+    ],
+    "n_s2_matches": 2000,
+    "brier_S3": 0.6155161261558533,
+    "logloss_S3": 1.154799222946167,
+    "ece_S3": 0.018873173743486404,
+    "ece_floor_S3": 0.05392166804522276,
+    "brier_S1": 0.5754619240760803,
+    "logloss_S1": 1.0745337009429932,
+    "ece_S1": 0.018522679805755615,
+    "ece_floor_S1": 0.05651730038225651,
+    "brier_S2": 0.6520942449569702,
+    "logloss_S2": 1.2098886966705322,
+    "ece_S2": 0.022542430087924004,
+    "ece_floor_S2": 0.06312471702694893,
+    "brier_near_terminal": 0.3356897830963135,
+    "ece_near_terminal": 0.05882374569773674,
+    "prob_spread_mean": 0.35465872287750244
+  },
+  "thresholds": {
+    "halt_only_on": "NaN/inf | prob_spread<0.05 | near_terminal_brier>0.75"
+  },
+  "pass": true,
+  "branch": null,
+  "git_sha": "c29cde580131aebe97a52a643bbca62433f5cc81",
+  "data_sha256": "670f1f3826522a6c+089e062ef17d59f6",
+  "timestamp": 1784975429.0934358
+}

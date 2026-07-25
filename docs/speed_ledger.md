@@ -346,6 +346,33 @@ strength holding. WATCHPOINT: gate anchors are a FIXED v3-m7 field -
 anchor-overfit risk compounds with each promotion; diversify anchor
 family soon (same caveat as the raw-line era).
 
+## Match-aware search: equity pipeline + SPINE GATE HALT (2026-07-25)
+
+Equity data: 30k seeded (105,156 states) + 5k natural holdout (54,360
+states; S3/S1/S2 = 652/2,348/2,000 matches). Equity net: ECE BELOW its
+clustered noise floor everywhere (agg 0.0037 vs floor 0.0575; strata
+0.019-0.023 vs floors 0.054-0.063) - indistinguishable from perfectly
+calibrated; Brier 0.614 agg / 0.336 near-terminal; SELECTED over both
+frozen lookups (0.645) aggregate and per-stratum.
+
+Probe collection: 200 matches K=64, 11,245 decisions with match context.
+**Flip/SNR gate: HALT.** Tension-band raw flip rate 36.8% (floor 5%
+passed hugely) BUT SNR 0.41 vs threshold 1.0 - and the deal-point
+REFERENCE is itself 0.57: the working system also lives below 1.0, so
+the threshold was mis-set; the reference comparison did its job.
+Decisive diagnostic - CONFIDENT flips (equity gap > 2xSE at K=64):
+**tension 1.59%, runaway 3.13%, early 1.32%; median flip z ~= 0.2-0.35.**
+Nearly all raw flips are noise-flips between statistically tied actions.
+At deployment K=64, equity scoring would confidently change only ~1-1.5
+decisions per match. The halt-default held exactly as designed.
+
+Options surfaced to user (no unilateral proceed): (a) accept halt, park
+match-aware search, pivot to Phase 2; (b) adaptive-K probe (K=256 in
+tension states, ~6% of decisions, ~2.5h collection) to test whether
+confident-flip rate rises toward the floor; (c) tie-break-only
+integration (score by equity ONLY where deal-points are within their
+own noise - free in expectation, validated by the N=8000 design).
+
 ## Match bridge measurement: search vs match-aware raw AT MATCH PLAY (07-24)
 
 SearchEval --match-pair (new C++ mode, 8c934be): deployed search player
