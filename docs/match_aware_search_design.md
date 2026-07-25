@@ -99,13 +99,29 @@ K, same anchors, paired seeds), n>=200. Gate per the top of this doc.
 - **Primary endpoint: match-win McNemar (one-sided).** Pre-registered
   as the continuation of the metric tracked across all seven match-era
   trials - NOT derived from the bridge dataset.
-- **Pre-registered strata** (assigned per match-pair by events in
-  EITHER arm, hierarchical): S2 = top-two seats within 10 pts with max
-  >= 85 at any deal boundary; else S1 = any seat >= 85 reached; else
-  S3 = neither. Report McNemar + placement per stratum (nominal p,
-  labeled secondary). Rationale: match-awareness can only pay in S1/S2;
-  aggregate-only reporting would repeat the mean-placement dilution
-  mistake documented in the bridge stats.
+- **Pre-registered strata (REVISED eighth review - measured 2026-07-25)**:
+  S3 is DEGENERATE as a control: a match ends by crossing 100, so
+  "never reached max>=85" selects only single-deal-jump oddities
+  (measured 9.3% of matches, ~37 at N=400 - untestable). The match-level
+  contrast is therefore TWO strata: S2 (tension reached: top-two within
+  10, max>=85) vs S1 (runaway only); S3 reported descriptively, never
+  tested. Measured natural rates: S2 39.0%, S1 51.7%.
+  **Decision-level reality (probe, n=3,275 boundaries): only 6.0% of
+  deals are tension states; median match spends 0% of deals there; 61%
+  of matches never touch tension.** Consequences: (a) the flip-rate /
+  SNR analyses stratify AT THE DECISION by score state (bands over
+  top-two margin, max score) - the match label dilutes ~16:1; (b)
+  validation endpoints remain match-level (outcomes are match-level),
+  but a pre-registered DOSE-RESPONSE secondary tests whether the
+  match-aware arm's advantage grows with the match's realized count of
+  flipped decisions; (c) 6.0% of decisions is the honest ceiling on
+  how much match-awareness can matter per match - effects will be
+  boundary-concentrated, as the bridge measurement's P2->P1 pattern
+  already suggested.
+- **Early flip-rate read (queued)**: the frozen lookup baseline serves
+  as a stand-in equity function the moment data lands - no net
+  training required. Report lookup-based AND net-based S2 flip rates;
+  sharp divergence between them is itself diagnostic.
 - **Frozen reference**: hearts_ai_search_ref_matchblind_20260724.pt (+
   matching .pth), snapshotted BEFORE any match-aware work; every
   regeneration round validates against THIS artifact, never a moving
