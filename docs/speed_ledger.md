@@ -346,6 +346,16 @@ strength holding. WATCHPOINT: gate anchors are a FIXED v3-m7 field -
 anchor-overfit risk compounds with each promotion; diversify anchor
 family soon (same caveat as the raw-line era).
 
+**Trials 5-6 (07-24 afternoon/evening):** T5 FAIL at match gate (-0.043,
+SE 0.036, p=0.11 - variance, not saturation). T6: match gate STRONG PASS
+(-0.121, SE 0.037, p=0.0006; win 40.2% vs 36.5%, p=0.026) but **FIRST
+EVER search-guard rejection: searched per-deal +0.477 (SE 0.159), UB
++0.739 vs +0.3.** Match training has begun trading away search-substrate
+quality (the narrow guard margins on promotions 1-3 foreshadowed this).
+Guard design question surfaced to user: protect searched per-deal
+strength (status quo) vs raw per-deal (T6 raw was FINE at -0.119) vs
+match-level search. Status quo stands pending user decision.
+
 **Trial 2 (~08:40): SECOND promotion - match PPO COMPOUNDS.** vs the
 trial-1 baseline: placement **-0.133 (SE 0.040, n=800, p=0.00044)**,
 win rate **36.0% vs 31.5% (discordant 136:100, p=0.011 - significant)**,
