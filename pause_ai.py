@@ -17,12 +17,16 @@ import psutil
 
 CMD_PATTERNS = ('run_loop.py', 'orchestrator.py', 'train.py', 'distill.py',
                 'match_eval', 'neutral_raw_eval', 'promote_raw_line',
-                'expert_iter', 'regate_ppo')
+                'expert_iter', 'regate_ppo', 'gen_equity_data', 'train_equity')
 EXE_PATTERNS = ('SelfPlayGen', 'SearchEval')
 
 
 def targets():
+    """Matched parents AND their whole process trees: multiprocessing spawn
+    workers carry no script name in their command line, so tree-walking is
+    the only way to catch e.g. the equity generator's 10 workers."""
     me = psutil.Process().pid
+    seen = set()
     for p in psutil.process_iter(['pid', 'name', 'cmdline']):
         try:
             if p.pid == me:
@@ -33,7 +37,10 @@ def targets():
                 continue
             if (name.startswith(EXE_PATTERNS)
                     or any(pat in cmd for pat in CMD_PATTERNS)):
-                yield p
+                for proc in [p] + p.children(recursive=True):
+                    if proc.pid not in seen and proc.pid != me:
+                        seen.add(proc.pid)
+                        yield proc
         except psutil.Error:
             continue
 
@@ -44,8 +51,9 @@ def main():
     count = 0
     for p in targets():
         try:
+            name = p.name()
             (p.resume if resume else p.suspend)()
-            print(f"  {verb}: pid {p.pid} {p.info['name']}")
+            print(f"  {verb}: pid {p.pid} {name}")
             count += 1
         except psutil.Error as e:
             print(f"  failed on pid {p.pid}: {e}")
