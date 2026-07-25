@@ -155,10 +155,6 @@ def fit_net(X, Y, M, seed=0, epochs=60, width=64, val=None):
 class BinnedBaseline:
     """Lookup over (my//10, max_opp//10, min(deals,20)//2) + logistic fallback."""
 
-    def __init__(self):
-        self.table = {}
-        self.logistic = None
-
     @staticmethod
     def _key(x):
         my = int(x[0] * 100) // 10
@@ -166,7 +162,14 @@ class BinnedBaseline:
         dl = min(int(x[4] * 20), 20) // 2
         return (my, mo, dl)
 
-    MIN_CELL_ROWS = 80  # ~20+ matches per trusted cell (rows correlate 4:1)
+    def __init__(self, min_cell_rows):
+        # Two FROZEN variants (seventh review): min 20 (fine) and min 80
+        # (coarse). The synthetic selftest cannot adjudicate the right value
+        # for real data, so the gate requires beating the BETTER of the two
+        # on the real holdout - no discretionary tuning ever again.
+        self.min_cell_rows = min_cell_rows
+        self.table = {}
+        self.logistic = None
 
     def fit(self, X, Y):
         acc, cnt = {}, {}
@@ -175,7 +178,7 @@ class BinnedBaseline:
             acc[k] = acc.get(k, 0) + Y[i]
             cnt[k] = cnt.get(k, 0) + 1
         self.table = {k: acc[k] / cnt[k] for k in acc
-                      if cnt[k] >= self.MIN_CELL_ROWS}
+                      if cnt[k] >= self.min_cell_rows}
         # logistic fallback on the 3 binned dims
         F = np.array([[x[0], max(x[1], x[2], x[3]), x[4]] for x in X],
                      dtype=np.float32)
@@ -243,16 +246,31 @@ def logloss(P, Y):
     return float(-(np.log(np.clip(P, 1e-9, 1)) * Y).sum(1).mean())
 
 
-def ece_noise_floor(P, n_reps=200, seed=0, pct=95):
-    """Parametric-bootstrap ECE floor: resample outcomes FROM the model's
-    own predictions at the actual N and binning (per-row independent - a
-    stated approximation; real labels correlate within matches). A
-    perfectly calibrated model scores ~this, not zero."""
+def ece_noise_floor(P, M, n_reps=200, seed=0, pct=95):
+    """CLUSTERED parametric-bootstrap ECE floor (seventh review): rows of
+    the same (match, seat) share one real outcome, so the floor resamples
+    ONE outcome per (match, seat) group from the group's mean predicted
+    probs and broadcasts it - per-row independence would bias the floor
+    LOW and make the floor+0.015 rule stricter than pre-registered.
+    (Cross-seat permutation consistency remains an approximation.)"""
     rng = np.random.default_rng(seed)
+    n = len(P)
+    seat = np.arange(n) % 4
+    keys = np.stack([M.astype(np.int64), seat], axis=1)
+    _, group, inv = np.unique(keys, axis=0, return_index=True,
+                              return_inverse=True)
+    G = len(group)
+    pm = np.zeros((G, 4))
+    np.add.at(pm, inv, P)
+    counts = np.bincount(inv, minlength=G).astype(float)
+    pm /= counts[:, None]
+    pm /= pm.sum(1, keepdims=True)
+    cum = np.cumsum(pm, axis=1)
     vals = []
     for _ in range(n_reps):
-        draws = np.array([rng.choice(4, p=p / p.sum()) for p in P])
-        Ystar = np.eye(4, dtype=np.float32)[draws]
+        u = rng.random(G)
+        draws_g = (u[:, None] > cum).sum(1)
+        Ystar = np.eye(4, dtype=np.float32)[draws_g[inv]]
         vals.append(ece(P, Ystar))
     return float(np.percentile(vals, pct))
 
@@ -321,11 +339,17 @@ def main():
           f"(S3/S1/S2 = {sum(1 for v in strata.values() if v == 0)}/"
           f"{sum(1 for v in strata.values() if v == 1)}/{n_s2})")
 
-    val = fit_val_split(Mtr)   # ONE by-match split shared by net and baseline
+    val = fit_val_split(Mtr)   # ONE by-match split shared by net and baselines
     net, val_ll = fit_net(Xtr, Ytr, Mtr, val=val)
-    base = BinnedBaseline()
-    base.fit(Xtr[~val], Ytr[~val])
-    Pn, Pb = net_probs(net, Xho), base.predict(Xho)
+    base_fine = BinnedBaseline(min_cell_rows=20)
+    base_fine.fit(Xtr[~val], Ytr[~val])
+    base_coarse = BinnedBaseline(min_cell_rows=80)
+    base_coarse.fit(Xtr[~val], Ytr[~val])
+    Pn = net_probs(net, Xho)
+    Pb_fine, Pb_coarse = base_fine.predict(Xho), base_coarse.predict(Xho)
+    # The gate's opponent is the BETTER variant on the real holdout
+    Pb = Pb_fine if brier(Pb_fine, Yho) <= brier(Pb_coarse, Yho) else Pb_coarse
+    base_branch = 'fine20' if Pb is Pb_fine else 'coarse80'
 
     # Gate 1: calibration, measured against the parametric-bootstrap ECE
     # noise floor (pass rule: ece <= max(threshold, floor + 0.015))
@@ -333,7 +357,7 @@ def main():
          'n_s2_matches': n_s2}
     ci = cluster_ci(ece, Pn, Yho, Mho)
     m['ece_agg_ci95'] = ci
-    m['ece_floor_agg'] = ece_noise_floor(Pn)
+    m['ece_floor_agg'] = ece_noise_floor(Pn, Mho)
     ok1 = (m['ece_agg'] <= max(0.03, m['ece_floor_agg'] + 0.015)
            and n_s2 >= 500)
     for s, name in ((0, 'S3'), (1, 'S1'), (2, 'S2')):
@@ -344,7 +368,7 @@ def main():
             continue
         m[f'ece_{name}'] = ece(Pn[sel], Yho[sel])
         m[f'brier_{name}'] = brier(Pn[sel], Yho[sel])
-        m[f'ece_floor_{name}'] = ece_noise_floor(Pn[sel])
+        m[f'ece_floor_{name}'] = ece_noise_floor(Pn[sel], Mho[sel])
         if m[f'ece_{name}'] > max(0.05, m[f'ece_floor_{name}'] + 0.015):
             ok1 = False
     emit_verdict('calibration', m,
@@ -352,8 +376,11 @@ def main():
                   'floor_rule': 'ece <= max(threshold, floor + 0.015)'},
                  ok1, data_sha=data_sha)
 
-    # Gate 2: beat the baseline
-    m2 = {'net_brier': brier(Pn, Yho), 'base_brier': brier(Pb, Yho)}
+    # Gate 2: beat the BETTER of the two frozen baseline variants
+    m2 = {'net_brier': brier(Pn, Yho), 'base_brier': brier(Pb, Yho),
+          'base_fine20_brier': brier(Pb_fine, Yho),
+          'base_coarse80_brier': brier(Pb_coarse, Yho),
+          'base_variant_used': base_branch}
     ok2 = m2['net_brier'] <= m2['base_brier'] - 0.005
     for s, name in ((0, 'S3'), (1, 'S1'), (2, 'S2')):
         sel = st_of_row == s
@@ -425,7 +452,7 @@ def run_selftest():
     Xtr, Ytr, Mtr, _ = make_rows(tr)
     Xho, Yho, Mho, Lho = make_rows(ho)
     net, _ = fit_net(Xtr, Ytr, Mtr, epochs=20)
-    base = BinnedBaseline()
+    base = BinnedBaseline(min_cell_rows=20)
     base.fit(Xtr, Ytr)
     Pn, Pb = net_probs(net, Xho), base.predict(Xho)
     print(f"selftest: net brier {brier(Pn, Yho):.4f} vs base {brier(Pb, Yho):.4f} "
