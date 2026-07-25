@@ -66,6 +66,13 @@ produced a false conclusion. Datestamps mark the incident that taught it.
     H100 equivalence failure was portable MEASUREMENT, not portable
     training.)
 
+15. **Search standard = K=64 base + K=256 endgame** (adopted 2026-07-25:
+    --k-endgame 256, triggers when any seat >= 85). Measured cost +37%
+    per match (19.2 -> 26.2 s/pair); confident-flip rate in tension
+    2.6x'd vs flat K=64. All match-level search comparisons run BOTH
+    arms on this schedule; the per-deal search guard is unaffected (no
+    match context there).
+
 ## Closed directions (measured; do not revisit without NEW evidence)
 
 - PPO fine-tune of near-ceiling nets: one-shot; 255k further games flat
