@@ -196,6 +196,49 @@ the one thing that must not be).
 - Standing rule: every cloud-trained checkpoint is evaluated locally
   against a locally-run baseline before any promotion decision.
 
+## Gate thresholds (pre-registered 2026-07-25, BEFORE data; fifth review)
+
+**HALT IS THE DEFAULT.** Proceeding past any gate requires an explicit
+numeric PASS; ambiguous, missing, or errored results halt and report.
+Every gate emits a machine-readable verdict JSON
+(equity_data/verdicts/<gate>.json): {gate, metrics, thresholds, pass,
+branch (if any), git_sha, data_sha256, timestamp}. All CIs and ECE/Brier
+denominators are MATCH-level (cluster bootstrap by match_id, 1000
+resamples), never state-level.
+
+1. **Calibration** (natural holdout): ECE (10 equal-mass bins, averaged
+   over P(place 1..4)) <= 0.03 aggregate AND <= 0.05 per stratum
+   (S1/S2/S3); Brier reported alongside. S2 denominator >= 500 matches
+   (extension rule) before this gate can pass.
+2. **Beat-the-baseline** (binned lookup over (my score, max opponent,
+   deals) + small logistic, built from the SAME training matches):
+   net Brier <= baseline Brier - 0.005 aggregate, and net no worse
+   than baseline + 0.002 in ANY stratum. Fail => the net is not
+   load-bearing: use the lookup in the rollout scorer or halt.
+3. **Near-terminal correctness**: on holdout states whose match ended
+   within the NEXT deal: ECE <= 0.06 and net Brier <= baseline Brier
+   on the same slice.
+4. **Canonicalization (a BRANCH, not pass/fail)**: adopt (my score,
+   sorted opponents) iff holdout log-loss degrades by < 0.005
+   nats/state vs the full-input model; automation picks the branch and
+   records which in the verdict artifact.
+5. **Flip-rate floor** (from --probe-log offline analysis): S2
+   action-flip rate >= 5% required to proceed to the C++ scoring
+   integration; below => HALT and reconsider (the edge is structurally
+   small regardless of equity-model quality).
+6. **SNR**: median |per-action equity gap| / SE(K=64 mean) >= 1.0
+   within S2 decisions to proceed; report alongside the same ratio for
+   deal-point scoring as the known-good reference.
+
+## Regeneration-round default (fifth review, point 10)
+
+Label noise, not state coverage, is the binding constraint (~5-dim
+smooth input, one-hot outcome labels). Regeneration rounds re-run 4-8
+matches from each IDENTICAL seeded state and train on the AVERAGED soft
+target - same match budget, substantially lower label variance. (v1,
+already in flight, uses one outcome per state; acceptable for the first
+model, superseded at regeneration.)
+
 ## Build order
 freeze match-blind reference -> equity data gen (CPU, seeded) -> equity
 model + natural-holdout calibration + canonicalization test ->
