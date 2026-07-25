@@ -287,7 +287,8 @@ int main(int argc, char** argv) {
     // 0 deals in 25 min vs 0.95 s/deal with the pool pinned).
     torch::set_num_threads(1);
     std::string search_path, opp_path, belief_path, match_path, probe_log,
-        b_search_path, equity_path, out_path = "search_eval_results.csv";
+        b_search_path, equity_path, behave_totals, out_path = "search_eval_results.csv";
+    int behave_deals = 200;
     int deals = 300, k = 32, rollout_tricks = -1, matches = 200, probe_every = 5,
         k_endgame = 0;
     int tree_iterations = 400;
@@ -310,6 +311,8 @@ int main(int argc, char** argv) {
         else if (a == "--k-endgame") k_endgame = std::stoi(next());
         else if (a == "--b-search-model") b_search_path = next();
         else if (a == "--equity-model") equity_path = next();
+        else if (a == "--behave-totals") behave_totals = next();
+        else if (a == "--behave-deals") behave_deals = std::stoi(next());
         else if (a == "--deals") deals = std::stoi(next());
         else if (a == "--k") k = std::stoi(next());
         else if (a == "--seed") seed = static_cast<unsigned int>(std::stoul(next()));
@@ -491,12 +494,6 @@ int main(int argc, char** argv) {
             mp = std::make_unique<MatchRawPolicy>(std::move(mm));
         }
 
-        std::ofstream mcsv(out_path);
-        mcsv << "match,seat,deals_a,final_a,place_a,win_a,deals_b,final_b,place_b,win_b\n";
-        double sum_dp = 0.0;
-        int wins_a = 0, wins_b = 0;
-        auto mt0 = std::chrono::steady_clock::now();
-
         SearchPlayer* sp_flat = use_tree ? nullptr
                                          : static_cast<SearchPlayer*>(sp.get());
         if (!probe_log.empty() && sp_flat == nullptr) {
@@ -531,6 +528,68 @@ int main(int argc, char** argv) {
                     *std::max_element(totals.begin(), totals.end()) >= 100.0) break;
             }
         };
+
+        if (!behave_totals.empty()) {
+            // Behavioral diagnostic: paired SINGLE deals from a constructed
+            // score state (test seat's totals given as "self,left,across,
+            // right" relative to the test seat). Emits per-deal round scores
+            // for both arms; behavior metrics computed offline.
+            std::array<double, 4> rel{};
+            if (sscanf(behave_totals.c_str(), "%lf,%lf,%lf,%lf",
+                       &rel[0], &rel[1], &rel[2], &rel[3]) != 4) {
+                std::cerr << "--behave-totals wants self,left,across,right\n";
+                return 2;
+            }
+            if (!b_sp) {
+                std::cerr << "--behave requires --b-search-model\n";
+                return 2;
+            }
+            std::ofstream bcsv(out_path);
+            bcsv << "deal,seat,a0,a1,a2,a3,b0,b1,b2,b3\n";
+            int deals_ctx = (int)std::round(
+                (rel[0] + rel[1] + rel[2] + rel[3]) / 26.0);
+            for (int di = 0; di < behave_deals; ++di) {
+                int seat = di % 4;
+                std::array<double, 4> totals{};
+                for (int i = 0; i < 4; ++i) totals[(seat + i) % 4] = rel[i];
+                unsigned dseed = seed + (unsigned)di * 1000u;
+                std::array<std::array<int, 4>, 2> rs{};
+                for (int arm = 0; arm < 2; ++arm) {
+                    HeartsEnv env(dseed, true);
+                    // align pass rotation with the implied deal count
+                    for (int r = 0; r < deals_ctx % 4; ++r) env.Reset();
+                    env.Reset();
+                    if (arm == 0 && sp_flat) sp_flat->SetMatchContext(totals, deals_ctx);
+                    if (arm == 1 && b_sp) b_sp->SetMatchContext(totals, deals_ctx);
+                    bool done = false;
+                    while (!done) {
+                        int p = env.GetCurrentPlayer();
+                        int action;
+                        if (p != seat) action = opp.ChooseAction(env);
+                        else if (arm == 0) action = sp->ChooseAction(env);
+                        else action = b_sp->ChooseAction(env);
+                        done = env.Step(action).done;
+                    }
+                    auto s = env.GetRoundScores();
+                    for (int i = 0; i < 4; ++i) rs[arm][i] = s[i];
+                }
+                bcsv << di << "," << seat;
+                for (int arm = 0; arm < 2; ++arm)
+                    for (int i = 0; i < 4; ++i) bcsv << "," << rs[arm][i];
+                bcsv << "\n";
+                if ((di + 1) % 20 == 0)
+                    std::cerr << "behave deal " << (di + 1) << "/" << behave_deals << "\n";
+            }
+            bcsv.close();
+            std::cout << "behave complete, results " << out_path << "\n";
+            return 0;
+        }
+
+        std::ofstream mcsv(out_path);
+        mcsv << "match,seat,deals_a,final_a,place_a,win_a,deals_b,final_b,place_b,win_b\n";
+        double sum_dp = 0.0;
+        int wins_a = 0, wins_b = 0;
+        auto mt0 = std::chrono::steady_clock::now();
 
         for (int mi = 0; mi < matches; ++mi) {
             int seat = mi % 4;
