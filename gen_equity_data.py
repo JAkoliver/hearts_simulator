@@ -61,12 +61,16 @@ def _sample_start(rng, mode):
 
 
 def _chunk(job):
-    ckpt, mode, seed, offset, n_matches = job
+    """One SHARD: reproducible from (base_seed, shard_index, shard_size)
+    alone - worker count and shard-to-worker assignment do not affect
+    content (fourth review, points 7-8: cloud shards must be re-runnable
+    locally for bit-level audit)."""
+    ckpt, mode, base_seed, shard_index, offset, n_matches = job
     torch.set_num_threads(1)
     headroom.apply_process_priority()
     net = net_from_checkpoint(ckpt)
     net.eval()
-    rng = np.random.default_rng(seed)
+    rng = np.random.default_rng(base_seed + shard_index * _SEED_STRIDE)
 
     rows = {k: [] for k in ('totals', 'deals', 'pass_dir', 'placements',
                             'match_id', 'mixture')}
@@ -82,7 +86,8 @@ def _chunk(job):
     for m in range(n_matches):
         mid = offset + m
         totals, deals, tag = _sample_start(rng, mode)
-        menv = MatchEnv(seed=int(seed + m * 7 + 1))
+        # Env seed from the GLOBAL match id so it is invariant to sharding
+        menv = MatchEnv(seed=int((base_seed + mid * 7 + 1) % (2**31 - 1)))
         for _ in range(deals % 4):
             menv.env.reset()  # align pass rotation with deals_played
         menv.match_scores = totals.copy()
@@ -120,18 +125,23 @@ def main():
     ap.add_argument('--ckpt', default='hearts_model_final.pth')
     ap.add_argument('--workers', type=int, default=10)
     ap.add_argument('--seed', type=int, default=1)
+    ap.add_argument('--shard-size', type=int, default=500,
+                    help='matches per reproducible shard (content depends '
+                         'only on seed+shard_index, never on worker count)')
+    ap.add_argument('--only-shard', type=int, default=None,
+                    help='run a single shard (for cloud-shard audit / '
+                         'determinism verification)')
     args = ap.parse_args()
 
     headroom.banner()
-    per = args.matches // args.workers
-    extra = args.matches % args.workers
-    jobs, offset = [], 0
-    for w in range(args.workers):
-        n = per + (1 if w < extra else 0)
-        if n == 0:
+    n_shards = (args.matches + args.shard_size - 1) // args.shard_size
+    jobs = []
+    for s in range(n_shards):
+        if args.only_shard is not None and s != args.only_shard:
             continue
-        jobs.append((args.ckpt, args.mode, args.seed + w * _SEED_STRIDE, offset, n))
-        offset += n
+        offset = s * args.shard_size
+        n = min(args.shard_size, args.matches - offset)
+        jobs.append((args.ckpt, args.mode, args.seed, s, offset, n))
 
     import multiprocessing
     t0 = time.time()

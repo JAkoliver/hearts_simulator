@@ -118,6 +118,14 @@ K, same anchors, paired seeds), n>=200. Gate per the top of this doc.
   natural-play holdout (>=5k matches of natural self-play states) -
   reliability diagrams + Brier per placement. The 10% natural slice in
   training is not the calibration denominator.
+- **Correlated labels (fourth review)**: ~3.3 boundary states per match
+  share ONE outcome - effective sample size ~= match count, not state
+  count. Train/val split is BY MATCH_ID (the generator records it per
+  row for exactly this); calibration CIs are computed against MATCH
+  counts. Per-stratum sufficiency: after the natural holdout lands,
+  count S2 matches (the thinnest, most important stratum); if <500,
+  EXTEND natural generation until >=500 S2 matches before any
+  calibration claim.
 - **Terminal states analytic**: max>=100 states excluded from training
   (exact placements known); near-terminal net outputs checked against
   analytic placements as a correctness probe.
@@ -161,24 +169,32 @@ play. Pre-registered as correct behavior. The suite therefore separates
 not a plumbing failure - from "trailing but alive" states, which carry
 the moon-attempt diagnostic.
 
-## Cloud policy (third review, accepted in full)
-- Everything through behavioral diagnostics runs LOCAL. Equity data
-  generation especially: one machine per dataset (a half-4090/half-H100
-  dataset encodes a bf16-blended policy in the ground truth).
-- Cloud only for the paired validation at N>=400, only after SNR +
-  action-flip go/no-go, and only if local wall-time actually binds:
-  measured local rate (bridge run, contended) = 36.8 s/match-pair
-  (~98 pairs/h); clean single-process estimate ~21 s/pair (~170/h),
-  shardable ~4x (~700/h) -> N=400 ~= 35-40 min sharded locally, N=800
-  ~= 1.2 h. Cloud is likely UNNECESSARY at funded N; revisit only if
-  the machine is unavailable.
-- If rented: **4090s, not H100s** (same arch dissolves the bf16
-  equivalence problem; small-batch latency-bound workload doesn't use
-  H100 advantages). Shard by MATCH INDEX with both arms of every pair
-  on the SAME node (hardware differences cancel inside the paired
-  diff). Run a cheap A/A first (match-blind vs match-blind, expect
-  ~0 with local-comparable paired SD) to retire equivalence questions
-  before the real run.
+## Cloud policy (REVISED fourth review - supersedes "4090s not H100s")
+
+**TRAIN IN CLOUD, EVALUATE LOCALLY.** Numerical equivalence only
+matters where two arms are compared and a difference is tested.
+Training needs no bit-equivalence - it emits a checkpoint, which comes
+home and is evaluated on the 4090 against a locally-run baseline with
+both arms on shared hardware. This DISSOLVES the 2026-07-17 H100
+equivalence failure (that run made measurement portable; measurement is
+the one thing that must not be).
+
+- Corollaries: never split a paired comparison across heterogeneous
+  hardware; never split one dataset generation across heterogeneous
+  hardware; any arm-vs-arm run stays on one machine class.
+- H100 rental IS justified for: Phase 2 teacher distillation
+  (visit-count targets, large-batch supervised), the v5-L RL ladder
+  (VRAM + bandwidth bind - strongest case), exploiter league
+  (parallel concurrent runs), hyperparameter sweeps. NOT for search
+  evaluation (latency-bound, CPU-heavy, would idle an H100).
+- Search-based validation stays LOCAL at funded N (measured: ~21
+  s/pair clean, ~700/h sharded -> N=800 ~= 70 min).
+- CPU dataset generation is MORE portable than GPU work (fp32 x86):
+  regeneration rounds may shard across cheap CPU instances AFTER a
+  determinism audit (reproduce one cloud shard locally, bit-compare);
+  shards must be reproducible from (seed, shard_index) alone.
+- Standing rule: every cloud-trained checkpoint is evaluated locally
+  against a locally-run baseline before any promotion decision.
 
 ## Build order
 freeze match-blind reference -> equity data gen (CPU, seeded) -> equity

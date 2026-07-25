@@ -56,6 +56,15 @@ produced a false conclusion. Datestamps mark the incident that taught it.
     milestone before trusting it.
 13. **No cloud spend of any kind without explicit user approval of a
     specific rental.**
+14. **TRAIN IN CLOUD, EVALUATE LOCALLY** (2026-07-24, supersedes any
+    hardware-matching rule): checkpoints may be produced anywhere;
+    every comparison that decides anything runs on ONE local machine
+    with both arms sharing hardware. Never split a paired comparison
+    or a single dataset generation across heterogeneous hardware.
+    Every cloud-trained checkpoint is evaluated locally against a
+    locally-run baseline before any promotion decision. (The 2026-07-17
+    H100 equivalence failure was portable MEASUREMENT, not portable
+    training.)
 
 ## Closed directions (measured; do not revisit without NEW evidence)
 
