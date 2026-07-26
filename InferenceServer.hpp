@@ -42,6 +42,30 @@
 // RAII guard: bf16 autocast for CUDA inference. The module stays fp32 (a
 // traced module converted wholesale to bf16 crashes natively); autocast
 // runs the matmul-heavy ops in bf16 the same way train.py does.
+// Variant that leaves the autocast CAST CACHE alive across calls (the
+// bf16 weight copies persist; ~15MB/model held instead of re-cast per
+// forward). The per-call clear_cache() in AutocastGuard was measured as
+// the 1.42x "persistent autocast" win on the server path and implicated
+// in the 2026-07-25 8-shard driver wedge (per-call multi-MB alloc/free
+// churn x 16 CUDA modules). Enable/disable still per-call so CPU-side
+// code never runs under CUDA autocast.
+class AutocastGuardPersistent {
+public:
+    explicit AutocastGuardPersistent(bool enable) : enabled_(enable) {
+        if (enabled_) {
+            at::autocast::set_autocast_enabled(at::kCUDA, true);
+            at::autocast::set_autocast_dtype(at::kCUDA, at::kBFloat16);
+        }
+    }
+    ~AutocastGuardPersistent() {
+        if (enabled_) {
+            at::autocast::set_autocast_enabled(at::kCUDA, false);
+        }
+    }
+private:
+    bool enabled_;
+};
+
 class AutocastGuard {
 public:
     explicit AutocastGuard(bool enable) : enabled_(enable) {
@@ -125,6 +149,20 @@ public:
 #endif
     }
 
+    // Round rows up to a bounded bucket set (1,2,4,...,512, then multiples
+    // of 512): bounded distinct shapes -> caching-allocator and kernel-shape
+    // stability. Padding rows are zeros; outputs are sliced back. Mirrors
+    // the server's BucketRows fix - DirectBackend historically ran small
+    // batches and never needed it until K=256 rollout batches.
+    static int64_t BucketRowsDirect(int64_t n) {
+        if (n <= 512) {
+            int64_t b = 1;
+            while (b < n) b <<= 1;
+            return b;
+        }
+        return ((n + 511) / 512) * 512;
+    }
+
     InferOutputs Forward(const torch::Tensor& obs, const torch::Tensor& mask) override {
         torch::NoGradGuard g;
 #ifdef __linux__
@@ -138,9 +176,29 @@ public:
             return res;
         }
 #endif
-        AutocastGuard ac(bf16_);
-        auto out = module_.forward({obs.to(device_), mask.to(device_)}).toTuple();
-        return infer_detail::Unpack(out);
+        const int64_t true_rows = obs.size(0);
+        torch::Tensor o = obs, m = mask;
+        if (device_.is_cuda()) {
+            int64_t padded = BucketRowsDirect(true_rows);
+            if (padded != true_rows) {
+                o = torch::zeros({padded, obs.size(1)}, obs.options());
+                o.narrow(0, 0, true_rows).copy_(obs);
+                m = torch::zeros({padded, mask.size(1)}, mask.options());
+                // Padding rows get a fully-true mask so softmax/argmax on
+                // them stays finite; results are discarded by the slice.
+                m.narrow(0, true_rows, padded - true_rows).fill_(true);
+                m.narrow(0, 0, true_rows).copy_(mask);
+            }
+        }
+        AutocastGuardPersistent ac(bf16_);
+        auto out = module_.forward({o.to(device_), m.to(device_)}).toTuple();
+        InferOutputs res = infer_detail::Unpack(out);
+        if (res.logits.size(0) != true_rows) {
+            res.logits = res.logits.narrow(0, 0, true_rows);
+            if (res.value.defined()) res.value = res.value.narrow(0, 0, true_rows);
+            if (res.belief.defined()) res.belief = res.belief.narrow(0, 0, true_rows);
+        }
+        return res;
     }
 
     bool HasOracle() const override { return has_oracle_; }
