@@ -346,6 +346,30 @@ strength holding. WATCHPOINT: gate anchors are a FIXED v3-m7 field -
 anchor-overfit risk compounds with each promotion; diversify anchor
 family soon (same caveat as the raw-line era).
 
+## Validation ops: driver wedge, root cause, hardening, concurrency curve
+## (2026-07-25/26)
+
+The first N=8000 launch (8 shards x K=256 search-vs-search) WEDGED the
+NVIDIA driver: unkillable processes, hung nvidia-smi, zero output from
+minute one; required a reboot. Root cause (diagnosed, then confirmed by
+fix-and-retest): DirectBackend lacked BOTH server-path cures - its
+AutocastGuard cleared the bf16 cast-cache EVERY forward (re-casting
+~15MB of weights per call, millions of times) and it never bucketed
+batch shapes (K=256 rollouts emit hundreds of distinct multi-MB shapes
+per decision as active sims shrink 3328->1). At 8 processes x 2 CUDA
+modules each (16 contexts - search-vs-search doubles the count), the
+allocation storm livelocked WDDM's serialized kernel path. Fixed in
+b929c3d (persistent cast-cache + BucketRowsDirect); selftest equivalence
+PASS; 8-way re-test at original conditions = STABLE, no wedge.
+
+Measured search-vs-search concurrency curve (K=64/256-endgame,
+10-15 pairs/shard): 2 shards 56 pairs/h, 3 -> 41, 4 -> 41, 8 -> ~15-25
+(clipped) - **local optimum = 2 shards ~= 56 pairs/h; the GPU saturates
+and extra shards thrash**. True pair cost ~= 2 min (the earlier ~21
+s/pair figure was search-vs-RAW and never applied). N=8000 local ~= 6
+days; N=2000 ~= 36 h; cloud fan-out (pairs never split across nodes,
+1-2 procs/pod) is the only true multiplication.
+
 ## Match-aware search: equity pipeline + SPINE GATE HALT (2026-07-25)
 
 Equity data: 30k seeded (105,156 states) + 5k natural holdout (54,360
