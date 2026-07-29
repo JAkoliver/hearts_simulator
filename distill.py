@@ -38,6 +38,18 @@ assert RECORD.itemsize == 818
 LEAF_RECORD = np.dtype([('obs', 'u1', 550), ('hands', 'u1', 156), ('reward', '<f4')])
 assert LEAF_RECORD.itemsize == 710
 
+# Match-mode records (SelfPlayGen --match): obs is 556 wide (550 engine dims +
+# the acting seat's 6 match-context dims, SearchPlayer::WriteCtx layout) and
+# reward is the match-placement payoff (2.5 - place) * 4 in {+6,+2,-2,-6}
+# (ties: intermediate averages). HeartsNetV5 consumes the 6-dim tail via its
+# conditional match projection, so the same training loop applies unchanged.
+MATCH_RECORD = np.dtype([
+    ('obs', 'u1', 556), ('mask', 'u1', 52), ('labels', 'u1', 156),
+    ('pi', 'u1', 52),
+    ('action', '<u2'), ('seat', '<u2'), ('reward', '<f4'),
+])
+assert MATCH_RECORD.itemsize == 824
+
 def load_data(patterns, dtype=RECORD, kind='decision', holdout_frac=0.0):
     """Load records; optionally split off the contiguous TAIL of each file as
     holdout. Records within a file are deal-contiguous, so a tail split keeps
@@ -103,6 +115,11 @@ def main():
                          'the value head on the truncated-rollout leaf distribution '
                          'via interleaved value-only batches')
     ap.add_argument('--leaf-coef', type=float, default=1.0)
+    ap.add_argument('--match', action='store_true',
+                    help='load SelfPlayGen --match records (824 bytes: 556-dim '
+                         'obs with the 6 match-context dims appended, match-'
+                         'placement rewards) and feed the 556-wide obs to the '
+                         'net')
     args = ap.parse_args()
 
     device = torch.device(args.device)
@@ -111,7 +128,12 @@ def main():
     headroom.banner()
     torch.set_float32_matmul_precision('high')  # TF32 matmuls on Ada
 
-    data, holdout = load_data(args.data, holdout_frac=args.holdout)
+    # In --match mode records within a file are match-contiguous, so the
+    # per-file tail holdout is effectively a by-match split.
+    data, holdout = load_data(args.data,
+                              dtype=MATCH_RECORD if args.match else RECORD,
+                              kind='match decision' if args.match else 'decision',
+                              holdout_frac=args.holdout)
     n_hold = len(holdout) if holdout is not None else 0
     leaf = None
     if args.leaf_data:

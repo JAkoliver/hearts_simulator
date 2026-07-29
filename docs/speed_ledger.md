@@ -508,3 +508,170 @@ trials warmed up from stale Adam moments (promotion did not carry the
 candidate's optimizer state). Loop stopped after trial 3 by user
 request; state verified clean (config restore needed - the kill raced
 the loop's 5s sleep and caught a mutated config pre-launch).
+
+## 2026-07-26: Cloud pilot pod (validation pre-flight) - secure 4090
+
+Community 4090 pool ($0.34/h) rejected 5 placement attempts ("machine
+does not have the resources", disk 20-40GB all tried) - RunPod-side
+matcher issue, stock listed. User-approved fallback: SECURE 4090
+$0.69/h (pod 8c2qt0eb0snrgj, 96-thread host, driver 570.195).
+Total pilot cost ~48 min = ~$0.55.
+
+- On-pod build: cloud/Dockerfile recipe (libtorch 2.12.1+cu126 +
+  folded CUDA wheels) on runpod/pytorch ubuntu2404 image. BUILD OK
+  ~11 min. Ref model md5 verified on-pod (a1a0be31...).
+- A/A sanity (pre-registered): ref-vs-ref, 20 pairs, K=64/256,
+  pass-search, CRN. 20/20 pairs BIT-IDENTICAL across arms (11 wins
+  each, 0 discordant rows). Harness pairing + Linux determinism
+  confirmed. 1,150s = 62.6 pairs/h.
+- Pace run (real config: match-aware + equity leaves vs frozen ref):
+  20 pairs in 1,181s = 61.0 pairs/h single process, GPU 84% util,
+  3.1GB VRAM. Equity leaf scoring adds ~3% over A/A (batched).
+  Outcome direction n=20 (NOT part of pre-registered analysis):
+  match-aware 8 wins vs ref 13, mean place diff +0.775 vs
+  match-aware, 10/20 discordant. Tiny sample; N=8000 decides.
+- Fleet math at 61 pairs/h/pod: N=8000 = ~131 pod-h. Community
+  $0.34/h = ~$45 (~$52 w/ 15% pace margin); secure $0.69/h = ~$90
+  (over $60 budget). Headroom OFF on pods (env unset by design).
+
+## 2026-07-26: Community 3090 pace check + fleet access mechanism
+
+4090 community stock: zero across ~10 placement attempts over ~1h
+(3090s place instantly with identical calls -> stock, not config).
+Community hosts split public-IP vs not; no API filter. Access solved:
+proxy SSH username = machine.podHostId via GraphQL (MCP lacks it);
+proxy is PTY-only -> bulk transfer via private GitHub release assets
+(tag pilot-bundle-v1), pod pulls with token. Bundle md5-verified.
+
+3090 pace (pod q3l51dolyeraxc, $0.22/h): BUILD OK ~13 min; real
+A-vs-B config 10 pairs in 928s = 38.8 pairs/h = 63.6% of 4090 pace.
+Cost/pair: 3090 $0.00567 vs 4090 $0.00557 - equal within 2%.
+N=8000: ~206 pod-h, ~$45 (+15% margin ~$52), 8 pods ~26h wall.
+
+## 2026-07-26 09:30: N=8000 VALIDATION FLEET LAUNCHED (user-approved)
+
+8x community RTX 3090 @ $0.22/h, projected ~26h, ~$46. 1000 pairs/pod,
+seed block 20260726 + shard*1e7, pairs intra-pod (CRN: shared deal +
+search seeds, both arms K=64/256, pass-search, bf16, headroom off).
+Arm A hearts_ai_search_match.pt + hearts_equity.pt; arm B frozen
+hearts_ai_search_ref_matchblind_20260724.pt (md5 a1a0be31); anchors
+v3-m7. Bootstrap: private release pilot-bundle-v1, scoped read-only
+7-day PAT on pods (broad git token never left local). Pods:
+s0 q3l51dolyeraxc s1 g7gqdk4u2ceu8n s2 svwgy2bugvf07n s3 td0t4h4ym8cjza
+s4 i0pxminu4ozq2h s5 zm920a1rb7f436 s6 cte4rf0c4emkyz s7 t2wkxs9tyzyunm
+Analysis (pre-registered, SINGLE look at N=8000): one-sided McNemar
+alpha=0.05 on match wins; S1/S2 strata + dose-response secondaries.
+
+## 2026-07-27: N=8000 VALIDATION COMPLETE - MATCH-AWARE SEARCH WINS
+
+All 8 shards collected (md5-verified), all pods terminated.
+PRIMARY (pre-registered, single analysis): match-aware search
+48.91% match wins vs frozen match-blind ref 44.47% = +4.44 win-pts
+(SE 0.68). McNemar one-sided: discordant 1668 vs 1313 (q=0.373),
+p ~ 5e-11 << 0.05. SIGNIFICANT. All 8 shards positive (+2.4..+6.6).
+CRN: paired placement SD 1.351 (bridge ref 1.35 - dead on).
+
+Placement structure (the interesting part): A converts P2->P1 AND
+P2->P4: P1 3913v3558, P2 1028v1838, P4 1780v969; mean place WORSE
+(2.098 v 1.980). Match-aware search trades expected placement for win
+probability - exactly the win-equity objective, not generic strength.
+
+EXPLORATORY (deals terciles; deals endogenous, not the registered
+dose measure): +13.3 pts short matches, +0.9 mid, -5.9 long.
+
+LIMITATION (owned): fleet binary logged only final outcomes; the
+pre-registered S1/S2 strata + flipped-decision dose-response
+secondaries are NOT computable from this dataset (needed per-deal
+boundary logging). Primary + CRN reporting unaffected.
+
+COST: actual cloud spend 26th-28th = $62.72 total ($26.95 + $34.47 +
+$1.30) vs ~$46-48 projected. Overrun ~$14: realized host pace 28-44
+pairs/h (pace-check host was fast at 38.8), slow-pipe download idle,
+slowest shard 38h wall. Lesson: re-forecast cost mid-run from realized
+per-shard pace, alert on drift.
+
+DECISION (roadmap): match-aware search validated as the new search
+standard -> Phase 2 teacher = match-aware search; search guard
+benchmark should move to match-aware search per guard-evolution step.
+
+## 2026-07-28: Guard evolution + instrumentation + loop relaunch
+
+Post-validation lock-in, all local, $0:
+- Rules #16 added (match-aware search = ceiling config); ROADMAP queued
+  entry closed as DONE; next-sequence recorded (match PPO -> on plateau,
+  ONE gated match-aware expert-iteration experiment).
+- SearchEval match CSVs now carry stratum columns (tens/max85/tdeals
+  per arm, computed at deal starts) - the S1/S2 gap of the N=8000 run
+  cannot recur. Rebuilt; smoke shows sensible S1/S3 flags.
+- SEARCH GUARD EVOLVED: when hearts_equity.pt + hearts_ai_search_match.pt
+  exist, both guard arms run match-aware (candidate traced at 556,
+  baseline = match trace, --equity-model both sides; single-deal ctx so
+  K stays 64). Promotion path now also re-runs export_match.py so the
+  guard baseline tracks the champion. Null calibration: +0.000 exact
+  (SE 0.000, n=8, intended self-comparison).
+- MATCH GATE ANCHORS DIVERSIFIED: matches alternate v3-m7 / v4-m10
+  anchor fields by match index (_V4Seat 550-prefix adapter). Null
+  calibration exact-zero, pairing intact.
+- run_loop RELAUNCHED match-mode under evolved guard, headroom 0.25,
+  log logs/run_loop_20260728_match.log; baseline verified 10abe622
+  (3rd match-era promotion) pre-launch.
+
+## 2026-07-28: MATCH GATE RE-POWERED n=800 -> n=3200 (user-approved)
+
+Trials 1-4 under the evolved guard: +0.007 / -0.053(p=.060) /
+-0.011 / -0.051(p=.069) placement; T4 win rate SIGNIFICANT
+(56.5 v 52.9, discordant 133:104, p=.034). Pooled placement
+-0.027 +/- 0.017 (p~.06, n=3200) - real sub-bar effect, gate was
+coin-flipping (43% power vs true -0.05). At n=3200: SE 0.017,
+bar -0.028, 90% power vs -0.05, ~55% vs -0.03; gate ~40 min vs
+~2h training. Same lesson as the 07-19 search-gate re-power (600->
+2400): don't half-power. config + config_backup both updated (trial
+5 already in flight gates at 800; trial 6+ at 3200).
+
+## 2026-07-28: 4TH MATCH-ERA PROMOTION - first under the evolved regime
+
+First n=3200 gate-passing trial promoted end-to-end: match gate
+-0.029 (SE 0.017, p=0.0456; n=800 would have coin-flipped this),
+win 52.1 v 50.9; EVOLVED match-aware search guard first production
+run: +0.029 (SE 0.160, n=2400) UB +0.292 vs +0.3 - PASS by 0.008
+(second consecutive knife-edge; false-veto analysis says n=2400
+passes a dead-neutral candidate only ~61% - re-power to 4800
+recommended, awaiting user). Milestone 1785273667; new baseline
+cbfde942 (supersedes 10abe622). export_match.py auto-ran on
+promotion (traces 14:21) - guard baseline tracks the new champion.
+Loop continues.
+
+## 2026-07-28: SEARCH GUARD RE-POWERED n=2400 -> n=4800 (user-approved)
+
+False-veto fix: at n=2400 (SE 0.160) a dead-neutral candidate passes
+the +0.3-UB guard only ~61%; both evolved-guard-era passes cleared by
+0.008. At n=4800: SE ~0.11, neutral passes ~86%. Margin unchanged
+(+0.3 is a tolerance judgment; the noise was the problem). Cost lands
+only on match-gate passers (~1 in 5 trials), ~+1.5h those trials.
+Applies from the next trial to reach the guard.
+
+## 2026-07-29: 5TH MATCH-ERA PROMOTION - re-power directly vindicated
+
+Best-shaped candidate of the campaign, all three gate metrics aligned:
+placement -0.031 (p=.0247), WIN 53.3 v 50.5 (disc 499:407, p=.0012),
+score -0.98 (p=.0078). Guard n=4800: +0.072 (SE 0.113) UB +0.258
+PASS with margin 0.042 - at the old n=2400 (SE~0.16) UB would have
+been ~+0.335 = FALSE VETO. The n=4800 re-power saved this promotion.
+Milestone 1785322724. Since re-powers: 3 gate-passes in 3 trials,
+2 promotions + 1 correct substrate veto.
+
+## 2026-07-29: Match-aware expert-iteration TOOLING BUILT + VERIFIED
+
+SelfPlayGen --match (agent-built, reviewed, smoked): 4x match-aware
+SearchPlayer seats (556 trace + equity leaves + k-endgame), score
+carry, per-deal SetMatchContext all seats, ctx layout verified ==
+SearchPlayer::WriteCtx (rotated totals/100 x4, deals/20, (100-mx)/100);
+824B records (obs u8[556] ... reward f4 = (2.5-place)*4 tie-aware,
+assigned post-match); --start-totals seeded states (behave-style
+rotation, implied deals from sum/26). distill.py --match dtype+loader.
+Smokes (CPU, K=4, under training contention): natural 552 rec/match
+2297s; seeded 90,88,40,30 180 rec 1132s. Verified: sizes %824=0,
+rewards exactly {+-6,+-2}, ctx tails zero-then-evolving (natural) /
+seeded-from-start, masks 1-13, pi rowsum 255, loader 659+73 by-match
+tails, reward mean -0.003 (zero-sum check). READY: generation run
+awaits plateau call + GPU window.

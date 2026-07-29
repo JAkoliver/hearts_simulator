@@ -34,15 +34,28 @@
 //       f32      seat s's true final relative round reward (avg - own)
 // One record per seat per boundary (tricks 1..12; trick 13 is terminal).
 //
+// --match switches to MATCH-MODE expert iteration: the quota unit (--deals)
+// becomes MATCHES to 100 (60-deal cap), all four seats are match-aware
+// SearchPlayers (556-dim trace + --equity-model leaf scoring, optional
+// --k-endgame), and records are 824 bytes: obs u8[556] (550 engine dims + the
+// acting seat's 6 match-context dims), mask, labels, pi, action, seat,
+// reward f4 = (2.5 - tie-aware final placement) * 4 in {+6,+2,-2,-6}.
+// --start-totals self,left,across,right constructs every match's starting
+// score state (rotated so the "self" slot cycles absolute seats per match);
+// --start-deals overrides the implied round(sum/26) deal count.
+//
 // Usage:
 //   SelfPlayGen --model hearts_ai_search.pt --deals 6000 --k 64
 //               --pass-k 24 --pass-candidates 12 --seed 1 --threads 12
 //               --cuda --out selfplay.bin
 
+#include <algorithm>
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <fstream>
 #include <iostream>
 #include <memory>
@@ -66,6 +79,36 @@ struct PendingRec {
     uint16_t action;
     uint16_t seat;
 };
+
+// --match mode record: 556-dim obs (550 engine dims + the acting seat's 6
+// match-context dims, exactly as SearchPlayer::WriteCtx feeds the net) and a
+// match-placement reward. 824 bytes on disk, little-endian, no padding.
+struct MatchPendingRec {
+    std::array<uint8_t, 556> obs;
+    std::array<uint8_t, 52> mask;
+    std::array<uint8_t, 156> labels;
+    std::array<uint8_t, 52> pi;
+    uint16_t action;
+    uint16_t seat;
+};
+
+// 1 = winner (lowest total); ties share the mean of their ranks.
+// (Copied from search_eval.cpp - keep in sync.)
+static std::array<double, 4> Placements(const std::array<double, 4>& totals) {
+    std::array<int, 4> order = {0, 1, 2, 3};
+    std::stable_sort(order.begin(), order.end(),
+                     [&](int a, int b) { return totals[a] < totals[b]; });
+    std::array<double, 4> ranks{};
+    int i = 0;
+    while (i < 4) {
+        int j = i;
+        while (j + 1 < 4 && totals[order[j + 1]] == totals[order[i]]) ++j;
+        double shared = (i + j) / 2.0 + 1.0;
+        for (int t = i; t <= j; ++t) ranks[order[t]] = shared;
+        i = j + 1;
+    }
+    return ranks;
+}
 
 struct GenShared {
     std::atomic<long> deals_done{0};
@@ -226,6 +269,147 @@ static void RunWorker(int tid, int deals, unsigned int seed,
     }
 }
 
+// --match mode: the quota unit is MATCHES to 100 (60-deal cap). Every seat is
+// a match-aware SearchPlayer; the running totals/deal count are pushed into
+// all four players before each deal (each seat's search then sees its OWN
+// rotated context). One record per decision, buffered per match, reward
+// assigned from the final tie-aware placements: (2.5 - place) * 4
+// => {+6, +2, -2, -6} (ties: intermediate averages).
+static void RunMatchWorker(int tid, int quota, long match_base, unsigned int seed,
+                           std::shared_ptr<InferenceBackend> backend, int dim,
+                           const SearchPlayer::Config& base_cfg,
+                           bool have_start, std::array<double, 4> start_rel,
+                           int start_deals, const std::string& out_path,
+                           GenShared& shared) {
+    try {
+        std::vector<std::unique_ptr<SearchPlayer>> players;
+        for (int p = 0; p < 4; ++p) {
+            SearchPlayer::Config cfg = base_cfg;
+            cfg.seed = seed * 7919u + p * 104729u;
+            players.push_back(std::make_unique<SearchPlayer>(backend, dim, cfg));
+        }
+
+        std::ofstream out(out_path, std::ios::binary);
+        if (!out) {
+            throw std::runtime_error("Cannot open output file " + out_path);
+        }
+
+        std::vector<MatchPendingRec> recs;
+        for (int m = 0; m < quota; ++m) {
+            if (shared.failed.load()) return;  // another thread died; stop early
+
+            // Constructed start state (behave-style): totals given relative to
+            // a rotating seat so all four absolute seats see the "self" slot
+            // equally often across matches.
+            int rot_seat = static_cast<int>((match_base + m) % 4);
+            std::array<double, 4> totals{};
+            int deals_played = 0;
+            if (have_start) {
+                for (int i = 0; i < 4; ++i) {
+                    totals[(rot_seat + i) % 4] = start_rel[i];
+                }
+                deals_played = static_cast<int>(std::round(
+                    (start_rel[0] + start_rel[1] + start_rel[2] + start_rel[3]) / 26.0));
+            }
+            if (start_deals >= 0) deals_played = start_deals;
+
+            HeartsEnv env(seed + static_cast<unsigned>(m) * 1000u, true);
+            // align pass rotation with the implied starting deal count
+            for (int r = 0; r < deals_played % 4; ++r) env.Reset();
+
+            recs.clear();
+            while (true) {  // deals until the match ends
+                for (int p = 0; p < 4; ++p) {
+                    players[p]->SetMatchContext(totals, deals_played);
+                }
+                env.Reset();
+                bool done = false;
+                while (!done) {
+                    int p = env.GetCurrentPlayer();
+                    auto obs = env.Observe();
+                    auto labels = env.ObserveOpponentHands();
+                    auto legal_raw = env.GetLegalActions();
+
+                    int action = players[p]->ChooseAction(env);
+
+                    MatchPendingRec r;
+                    for (int i = 0; i < 550; ++i) {
+                        float v = obs[i];
+                        if (v < 0.0f) v = 0.0f;
+                        if (v > 1.0f) v = 1.0f;
+                        r.obs[i] = static_cast<uint8_t>(std::lround(v * 255.0f));
+                    }
+                    // The acting seat's 6 match-context dims, exactly as
+                    // SearchPlayer::WriteCtx builds them (seat-relative
+                    // rotation, /100 and /20 scaling).
+                    {
+                        double mx = *std::max_element(totals.begin(), totals.end());
+                        float ctx[6];
+                        for (int i = 0; i < 4; ++i) {
+                            ctx[i] = static_cast<float>(totals[(p + i) % 4] / 100.0);
+                        }
+                        ctx[4] = static_cast<float>(deals_played / 20.0);
+                        ctx[5] = static_cast<float>((100.0 - mx) / 100.0);
+                        for (int i = 0; i < 6; ++i) {
+                            float v = ctx[i];
+                            if (v < 0.0f) v = 0.0f;
+                            if (v > 1.0f) v = 1.0f;
+                            r.obs[550 + i] = static_cast<uint8_t>(std::lround(v * 255.0f));
+                        }
+                    }
+                    r.mask.fill(0);
+                    for (int i = 0; i < 13; ++i) {
+                        if (legal_raw[i] != -1) r.mask[legal_raw[i]] = 1;
+                    }
+                    for (int i = 0; i < 156; ++i) {
+                        r.labels[i] = labels[i] > 0.5f ? 1 : 0;
+                    }
+                    const auto& pi = players[p]->LastPolicy();
+                    for (int i = 0; i < 52; ++i) {
+                        r.pi[i] = static_cast<uint8_t>(std::lround(pi[i] * 255.0f));
+                    }
+                    r.action = static_cast<uint16_t>(action);
+                    r.seat = static_cast<uint16_t>(p);
+                    recs.push_back(r);
+
+                    done = env.Step(action).done;
+                }
+                auto rs = env.GetRoundScores();
+                for (int i = 0; i < 4; ++i) totals[i] += rs[i];
+                ++deals_played;
+                if (deals_played >= 60 ||
+                    *std::max_element(totals.begin(), totals.end()) >= 100.0) break;
+            }
+
+            auto place = Placements(totals);
+            for (const auto& r : recs) {
+                float reward = static_cast<float>((2.5 - place[r.seat]) * 4.0);
+                out.write(reinterpret_cast<const char*>(r.obs.data()), 556);
+                out.write(reinterpret_cast<const char*>(r.mask.data()), 52);
+                out.write(reinterpret_cast<const char*>(r.labels.data()), 156);
+                out.write(reinterpret_cast<const char*>(r.pi.data()), 52);
+                out.write(reinterpret_cast<const char*>(&r.action), 2);
+                out.write(reinterpret_cast<const char*>(&r.seat), 2);
+                out.write(reinterpret_cast<const char*>(&reward), 4);
+            }
+            shared.records.fetch_add(static_cast<long>(recs.size()));
+            long total_done = shared.deals_done.fetch_add(1) + 1;
+
+            if (total_done % 2 == 0 || total_done == shared.total_deals) {
+                auto el = std::chrono::duration_cast<std::chrono::seconds>(
+                              std::chrono::steady_clock::now() - shared.t0).count();
+                std::cerr << "match " << total_done << "/" << shared.total_deals
+                          << "  records " << shared.records.load()
+                          << "  elapsed " << el << "s\n";
+            }
+        }
+        out.close();
+    } catch (const std::exception& e) {
+        shared.failed.store(true);
+        std::cerr << "match worker thread " << tid << " failed: " << e.what() << "\n";
+    }
+}
+
 int main(int argc, char** argv) {
     std::string model_path, out_path = "selfplay.bin", value_out_path;
     int deals = 1000, k = 16, pass_k = 12, pass_candidates = 12, threads = 1;
@@ -235,6 +419,10 @@ int main(int argc, char** argv) {
     bool oracle_leaves = false;
     unsigned int seed = 1;
     bool use_cuda = false, use_bf16 = false;
+    // --match mode (match-aware expert iteration)
+    bool match_mode = false;
+    std::string equity_path, start_totals_str;
+    int k_endgame = 0, start_deals = -1;
 
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
@@ -254,10 +442,49 @@ int main(int argc, char** argv) {
         else if (a == "--tree-cpuct") tree_c_puct = std::stof(next());
         else if (a == "--cuda") use_cuda = true;
         else if (a == "--bf16") use_bf16 = true;
+        else if (a == "--match") match_mode = true;
+        else if (a == "--equity-model") equity_path = next();
+        else if (a == "--k-endgame") k_endgame = std::stoi(next());
+        else if (a == "--start-totals") start_totals_str = next();
+        else if (a == "--start-deals") start_deals = std::stoi(next());
         else { std::cerr << "Unknown arg: " << a << "\n"; return 2; }
     }
     if (model_path.empty()) {
         std::cerr << "--model is required\n";
+        return 2;
+    }
+    bool have_start = false;
+    std::array<double, 4> start_rel{};
+    if (match_mode) {
+        if (!value_out_path.empty()) {
+            std::cerr << "--value-out is not supported with --match\n";
+            return 2;
+        }
+        if (tree_iterations > 0) {
+            std::cerr << "--match requires the flat search teacher (no --tree-iterations)\n";
+            return 2;
+        }
+        if (equity_path.empty()) {
+            std::cerr << "--match requires --equity-model\n";
+            return 2;
+        }
+        if (rollout_tricks >= 0) {
+            std::cerr << "--match requires full rollouts (drop --rollout-tricks)\n";
+            return 2;
+        }
+        if (!start_totals_str.empty()) {
+            if (std::sscanf(start_totals_str.c_str(), "%lf,%lf,%lf,%lf",
+                            &start_rel[0], &start_rel[1], &start_rel[2],
+                            &start_rel[3]) != 4) {
+                std::cerr << "--start-totals wants self,left,across,right\n";
+                return 2;
+            }
+            have_start = true;
+        }
+    } else if (!equity_path.empty() || k_endgame > 0 || !start_totals_str.empty()
+               || start_deals >= 0) {
+        std::cerr << "--equity-model/--k-endgame/--start-totals/--start-deals "
+                     "require --match\n";
         return 2;
     }
     if (use_cuda && !torch::cuda::is_available()) {
@@ -280,7 +507,13 @@ int main(int argc, char** argv) {
         return 1;
     }
     int dim = ProbeObsDim(model);  // probe on CPU, before any device move
-    if (dim != 550) {
+    if (match_mode) {
+        if (dim != 556) {
+            std::cerr << "--match expects a 556-dim match-aware search trace, got "
+                      << dim << "\n";
+            return 1;
+        }
+    } else if (dim != 550) {
         std::cerr << "SelfPlayGen expects a current-generation (550-dim) search model, got "
                   << dim << "\n";
         return 1;
@@ -312,6 +545,18 @@ int main(int argc, char** argv) {
         std::cerr << "--oracle-leaves requires a search model traced with the oracle method\n";
         return 1;
     }
+    if (match_mode) {
+        try {
+            base_cfg.equity_model = std::make_shared<torch::jit::script::Module>(
+                torch::jit::load(equity_path));
+            base_cfg.equity_model->eval();
+        } catch (const c10::Error& e) {
+            std::cerr << "Failed to load equity model: " << e.what() << "\n";
+            return 1;
+        }
+        base_cfg.match_aware = true;
+        base_cfg.k_endgame = k_endgame;
+    }
 
     GenShared shared;
     shared.total_deals = deals;
@@ -320,15 +565,24 @@ int main(int argc, char** argv) {
     int per_thread = deals / threads;
     int extra = deals % threads;
     std::vector<std::thread> pool;
+    long match_base = 0;  // global match index of a thread's first match
     for (int t = 0; t < threads; ++t) {
         int quota = per_thread + (t < extra ? 1 : 0);
         if (quota == 0) continue;
-        std::string vpath = value_out_path.empty()
-                                ? std::string()
-                                : ThreadOutPath(value_out_path, t, threads);
-        pool.emplace_back(RunWorker, t, quota, seed + t, backend, dim, base_cfg,
-                          tree_iterations, tree_c_puct,
-                          ThreadOutPath(out_path, t, threads), vpath, std::ref(shared));
+        if (match_mode) {
+            pool.emplace_back(RunMatchWorker, t, quota, match_base, seed + t,
+                              backend, dim, base_cfg, have_start, start_rel,
+                              start_deals, ThreadOutPath(out_path, t, threads),
+                              std::ref(shared));
+            match_base += quota;
+        } else {
+            std::string vpath = value_out_path.empty()
+                                    ? std::string()
+                                    : ThreadOutPath(value_out_path, t, threads);
+            pool.emplace_back(RunWorker, t, quota, seed + t, backend, dim, base_cfg,
+                              tree_iterations, tree_c_puct,
+                              ThreadOutPath(out_path, t, threads), vpath, std::ref(shared));
+        }
     }
     for (auto& th : pool) th.join();
 

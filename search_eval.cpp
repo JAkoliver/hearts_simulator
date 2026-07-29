@@ -10,8 +10,10 @@
 // --cuda moves the search player's inference to the GPU (the opponent's
 // raw batch-1 policy always stays on CPU, where it is faster).
 
+#include <algorithm>
 #include <chrono>
 #include <fstream>
+#include <functional>
 #include <iostream>
 #include <random>
 #include <set>
@@ -472,11 +474,13 @@ int main(int argc, char** argv) {
                 std::cerr << "B search model rejected all known obs widths\n";
                 return 1;
             }
-            SearchPlayer::Config bcfg = cfg;   // same K schedule, seeds offset
+            SearchPlayer::Config bcfg = cfg;   // same K schedule
             bcfg.match_aware = false;          // arm B is the match-BLIND reference
             bcfg.equity_model.reset();
             bcfg.probe_log.clear();
-            bcfg.seed = seed + 777000;
+            // CRN (validation pre-registration): identical search seed so
+            // determinization draws align wherever the arms' trajectories do
+            bcfg.seed = cfg.seed;
             b_sp = std::make_unique<SearchPlayer>(bm, bdim, bcfg);
         } else {
             torch::jit::script::Module mm;
@@ -501,9 +505,27 @@ int main(int argc, char** argv) {
             return 2;
         }
 
+        // Per-match stratum telemetry (pre-registered strata, rules #16):
+        // computed at each deal START from the running totals. S2 = tension
+        // reached (max>=85 AND top-two within 10), S1 = max>=85 only,
+        // S3 = never reached max>=85 (degenerate; descriptive only).
+        struct MatchStrata { int tension_deals = 0; bool tension = false;
+                             bool max85 = false; };
         auto play_match = [&](HeartsEnv& env, std::array<double, 4>& totals,
-                              int& deals_played, int test_seat, bool search_side) {
+                              int& deals_played, int test_seat, bool search_side,
+                              MatchStrata* strata = nullptr) {
             while (true) {
+                if (strata) {
+                    std::array<double, 4> srt = totals;
+                    std::sort(srt.begin(), srt.end(), std::greater<double>());
+                    if (srt[0] >= 85.0) {
+                        strata->max85 = true;
+                        if (srt[0] - srt[1] <= 10.0) {
+                            strata->tension = true;
+                            ++strata->tension_deals;
+                        }
+                    }
+                }
                 if (search_side && sp_flat) {
                     sp_flat->SetMatchContext(totals, deals_played);
                 }
@@ -586,7 +608,8 @@ int main(int argc, char** argv) {
         }
 
         std::ofstream mcsv(out_path);
-        mcsv << "match,seat,deals_a,final_a,place_a,win_a,deals_b,final_b,place_b,win_b\n";
+        mcsv << "match,seat,deals_a,final_a,place_a,win_a,deals_b,final_b,place_b,win_b,"
+                "tens_a,max85_a,tdeals_a,tens_b,max85_b,tdeals_b\n";
         double sum_dp = 0.0;
         int wins_a = 0, wins_b = 0;
         auto mt0 = std::chrono::steady_clock::now();
@@ -597,8 +620,9 @@ int main(int argc, char** argv) {
             std::array<double, 4> ta{}, tb{};
             int da = 0, db = 0;
             HeartsEnv ea(mseed, true), eb(mseed, true);
-            play_match(ea, ta, da, seat, true);
-            play_match(eb, tb, db, seat, false);
+            MatchStrata sa, sb;
+            play_match(ea, ta, da, seat, true, &sa);
+            play_match(eb, tb, db, seat, false, &sb);
             auto pa = Placements(ta), pb = Placements(tb);
             sum_dp += pa[seat] - pb[seat];
             wins_a += (pa[seat] == 1.0);
@@ -606,7 +630,11 @@ int main(int argc, char** argv) {
             mcsv << mi << "," << seat << "," << da << "," << ta[seat] << ","
                  << pa[seat] << "," << (pa[seat] == 1.0 ? 1 : 0) << ","
                  << db << "," << tb[seat] << "," << pb[seat] << ","
-                 << (pb[seat] == 1.0 ? 1 : 0) << "\n";
+                 << (pb[seat] == 1.0 ? 1 : 0) << ","
+                 << (sa.tension ? 1 : 0) << "," << (sa.max85 ? 1 : 0) << ","
+                 << sa.tension_deals << ","
+                 << (sb.tension ? 1 : 0) << "," << (sb.max85 ? 1 : 0) << ","
+                 << sb.tension_deals << "\n";
             if ((mi + 1) % 5 == 0) {
                 auto el = std::chrono::duration_cast<std::chrono::seconds>(
                               std::chrono::steady_clock::now() - mt0).count();

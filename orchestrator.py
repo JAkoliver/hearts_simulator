@@ -267,17 +267,31 @@ class _SearchExport(torch.nn.Module):
     def forward(self, observation, legal_actions_mask):
         return self.net.forward_all(observation, legal_actions_mask)
 
-def _trace_for_search(checkpoint_path, out_path):
+def _trace_for_search(checkpoint_path, out_path, obs_dim=550):
     net = net_from_checkpoint(checkpoint_path)
     net.eval()
-    dummy_obs = torch.zeros(1, 550, dtype=torch.float32)
+    dummy_obs = torch.zeros(1, obs_dim, dtype=torch.float32)
     dummy_mask = torch.zeros(1, 52, dtype=torch.bool)
     torch.jit.trace(_SearchExport(net), (dummy_obs, dummy_mask)).save(out_path)
 
-def _search_start(model_pt, opponent_pt, deals, k, seed, out_csv):
+# Guard evolution (rules #16, validated 2026-07-27): the deployed ceiling is
+# MATCH-AWARE search (556 ctx + equity leaves). When the equity trace exists,
+# the guard runs BOTH arms match-aware so it protects the actual substrate.
+# Single-deal context means K stays at the base value (no >=85 totals), so
+# the endgame path rides on the separately-validated K schedule.
+EQUITY_TRACE = 'hearts_equity.pt'
+MATCH_SEARCH_TRACE = 'hearts_ai_search_match.pt'
+
+def _guard_match_aware():
+    return os.path.exists(EQUITY_TRACE) and os.path.exists(MATCH_SEARCH_TRACE)
+
+def _search_start(model_pt, opponent_pt, deals, k, seed, out_csv,
+                  equity_pt=None):
     cmd = [SEARCH_EVAL_EXE, '--search-model', model_pt, '--opponent-model', opponent_pt,
            '--deals', str(deals), '--k', str(k), '--pass-search',
            '--seed', str(seed), '--out', out_csv]
+    if equity_pt:
+        cmd.extend(['--equity-model', equity_pt])
     if torch.cuda.is_available():
         cmd.extend(['--cuda', '--bf16'])
     proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
@@ -324,11 +338,17 @@ def evaluate_candidate_search(candidate_path, deals=500, k=64, alpha=0.05,
               "raw trace as opponents (biased toward the baseline).")
         opponent = 'hearts_ai_grandmaster.pt'
 
+    match_aware = _guard_match_aware()
+    equity = EQUITY_TRACE if match_aware else None
+    baseline_trace = MATCH_SEARCH_TRACE if match_aware else 'hearts_ai_search.pt'
     seed = int(time.time())
-    _trace_for_search(candidate_path, 'search_gate_candidate.pt')
+    _trace_for_search(candidate_path, 'search_gate_candidate.pt',
+                      obs_dim=556 if match_aware else 550)
     shards = headroom.scaled_shards(max(1, min(shards, deals)))
     print(f"Search gate: {deals} paired deals, K={k}, {shards} shard pairs, "
-          f"neutral opponents (all {2 * shards} runs concurrent)...")
+          f"neutral opponents, "
+          f"{'MATCH-AWARE (equity leaves, rules #16)' if match_aware else 'match-blind'} "
+          f"(all {2 * shards} runs concurrent)...")
     per = deals // shards
     extra = deals % shards
     procs = []  # (shard_idx, n, cand_proc, cand_csv, base_proc, base_csv)
@@ -340,9 +360,11 @@ def evaluate_candidate_search(candidate_path, deals=500, k=64, alpha=0.05,
         c_csv = f'search_eval_gate_cand_s{i}.csv'
         b_csv = f'search_eval_gate_base_s{i}.csv'
         procs.append((i, n,
-                      _search_start('search_gate_candidate.pt', opponent, n, k, s, c_csv),
+                      _search_start('search_gate_candidate.pt', opponent, n, k, s, c_csv,
+                                    equity_pt=equity),
                       c_csv,
-                      _search_start('hearts_ai_search.pt', opponent, n, k, s, b_csv),
+                      _search_start(baseline_trace, opponent, n, k, s, b_csv,
+                                    equity_pt=equity),
                       b_csv))
     cand_parts, base_parts = [], []
     for i, n, pc, c_csv, pb, b_csv in procs:
@@ -536,6 +558,13 @@ def main():
                 print("Deployment asset 'hearts_ai_grandmaster.pt' successfully updated!")
             else:
                 print("Failed to export deployment asset.")
+            # Rules #16: the guard baseline is the MATCH-AWARE trace family -
+            # refresh it too so the next trial guards against the new champion.
+            if os.path.exists('export_match.py'):
+                em = subprocess.run(["python", "export_match.py"])
+                print("Match-aware traces re-exported."
+                      if em.returncode == 0 else
+                      "WARNING: export_match.py failed - guard baseline is STALE.")
         else:
             print("Experiment FAILED (Candidate not significantly better). Rolling back.")
             # Keep the rejected weights for post-hoc analysis (e.g. checking

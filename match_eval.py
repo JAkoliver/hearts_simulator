@@ -53,6 +53,26 @@ def _play_match(menv, seat_nets):
                 {'deals': menv.deals_played, 'moons': moons}
 
 
+class _V4Seat(torch.nn.Module):
+    """Adapts the 550-dim v4-m10 anchor trace to the 556-dim match obs
+    (prefix layout - same convention as _LegacySeat)."""
+
+    def __init__(self, traced):
+        super().__init__()
+        self.traced = traced
+
+    def forward(self, observation, legal_actions_mask):
+        return self.traced(observation[:, :550], legal_actions_mask)
+
+
+# Anchor diversification (2026-07-28, rules #16 watchpoint): three match-era
+# promotions compounded against the fixed v3-m7 field - to keep gains general
+# rather than anchor-shaped, matches alternate between a v3-m7 field and a
+# v4-m10 field by match index (parity preserved across arms; the pairing is
+# per-match so the gate statistics pool cleanly).
+V4_ANCHOR = 'hearts_ai_grandmaster_v4m10.pt'
+
+
 def _chunk(job):
     cand_path, base_path, seed, offset, n_matches = job
     torch.set_num_threads(1)
@@ -62,15 +82,20 @@ def _chunk(job):
     base.eval()
     anchor = _LegacySeat(torch.jit.load(NEUTRAL_OPPONENT))
     anchor.eval()
+    anchor_v4 = None
+    if os.path.exists(V4_ANCHOR):
+        anchor_v4 = _V4Seat(torch.jit.load(V4_ANCHOR))
+        anchor_v4.eval()
 
     rows = []
     for m in range(n_matches):
         idx = offset + m
         seat = idx % 4
         match_seed = seed + idx * 1000
+        field = anchor_v4 if (anchor_v4 is not None and idx % 2 == 1) else anchor
         out = {}
         for label, net in (('a', cand), ('b', base)):
-            seats = [anchor] * 4
+            seats = [field] * 4
             seats[seat] = net
             menv = MatchEnv(seed=match_seed)
             placements, finals, tele = _play_match(menv, seats)
@@ -85,8 +110,10 @@ def run_gate(cand, base, matches=800, workers=12, seed=None):
     """Run the paired match gate; prints the report and returns a stats dict."""
     seed = seed if seed is not None else int(time.time())
     workers = headroom.scaled_workers(workers)
-    print(f"Match gate: {cand} vs {base} @ shared seat, 3x v3-m7 "
-          f"anchors, {matches} paired matches to 100, seed {seed}")
+    fields = ("mixed v3-m7/v4-m10" if os.path.exists(V4_ANCHOR)
+              else "3x v3-m7") + " anchors"
+    print(f"Match gate: {cand} vs {base} @ shared seat, {fields}, "
+          f"{matches} paired matches to 100, seed {seed}")
 
     per = matches // workers
     extra = matches % workers

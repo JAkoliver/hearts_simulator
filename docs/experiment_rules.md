@@ -73,6 +73,21 @@ produced a false conclusion. Datestamps mark the incident that taught it.
     arms on this schedule; the per-deal search guard is unaffected (no
     match context there).
 
+16. **Match-aware search is the CEILING CONFIG (validated 2026-07-27):**
+    equity leaf scoring (hearts_equity.pt) + K=64/256 schedule on the
+    556-ctx search trace. N=8000 cloud validation vs the frozen
+    match-blind reference: +4.44 win-pts (SE 0.68), McNemar one-sided
+    p~5e-11, all 8 shards positive; converts P2->P1 AND P2->P4 (mean
+    place WORSE) = win-equity optimization, not generic strength.
+    Consequences: (a) the search GUARD runs BOTH arms match-aware
+    (556 traces + equity leaves; single-deal context so K stays 64 -
+    the endgame path is validated separately); (b) match-level
+    comparisons follow rule #15; (c) the Phase 2 teacher is
+    match-aware search. Fleet instrumentation rule: match CSVs now
+    carry stratum flags (tension/max85 reached, tension-deal count) -
+    never run a validation-scale measurement without the columns the
+    pre-registered analysis needs.
+
 ## Closed directions (measured; do not revisit without NEW evidence)
 
 - PPO fine-tune of near-ceiling nets: one-shot; 255k further games flat

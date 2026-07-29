@@ -44,7 +44,58 @@ per rental.
   spots (e.g. the measured 2x moon-concession hole of the per-deal
   lineage).
 
-## Queued: match-aware search (added 2026-07-24 after the first guard veto)
+## DONE: match-aware search (built 2026-07-25/26, VALIDATED 2026-07-27)
+Both queued steps completed and the build validated at N=8000 (cloud
+fleet, pre-registered single analysis): match-aware search +4.44
+win-pts vs the frozen match-blind reference (McNemar p~5e-11, all 8
+shards positive; P2->P1 AND P2->P4 conversion = win-equity behavior).
+Rules #15 (K=64/256) and #16 (ceiling config + evolved guard) govern.
+Guard now runs both arms match-aware. Phase 2 teacher = match-aware
+search. NEXT TRAINING SEQUENCE (adopted 2026-07-28): (1) resume
+match-mode PPO under the evolved guard with diversified gate anchors
+(v3-m7 + v4-m10); (2) ON PPO PLATEAU (pooled null over >=3-4 trials):
+run match-aware EXPERT ITERATION once, properly gated - generate match
+states with the match-aware search as actor, distill its decisions
+(556 ctx, sharpen ~2.0, split holdout by deal) into the raw net. This
+is NOT the closed same-lineage recipe: the teacher demonstrably makes
+different, better decisions in score context than the student's own
+knowledge (+4.4 win-pts of equity signal).
+
+## Queued: K-endgame threshold optimization (added 2026-07-29, low priority)
+The >=85 trigger for K=256 (rules #15) is a DESIGN HEURISTIC ("one deal
+from elimination"), never tested against 75/80/90 - the probe measured
+K=256's value inside the >=85 band, and the N=8000 validation validated
+the package, not the threshold. Plan, in order:
+1. FREE reanalysis (CPU, hours): re-bin confident-flip rate in
+   probe_decisions_v2_k256.csv by max-total bands (70-75/75-80/80-85/
+   85-90/90+); same data gives each threshold's K=256 deal fraction
+   (cost). Near-zero flips below 85 => threshold already right, close
+   this item.
+2. Only if (1) nominates a candidate: ONE paired match run (current 85
+   vs candidate, CRN, both arms otherwise identical, n~3200, ~2 days
+   local). No sweeps - expected gain is a fraction of a win-point.
+Run during a quiet stretch; never ahead of expert iteration.
+
+## Queued: v6 network (added 2026-07-29 - trigger condition, not a date)
+TRIGGER: the improvement loop (PPO alternation + match-aware expert
+iteration) demonstrably compounding AND the 7.6M v5 stops responding
+across several cycles with powered gates. Rationale: the v5-L lesson -
+you cannot imitate your way to a bigger/newer net; scale only inside a
+working loop (Phase 3). Sequence when triggered:
+1. v5-L-shaped scale-up FIRST (d=448 L=8, init from a distill of the
+   then-champion, pushed by the loop; zero retooling).
+2. Architectural v6 second, as small-scale controlled A/Bs: native
+   match conditioning (score state as tokens/FiLM, not a bolt-on
+   projection), distributional value head (placement/points
+   distribution - match equity is ill-served by a scalar), belief-
+   policy fusion (belief BCE 0.270 bounds determinization quality).
+   NOT an architecture fix: the moon-defense hole (data/objective gap -
+   exploiter league).
+Obs-format changes ripple through C++/traces/exports - pay that cost
+only for measured headroom.
+
+## Superseded queue entry (kept for history)
+Queued: match-aware search (added 2026-07-24 after the first guard veto)
 The search player is match-BLIND (rollouts score deal points), while the
 raw net is now match-aware - their advantages are incomparable and the
 guard currently protects the possibly-wrong crown jewel (trial 6:
