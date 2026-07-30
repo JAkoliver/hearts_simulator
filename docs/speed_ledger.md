@@ -675,3 +675,37 @@ rewards exactly {+-6,+-2}, ctx tails zero-then-evolving (natural) /
 seeded-from-start, masks 1-13, pi rowsum 255, loader 659+73 by-match
 tails, reward mean -0.003 (zero-sum check). READY: generation run
 awaits plateau call + GPU window.
+
+## 2026-07-30: WEDGE RECURRENCE during match-aware generation - ROOT CAUSE
+
+Chunk knife_b wedged ~10:00 (last record write 61 min before detection;
+nvidia-smi hangs; PID 778208 unkillable - taskkill returns "no running
+instance" while Get-Process still lists it). Same signature as the
+2026-07-25 8-shard wedge, but with a SINGLE process this time.
+
+ROOT CAUSE (code-confirmed): the EQUITY model bypasses the b929c3d
+hardening. SearchPlayer::ScoreEquity builds torch::zeros({live.size(),
+10}) and calls cfg_.equity_model->forward({x}) DIRECTLY - not through
+DirectBackend/InferenceServer, so it gets neither BucketRowsDirect nor
+AutocastGuardPersistent. live.size() varies arbitrarily per call =>
+unbucketed shape churn x 14 threads x WDDM = the wedge recipe the
+hardening was written to kill. Consistent with the N=8000 fleet running
+38h clean: those pods were LINUX (no WDDM).
+
+FIX (queued): bucket the equity batch in ScoreEquity (pad rows to
+pow2/multiples, slice outputs back) - same pattern as BucketRowsDirect;
+or route equity through the hardened backend. Until then, match-aware
+GENERATION on Windows is wedge-prone; match-aware EVAL (search_eval)
+has the same exposure at long runtimes.
+
+Data safe (per-match flush): bank 110,109 records (96,632 night-1
+natural + 13,477 today: knife_a 120 matches, knife_b partial 4,389).
+Recovery needs a reboot (unkillable process holds the GPU).
+
+CONFIRMED (nvidia-smi finally returned after ~8 min): GPU 0% util,
+210 MHz idle clocks, 11.5W, but 23,918 MiB VRAM still held by the
+zombie. Ties the two symptoms into ONE cause: unbucketed equity
+shapes -> CUDA shape-cache growth -> VRAM climb (12.8->23.9 GB over
+4.5h on night 1, same ~24GB today) -> WDDM wedge near the ceiling.
+Identical mechanism to the pre-b929c3d main-model leak; the equity
+path simply was never covered by that fix.

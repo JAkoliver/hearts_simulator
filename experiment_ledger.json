@@ -1681,6 +1681,39 @@
                 "match_gate_alpha": 0.05
             },
             "reason": "match_gate_failed"
+        },
+        {
+            "config": {
+                "learning_rate": 9e-06,
+                "update_timestep": 231,
+                "games_per_worker": 26,
+                "max_workers": 14,
+                "gamma": 1.0,
+                "eps_clip": 0.191208,
+                "k_epochs": 4,
+                "max_episodes": 250000,
+                "gae_lambda": 0.89889,
+                "entropy_coef": 0.002679,
+                "minibatch_size": 2048,
+                "aux_coef": 0.77131,
+                "num_envs": 256,
+                "active_pool_size": 4,
+                "search_gate_deals": 4800,
+                "search_gate_alpha": 0.05,
+                "search_gate_k": 32,
+                "raw_guard_threshold": 0.3,
+                "critic_warmup_games": 20000,
+                "vec_env": true,
+                "raw_gate_deals": 2500,
+                "raw_gate_workers": 12,
+                "raw_gate_alpha": 0.05,
+                "search_guard_margin": 0.3,
+                "match_mode": true,
+                "match_reward_scale": 4.0,
+                "match_gate_matches": 3200,
+                "match_gate_alpha": 0.05
+            },
+            "reason": "match_gate_failed"
         }
     ]
 }

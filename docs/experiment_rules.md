@@ -106,3 +106,18 @@ produced a false conclusion. Datestamps mark the incident that taught it.
 
 Match objective first, prove the self-improvement loop at 7.6M, scale
 only inside a working loop.
+
+17. **Clock discipline + PC usability windows (2026-07-29).**
+    (a) ALWAYS read the actual clock (`date`) BEFORE quoting any ETA,
+    sizing an end-time-capped run, or scheduling work - never estimate
+    from a stale planning-time assumption (bit us on installment 2's
+    6:45pm miss and again on the 07-29 expert-iter overnight quote).
+    (b) The PC must be USABLE 07:00-22:00 and 19:00-02:00 - i.e. the
+    only unrestricted full-throttle window is 02:00-07:00. Outside it,
+    GPU-saturating work (generation, unheadroomed training) needs the
+    gentle profile (reduced threads, below-normal priority, headroom
+    pacing) or explicit per-session user permission.
+    (c) Suspension does NOT free VRAM - a paused process holding ~24GB
+    still starves the compositor (measured 07-29). To make the PC
+    usable, kill (records/checkpoints flush per unit) or run gentle;
+    PAUSE_AI alone is not enough for VRAM-heavy processes.

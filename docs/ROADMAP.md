@@ -83,12 +83,40 @@ across several cycles with powered gates. Rationale: the v5-L lesson -
 you cannot imitate your way to a bigger/newer net; scale only inside a
 working loop (Phase 3). Sequence when triggered:
 1. v5-L-shaped scale-up FIRST (d=448 L=8, init from a distill of the
-   then-champion, pushed by the loop; zero retooling).
+   then-champion, pushed by the loop; zero retooling). SPEC LOCK
+   (2026-07-29 review): heads chosen for integer, tensor-core-aligned
+   head_dim - d=448 => 7 heads x head_dim 64 (SDPA sweet spot on Ada).
+   Current v5-M is 10 heads x 32 at d=320 (verified; NOT 6 heads).
+   PURE SCALE ONLY: no bundled architecture deltas - the run answers
+   exactly one question (does scale compound inside the loop?).
+1b. Factorized card embeddings (identity_52 + additive suit_4/rank_13,
+   keep the identity term = strict superset) as a SEPARATE ~5-min
+   distill A/B after the pure scale-up - zero C++ retooling (internal
+   to card_embed), but never bundled with the scale variable.
+   Expectation: small/nil (52 identities are not data-starved);
+   cheap to check, attribution kept clean.
 2. Architectural v6 second, as small-scale controlled A/Bs: native
    match conditioning (score state as tokens/FiLM, not a bolt-on
    projection), distributional value head (placement/points
    distribution - match equity is ill-served by a scalar), belief-
    policy fusion (belief BCE 0.270 bounds determinization quality).
+   Belief-fusion A/B arm (2026-07-29 review): per-card CATEGORICAL
+   belief over opponents instead of 3 independent BCE logits -
+   requires a 4th "not-with-an-opponent" class or masking to the
+   unseen set (cards can be in-hand/played/on-table); enforces only
+   per-card sum-to-1 (hand-COUNT consistency still lives in the
+   determinizer), and changes trace belief semantics = small C++
+   consumer change. Judge on determinization quality + downstream
+   search strength, not elegance.
+3. Observation-revision rider (pay only when the v6 obs surgery is
+   already open for match conditioning): add a captured-by-seat
+   channel - who-played-what + timing gives which trick a card fell
+   in but NOT the trick winner (lead order is implicit). NOT the moon
+   fix: running deal scores (obs 156-159) already expose
+   moon-in-progress; the 51.5% defense rate is curriculum (exploiter
+   league is the treatment). Pre-registered diagnostic first: bin
+   moon-defense failures by capture-attribution ambiguity; if
+   failures don't concentrate there, the channel is a rider only.
    NOT an architecture fix: the moon-defense hole (data/objective gap -
    exploiter league).
 Obs-format changes ripple through C++/traces/exports - pay that cost
