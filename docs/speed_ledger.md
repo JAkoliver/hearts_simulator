@@ -683,20 +683,32 @@ nvidia-smi hangs; PID 778208 unkillable - taskkill returns "no running
 instance" while Get-Process still lists it). Same signature as the
 2026-07-25 8-shard wedge, but with a SINGLE process this time.
 
-ROOT CAUSE (code-confirmed): the EQUITY model bypasses the b929c3d
-hardening. SearchPlayer::ScoreEquity builds torch::zeros({live.size(),
-10}) and calls cfg_.equity_model->forward({x}) DIRECTLY - not through
-DirectBackend/InferenceServer, so it gets neither BucketRowsDirect nor
-AutocastGuardPersistent. live.size() varies arbitrarily per call =>
-unbucketed shape churn x 14 threads x WDDM = the wedge recipe the
-hardening was written to kill. Consistent with the N=8000 fleet running
-38h clean: those pods were LINUX (no WDDM).
+ROOT CAUSE - FIRST DIAGNOSIS WAS WRONG, CORRECTED 2026-07-30 19:30.
+WRONG: "the equity model bypasses the b929c3d hardening". It does not
+matter: the equity module is never .to(device) and its input tensor is
+built on CPU, so ScoreEquity runs entirely on the CPU and cannot touch
+VRAM. (Lesson: verify device placement before blaming a code path.)
 
-FIX (queued): bucket the equity batch in ScoreEquity (pad rows to
-pow2/multiples, slice outputs back) - same pattern as BucketRowsDirect;
-or route equity through the hardened backend. Until then, match-aware
-GENERATION on Windows is wedge-prone; match-aware EVAL (search_eval)
-has the same exposure at long runtimes.
+ACTUAL ROOT CAUSE (code-confirmed): UNBOUNDED BATCH COALESCING in
+InferenceServer. The server loop did `batch.swap(queue_)` and passed
+the WHOLE queue to RunGroup as one forward - no row cap. Match-aware
+generation changed two things at once: --k-endgame 256 makes an
+endgame request ~4x a K=64 request (~3.3k rows), and 14 worker threads
+can be in endgames simultaneously => single forwards of tens of
+thousands of rows. Peak ACTIVATION memory scales with threads x K, and
+the caching allocator retains those peak blocks, so VRAM ratchets up
+run-over-run (12.8 -> 23.9 GB over 4.5h, twice) until WDDM wedges near
+the ceiling. Fits the Linux contrast: the N=8000 fleet ran search_eval
+one match at a time per process, so requests never coalesced at that
+scale - 38h clean.
+
+FIX (APPLIED + BUILT 2026-07-30): InferenceServer chunks each queue
+into groups bounded by max_group_rows_ (default 8192 = ~2 concurrent
+K=256 endgame requests; HEARTS_SRV_MAX_ROWS overrides). Applied to the
+active simple loop AND LoopPipelined. Peak activation memory is now
+bounded regardless of thread count and K. Smoke (1 match, K=8/16, 2
+threads, CUDA): RC=0, 732 records, 15,996 launches, mean batch 67.9
+rows, VRAM back to 2.0 GB idle after exit.
 
 Data safe (per-match flush): bank 110,109 records (96,632 night-1
 natural + 13,477 today: knife_a 120 matches, knife_b partial 4,389).

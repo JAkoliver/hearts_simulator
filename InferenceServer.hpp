@@ -734,7 +734,24 @@ private:
                 for (auto& r : batch) {
                     (r.is_oracle ? oracle : normal).push_back(std::move(r));
                 }
-                if (!normal.empty()) pending.push_back({std::move(normal), false});
+                // Same row cap as the simple loop (see LoopSimple comment):
+                // unbounded coalescing + K=256 endgames ratchets VRAM to the
+                // WDDM wedge. Chunk `normal` into bounded pending groups.
+                if (!normal.empty()) {
+                    std::vector<Request> chunk;
+                    int64_t rows = 0;
+                    for (auto& r : normal) {
+                        const int64_t rr = r.obs.size(0);
+                        if (!chunk.empty() && rows + rr > max_group_rows_) {
+                            pending.push_back({std::move(chunk), false});
+                            chunk.clear();
+                            rows = 0;
+                        }
+                        rows += rr;
+                        chunk.push_back(std::move(r));
+                    }
+                    if (!chunk.empty()) pending.push_back({std::move(chunk), false});
+                }
                 if (!oracle.empty()) pending.push_back({std::move(oracle), true});
             }
             if (!pending.empty() && n_active < 2) {
@@ -890,7 +907,31 @@ private:
             for (auto& r : batch) {
                 (r.is_oracle ? oracle : normal).push_back(&r);
             }
-            RunGroup(normal, false);
+            // Bound the rows coalesced into ONE forward. The server used to
+            // swap the whole queue into a single group: with N worker threads
+            // simultaneously in K=256 endgames (rules #15) each request is ~4x
+            // a K=64 request (~3.3k rows), so peak ACTIVATION memory scaled
+            // with threads x K. The caching allocator keeps those peak blocks,
+            // so VRAM ratchets up run-over-run and wedges WDDM near the
+            // ceiling (measured 2026-07-29/30: 12.8 -> 23.9 GB over 4.5h, then
+            // an unkillable process + hung nvidia-smi). Chunking bounds peak
+            // memory regardless of thread count and K; throughput is
+            // unaffected at the default (a chunk still fills the GPU).
+            {
+                std::vector<Request*> chunk;
+                int64_t rows = 0;
+                for (auto* r : normal) {
+                    const int64_t rr = r->obs.size(0);
+                    if (!chunk.empty() && rows + rr > max_group_rows_) {
+                        RunGroup(chunk, false);
+                        chunk.clear();
+                        rows = 0;
+                    }
+                    rows += rr;
+                    chunk.push_back(r);
+                }
+                if (!chunk.empty()) RunGroup(chunk, false);
+            }
             RunGroup(oracle, true);
         }
     }
@@ -901,6 +942,16 @@ private:
     bool has_oracle_ = false;
     bool perf_on_ = std::getenv("HEARTS_SRV_PERF") != nullptr;
     bool graphs_on_ = std::getenv("HEARTS_SRV_GRAPH") != nullptr;
+    // Max rows coalesced into one forward (HEARTS_SRV_MAX_ROWS overrides).
+    // 8192 = ~2 concurrent K=256 endgame requests; keeps the GPU fed while
+    // bounding peak activation memory. See the chunking comment in LoopSimple.
+    int64_t max_group_rows_ = [] {
+        if (const char* s = std::getenv("HEARTS_SRV_MAX_ROWS")) {
+            const long long v = std::atoll(s);
+            if (v > 0) return (int64_t)v;
+        }
+        return (int64_t)8192;
+    }();
     // P1 measured neutral on the 4090 (319s == 319s, waits unchanged):
     // pinned copies don't touch the dominant wait source, which is
     // queueing behind in-flight forwards. Opt-in only; P2's pipeline
