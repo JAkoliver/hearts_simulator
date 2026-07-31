@@ -56,12 +56,27 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <memory>
 #include <string>
 #include <thread>
 #include <vector>
+
+// Headroom pacing for the C++ generator. headroom.py's pace() only covers
+// PYTHON workloads; SelfPlayGen previously ran flat-out and saturated the
+// GPU, making the desktop unusable (2026-07-29/30). With HEARTS_HEADROOM=f
+// (0<f<0.95) each worker sleeps f/(1-f) x its own decision time after every
+// decision, yielding both GPU and CPU in short slices => ~f of wall time
+// given back. Unset/0 = full throttle, unchanged behaviour.
+static double HeadroomFraction() {
+    if (const char* s = std::getenv("HEARTS_HEADROOM")) {
+        const double v = std::atof(s);
+        if (v > 0.0 && v < 0.95) return v;
+    }
+    return 0.0;
+}
 
 #include <torch/cuda.h>
 #include <torch/script.h>
@@ -294,6 +309,7 @@ static void RunMatchWorker(int tid, int quota, long match_base, unsigned int see
             throw std::runtime_error("Cannot open output file " + out_path);
         }
 
+        const double headroom = HeadroomFraction();
         std::vector<MatchPendingRec> recs;
         for (int m = 0; m < quota; ++m) {
             if (shared.failed.load()) return;  // another thread died; stop early
@@ -330,7 +346,19 @@ static void RunMatchWorker(int tid, int quota, long match_base, unsigned int see
                     auto labels = env.ObserveOpponentHands();
                     auto legal_raw = env.GetLegalActions();
 
+                    const auto d0 = std::chrono::steady_clock::now();
                     int action = players[p]->ChooseAction(env);
+                    if (headroom > 0.0) {
+                        const auto us = std::chrono::duration_cast<
+                            std::chrono::microseconds>(
+                                std::chrono::steady_clock::now() - d0).count();
+                        const auto nap = (long long)(us * headroom /
+                                                     (1.0 - headroom));
+                        if (nap > 0) {
+                            std::this_thread::sleep_for(
+                                std::chrono::microseconds(nap));
+                        }
+                    }
 
                     MatchPendingRec r;
                     for (int i = 0; i < 550; ++i) {

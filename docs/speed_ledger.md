@@ -721,3 +721,85 @@ shapes -> CUDA shape-cache growth -> VRAM climb (12.8->23.9 GB over
 4.5h on night 1, same ~24GB today) -> WDDM wedge near the ceiling.
 Identical mechanism to the pre-b929c3d main-model leak; the equity
 path simply was never covered by that fix.
+
+## 2026-07-30 evening: gentle-profile generation + throughput surprise
+
+Gentle profile live (user confirms desktop usable): --threads 5,
+BelowNormal, HEARTS_HEADROOM=0.45, HEARTS_SRV_MAX_ROWS=2048, chunked.
+VRAM 5.75 GB (vs 23.9 GB pre-fix) - the row cap is the load-bearing
+control; GPU util stays ~96% because per-thread pacing does NOT create
+global GPU gaps (staggered threads keep it busy). Server-level pacing
+would be the correct knob if true GPU headroom is ever needed; not
+implemented since the desktop is usable at current VRAM.
+
+THROUGHPUT SURPRISE: 44 s/match at 5 paced threads vs 37 s/match at 14
+unpaced threads pre-fix (~19% slower with 1/3 the threads) => the old
+unbounded coalesced batches were themselves hurting throughput. The
+row cap likely made generation FASTER as well as wedge-proof; worth a
+clean A/B at some point.
+
+LAUNCHER BUG (fixed, cost ~10 min): backgrounding `$GEN ... | tail -2 &`
+then `wait $!` waits on TAIL, not the generator - chunks reported RC=0
+after ~34s and the script stacked overlapping generators. Generators
+must run in the FOREGROUND with a direct log redirect. This is rule #2
+of launcher-discipline resurfacing in a new disguise (third time).
+
+## 2026-07-31 06:35: expert-iteration GENERATION COMPLETE (bank 235,951)
+
+Window closed itself per rule #17 (nat_d skipped past the 06:30 cutoff,
+FAST_ALL_DONE 06:35, GPU free at 2.9 GB). Composition:
+  natural  156,244 (66.2%) | leader 29,304 | knife 25,955 | trail 24,448
+  seeded/tension share 33.8% (vs ~6% in natural play = ~5.6x enriched)
+Paces measured (s/match): knife 25.5 fast / 36.4 gentle; leader 44 fast
+/ 61 gentle; trail 37 fast; natural 104 fast / 149 gentle. Full-throttle
++ Normal priority ~30% faster than the gentle profile. NOTE: Windows
+Task Scheduler starts tasks at BelowNormal - a priority keeper had to
+re-raise each new chunk process (fold into future scheduled launchers).
+No wedge, no VRAM growth: peak 12.9 GB at 14 threads (vs 23.9 GB
+pre-fix) - the row cap held across ~4.5h of full-throttle generation.
+
+## 2026-07-31 14:27: EXPERT-ITERATION BANK COMPLETE - 333,415 records
+
+Target 330k reached and auto-stopped (user-approved daytime full-speed
+window; stopped 2.5h before the 17:00 line). Final composition:
+  natural 242,700 (72.8%) | trail 31,040 | knife 30,371 | leader 29,304
+  seeded/tension share 27.2% (~4.5x enriched over natural play)
+All files trimmed to 824-byte boundaries. GPU released.
+Ops bugs this cycle, both recorded for the pattern file: (1) session
+restart killed all session-spawned watchers (day2 driver died; its
+orphaned generator chunk COMPLETED alone - per-match flush is the
+resilience backbone); (2) the 330k stop watcher killed processes by
+command-line pattern "gen_fast_day" and SELF-MATCHED - it stopped
+generation correctly but died before logging/notifying. Kill patterns
+must exclude the killer (match on exe name or exact PID list, never a
+substring the watcher itself carries).
+
+## 2026-07-31: MATCH-AWARE EXPERT ITERATION - ONE-SHOT GATE: FAIL (decisive)
+
+Candidate cand_expert_iter1_hard (hard-policy distill, holdout teacher
+match 60.1%, tension +10.2 over baseline) LOST the match gate
+catastrophically: win 39.9% v 50.3% (discordant 377:710), placement
++0.292 (SE 0.019, ~17 SE worse). Guard skipped as moot; baseline
+8a89da90 untouched. Per pre-registration this experiment is CLOSED.
+
+Recipe post-mortem (three distill variants measured before the gate):
+- Soft targets (sharpen 2, 8): equity-scored teacher policies are
+  near-UNIFORM (P(win) gaps of a few pct) - pow-sharpening a uniform is
+  a no-op; both variants UN-SHARPENED the champion (entropy 0.32 ->
+  1.04-1.08) and dropped teacher-match BELOW the baseline.
+- Hard argmax targets: fixed imitation metrics (60.1% holdout,
+  +10.2 tension) but the played strength collapsed anyway. Best
+  hypothesis: in the ~73% of states where equity is flat, the teacher's
+  ARGMAX IS NOISE - a coin flip between near-equal actions. Hard
+  training copies those coin flips and overwrites the baseline's real
+  per-deal knowledge. Imitating a teacher whose choices are mostly
+  arbitrary ties destroys more than the ~6% of genuinely-informative
+  tension decisions add.
+LESSON (new closed direction, generalize carefully): distilling a
+search teacher requires TARGETS THAT ENCODE PREFERENCE STRENGTH.
+Equity-argmax carries none in flat states; equity-soft carries almost
+none anywhere. A viable future variant must filter to decisions where
+the teacher's equity spread is significant (e.g. flip-confident states
+only, ~4-6%) and/or mix a per-deal anchor loss - QUEUED to roadmap as a
+NEW experiment (fresh pre-registration; this one-shot is consumed).
+FALLBACK ENGAGED: match-mode PPO resumes under the evolved regime.

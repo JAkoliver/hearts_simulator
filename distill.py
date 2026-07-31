@@ -104,6 +104,10 @@ def main():
     ap.add_argument('--blocks', type=int, default=3,
                     help='residual blocks / encoder layers for fresh networks')
     ap.add_argument('--device', default='cuda' if torch.cuda.is_available() else 'cpu')
+    ap.add_argument('--hard-policy', action='store_true',
+                    help='train the policy on one-hot CHOSEN actions instead '
+                         'of the soft pi (required for equity-scored teachers '
+                         'whose soft policies are near-uniform)')
     ap.add_argument('--sharpen', type=float, default=1.0,
                     help='exponent applied to the teacher target (pi^s, renormalized); '
                          '>1 makes small search preferences decisive, equivalent to '
@@ -189,6 +193,14 @@ def main():
             if args.sharpen != 1.0:
                 pi = pi.pow(args.sharpen)
                 pi = pi / pi.sum(dim=1, keepdim=True).clamp_min(1e-6)
+            if args.hard_policy:
+                # Equity-scored teachers (match-aware search) emit near-UNIFORM
+                # soft policies - P(win) gaps between actions are a few percent,
+                # so pi carries almost no preference and pow-sharpening a
+                # uniform distribution is a no-op (measured 2026-07-31: entropy
+                # 1.04 -> 1.08 from sharpen 2 -> 8). The teacher's signal lives
+                # in its CHOSEN action: train one-hot on it.
+                pi = F.one_hot(actions, num_classes=52).float()
 
             logits, value, belief, oracle = net.forward_train(obs, mask, labels)
             # Soft-target cross-entropy against the teacher's value-derived

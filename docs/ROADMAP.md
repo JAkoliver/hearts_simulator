@@ -61,6 +61,22 @@ is NOT the closed same-lineage recipe: the teacher demonstrably makes
 different, better decisions in score context than the student's own
 knowledge (+4.4 win-pts of equity signal).
 
+## CLOSED 2026-07-31: match-aware expert iteration, recipe v1
+One-shot gate: FAIL, decisively (win 39.9 v 50.3, placement +0.292 at
+~17 SE). Mechanism documented in the ledger: equity-scored teachers
+emit near-uniform policies; soft distills un-sharpen, hard-argmax
+distills copy COIN FLIPS in the ~73% of flat states and overwrite real
+knowledge. The +4.4-win-pt search edge exists at decision time but is
+NOT extractable by whole-distribution imitation.
+
+## Queued: expert iteration v2 - FILTERED targets (new pre-registration required)
+Only if attempted again: train ONLY on decisions where the teacher's
+equity spread is significant (flip-confident states, ~4-6% of
+decisions, the probe machinery already identifies them), and/or mix a
+per-deal anchor loss to protect existing knowledge. Smaller data need
+(the informative slice), cheap to generate with the fixed pipeline.
+Requires its own pre-registered gate battery.
+
 ## Queued: K-endgame threshold optimization (added 2026-07-29, low priority)
 The >=85 trigger for K=256 (rules #15) is a DESIGN HEURISTIC ("one deal
 from elimination"), never tested against 75/80/90 - the probe measured
