@@ -27,9 +27,16 @@ At release, ADD a synthesis layer (do not replace primary sources):
   iteration failures and what they taught, with links into the ledger.
 - A results paper/post if desired: per-claim, cite the ledger entry and
   verdict JSON that back it.
-- Explicitly document the AI-assisted workflow (this project was built
-  with an AI agent doing ops/implementation under human direction -
-  that is itself of interest to observers and should be stated).
+- Explicitly document the AI-assisted workflow and its EVOLUTION (of
+  real interest to observers): the project began in the Antigravity IDE
+  with Gemini 3.1 Pro as the coding assistant (early July 2026, the
+  first commits through the early automation era), then moved to
+  Claude Code (VS Code extension) with the Fable 5 model doing
+  ops/implementation under human direction (the era documented
+  throughout docs/speed_ledger.md). Switch date: 2026-07-09 (user
+  recollection, corroborated by git: last old-toolchain commit 83f7437
+  07-09 23:41, first structured-style commit f4963a2 07-13 08:39 after
+  a transition gap). Both toolchains credited.
 
 ## 2. Data: preserve, release, organize
 
