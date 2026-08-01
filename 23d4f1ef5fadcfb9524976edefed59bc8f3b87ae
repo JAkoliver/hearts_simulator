@@ -1,0 +1,1 @@
+[retrospective note, 2026-08-01] First playable milestone: HeartsEnv.hpp (336 lines) + pybind bindings + a live game loop with the net seated. The baseline artifact every later era measures against and reacts to.
