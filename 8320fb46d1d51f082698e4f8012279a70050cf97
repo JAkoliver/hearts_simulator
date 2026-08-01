@@ -1,0 +1,1 @@
+[retrospective note, 2026-08-01] The card-passing phase enters the engine, bindings, and model. Passing later became a first-class search problem (pass-search, pass-direction context dims, asymmetric passed/received knowledge in the observation) - this commit is its root.
