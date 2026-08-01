@@ -21,9 +21,21 @@ overwriting knowledge.
   new thresholds invented): confident iff (eq_best − eq_second) > 2 ×
   gap_SE, evaluated at the K actually used for that decision.
 - Generation mix: same four families as v1 (natural + knife/leader/trail
-  seeded), 02:00–07:00 windows, chunked, hardened pipeline. Target:
-  ≥30,000 confident PLAY-phase records (passing-phase records are tagged
-  and excluded from v2 policy training). Expected 1–2 nights.
+  seeded), 02:00–07:00 windows (+ gentle daytime as approved), chunked,
+  hardened pipeline.
+- TARGET (REVISED by user 2026-08-01, HARD threshold, supersedes the
+  50k-total stop): per-type RESERVES sufficient to build EVERY mix in
+  the selection experiment at 50k confident records each - i.e.
+  NATURAL-confident >= 50,000 AND each of the six seeded families
+  >= 8,400 confident (binding mixes: natural-only and balanced
+  seeded-spread; mixes share reserves, so max-not-sum governs).
+  Passing-phase records are tagged and excluded from policy training.
+  NO further step until all seven counters are met. Seeded families
+  jittered per match (--start-jitter: knife 2, leader/trail 3,
+  mid/asym 6, early 7) - neighborhoods, not points.
+- Cost checkpoint: after ~2h of generation the realized confident share
+  is measured; if the implied total to 50k exceeds ~60 machine-hours,
+  the revised forecast goes to the user before continuing.
 
 ## Training recipe (tuned on holdout ONLY, as in v1)
 - Warm start from the current champion (hash recorded at run time).
@@ -37,6 +49,72 @@ overwriting knowledge.
   tune the recipe: entropy must stay within 2x of baseline; stratified
   teacher-match reported on confident vs non-confident slices; a
   candidate goes to the battery only when the recipe is frozen.
+
+## Mix-selection stage (added 2026-08-01, user-directed; runs BEFORE the battery)
+- Seeded generation widened to SIX families (knife 90/88/86/84, mid
+  75/73/70/68, leader 92/70/68/66, asym 85/60/55/50, trail 60/88/86/84,
+  early 60/58/40/38) interleaved 1:1 with natural chunks - manifold
+  coverage over per-family depth.
+- Candidate MIXES (each summing to 50k confident records, drawn from the
+  per-family reserves): (a) 60/40 natural/seeded, (b) 50/50,
+  (c) 35/65, (d) natural-only, (e) seeded-only-spread.
+- DESIGN (upgraded 2026-08-01, user-directed quality-over-speed):
+  5 mixes x 2 TRAINING REPLICATES (independent training seeds, same
+  data - separates composition effects from training-run luck) x
+  2 DISJOINT SEED BLOCKS of n=3200 paired matches each (separates real
+  effects from seed-set idiosyncrasy) = 20 evaluations, all vs the
+  same baseline on identical per-block deal seeds (CRN).
+- ANALYSIS (pre-specified): per-mix delta = mean over its 4 evals with
+  a hierarchical SE; variance decomposition reported (between-mix /
+  between-replicate / between-block); familywise error over the 5
+  mix-vs-baseline tests controlled by MAX-T PERMUTATION on seed-level
+  paired deltas (exact under CRN), Bonferroni alpha=.01/mix as the
+  transparent backup. Replicate disagreement exceeding between-mix
+  spread is itself a REPORTED finding (training noise dominates
+  composition - caps what any recipe comparison of this type can show).
+- CONFIRMATION: the winning mix is retrained as a FRESH third replicate
+  (new training seed) and ONLY that candidate faces the fresh-seed
+  battery - the battery tests the MIX, never a lucky training run.
+- No other candidate is ever gated.
+
+## Recording & interpretation plan (pre-specified 2026-08-01, BEFORE any
+## mix is evaluated - amendments after unblinding are not permitted)
+
+### Artifacts (every one produced, pass or fail)
+1. Per mix: a COMPOSITION MANIFEST (counts per family, selection seed,
+   sha of the record-index list), the distill config + holdout
+   diagnostics, and the raw n=3200 eval CSV with its seed.
+2. A verdict JSON per mix (equity_data/verdicts/expert_iter_v2_<mix>.json)
+   with delta/SE/CI vs baseline - machine-readable accumulation, the
+   project convention.
+3. docs/expert_iter_v2_results.md: the full comparison table (all mixes,
+   deltas vs baseline with 95% CIs, all pairwise seed-paired contrasts
+   with CIs), written BEFORE any narrative interpretation.
+4. Ledger entry + memory update + (if a direction closes) an
+   experiment_rules.md closed-directions entry.
+
+### What each possible result is ALLOWED to mean
+- "Mix X beat baseline" may be CLAIMED only from the fresh-seed
+  confirmation battery. The 5-mix comparative runs yield ESTIMATES with
+  CIs; with 5 looks at alpha=.05, ~23% chance one "significant" delta
+  is luck - the comparative stage therefore selects, never concludes.
+- Pairwise mix differences: report seed-paired contrasts with CIs.
+  PRE-COMMITTED indistinguishability line: contrasts smaller than
+  2x their paired SE are reported as "indistinguishable at this n" -
+  no ranking narrative may be built on them.
+- A null across ALL mixes (no CI excluding 0 in the helpful direction):
+  closes equity-argmax expert iteration per the stop rule. It does NOT
+  license claims about visit-count targets, other filters, other anchor
+  weights, or other teachers - those were never tested.
+- "No mix beat baseline" is NOT "no mix is better": the per-mix MDE vs
+  baseline is ~0.028 placement; the results doc must state the CI, so a
+  true-but-small effect is recorded as bounded, not erased.
+- All telemetry splits (moon rates, family-conditional behavior, deal
+  lengths) are EXPLORATORY, labeled as such, and generate hypotheses
+  only - never conclusions.
+- External validity: all results are conditional on THIS baseline
+  (8a89da90 lineage), THIS anchor field (v3-m7 + v4-m10), and match
+  play to 100. No claim generalizes past those without new measurement.
 
 ## Gate battery (ONE SHOT, halt-is-default)
 - Match gate n=3200, mixed v3-m7/v4-m10 anchors, alpha=0.05 placement.
