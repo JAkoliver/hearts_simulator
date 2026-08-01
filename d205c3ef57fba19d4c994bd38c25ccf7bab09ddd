@@ -1,0 +1,1 @@
+[retrospective note, 2026-08-01] Project genesis: CMake skeleton for the C++ engine, with the build/ directory still tracked (hygiene arrives two days later at 71c83cb). This era was built in the Antigravity IDE with Gemini 3.1 Pro as coding assistant - the project's first AI toolchain, predating the 2026-07-09 move to Claude Code + Fable 5 that carried the later eras.
