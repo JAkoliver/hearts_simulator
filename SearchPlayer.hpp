@@ -186,10 +186,33 @@ public:
     SearchPlayer(torch::jit::script::Module model, int model_obs_dim)
         : SearchPlayer(std::move(model), model_obs_dim, Config()) {}
 
+    // Per-action search statistics for the LAST ChooseAction call (record
+    // format v2, docs/expert_iter_v2_prereg.md). Populated only for searched
+    // PLAY decisions (valid == true): pass picks and forced single-action
+    // moves carry zeroed stats with pass_phase / valid marking why. Filled
+    // from quantities the search already computes - no behavior change.
+    struct ActionStats {
+        std::vector<int> actions;   // legal action ids, search order
+        std::vector<float> mean;    // per-action mean rollout value
+        std::vector<float> se;      // std of per-det results / sqrt(n); 0 if n<2
+        std::vector<int> n;         // per-action determinization count
+        int n_dets = 0;             // dets used for this decision (k vs k_endgame)
+        bool pass_phase = false;    // decision was a passing-phase pick
+        bool valid = false;         // per-action stats populated
+    };
+    const ActionStats& LastStats() const { return last_stats_; }
+
     int ChooseAction(const HeartsEnv& env) override {
         std::vector<int> legal = LegalVector(env);
-        if (env.IsPassing()) return SetOneHot(ChoosePass(env, legal));
-        if (legal.size() == 1) return SetOneHot(legal[0]);
+        if (env.IsPassing()) {
+            last_stats_ = ActionStats();
+            last_stats_.pass_phase = true;
+            return SetOneHot(ChoosePass(env, legal));
+        }
+        if (legal.size() == 1) {
+            last_stats_ = ActionStats();
+            return SetOneHot(legal[0]);
+        }
 
         int me = env.GetCurrentPlayer();
 
@@ -242,12 +265,37 @@ public:
         }
 
         std::vector<double> score(legal.size(), 0.0);
+        std::vector<double> sumsq(legal.size(), 0.0);
+        std::vector<int> cnt(legal.size(), 0);
         for (const auto& s : sims) {
             score[s.tag] += s.result;
+            sumsq[s.tag] += s.result * s.result;
+            cnt[s.tag] += 1;
         }
         size_t best = 0;
         for (size_t ai = 1; ai < legal.size(); ++ai) {
             if (score[ai] > score[best]) best = ai;
+        }
+
+        // Per-action stats for the v2 record writer (mean, SE of the mean).
+        last_stats_ = ActionStats();
+        last_stats_.valid = true;
+        last_stats_.n_dets = n_dets;
+        last_stats_.actions = legal;
+        last_stats_.n = cnt;
+        last_stats_.mean.resize(legal.size());
+        last_stats_.se.resize(legal.size());
+        for (size_t ai = 0; ai < legal.size(); ++ai) {
+            int nc = cnt[ai];
+            double mu = nc > 0 ? score[ai] / nc : 0.0;
+            last_stats_.mean[ai] = static_cast<float>(mu);
+            double se = 0.0;
+            if (nc >= 2) {
+                double var = (sumsq[ai] - nc * mu * mu) / (nc - 1);
+                if (var < 0.0) var = 0.0;   // numerical guard
+                se = std::sqrt(var / nc);
+            }
+            last_stats_.se[ai] = static_cast<float>(se);
         }
 
         // Soft teacher target: softmax over mean action values (points).
@@ -838,4 +886,5 @@ private:
     int probe_deals_ = 0;
     std::array<std::vector<int>, 4> pending_pass_;  // per-seat queued picks
     std::array<float, 52> last_pi_{};
+    ActionStats last_stats_;
 };

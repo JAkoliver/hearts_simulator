@@ -37,9 +37,31 @@
 // --match switches to MATCH-MODE expert iteration: the quota unit (--deals)
 // becomes MATCHES to 100 (60-deal cap), all four seats are match-aware
 // SearchPlayers (556-dim trace + --equity-model leaf scoring, optional
-// --k-endgame), and records are 824 bytes: obs u8[556] (550 engine dims + the
-// acting seat's 6 match-context dims), mask, labels, pi, action, seat,
-// reward f4 = (2.5 - tie-aware final placement) * 4 in {+6,+2,-2,-6}.
+// --k-endgame), and output is RECORD FORMAT v2
+// (docs/expert_iter_v2_prereg.md). Every match-mode output file starts with a
+// 32-byte header:
+//     "HMR2" (4B) | version u16 (=2) | record_size u16 (=848) |
+//     base_seed u32 (the --seed value) | thread_id u16 | zero-fill to 32B
+// followed by 848-byte records (little-endian, no padding): the 824-byte v1
+// fields in the same order -
+//     obs u8[556] (550 engine dims + the acting seat's 6 match-context dims),
+//     mask u8[52], labels u8[156], pi u8[52], action u16, seat u16,
+//     reward f32 = (2.5 - tie-aware final placement) * 4 in {+6,+2,-2,-6}
+// - then the per-decision search statistics (from SearchPlayer::LastStats):
+//     eq_best f32     mean rollout equity of the chosen action
+//     eq_second f32   best NON-chosen legal action's mean equity
+//     gap_se f32      sqrt(se_best^2 + se_second^2), SE of the gap
+//     second_action u16  action id of the second-best action (0xFFFF when no
+//                        per-action stats exist: pass picks / forced moves)
+//     n_dets u16      determinizations used (k vs --k-endgame; 0 = no search)
+//     match_id u32    global match counter, unique across threads
+//     flags u16       bit0 = passing-phase decision, bit1 = tension state at
+//                     decision time (max total >= 85 AND top two within 10)
+//     reserved u16    zero
+// ALL decisions are recorded (confident or not) - confidence filtering
+// happens at train time (distill.py --min-confidence), never at generation.
+// Old 824-byte v1 files (no header) remain readable via distill.py's
+// MATCH_RECORD dtype; new files are always v2.
 // --start-totals self,left,across,right constructs every match's starting
 // score state (rotated so the "self" slot cycles absolute seats per match);
 // --start-deals overrides the implied round(sum/26) deal count.
@@ -57,6 +79,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <fstream>
 #include <iostream>
 #include <memory>
@@ -95,9 +118,11 @@ struct PendingRec {
     uint16_t seat;
 };
 
-// --match mode record: 556-dim obs (550 engine dims + the acting seat's 6
-// match-context dims, exactly as SearchPlayer::WriteCtx feeds the net) and a
-// match-placement reward. 824 bytes on disk, little-endian, no padding.
+// --match mode record (format v2): 556-dim obs (550 engine dims + the acting
+// seat's 6 match-context dims, exactly as SearchPlayer::WriteCtx feeds the
+// net), match-placement reward, and per-decision search statistics. 848 bytes
+// on disk (see the file-format comment above), written field-by-field so
+// struct padding can never leak in.
 struct MatchPendingRec {
     std::array<uint8_t, 556> obs;
     std::array<uint8_t, 52> mask;
@@ -105,6 +130,13 @@ struct MatchPendingRec {
     std::array<uint8_t, 52> pi;
     uint16_t action;
     uint16_t seat;
+    // v2 per-decision search statistics
+    float eq_best = 0.0f;
+    float eq_second = 0.0f;
+    float gap_se = 0.0f;
+    uint16_t second_action = 0xFFFF;
+    uint16_t n_dets = 0;
+    uint16_t flags = 0;
 };
 
 // 1 = winner (lowest total); ties share the mean of their ranks.
@@ -291,6 +323,7 @@ static void RunWorker(int tid, int deals, unsigned int seed,
 // assigned from the final tie-aware placements: (2.5 - place) * 4
 // => {+6, +2, -2, -6} (ties: intermediate averages).
 static void RunMatchWorker(int tid, int quota, long match_base, unsigned int seed,
+                           unsigned int base_seed,
                            std::shared_ptr<InferenceBackend> backend, int dim,
                            const SearchPlayer::Config& base_cfg,
                            bool have_start, std::array<double, 4> start_rel,
@@ -307,6 +340,19 @@ static void RunMatchWorker(int tid, int quota, long match_base, unsigned int see
         std::ofstream out(out_path, std::ios::binary);
         if (!out) {
             throw std::runtime_error("Cannot open output file " + out_path);
+        }
+        // Record-format v2 file header (32 bytes, see the comment at the top).
+        {
+            char hdr[32] = {};
+            std::memcpy(hdr, "HMR2", 4);
+            const uint16_t version = 2, record_size = 848;
+            const uint32_t bseed = base_seed;
+            const uint16_t tid16 = static_cast<uint16_t>(tid);
+            std::memcpy(hdr + 4, &version, 2);
+            std::memcpy(hdr + 6, &record_size, 2);
+            std::memcpy(hdr + 8, &bseed, 4);
+            std::memcpy(hdr + 12, &tid16, 2);
+            out.write(hdr, 32);
         }
 
         const double headroom = HeadroomFraction();
@@ -398,6 +444,34 @@ static void RunMatchWorker(int tid, int quota, long match_base, unsigned int see
                     }
                     r.action = static_cast<uint16_t>(action);
                     r.seat = static_cast<uint16_t>(p);
+
+                    // v2 per-decision search statistics (defaults from the
+                    // struct: zeros, second_action = 0xFFFF, flags = 0).
+                    const SearchPlayer::ActionStats& st = players[p]->LastStats();
+                    if (st.pass_phase) r.flags |= 1u;
+                    {   // tension at decision time: max >= 85, top two within 10
+                        std::array<double, 4> t = totals;
+                        std::sort(t.begin(), t.end());  // ascending: t[3]=max
+                        if (t[3] >= 85.0 && t[3] - t[2] <= 10.0) r.flags |= 2u;
+                    }
+                    if (st.valid) {
+                        r.n_dets = static_cast<uint16_t>(st.n_dets);
+                        int bi = -1, si = -1;
+                        for (size_t i = 0; i < st.actions.size(); ++i) {
+                            if (st.actions[i] == action) { bi = static_cast<int>(i); break; }
+                        }
+                        for (size_t i = 0; i < st.actions.size(); ++i) {
+                            if (static_cast<int>(i) == bi) continue;
+                            if (si < 0 || st.mean[i] > st.mean[si]) si = static_cast<int>(i);
+                        }
+                        if (bi >= 0 && si >= 0) {
+                            r.eq_best = st.mean[bi];
+                            r.eq_second = st.mean[si];
+                            r.gap_se = std::sqrt(st.se[bi] * st.se[bi]
+                                                 + st.se[si] * st.se[si]);
+                            r.second_action = static_cast<uint16_t>(st.actions[si]);
+                        }
+                    }
                     recs.push_back(r);
 
                     done = env.Step(action).done;
@@ -410,8 +484,11 @@ static void RunMatchWorker(int tid, int quota, long match_base, unsigned int see
             }
 
             auto place = Placements(totals);
+            const uint32_t match_id = static_cast<uint32_t>(match_base + m);
+            const uint16_t reserved = 0;
             for (const auto& r : recs) {
                 float reward = static_cast<float>((2.5 - place[r.seat]) * 4.0);
+                // 824 v1 fields in the v1 order, then the v2 tail: 848 bytes.
                 out.write(reinterpret_cast<const char*>(r.obs.data()), 556);
                 out.write(reinterpret_cast<const char*>(r.mask.data()), 52);
                 out.write(reinterpret_cast<const char*>(r.labels.data()), 156);
@@ -419,6 +496,14 @@ static void RunMatchWorker(int tid, int quota, long match_base, unsigned int see
                 out.write(reinterpret_cast<const char*>(&r.action), 2);
                 out.write(reinterpret_cast<const char*>(&r.seat), 2);
                 out.write(reinterpret_cast<const char*>(&reward), 4);
+                out.write(reinterpret_cast<const char*>(&r.eq_best), 4);
+                out.write(reinterpret_cast<const char*>(&r.eq_second), 4);
+                out.write(reinterpret_cast<const char*>(&r.gap_se), 4);
+                out.write(reinterpret_cast<const char*>(&r.second_action), 2);
+                out.write(reinterpret_cast<const char*>(&r.n_dets), 2);
+                out.write(reinterpret_cast<const char*>(&match_id), 4);
+                out.write(reinterpret_cast<const char*>(&r.flags), 2);
+                out.write(reinterpret_cast<const char*>(&reserved), 2);
             }
             shared.records.fetch_add(static_cast<long>(recs.size()));
             long total_done = shared.deals_done.fetch_add(1) + 1;
@@ -599,8 +684,9 @@ int main(int argc, char** argv) {
         if (quota == 0) continue;
         if (match_mode) {
             pool.emplace_back(RunMatchWorker, t, quota, match_base, seed + t,
-                              backend, dim, base_cfg, have_start, start_rel,
-                              start_deals, ThreadOutPath(out_path, t, threads),
+                              seed, backend, dim, base_cfg, have_start,
+                              start_rel, start_deals,
+                              ThreadOutPath(out_path, t, threads),
                               std::ref(shared));
             match_base += quota;
         } else {

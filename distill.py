@@ -14,6 +14,7 @@ Usage:
 import argparse
 import glob
 import os
+import struct
 
 import numpy as np
 import torch
@@ -50,6 +51,63 @@ MATCH_RECORD = np.dtype([
 ])
 assert MATCH_RECORD.itemsize == 824
 
+# Match-mode record format v2 (SelfPlayGen --match, 2026-07-31,
+# docs/expert_iter_v2_prereg.md): the 824-byte v1 fields in the same order,
+# then per-decision search statistics from SearchPlayer::LastStats. v2 files
+# start with a 32-byte header: b"HMR2", version u16 (=2), record_size u16
+# (=848), base_seed u32, thread_id u16, zero-fill to 32 bytes.
+# second_action == 0xFFFF and n_dets == 0 mark decisions without per-action
+# stats (pass picks, forced single-action moves). flags: bit0 = passing-phase
+# decision, bit1 = tension score state at decision time.
+MATCH_RECORD_V2 = np.dtype([
+    ('obs', 'u1', 556), ('mask', 'u1', 52), ('labels', 'u1', 156),
+    ('pi', 'u1', 52),
+    ('action', '<u2'), ('seat', '<u2'), ('reward', '<f4'),
+    ('eq_best', '<f4'), ('eq_second', '<f4'), ('gap_se', '<f4'),
+    ('second_action', '<u2'), ('n_dets', '<u2'), ('match_id', '<u4'),
+    ('flags', '<u2'), ('reserved', '<u2'),
+])
+assert MATCH_RECORD_V2.itemsize == 848
+
+V2_MAGIC = b'HMR2'
+V2_HEADER_BYTES = 32
+
+def _read_records(path, dtype):
+    """Read one SelfPlayGen file, auto-detecting the match v2 format.
+
+    Files starting with the "HMR2" magic are v2: skip the 32-byte header and
+    parse with MATCH_RECORD_V2. Headerless files are parsed with the caller's
+    dtype after a size-divisibility check (824 -> MATCH_RECORD v1). When v1
+    match records land in a v2 mix they are UPCAST to MATCH_RECORD_V2 with
+    the new fields zeroed (second_action = 0xFFFF, the no-stats sentinel) so
+    every caller sees one aligned dtype; returns (array, is_v1) so load_data
+    can refuse v1 files where real search stats are required
+    (--min-confidence / --anchor-coef)."""
+    with open(path, 'rb') as fh:
+        head = fh.read(V2_HEADER_BYTES)
+    if head[:4] == V2_MAGIC:
+        version, rec_size = struct.unpack_from('<HH', head, 4)
+        if version != 2 or rec_size != MATCH_RECORD_V2.itemsize:
+            raise SystemExit(f"{path}: unsupported HMR2 header "
+                             f"(version {version}, record_size {rec_size})")
+        if (os.path.getsize(path) - V2_HEADER_BYTES) % MATCH_RECORD_V2.itemsize:
+            raise SystemExit(f"{path}: v2 payload is not a multiple of "
+                             f"{MATCH_RECORD_V2.itemsize} bytes - truncated?")
+        return np.fromfile(path, dtype=MATCH_RECORD_V2,
+                           offset=V2_HEADER_BYTES), False
+    if os.path.getsize(path) % dtype.itemsize != 0:
+        raise SystemExit(
+            f"{path}: size is not a multiple of {dtype.itemsize} - wrong or "
+            f"stale record format? Regenerate the data.")
+    arr = np.fromfile(path, dtype=dtype)
+    if dtype is not MATCH_RECORD:
+        return arr, False
+    up = np.zeros(len(arr), dtype=MATCH_RECORD_V2)
+    for name in MATCH_RECORD.names:
+        up[name] = arr[name]
+    up['second_action'] = 0xFFFF
+    return up, True
+
 def load_data(patterns, dtype=RECORD, kind='decision', holdout_frac=0.0):
     """Load records; optionally split off the contiguous TAIL of each file as
     holdout. Records within a file are deal-contiguous, so a tail split keeps
@@ -62,12 +120,10 @@ def load_data(patterns, dtype=RECORD, kind='decision', holdout_frac=0.0):
     if not files:
         raise SystemExit(f"No data files match {patterns}")
     train_chunks, hold_chunks = [], []
+    n_v1 = 0
     for f in sorted(files):
-        if os.path.getsize(f) % dtype.itemsize != 0:
-            raise SystemExit(
-                f"{f}: size is not a multiple of {dtype.itemsize} - wrong or "
-                f"stale record format? Regenerate the data.")
-        arr = np.fromfile(f, dtype=dtype)
+        arr, is_v1 = _read_records(f, dtype)
+        n_v1 += int(is_v1)
         cut = len(arr) - int(len(arr) * holdout_frac)
         train_chunks.append(arr[:cut])
         if cut < len(arr):
@@ -75,9 +131,10 @@ def load_data(patterns, dtype=RECORD, kind='decision', holdout_frac=0.0):
     data = np.concatenate(train_chunks)
     holdout = np.concatenate(hold_chunks) if hold_chunks else None
     n_hold = len(holdout) if holdout is not None else 0
-    print(f"Loaded {len(data):,} {kind} records from {len(files)} files"
+    v1_note = f", {n_v1} v1 upcast" if (n_v1 and dtype is MATCH_RECORD) else ""
+    print(f"Loaded {len(data):,} {kind} records from {len(files)} files{v1_note}"
           + (f" (+{n_hold:,} held out, per-file tails)" if n_hold else ""))
-    return data, holdout
+    return data, holdout, n_v1
 
 def main():
     ap = argparse.ArgumentParser()
@@ -120,10 +177,22 @@ def main():
                          'via interleaved value-only batches')
     ap.add_argument('--leaf-coef', type=float, default=1.0)
     ap.add_argument('--match', action='store_true',
-                    help='load SelfPlayGen --match records (824 bytes: 556-dim '
-                         'obs with the 6 match-context dims appended, match-'
+                    help='load SelfPlayGen --match records (v2 848-byte with '
+                         'HMR2 header, or legacy v1 824-byte: 556-dim obs '
+                         'with the 6 match-context dims appended, match-'
                          'placement rewards) and feed the 556-wide obs to the '
                          'net')
+    ap.add_argument('--min-confidence', type=float, default=None, metavar='SIGMA',
+                    help='train only on PLAY-phase records whose top-two '
+                         'equity gap clears SIGMA x gap_se (v2 match records '
+                         'required; errors if any v1 file is in the mix)')
+    ap.add_argument('--anchor-coef', type=float, default=0.0, metavar='W',
+                    help='adds W x KL(candidate || anchor policy) on a '
+                         'uniformly-sampled batch of NON-confident play-phase '
+                         'records each step (anti-drift anchor; 0 = off)')
+    ap.add_argument('--anchor-model', default=None,
+                    help='checkpoint for the frozen anchor policy '
+                         '(net_from_checkpoint; required when --anchor-coef > 0)')
     args = ap.parse_args()
 
     device = torch.device(args.device)
@@ -134,14 +203,54 @@ def main():
 
     # In --match mode records within a file are match-contiguous, so the
     # per-file tail holdout is effectively a by-match split.
-    data, holdout = load_data(args.data,
-                              dtype=MATCH_RECORD if args.match else RECORD,
-                              kind='match decision' if args.match else 'decision',
-                              holdout_frac=args.holdout)
+    data, holdout, n_v1 = load_data(args.data,
+                                    dtype=MATCH_RECORD if args.match else RECORD,
+                                    kind='match decision' if args.match else 'decision',
+                                    holdout_frac=args.holdout)
+
+    # Confidence filtering / anchor loss (record format v2,
+    # docs/expert_iter_v2_prereg.md). Both need real per-decision search
+    # stats, which only v2 files carry (v1 upcasts have them zeroed).
+    anchor_pool = None
+    if args.min_confidence is not None or args.anchor_coef > 0:
+        if not args.match:
+            raise SystemExit('--min-confidence/--anchor-coef require --match '
+                             '(search stats only exist in match v2 records)')
+        if n_v1:
+            raise SystemExit(f'--min-confidence/--anchor-coef require v2 '
+                             f'records, but {n_v1} v1 file(s) are in --data')
+        # Frozen confidence rule (prereg): gap > sigma x gap_se, play phase
+        # only. sigma defaults to 2 for the anchor split when only
+        # --anchor-coef is given.
+        sigma = args.min_confidence if args.min_confidence is not None else 2.0
+        def conf_split(arr):
+            play = (arr['flags'] & 1) == 0
+            gap = arr['eq_best'].astype(np.float32) - arr['eq_second']
+            return play, play & (gap > sigma * arr['gap_se'])
+        play_m, conf_m = conf_split(data)
+        if args.anchor_coef > 0:
+            anchor_pool = data[play_m & ~conf_m]
+            print(f"Anchor pool: {len(anchor_pool):,} non-confident play-phase "
+                  f"records (sigma={sigma:g})")
+        if args.min_confidence is not None:
+            n0 = len(data)
+            data = data[conf_m]
+            print(f"Confidence filter (sigma={sigma:g}): kept {len(data):,} of "
+                  f"{n0:,} training records "
+                  f"({play_m.sum():,} play-phase)")
+            if len(data) == 0:
+                raise SystemExit('confidence filter kept 0 records')
+            if holdout is not None:
+                _, hconf = conf_split(holdout)
+                holdout = holdout[hconf]
+                print(f"  holdout filtered to {len(holdout):,} confident records")
+                if len(holdout) == 0:
+                    holdout = None
+
     n_hold = len(holdout) if holdout is not None else 0
     leaf = None
     if args.leaf_data:
-        leaf, _ = load_data(args.leaf_data, dtype=LEAF_RECORD, kind='leaf-value')
+        leaf, _, _ = load_data(args.leaf_data, dtype=LEAF_RECORD, kind='leaf-value')
         leaf_var = float(np.var(leaf['reward'])) + 1e-8
 
     if args.init and os.path.exists(args.init):
@@ -161,12 +270,28 @@ def main():
     net.to(device)
     optimizer = torch.optim.Adam(net.parameters(), lr=args.lr)
 
+    # Frozen anchor policy for the KL term (skipped cleanly when coef == 0).
+    anchor_net = None
+    if args.anchor_coef > 0:
+        if not args.anchor_model:
+            raise SystemExit('--anchor-coef > 0 requires --anchor-model')
+        if anchor_pool is None or len(anchor_pool) == 0:
+            print('WARNING: anchor pool empty (no non-confident play-phase '
+                  'records); anchor loss disabled')
+        else:
+            anchor_net = net_from_checkpoint(args.anchor_model)
+            anchor_net.to(device).eval()
+            for ap_ in anchor_net.parameters():
+                ap_.requires_grad_(False)
+            print(f"Anchor: {args.anchor_model} ({type(anchor_net).__name__}), "
+                  f"coef {args.anchor_coef}")
+
     n = len(data)
     reward_var = float(np.var(data['reward'])) + 1e-8
 
     for epoch in range(args.epochs):
         perm = np.random.permutation(n)
-        ce_sum = match_sum = err2_sum = bce_sum = oerr2_sum = 0.0
+        ce_sum = match_sum = err2_sum = bce_sum = oerr2_sum = akl_sum = 0.0
         seen = 0
         if leaf is not None:
             lperm = np.random.permutation(len(leaf))
@@ -214,6 +339,26 @@ def main():
             loss = (args.policy_coef * policy_loss + args.value_coef * value_loss
                     + args.aux_coef * belief_loss + args.oracle_coef * oracle_loss)
 
+            # Anchor: KL(candidate || anchor) on a uniform batch of
+            # NON-confident play-phase records - keeps the flat-state policy
+            # from drifting where the teacher's argmax is sampling noise.
+            if anchor_net is not None:
+                aidx = np.random.randint(0, len(anchor_pool), size=args.batch)
+                ab = anchor_pool[aidx]
+                aobs = torch.from_numpy(np.ascontiguousarray(ab['obs'])).to(device).float() / 255.0
+                amask = torch.from_numpy(np.ascontiguousarray(ab['mask'])).to(device).bool()
+                clogits, _, _ = net.forward_all(aobs, amask)
+                with torch.no_grad():
+                    alogits, _, _ = anchor_net.forward_all(aobs, amask)
+                # Illegal logits are -inf on both sides: their candidate prob
+                # is 0 and both logps are masked to 0, so they contribute 0.
+                clogp = F.log_softmax(clogits, dim=1).masked_fill(~amask, 0.0)
+                alogp = F.log_softmax(alogits, dim=1).masked_fill(~amask, 0.0)
+                cp = F.softmax(clogits, dim=1)
+                anchor_kl = (cp * (clogp - alogp)).sum(dim=1).mean()
+                loss = loss + args.anchor_coef * anchor_kl
+                akl_sum += anchor_kl.item() * len(idx)
+
             optimizer.zero_grad()
             loss.backward()
             nn.utils.clip_grad_norm_(net.parameters(), 0.5)
@@ -256,6 +401,8 @@ def main():
         line = (f"epoch {epoch + 1}/{args.epochs} | policy CE {ce_sum / seen:.4f} | "
                 f"teacher match {match_sum / seen * 100:.1f}% | value EV {ev:.3f} | "
                 f"oracle EV {oev:.3f} | belief BCE {bce_sum / seen:.4f}")
+        if anchor_net is not None:
+            line += f" | anchor KL {akl_sum / seen:.4f}"
         if leaf is not None and lseen:
             line += (f" | leaf EV {1.0 - (lerr2_sum / lseen) / leaf_var:.3f}"
                      f" | leaf oracle EV {1.0 - (loerr2_sum / lseen) / leaf_var:.3f}")
