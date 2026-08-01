@@ -50,7 +50,6 @@ marked [NEEDS CITATION] rather than guessed.
 | Sharpen 2.0 halves the degradation; saturates (4.0 worse) | +0.248 / +0.254 / +0.470 (s=2/3/4) | n=2500 each | SE ~0.14 | 07-23 | ledger |
 | 255k further PPO games on best candidate: flat-to-negative | +0.24 → +0.428 across stages | n=2500/stage | SE ~0.14 | 07-23 | ledger |
 | Deployed player vs 07-14 calibration opponent | **-1.016**/deal stronger | 1,200 paired deals | SE 0.234, p=0.00002 | 07-23 | ledger |
-| (anecdote) user beat the 07-14 opponent by ~3.3 pts/round | n=1 | — | — | 07-14 | ledger 2026-07-23 (labeled anecdote) |
 
 ## Match era — promotions and the pivot
 

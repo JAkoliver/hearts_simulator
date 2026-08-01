@@ -245,8 +245,8 @@ In parallel, the distillation program ran itself into a wall, carefully:
 
 The era closed with a calibration point: the deployed search player
 measured **-1.016/deal stronger (SE 0.234, n=1,200)** than the 07-14
-opponent the user had beaten by ~3.3 pts/round (n=1 anecdote) —
-matching the predicted chain of promotions (ledger 2026-07-23).
+deployed snapshot — matching the predicted chain of promotions
+(ledger 2026-07-23).
 
 **Closed forever:** PPO fine-tune at the ceiling (one-shot); same-lineage
 distillation of own-search targets; reaching a larger net by imitation
