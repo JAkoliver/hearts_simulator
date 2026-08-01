@@ -1,0 +1,1 @@
+[retrospective note, 2026-08-01] The analyzer triples in size (775 lines) and the original is preserved as analyzer_legacy.py - the first instance of a recurring pattern: measurement tooling grows faster than the thing it measures, and old instruments are kept, not deleted.
