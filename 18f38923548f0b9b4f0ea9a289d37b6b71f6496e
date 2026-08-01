@@ -1,0 +1,1 @@
+[retrospective note, 2026-08-01] analyzer.py is born (268 lines) alongside prep for the v2 net - the first dedicated measurement tool. Its descendants (paired-deal comparison, tactics panels, moon metrics) became the project's behavioral microscope.
