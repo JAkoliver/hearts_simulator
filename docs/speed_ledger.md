@@ -803,3 +803,14 @@ the teacher's equity spread is significant (e.g. flip-confident states
 only, ~4-6%) and/or mix a per-deal anchor loss - QUEUED to roadmap as a
 NEW experiment (fresh pre-registration; this one-shot is consumed).
 FALLBACK ENGAGED: match-mode PPO resumes under the evolved regime.
+
+## 2026-08-01: Correction to the 07-30 wedge entry (documentation audit)
+
+The 07-30 entry's final "CONFIRMED" paragraph re-attributed the wedge
+to "unbucketed equity shapes" after the same entry had already
+established that diagnosis as WRONG (the equity module runs on CPU).
+The correct, code-confirmed cause stands as written in the middle of
+that entry: UNBOUNDED BATCH COALESCING in InferenceServer (fixed by
+the max_group_rows_ cap, 45821a6). Commit 592078e's title ("root-caused
+to the equity path") carries the superseded diagnosis; the fix commit
+45821a6 carries the correct one. Found by the release-docs audit.
