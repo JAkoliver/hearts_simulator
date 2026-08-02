@@ -15,6 +15,7 @@ one JSON line of full telemetry to match_logs.jsonl.
 
 Run:  python -m uvicorn hearts_web.server:app --host 0.0.0.0 --port 8642
 """
+import hashlib
 import json
 import os
 import secrets
@@ -24,7 +25,7 @@ import time
 
 import numpy as np
 import torch
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
@@ -40,11 +41,23 @@ LOG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
 
 app = FastAPI(title="Hearts vs AI")
 
-_net = net_from_checkpoint('hearts_model_final.pth')
+MODEL_PATH = 'hearts_model_final.pth'
+_net = net_from_checkpoint(MODEL_PATH)
 _net.eval()
 _net_lock = threading.Lock()
 _sessions = {}
 _sessions_lock = threading.Lock()
+
+# Identity stamp for every log line: which weights produced the AI moves.
+with open(MODEL_PATH, 'rb') as _f:
+    MODEL_MD5 = hashlib.md5(_f.read()).hexdigest()[:12]
+LOG_V = 2
+_log_lock = threading.Lock()
+
+
+def log_line(obj):
+    with _log_lock, open(LOG_PATH, 'a') as f:
+        f.write(json.dumps(obj) + '\n')
 
 
 def card_name(idx):
@@ -52,20 +65,29 @@ def card_name(idx):
 
 
 class Session:
-    def __init__(self):
+    def __init__(self, pid=None, ua=''):
         self.sid = secrets.token_urlsafe(12)
-        self.menv = MatchEnv(seed=secrets.randbits(31))
+        self.seed = secrets.randbits(31)
+        self.menv = MatchEnv(seed=self.seed)
         self.human_seat = secrets.randbelow(4)
+        self.pid = pid            # anonymous persistent player id (client)
+        self.ua = (ua or '')[:120]
         self.trick = []           # [(seat, card)] of the current trick
         self.last_trick = None    # {'cards': [(seat, card)], 'winner': seat}
         self.last_deal = None     # round scores of the most recent deal
         self.deal_no = 1
         self.passed_cards = []    # human's picks this pass phase
         self.events = []          # ordered happenings since the last human action
-        self.log = {'start': time.time(), 'human_seat': self.human_seat,
-                    'deals': [], 'actions': 0}
+        self.t0 = time.time()
+        self.deal_actions = []    # [(seat, card, ms_since_match_start)]
+        self.n_actions = 0
         self.finished = False
         self.lock = threading.Lock()
+
+    def _stamp(self, kind):
+        return {'v': LOG_V, 'kind': kind, 'sid': self.sid, 'pid': self.pid,
+                'seed': self.seed, 'human_seat': self.human_seat,
+                'model': MODEL_MD5, 'ts': round(time.time(), 3)}
 
     # -- engine helpers -----------------------------------------------------
     def _legal(self):
@@ -82,12 +104,18 @@ class Session:
 
     def _apply(self, seat, action):
         in_play = not self.menv.is_passing()
+        # Full per-card record (replay contract: MatchEnv(seed) + this
+        # action sequence reproduces the match bit-exactly). ms is server
+        # arrival time - for human actions an upper bound on think time
+        # (client animations inflate it).
+        self.deal_actions.append((seat, int(action),
+                                  int((time.time() - self.t0) * 1000)))
+        self.n_actions += 1
         if in_play:
             self.trick.append((seat, action))
             self.events.append({'type': 'play', 'seat': seat,
                                 'name': card_name(action)})
         deal_done, match_done, round_scores = self.menv.step(action)
-        self.log['actions'] += 1
         if in_play and len(self.trick) == 4:
             # The next current player is the trick winner (they lead next),
             # unless the deal just ended (then round_scores tell the story)
@@ -109,18 +137,22 @@ class Session:
                             if srt[0] == 0 and all(v == 26 for v in srt[1:])
                             else None)})
             self.passed_cards = []
-            self.log['deals'].append({
-                'round_scores': list(map(int, round_scores)),
-                'totals': list(map(int, self.menv.match_scores)),
-            })
+            # Flush one line per completed deal: abandoned matches keep
+            # every finished deal (only the in-progress one is lost).
+            log_line({**self._stamp('deal'), 'deal_no': self.deal_no,
+                      'actions': self.deal_actions,
+                      'round_scores': list(map(int, round_scores)),
+                      'totals': list(map(int, self.menv.match_scores))})
+            self.deal_actions = []
             self.deal_no += 1
         if match_done:
             self.finished = True
-            self.log['final'] = list(map(int, self.menv.match_scores))
-            self.log['placements'] = list(self.menv.placements())
-            self.log['end'] = time.time()
-            with open(LOG_PATH, 'a') as f:
-                f.write(json.dumps(self.log) + '\n')
+            log_line({**self._stamp('match'), 'deals': self.deal_no - 1,
+                      'n_actions': self.n_actions,
+                      'final': list(map(int, self.menv.match_scores)),
+                      'placements': list(self.menv.placements()),
+                      'duration_s': round(time.time() - self.t0, 1),
+                      'ua': self.ua})
 
     def run_ai_turns(self):
         while (not self.finished
@@ -171,6 +203,10 @@ class PlayBody(BaseModel):
     card: int
 
 
+class NewBody(BaseModel):
+    pid: str | None = None
+
+
 @app.get('/')
 def index():
     return FileResponse(os.path.join(os.path.dirname(os.path.abspath(__file__)),
@@ -178,8 +214,10 @@ def index():
 
 
 @app.post('/api/new')
-def new_session():
-    s = Session()
+def new_session(body: NewBody | None = None, request: Request = None):
+    pid = (body.pid[:64] if body and body.pid else None)
+    ua = request.headers.get('user-agent', '') if request else ''
+    s = Session(pid=pid, ua=ua)
     with _sessions_lock:
         _sessions[s.sid] = s
         # Drop oldest sessions past a sane cap

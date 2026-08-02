@@ -409,10 +409,16 @@ function showMatchEnd() {
   el('overlay').style.display = 'flex';
 }
 
+// Anonymous persistent player id: lets the server group matches by
+// player (skill estimation, dedup) without any account or personal data.
+let pid = localStorage.getItem('hearts_pid');
+if (!pid) { pid = crypto.randomUUID(); localStorage.setItem('hearts_pid', pid); }
+
 async function newMatch() {
   passSelection = [];
   preselect = null;
-  state = await api('/api/new', {method:'POST'});
+  state = await api('/api/new', {method:'POST',
+    headers:{'Content-Type':'application/json'}, body: JSON.stringify({pid})});
   sid = state.sid;
   localStorage.setItem('hearts_sid', sid);
   render();
