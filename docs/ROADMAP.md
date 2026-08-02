@@ -92,6 +92,30 @@ the package, not the threshold. Plan, in order:
    local). No sweeps - expected gain is a fraction of a win-point.
 Run during a quiet stretch; never ahead of expert iteration.
 
+## Queued: equity-net drift check (added 2026-08-01 - trigger-based, cheap-first)
+hearts_equity.pt is FROZEN: trained once 2026-07-25 on 30k seeded + 5k
+natural matches from the 3rd match-era baseline; promotions re-export
+traces but never retrain it (ARCHITECTURE sec. 3 lifecycle note). Its
+P(win | score-state) map is conditional on the play population that
+generated that data, so each promotion adds a little distribution
+drift. Discipline, in order:
+1. CHEAP DIAGNOSTIC FIRST, no retrain: generate a small fresh natural
+   holdout with the current champion (gen_equity_data.py) and score the
+   frozen net's Brier/ECE against the 2026-07-25 calibration noise
+   floor (train_equity.py holdout machinery - all tooling exists).
+   Run during a quiet stretch, or BEFORE the next campaign that leans
+   on equity calibration.
+2. RETRAIN ONLY on measured degradation. A retrained equity net
+   changes the N=8000-validated package (rules #16): the search
+   package must be re-validated (powered paired run) before the new
+   net becomes ceiling config or Phase 2 teacher.
+3. NEVER swap the equity net mid-generation: v2 banks embed the frozen
+   net's per-decision equity stats; a mid-bank swap silently mixes two
+   scoring functions in one dataset.
+Mitigating context: expert-iter v2's confidence filter consumes
+within-decision equity ORDERING (gaps), which is more drift-robust
+than absolute levels - drift concern is real but not urgent.
+
 ## Queued: v6 network (added 2026-07-29 - trigger condition, not a date)
 TRIGGER: the improvement loop (PPO alternation + match-aware expert
 iteration) demonstrably compounding AND the 7.6M v5 stops responding
@@ -135,6 +159,11 @@ working loop (Phase 3). Sequence when triggered:
    failures don't concentrate there, the channel is a rider only.
    NOT an architecture fix: the moon-defense hole (data/objective gap -
    exploiter league).
+   METADATA RIDER (2026-08-01): any obs surgery also attaches explicit
+   obs-dim/version metadata to exported traces and retires
+   ProbeObsDim's length-probe list (the accumulating-fragility note in
+   docs/release/ARCHITECTURE.md sec. 1) - paid together with the
+   surgery, never as a standalone retooling.
 Obs-format changes ripple through C++/traces/exports - pay that cost
 only for measured headroom.
 

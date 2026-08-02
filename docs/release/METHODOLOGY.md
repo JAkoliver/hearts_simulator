@@ -132,6 +132,21 @@ is why era 5's pivot was a strategy change rather than a bigger budget:
 the map of what does NOT work is treated as an asset
 (docs/ROADMAP.md, asset inventory).
 
+**"New evidence" is defined, not vibes-based** (canonical wording in
+docs/experiment_rules.md, closed-directions preamble): reopening a
+closure requires naming which recorded premise no longer holds —
+a change to a component the closure's mechanism depends on, a
+variation the closure itself recorded as untested, or a diagnostic
+contradicting its mechanism. More compute/data/seeds or a rerun of
+the same recipe is inadmissible by default (closures are powered
+measurements; a re-roll only exploits variance — though "more data"
+qualifies exactly when the closure recorded quantity as the untested
+variable). The register's one reopening to date followed this shape:
+PPO, closed on MLPs with the mechanism "critic cannot learn value on
+these features," was re-tried only when the v5 architecture removed
+that premise — and produced the 2026-07-15 promotion. Every reopening
+gets its own pre-registration.
+
 ## 9. Ops discipline that protects measurements
 
 Measurement dies of ops failures as readily as of statistics, so the
@@ -147,6 +162,15 @@ no cloud spend without explicit per-rental user approval (#13); and
 produced anywhere, but every comparison that decides anything runs on
 one local machine with both arms sharing hardware.
 
+A clarification for external readers: the discipline deliberately does
+NOT chase cross-environment bit-determinism (determinism flags, pinned
+kernels). Environment-immunity comes from pairing both arms on one
+machine in one run — the comparison, not the environment, is what is
+controlled. What determinism the system does and does not promise
+(bit-identical replay within a hardware/OS class; bf16 argmax flips
+across hardware) is measured and documented in
+docs/release/REPRODUCING.md sec. 4.
+
 Two diagnostic signatures worth exporting to any project: an SE of
 exactly 0.000 means you gated a net against itself (rule #3); and a
 holdout metric that looks too good means the split leaked (per-record
@@ -155,4 +179,6 @@ incidents).
 
 Cross-references: how these rules arose in time —
 docs/release/JOURNEY.md; the numbers they produced —
-docs/release/RESULTS.md.
+docs/release/RESULTS.md; project-specific terms (CRN, gate vs guard,
+deal-point vs equity scoring, ...) — the glossary in
+docs/release/INDEX.md.

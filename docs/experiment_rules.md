@@ -90,6 +90,21 @@ produced a false conclusion. Datestamps mark the incident that taught it.
 
 ## Closed directions (measured; do not revisit without NEW evidence)
 
+**What counts as admissible new evidence (2026-08-01).** A closed
+direction is a powered, mechanism-attributed measurement, not a mood.
+Reopening one requires naming which recorded premise no longer holds.
+Admissible: (a) a change to a component the closure's mechanism
+depends on (the PPO-on-MLP closure - critic EV stuck at 0.30 - did
+not survive the v5 architecture and was correctly reopened, first
+promotion 2026-07-15); (b) variation of a variable the closure itself
+recorded as untested (e.g. visit-count targets on the imitation
+closures); (c) a measured diagnostic contradicting the closure's
+mechanism. Inadmissible by default: more compute, more data, more
+seeds, or a rerun of the same recipe - closures are powered
+measurements, so a re-roll only exploits variance. ("More data" IS
+admissible exactly when the closure recorded quantity as the untested
+variable.) Every reopening gets its own pre-registration.
+
 - PPO fine-tune of near-ceiling nets: one-shot; 255k further games flat
   (2026-07-23). PPO gains scale with distance from the ceiling
   (-0.9 fresh distill, ~0 at ceiling).

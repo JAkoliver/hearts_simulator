@@ -99,10 +99,25 @@ ledger/experiment_ledger) - release the milestones that mark eras:
    a permissive open-weight license); LICENSE files + per-artifact
    notice. third_party/cuda_include is NVIDIA-licensed - it must be
    EXCLUDED from the release and replaced with fetch instructions
-   (check every third_party item's license before release).
+   (check every third_party item's license before release). Ship an
+   EXPLICIT fetch helper (e.g. scripts/fetch_cuda_headers.py: pip
+   download nvidia-cuda-runtime-cu12==12.6.77, extract include/ into
+   third_party/cuda_include) plus a CMake configure-time existence
+   check whose error message states that exact command - NOT a silent
+   configure-time auto-download (breaks offline builds, and keeping
+   the user's fetch explicit keeps the NVIDIA license boundary clean).
 4. REPRODUCIBILITY: pin the toolchain in README (MSVC/libtorch 2.12.1
    +cu126, the cloud/Dockerfile recipe already encodes the Linux path);
+   PIN PYTHON DEPS: freeze the working env into a lock file
+   (requirements.lock via pip freeze, torch matching the cu126
+   libtorch flavour) - closes the [NEEDS CITATION] gap in
+   docs/release/REPRODUCING.md sec. 1; scope it honestly (it makes
+   training/eval run on a clean machine - the bit-identical data
+   contract lives in the C++/libtorch side and rule #14's caveats);
    verify a clean-machine build from the public repo alone.
+   DONE 2026-08-01: equity_data/validation_v1/MD5SUMS manifest +
+   `analyze_validation.py --verify-md5` (shard integrity check
+   documented in REPRODUCING.md sec. 4).
 5. CLAIMS DISCIPLINE: no "superhuman"/"best-human" claims - measured
    claims only (vs anchor fields, vs the frozen reference, N and CIs).
    The user calibration matches are n=1 anecdotes and labeled so.
