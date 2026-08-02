@@ -4,7 +4,9 @@
 # Interleaves seeded and natural chunks so both the accelerator families and
 # the >=15k natural composition floor accumulate together.
 cd /e/hearts_simulator || exit 1
-echo $$ > /e/hearts_simulator/logs/gen_v2_driver.pid
+# Windows pid, not MSYS $$ (kill-by-PID-file must target the Windows pid).
+cat /proc/$$/winpid > /e/hearts_simulator/logs/gen_v2_driver.pid 2>/dev/null \
+  || echo $$ > /e/hearts_simulator/logs/gen_v2_driver.pid
 export HEARTS_HEADROOM=0.45
 export HEARTS_SRV_MAX_ROWS=2048
 GEN=./build/Release/SelfPlayGen.exe

@@ -5,7 +5,10 @@
 # rotation; when only natural remains, every chunk is natural. Full speed;
 # profile switches still via kill+relaunch. Jittered seeded starts.
 cd /e/hearts_simulator || exit 1
-echo $$ > /e/hearts_simulator/logs/gen_v2_driver.pid
+# Record the WINDOWS pid (taskkill/Stop-Process target), not the MSYS $$ —
+# they differ; a stale MSYS pid makes kill-by-PID-file miss (found 2026-08-01).
+cat /proc/$$/winpid > /e/hearts_simulator/logs/gen_v2_driver.pid 2>/dev/null \
+  || echo $$ > /e/hearts_simulator/logs/gen_v2_driver.pid
 unset HEARTS_HEADROOM
 export HEARTS_SRV_MAX_ROWS=8192
 GEN=./build/Release/SelfPlayGen.exe

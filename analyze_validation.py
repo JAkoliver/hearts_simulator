@@ -13,10 +13,39 @@ dataset. Match length (deals) is reported as an EXPLORATORY dose proxy
 only - it is not the registered dose measure.
 """
 import glob
+import hashlib
 import math
+import os
 import sys
 
 import numpy as np
+
+
+def verify_md5(data_dir="equity_data/validation_v1"):
+    """Check every shard against the MD5SUMS manifest. Returns True if all OK."""
+    manifest = os.path.join(data_dir, "MD5SUMS")
+    if not os.path.exists(manifest):
+        print(f"MISSING manifest: {manifest}")
+        return False
+    ok = True
+    with open(manifest) as fh:
+        for line in fh:
+            parts = line.split()
+            if len(parts) != 2:
+                continue
+            want, name = parts[0], parts[1].lstrip("*")
+            path = os.path.join(data_dir, name)
+            if not os.path.exists(path):
+                print(f"{name}: MISSING")
+                ok = False
+                continue
+            with open(path, "rb") as f:
+                got = hashlib.md5(f.read()).hexdigest()
+            status = "OK" if got == want else f"FAIL (got {got})"
+            ok = ok and got == want
+            print(f"{name}: {status}")
+    print("MD5 verification " + ("PASSED" if ok else "FAILED"))
+    return ok
 
 
 def binom_sf_one_sided(b, n):
@@ -101,4 +130,6 @@ def main():
 
 
 if __name__ == "__main__":
+    if "--verify-md5" in sys.argv:
+        sys.exit(0 if verify_md5() else 1)
     main()

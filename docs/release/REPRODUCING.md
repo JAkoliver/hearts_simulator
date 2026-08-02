@@ -80,9 +80,11 @@ banks use disjoint seed ranges recorded in the ledger per installment
 embed base_seed and thread id in the 32-byte file header
 (selfplay_gen.cpp). The N=8000 validation used seed block
 20260726 + shard*1e7 with pairs never split across nodes (ledger
-2026-07-26); its dataset ships as equity_data/validation_v1/ with
-md5-verified shards, so reanalysis needs no regeneration
-(analyze_validation.py).
+2026-07-26); its dataset ships as equity_data/validation_v1/ with an
+MD5SUMS manifest (written 2026-08-01 from the shards as collected and
+verified on 2026-07-27), so reanalysis needs no regeneration. Verify
+shard integrity before any analysis with
+`python analyze_validation.py --verify-md5` (exit 0 = all shards OK).
 
 Determinism caveats: bit-identical replay holds within a hardware/OS
 class (the Linux pilot's A/A run was 20/20 bit-identical; ledger

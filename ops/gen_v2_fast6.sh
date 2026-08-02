@@ -3,7 +3,9 @@
 # (widened score-state manifold coverage, adopted 2026-08-01). Runs until
 # the 50k watcher stops it by PID file.
 cd /e/hearts_simulator || exit 1
-echo $$ > /e/hearts_simulator/logs/gen_v2_driver.pid
+# Windows pid, not MSYS $$ (kill-by-PID-file must target the Windows pid).
+cat /proc/$$/winpid > /e/hearts_simulator/logs/gen_v2_driver.pid 2>/dev/null \
+  || echo $$ > /e/hearts_simulator/logs/gen_v2_driver.pid
 unset HEARTS_HEADROOM
 export HEARTS_SRV_MAX_ROWS=8192
 GEN=./build/Release/SelfPlayGen.exe
