@@ -197,6 +197,15 @@ def main():
                     help='seed torch/numpy RNGs for reproducible training '
                          'replicates (expert_iter_v2 prereg: independent '
                          'training seeds, same data)')
+    ap.add_argument('--certainty-weighted', action='store_true',
+                    help='continuous-certainty recipe (prereg amendment '
+                         '2026-08-02): all play-phase records; per-record '
+                         'w = erf(z/2) with z = equity gap / gap SE; loss = '
+                         'w x CE(teacher action) + anchor_coef x (1-w) x '
+                         'KL(candidate || anchor), in-batch weighted '
+                         'averages. Requires --match v2 data and '
+                         '--anchor-model; excludes --min-confidence, '
+                         '--hard-policy and --sharpen.')
     args = ap.parse_args()
 
     if args.train_seed is not None:
@@ -218,11 +227,45 @@ def main():
                                     kind='match decision' if args.match else 'decision',
                                     holdout_frac=args.holdout)
 
+    # Continuous-certainty recipe (prereg amendment 2026-08-02): certainty
+    # as a per-record loss weight over ALL play-phase records; the binary
+    # confident/anchor split below is this recipe's step-function limit.
+    cw_train = cw_hold = None
+    if args.certainty_weighted:
+        if args.min_confidence is not None or args.hard_policy or args.sharpen != 1.0:
+            raise SystemExit('--certainty-weighted excludes --min-confidence/'
+                             '--hard-policy/--sharpen')
+        if not args.match:
+            raise SystemExit('--certainty-weighted requires --match')
+        if n_v1:
+            raise SystemExit(f'--certainty-weighted requires v2 records, but '
+                             f'{n_v1} v1 file(s) are in --data')
+        if not args.anchor_model or args.anchor_coef <= 0:
+            raise SystemExit('--certainty-weighted requires --anchor-model '
+                             'and --anchor-coef > 0')
+        from scipy.special import erf
+
+        def cert_w(arr):
+            play = (arr['flags'] & 1) == 0
+            se = arr['gap_se'].astype(np.float64)
+            valid = (arr['second_action'] != 0xFFFF) & (se > 0)
+            gap = arr['eq_best'].astype(np.float64) - arr['eq_second']
+            z = np.where(valid, np.maximum(gap, 0.0) / np.where(se > 0, se, 1.0), 0.0)
+            return play, erf(z / 2.0).astype(np.float32)
+
+        pm, w_all = cert_w(data)
+        data, cw_train = data[pm], w_all[pm]
+        print(f"Certainty-weighted: {len(data):,} play records | mean w "
+              f"{cw_train.mean():.3f} | z>2 share {(cw_train > 0.8427).mean() * 100:.1f}%")
+        if holdout is not None:
+            hpm, hw = cert_w(holdout)
+            holdout, cw_hold = holdout[hpm], hw[hpm]
+
     # Confidence filtering / anchor loss (record format v2,
     # docs/expert_iter_v2_prereg.md). Both need real per-decision search
     # stats, which only v2 files carry (v1 upcasts have them zeroed).
     anchor_pool = None
-    if args.min_confidence is not None or args.anchor_coef > 0:
+    if not args.certainty_weighted and (args.min_confidence is not None or args.anchor_coef > 0):
         if not args.match:
             raise SystemExit('--min-confidence/--anchor-coef require --match '
                              '(search stats only exist in match v2 records)')
@@ -285,7 +328,7 @@ def main():
     if args.anchor_coef > 0:
         if not args.anchor_model:
             raise SystemExit('--anchor-coef > 0 requires --anchor-model')
-        if anchor_pool is None or len(anchor_pool) == 0:
+        if not args.certainty_weighted and (anchor_pool is None or len(anchor_pool) == 0):
             print('WARNING: anchor pool empty (no non-confident play-phase '
                   'records); anchor loss disabled')
         else:
@@ -302,6 +345,7 @@ def main():
     for epoch in range(args.epochs):
         perm = np.random.permutation(n)
         ce_sum = match_sum = err2_sum = bce_sum = oerr2_sum = akl_sum = 0.0
+        cmatch_sum = cseen = 0.0
         seen = 0
         if leaf is not None:
             lperm = np.random.permutation(len(leaf))
@@ -342,7 +386,16 @@ def main():
             # distribution. Illegal logits are -inf; zero them in log-space
             # (their pi is 0) so 0 * -inf can't poison the loss with NaN.
             logp = F.log_softmax(logits, dim=1).masked_fill(~mask, 0.0)
-            policy_loss = -(pi * logp).sum(dim=1).mean()
+            if cw_train is not None:
+                # Continuous-certainty: per-record CE toward the teacher's
+                # chosen action, weighted-averaged by w (pressure per unit
+                # of confident signal stays comparable to the binary
+                # recipe, which trains CE on confident records only).
+                wts = torch.from_numpy(cw_train[idx]).to(device)
+                per_ce = -logp.gather(1, actions.unsqueeze(1)).squeeze(1)
+                policy_loss = (wts * per_ce).sum() / wts.sum().clamp_min(1e-6)
+            else:
+                policy_loss = -(pi * logp).sum(dim=1).mean()
             value_loss = F.mse_loss(value.squeeze(-1), rewards)
             belief_loss = F.binary_cross_entropy_with_logits(belief, labels)
             oracle_loss = F.mse_loss(oracle.squeeze(-1), rewards)
@@ -352,20 +405,32 @@ def main():
             # Anchor: KL(candidate || anchor) on a uniform batch of
             # NON-confident play-phase records - keeps the flat-state policy
             # from drifting where the teacher's argmax is sampling noise.
+            # Continuous-certainty mode: the KL runs on the SAME batch,
+            # weighted (1-w) - flat states anchor hard, confident states
+            # barely at all; no separate anchor pool.
             if anchor_net is not None:
-                aidx = np.random.randint(0, len(anchor_pool), size=args.batch)
-                ab = anchor_pool[aidx]
-                aobs = torch.from_numpy(np.ascontiguousarray(ab['obs'])).to(device).float() / 255.0
-                amask = torch.from_numpy(np.ascontiguousarray(ab['mask'])).to(device).bool()
-                clogits, _, _ = net.forward_all(aobs, amask)
-                with torch.no_grad():
-                    alogits, _, _ = anchor_net.forward_all(aobs, amask)
-                # Illegal logits are -inf on both sides: their candidate prob
-                # is 0 and both logps are masked to 0, so they contribute 0.
-                clogp = F.log_softmax(clogits, dim=1).masked_fill(~amask, 0.0)
-                alogp = F.log_softmax(alogits, dim=1).masked_fill(~amask, 0.0)
-                cp = F.softmax(clogits, dim=1)
-                anchor_kl = (cp * (clogp - alogp)).sum(dim=1).mean()
+                if cw_train is not None:
+                    with torch.no_grad():
+                        alogits, _, _ = anchor_net.forward_all(obs, mask)
+                    alogp = F.log_softmax(alogits, dim=1).masked_fill(~mask, 0.0)
+                    cp = F.softmax(logits, dim=1)
+                    kl_per = (cp * (logp - alogp)).sum(dim=1)
+                    winv = (1.0 - wts)
+                    anchor_kl = (winv * kl_per).sum() / winv.sum().clamp_min(1e-6)
+                else:
+                    aidx = np.random.randint(0, len(anchor_pool), size=args.batch)
+                    ab = anchor_pool[aidx]
+                    aobs = torch.from_numpy(np.ascontiguousarray(ab['obs'])).to(device).float() / 255.0
+                    amask = torch.from_numpy(np.ascontiguousarray(ab['mask'])).to(device).bool()
+                    clogits, _, _ = net.forward_all(aobs, amask)
+                    with torch.no_grad():
+                        alogits, _, _ = anchor_net.forward_all(aobs, amask)
+                    # Illegal logits are -inf on both sides: their candidate prob
+                    # is 0 and both logps are masked to 0, so they contribute 0.
+                    clogp = F.log_softmax(clogits, dim=1).masked_fill(~amask, 0.0)
+                    alogp = F.log_softmax(alogits, dim=1).masked_fill(~amask, 0.0)
+                    cp = F.softmax(clogits, dim=1)
+                    anchor_kl = (cp * (clogp - alogp)).sum(dim=1).mean()
                 loss = loss + args.anchor_coef * anchor_kl
                 akl_sum += anchor_kl.item() * len(idx)
 
@@ -378,6 +443,10 @@ def main():
             seen += k
             ce_sum += policy_loss.item() * k
             match_sum += (logits.argmax(1) == actions).float().sum().item()
+            if cw_train is not None:
+                cm = wts > 0.8427  # z > 2: the binary recipe's confident set
+                cmatch_sum += ((logits.argmax(1) == actions) & cm).float().sum().item()
+                cseen += cm.float().sum().item()
             err2_sum += value_loss.item() * k
             bce_sum += belief_loss.item() * k
             oerr2_sum += oracle_loss.item() * k
@@ -413,6 +482,8 @@ def main():
                 f"oracle EV {oev:.3f} | belief BCE {bce_sum / seen:.4f}")
         if anchor_net is not None:
             line += f" | anchor KL {akl_sum / seen:.4f}"
+        if cseen > 0:
+            line += f" | conf(z>2) match {cmatch_sum / cseen * 100:.1f}%"
         if leaf is not None and lseen:
             line += (f" | leaf EV {1.0 - (lerr2_sum / lseen) / leaf_var:.3f}"
                      f" | leaf oracle EV {1.0 - (loerr2_sum / lseen) / leaf_var:.3f}")

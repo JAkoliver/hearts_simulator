@@ -15,6 +15,9 @@ cd /e/hearts_simulator || exit 1
 BASE=Hall_of_Fame/hearts_model_milestone_1785322724.pth   # 8a89da90 (5th)
 BASE_MD5=8a89da90d522fe51dff4ae2fc8170961
 MIXES="a_nat60 b_even50 c_seed65 d_natonly e_seedspread"
+# Continuous-certainty exploratory arms (prereg amendment 2026-08-02):
+# distill --certainty-weighted, NOT candidate-eligible.
+CT_MIXES="f_ct_nat50 g_ct_2x50 h_ct_nat100"
 REP_SEEDS="101 202"          # confirmation replicate reserves seed 303
 # Block seeds: disjoint from each other (100M apart >> the ~14.2M span a
 # block's 12 workers cover) AND far above the generation seed space
@@ -34,13 +37,14 @@ MIX_DIR=expert_data/mixes
 
 echo "=== v2 mix experiment ($(date '+%F %H:%M')) ==="
 echo "baseline: $BASE (expect md5 $BASE_MD5)"
-echo "plan: ${MIXES// /,} x reps(${REP_SEEDS// /,}) -> train;"
+echo "plan: mixes(${MIXES// /,}) + CT arms(${CT_MIXES// /,}, exploratory,"
+echo "      NOT candidate-eligible) x reps(${REP_SEEDS// /,}) -> train;"
 echo "      each candidate x blocks(${BLOCK_SEEDS// /,}) n=$N_MATCHES w=$WORKERS -> eval"
-echo "      (= 10 trainings, 20 evals ~40min each, + null calibration)"
+echo "      (= 16 trainings, 32 evals ~40min each, + null calibration)"
 
 if [ "$1" != "--run" ]; then
   echo "PLAN MODE ONLY. Re-run with --run to execute."
-  for mix in $MIXES; do
+  for mix in $MIXES $CT_MIXES; do
     for rs in $REP_SEEDS; do
       echo "  train: distill --data $MIX_DIR/$mix.bin --train-seed $rs -> cand_v2_${mix}_r${rs}.pth"
       for bi in $BLOCK_SEEDS; do
@@ -56,7 +60,7 @@ fi
 [ "$ANCHOR_COEF" = "UNSET" ] && { echo "ABORT_CONFIG: export ANCHOR_COEF first (recipe freeze)"; exit 1; }
 md5=$(md5sum "$BASE" | cut -d' ' -f1)
 [ "$md5" = "$BASE_MD5" ] || { echo "ABORT_CONFIG: baseline md5 $md5 != $BASE_MD5"; exit 1; }
-for mix in $MIXES; do
+for mix in $MIXES $CT_MIXES; do
   [ -f "$MIX_DIR/$mix.bin" ] || { echo "ABORT_CONFIG: missing $MIX_DIR/$mix.bin (run build_v2_mixes.py)"; exit 1; }
 done
 # Never share the machine with generation (rule #14 spirit: both arms of
@@ -82,7 +86,13 @@ raise SystemExit(1 if bad else print(f"null calibration OK ({len(rows)} matches,
 PYEOF
 
 # ---- train + evaluate ---------------------------------------------------
-for mix in $MIXES; do
+for mix in $MIXES $CT_MIXES; do
+  # Recipe per arm family: binary confident-filter vs continuous-certainty
+  # (prereg amendment 2026-08-02); lambda = the SAME frozen ANCHOR_COEF.
+  case " $CT_MIXES " in
+    *" $mix "*) RECIPE_ARGS="--certainty-weighted" ;;
+    *)          RECIPE_ARGS="--min-confidence $MIN_CONF" ;;
+  esac
   for rs in $REP_SEEDS; do
     cand="cand_v2_${mix}_r${rs}.pth"
     if [ ! -f "$cand" ]; then
@@ -91,7 +101,7 @@ for mix in $MIXES; do
         --data "$MIX_DIR/$mix.bin" --match --arch v5 \
         --init "$BASE" --out "$cand" \
         --epochs "$EPOCHS" --holdout "$HOLDOUT" \
-        --min-confidence "$MIN_CONF" \
+        $RECIPE_ARGS \
         --anchor-coef "$ANCHOR_COEF" --anchor-model "$BASE" \
         --train-seed "$rs" > "logs/v2mix_train_${mix}_r${rs}.log" 2>&1
       rc=$?

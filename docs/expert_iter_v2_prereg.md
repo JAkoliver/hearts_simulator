@@ -135,3 +135,66 @@ with rollout context; a raw net absorbing only confident-state behavior
 captures an unknown fraction. If the true effect is below the gate's
 ~0.028-placement MDE, v2 fails "correctly." This is a mechanism-directed
 shot, not a sure one.
+
+## AMENDMENT 2026-08-02 (user-directed, registered BEFORE any mix bank
+## was built or evaluated): continuous-certainty exploratory arms
+
+Three additional comparative-stage arms testing the CONTINUOUS-certainty
+recipe - certainty as a per-record loss weight over ALL play-phase
+records, instead of the binary confident/anchor split.
+
+RECIPE (frozen, no new tunables):
+- Per play-phase record: z = (eq_best - eq_second) / gap_se (z=0 when
+  the stats are absent/invalid); weight w = erf(z/2), i.e. the
+  probability the observed preference DIRECTION is real, rescaled to
+  exceed chance (w=0 at z=0; ~0.84 at z=2; ~1 at z=4).
+- Loss = w x CE(teacher's chosen action) + lambda x (1-w) x
+  KL(candidate || baseline), both terms weighted-averaged in-batch;
+  lambda = the SAME anchor coefficient frozen at the binary recipe's
+  holdout freeze (no separate tuning). The binary recipe is this
+  recipe's step-function limit.
+- Value/belief losses train on ALL play records in these arms (a
+  stated difference from the binary arms, where they see only
+  confident records).
+
+ARMS (natural-family data only - isolates the enrichment/size axes
+from the seeded-composition axis; enrichment = confident fraction of
+the bank; natural play produces ~10%):
+  f_ct_nat50   50k records, natural enrichment rate (~10%)
+  g_ct_2x50    50k records, 2x natural enrichment (~20%)
+  h_ct_nat100  100k records, natural enrichment rate
+Each: 2 training replicates x 2 seed blocks n=3,200, same CRN blocks
+as the five mix arms; max-T familywise control extends over all 8 arms.
+
+REGISTERED CONTRASTS (the only interpretable ones; everything else
+across axes is exploratory):
+- ENRICHMENT (f vs g): the direct mechanism test of the v1-failure
+  hypothesis. Under continuous weighting, low-certainty records exert
+  ~zero CE pull, so enrichment should NOT matter. Flat dose-response =
+  the weighting neutralizes noise as designed; g materially better
+  than f = weighting insufficient, the noise channel is still open.
+- SIZE (f vs h): is data volume a lever for this recipe family?
+  (Total and confident count co-vary; practical question, not clean
+  attribution.)
+- RECIPE BRIDGE (d_natonly vs f/g/h): the only same-composition
+  binary-vs-continuous comparison. Continuous-vs-SEEDED-mix
+  comparisons confound recipe with composition: exploratory only.
+
+CANDIDACY (binding): these three arms are NOT candidate-eligible.
+Whatever their comparative results, the confirmation replicate and the
+battery draw only from the five mix arms (a)-(e). Rationale: the arms
+probe a different region of design space (low enrichment,
+natural-only) as mechanism probes; promoting one would swap the
+experiment's question mid-flight.
+
+LIFELINE BRANCH (pre-registered now, exercisable only as written):
+IF the binary battery FAILS and at least one continuous arm's
+comparative delta is helpful with familywise-adjusted significance
+(max-T p < .05 over all 8 arms), the closure entry records that
+exception and ONE follow-up pre-registration for the continuous
+recipe is permitted (its own one-shot battery, fresh data allowed).
+In every other case - including "continuous looked promising but not
+familywise-significant" - the stop rule's closure covers the
+continuous variant too, and no equity-scored-target recipe of any
+kind may be revisited without evidence admissible under
+experiment_rules.md's closed-directions preamble.

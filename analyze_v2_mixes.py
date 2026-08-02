@@ -39,7 +39,20 @@ import sys
 
 import numpy as np
 
-MIX_ORDER = ['a_nat60', 'b_even50', 'c_seed65', 'd_natonly', 'e_seedspread']
+MIX_ORDER = ['a_nat60', 'b_even50', 'c_seed65', 'd_natonly', 'e_seedspread',
+             'f_ct_nat50', 'g_ct_2x50', 'h_ct_nat100']
+# Candidacy (prereg + amendment 2026-08-02): only the five mix arms may
+# supply the confirmation/battery candidate; the continuous-certainty
+# arms are exploratory mechanism probes.
+ELIGIBLE = {'a_nat60', 'b_even50', 'c_seed65', 'd_natonly', 'e_seedspread'}
+# Registered contrasts (the only interpretable cross-arm comparisons).
+REGISTERED_CONTRASTS = [
+    ('f_ct_nat50', 'g_ct_2x50', 'ENRICHMENT (noise-neutralization mechanism test)'),
+    ('f_ct_nat50', 'h_ct_nat100', 'SIZE (data-volume lever)'),
+    ('d_natonly', 'f_ct_nat50', 'RECIPE BRIDGE (binary vs continuous, same composition)'),
+    ('d_natonly', 'g_ct_2x50', 'RECIPE BRIDGE (binary vs continuous, same composition)'),
+    ('d_natonly', 'h_ct_nat100', 'RECIPE BRIDGE (binary vs continuous, same composition)'),
+]
 FNAME_RE = re.compile(r'eval_(?P<mix>.+)_r(?P<rep>\w+)_b(?P<blk>\w+)\.csv$')
 
 
@@ -164,13 +177,15 @@ def analyze(eval_dir, n_perm=10000, write_verdicts=None, results_doc=None):
           f"max-T over {n_perm} sign-flip permutations):")
     for j, m in enumerate(mixes):
         s = summaries[m]
+        tag = '' if m in ELIGIBLE else '  [exploratory - NOT candidate-eligible]'
         print(f"  {m:13s} delta {s['delta']:+.4f}  hierSE {s['se_hier']:.4f}  "
               f"CI95 [{s['ci95'][0]:+.4f}, {s['ci95'][1]:+.4f}]  "
               f"unit-t {t_obs[j]:+.2f}  p_adj {p_adj[j]:.4f}  "
-              f"p_raw {p_raw[j]:.5f} (Bonferroni bar .01)")
+              f"p_raw {p_raw[j]:.5f} (Bonferroni bar .01){tag}")
         s['t_unit'] = float(t_obs[j])
         s['p_maxT_adj'] = float(p_adj[j])
         s['p_raw_one_sided'] = float(p_raw[j])
+        s['candidate_eligible'] = m in ELIGIBLE
 
     # Variance decomposition over the eval means.
     print("\nVariance decomposition (eval-mean scale):")
@@ -213,6 +228,19 @@ def analyze(eval_dir, n_perm=10000, write_verdicts=None, results_doc=None):
             print(f"  {mixes[i]} - {mixes[j]}: {mu:+.4f} (SE {se:.4f}) "
                   f"[{verdict}]")
 
+    reg = [(a, b, lab) for a, b, lab in REGISTERED_CONTRASTS
+           if a in mixes and b in mixes]
+    if reg:
+        print("\nRegistered contrasts (prereg amendment 2026-08-02; all other "
+              "cross-axis comparisons are exploratory):")
+        cmap = {tuple(sorted(c['pair'])): c for c in contrasts}
+        for a, b, lab in reg:
+            c = cmap.get(tuple(sorted([a, b])))
+            if c:
+                sign = 1 if c['pair'] == [a, b] else -1
+                print(f"  {lab}: {a} - {b} = {sign * c['delta']:+.4f} "
+                      f"(SE {c['se']:.4f}) [{c['verdict']}]")
+
     if write_verdicts:
         os.makedirs(write_verdicts, exist_ok=True)
         for m in mixes:
@@ -232,12 +260,13 @@ def analyze(eval_dir, n_perm=10000, write_verdicts=None, results_doc=None):
                     "This stage SELECTS, never concludes; claims require the "
                     "fresh-seed confirmation battery.\n\n")
             f.write("| mix | delta vs baseline | hier. SE | 95% CI | "
-                    "p (max-T adj) |\n|---|---|---|---|---|\n")
+                    "p (max-T adj) | candidate-eligible |\n|---|---|---|---|---|---|\n")
             for m in mixes:
                 s = summaries[m]
                 f.write(f"| {m} | {s['delta']:+.4f} | {s['se_hier']:.4f} | "
                         f"[{s['ci95'][0]:+.4f}, {s['ci95'][1]:+.4f}] | "
-                        f"{s['p_maxT_adj']:.4f} |\n")
+                        f"{s['p_maxT_adj']:.4f} | "
+                        f"{'yes' if m in ELIGIBLE else 'NO (exploratory)'} |\n")
             f.write(f"\nUnits: {n} (block, match) pairs; CRN check: "
                     f"{'OK' if crn_ok else 'VIOLATED'}.\n")
             f.write("\n| contrast | delta | SE | verdict |\n|---|---|---|---|\n")

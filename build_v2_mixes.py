@@ -42,6 +42,17 @@ MIXES = {
     'e_seedspread': (0.00, 1.00),
 }
 
+# Continuous-certainty arms (prereg amendment 2026-08-02): natural-family
+# play records only, sampled to a target ENRICHMENT (confident fraction).
+# (bank size at --target 50000, enrichment multiple of the natural rate).
+# NOT candidate-eligible; trained with distill.py --certainty-weighted.
+CT_MIXES = {
+    'f_ct_nat50':  (50000, 1.0),
+    'g_ct_2x50':   (50000, 2.0),
+    'h_ct_nat100': (100000, 1.0),
+}
+ALL_MIXES = list(MIXES) + list(CT_MIXES)
+
 CONF_SIGMA = 2.0  # frozen (prereg); distill.py --min-confidence must match
 
 
@@ -179,8 +190,8 @@ def main():
                          'knob; recorded in the manifest)')
     ap.add_argument('--seed-base', type=int, default=20260801)
     ap.add_argument('--out-dir', default='expert_data/mixes')
-    ap.add_argument('--mix', nargs='+', default=list(MIXES),
-                    choices=list(MIXES))
+    ap.add_argument('--mix', nargs='+', default=ALL_MIXES,
+                    choices=ALL_MIXES)
     ap.add_argument('--dry-run', action='store_true',
                     help='feasibility/composition report only, write nothing')
     args = ap.parse_args()
@@ -197,26 +208,41 @@ def main():
     print("  confident:     " + '  '.join(f"{k}={v:,}" for k, v in conf_avail.items()))
     print("  non-conf play: " + '  '.join(f"{k}={v:,}" for k, v in nonconf_avail.items()))
 
+    # Natural-family confident rate among play records (the CT arms'
+    # "natural enrichment"); recorded in every CT manifest.
+    nat_play = conf_avail['nat'] + nonconf_avail['nat']
+    p_nat = conf_avail['nat'] / max(1, nat_play)
+
     feasible = True
     for mix in args.mix:
         # Seed keyed to the CANONICAL mix index, not the invocation's
         # subset order -- selection must reproduce regardless of which
         # --mix subset a run asks for.
-        mi = list(MIXES).index(mix)
-        req = mix_requirements(mix, args.target)
-        anchor_total = round(args.target * args.anchor_ratio)
-        areq = {}
-        if anchor_total:
-            nat_a = round(anchor_total * MIXES[mix][0])
-            areq = {'nat': nat_a}
-            for fam, cnt in zip(FAMILIES,
-                                split_even(anchor_total - nat_a, len(FAMILIES))):
-                areq[fam] = cnt
-            if MIXES[mix][1] == 0:
-                areq = {'nat': anchor_total}
+        mi = ALL_MIXES.index(mix)
         seed = args.seed_base + mi
-        print(f"\n== {mix} (selection seed {seed}) ==")
-        print("  confident req: " + '  '.join(f"{k}={v:,}" for k, v in req.items() if v))
+        if mix in CT_MIXES:
+            spec_size, mult = CT_MIXES[mix]
+            size = round(spec_size * args.target / 50000)
+            n_conf = round(size * min(1.0, p_nat * mult))
+            req, areq = {'nat': n_conf}, {'nat': size - n_conf}
+            print(f"\n== {mix} (selection seed {seed}, continuous-certainty) ==")
+            print(f"  size {size:,}  natural conf rate {p_nat:.3f}  "
+                  f"x{mult:g} -> {n_conf:,} confident + {size - n_conf:,} "
+                  f"non-confident (enrichment {n_conf / max(1, size):.3f})")
+        else:
+            req = mix_requirements(mix, args.target)
+            anchor_total = round(args.target * args.anchor_ratio)
+            areq = {}
+            if anchor_total:
+                nat_a = round(anchor_total * MIXES[mix][0])
+                areq = {'nat': nat_a}
+                for fam, cnt in zip(FAMILIES,
+                                    split_even(anchor_total - nat_a, len(FAMILIES))):
+                    areq[fam] = cnt
+                if MIXES[mix][1] == 0:
+                    areq = {'nat': anchor_total}
+            print(f"\n== {mix} (selection seed {seed}) ==")
+            print("  confident req: " + '  '.join(f"{k}={v:,}" for k, v in req.items() if v))
         short = [f"{k} (need {v:,}, have {conf_avail[k]:,})"
                  for k, v in req.items() if v > conf_avail[k]]
         short += [f"{k} anchor (need {v:,}, have {nonconf_avail[k]:,})"
@@ -236,9 +262,18 @@ def main():
         bank, index, n = write_mix(files, mix, conf_sel, anch_sel,
                                    args.out_dir, seed)
         manifest = {
-            'mix': mix, 'target_confident': args.target,
+            'mix': mix,
+            'recipe': ('continuous-certainty (distill --certainty-weighted; '
+                       'prereg amendment 2026-08-02; NOT candidate-eligible)'
+                       if mix in CT_MIXES else
+                       'binary confident-filter + anchor (prereg v2)'),
+            'target_confident': args.target,
             'composition_confident': req,
             'composition_anchor': areq, 'anchor_ratio': args.anchor_ratio,
+            **({'natural_conf_rate': round(p_nat, 5),
+                'enrichment_multiple': CT_MIXES[mix][1],
+                'achieved_enrichment': round(req['nat'] / max(1, req['nat'] + areq['nat']), 5)}
+               if mix in CT_MIXES else {}),
             'selection_seed': seed, 'confidence_sigma': CONF_SIGMA,
             'records_written': n,
             'ordering': 'grouped by (source file, match_id); group order '
