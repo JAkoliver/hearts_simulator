@@ -8,15 +8,24 @@
   :root { --felt:#1d6b3c; --felt-dark:#155230; --card-bg:#fdfdf8; --gold:#e8b923; }
   * { box-sizing:border-box; margin:0; padding:0; }
   body { font-family:system-ui, sans-serif; background:var(--felt-dark); color:#eee;
-         min-height:100vh; display:flex; flex-direction:column; align-items:center; }
+         min-height:100vh; display:flex; flex-direction:column; align-items:center;
+         user-select:none; cursor:default; }
   header { width:100%; text-align:center; padding:8px; background:#0e3a20; }
   header h1 { font-size:1.1rem; font-weight:600; display:inline; }
   header .sub { font-size:.78rem; color:#9fd4b3; }
-  #layout { display:flex; gap:12px; align-items:flex-start; margin-top:10px; }
-  #table { position:relative; width:min(92vw, 700px); height:min(56vh, 410px);
+  /* The table centers to the viewport (same axis as the hand); the side
+     panel hangs off its right edge absolutely so it can't push it over. */
+  /* Auto margins here + on the footer split the leftover viewport height
+     equally above and below the whole play group (table, hand, pass,
+     footer move together). Auto margins collapse to 0 when space runs
+     out, so short windows fall back to the top-anchored layout with no
+     clipping. */
+  #layout { position:relative; display:flex; gap:12px; align-items:flex-start; margin-top:auto; }
+  #table { position:relative; width:min(72vw, 950px); height:min(60vh, 560px);
            background:radial-gradient(ellipse at center, var(--felt) 0%, var(--felt-dark) 100%);
            border-radius:16px; box-shadow:0 4px 18px rgba(0,0,0,.5); }
-  #side { width:170px; font-size:.8rem; display:flex; flex-direction:column; gap:8px; }
+  #side { position:absolute; left:100%; top:0; margin-left:12px; width:170px;
+          font-size:.8rem; display:flex; flex-direction:column; gap:8px; }
   .panel { background:rgba(0,0,0,.35); border-radius:10px; padding:8px 10px; }
   .panel h3 { font-size:.75rem; color:#9fd4b3; text-transform:uppercase; margin-bottom:5px; }
   .panel .mini { display:inline-flex; margin:1px; }
@@ -30,12 +39,18 @@
   #trick { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; }
   .tcard { position:absolute; animation:drop .25s ease-out; }
   @keyframes drop { from { transform:scale(1.25) translateY(-16px); opacity:.4; } }
-  .tcard.pos0 { translate:0 52px; }
-  .tcard.pos1 { translate:-84px 0; }
-  .tcard.pos2 { translate:0 -52px; }
-  .tcard.pos3 { translate:84px 0; }
-  #banner { position:absolute; top:40%; width:100%; text-align:center; font-size:1.05rem;
-            color:#ffe28a; text-shadow:0 1px 3px #000; pointer-events:none; font-weight:600; }
+  /* Trick cards + cross offsets scaled 1.36x with the 700x410 -> 950x560
+     table enlargement (52/84px offsets -> 71/114px). */
+  .tcard.pos0 { translate:0 71px; }
+  .tcard.pos1 { translate:-114px 0; }
+  .tcard.pos2 { translate:0 -71px; }
+  .tcard.pos3 { translate:114px 0; }
+  #trick .card { width:68px; height:98px; font-size:1.25rem; border-radius:9px;
+                 padding:5px 7px; }
+  #trick .card .suit { font-size:1.6rem; }
+  #banner { position:absolute; top:calc(50% + 130px); width:100%; text-align:center;
+            font-size:1.05rem; color:#ffe28a; text-shadow:0 1px 3px #000;
+            pointer-events:none; font-weight:600; }
   .card { display:inline-flex; flex-direction:column; justify-content:space-between;
           width:50px; height:72px; background:var(--card-bg); color:#111; border-radius:7px;
           border:1px solid #999; padding:4px 5px; font-weight:700; font-size:.92rem;
@@ -44,15 +59,24 @@
   .card.red { color:#c22; }
   .card.mini { width:34px; height:48px; font-size:.7rem; padding:2px 3px; border-radius:5px; }
   .card.mini .suit { font-size:.85rem; }
+  /* Top padding = selected-card rise (14px) + outline (3px) + 1px slack:
+     a raised card tops out at the hand's edge, clear of the table and
+     score tag above, at any resolution (all px-based). */
   #hand { display:flex; flex-wrap:wrap; gap:6px; justify-content:center;
-          padding:10px 8px 2px; max-width:96vw; min-height:90px; }
-  #hand .card { cursor:pointer; transition:transform .08s; }
+          padding:18px 8px 2px; max-width:96vw; min-height:90px; }
+  #hand .card { cursor:pointer; transition:transform .08s;
+                width:64px; height:92px; font-size:1.15rem; border-radius:8px;
+                padding:5px 6px; }
+  #hand .card .suit { font-size:1.5rem; }
   #hand .card.illegal { opacity:.38; cursor:not-allowed; }
   #hand .card:not(.illegal):hover { transform:translateY(-8px); }
   #hand .card.selected { transform:translateY(-14px); outline:3px solid var(--gold); }
-  #hand .card.selected::after { content:'✓'; position:absolute; top:-22px; left:50%;
-          translate:-50% 0; color:var(--gold); font-size:1rem; }
-  #status { padding:5px 12px; font-size:.95rem; text-align:center; min-height:2em; }
+  /* Contextual text lives ON the felt, above your seat tag - it can't
+     collide with cards rising out of the hand, and the hand needs no
+     reserved headroom above it. */
+  #status { position:absolute; bottom:38px; left:0; width:100%; text-align:center;
+            font-size:.95rem; color:#eee; text-shadow:0 1px 3px #000;
+            pointer-events:none; }
   #status .thinking::after { content:''; animation:dots 1.2s steps(4) infinite; }
   @keyframes dots { 0% {content:'';} 25% {content:'.';} 50% {content:'..';} 75% {content:'...';} }
   button { background:var(--gold); border:0; color:#222; font-weight:600; padding:8px 20px;
@@ -66,9 +90,19 @@
   #overlay h2 { color:#ffe28a; margin-bottom:10px; }
   #overlay table { margin:0 auto 10px; border-collapse:collapse; }
   #overlay td, #overlay th { padding:4px 14px; text-align:center; }
-  footer { font-size:.7rem; color:#88ab96; padding:6px; text-align:center; }
-  @media (max-width:900px) { #layout { flex-direction:column; align-items:center; }
-    #side { width:min(92vw, 700px); flex-direction:row; flex-wrap:wrap; } }
+  footer { font-size:.7rem; color:#88ab96; padding:6px; text-align:center;
+           margin-bottom:auto; }
+  /* Below this width the absolute side panels would clip off-screen
+     (72vw table + 2 x 182px panels = 100vw at 1300px): put them back in
+     flow, under the table, and let the table use the full width. */
+  @media (max-width:1300px) { #layout { flex-direction:column; align-items:center; }
+    #table { width:min(92vw, 950px); }
+    #side { position:static; margin-left:0; width:min(92vw, 950px);
+            flex-direction:row; flex-wrap:wrap; }
+    #dev-controls { position:static; margin:0; width:auto; text-align:center; } }
+  #dev-controls { position:absolute; right:100%; top:0; margin-right:12px; width:170px;
+                  text-align:right; }
+  #dev-controls button { font-size:.75rem; padding:4px 12px; background:#7a2f2f; color:#eee; }
 </style>
 </head>
 <body>
@@ -85,17 +119,18 @@
     <div class="seat" id="seat-bottom"></div>
     <div id="trick"></div>
     <div id="banner"></div>
+    <div id="status"></div>
   </div>
   <div id="side">
     <div class="panel"><h3>This deal</h3><div id="deal-info"></div></div>
     <div class="panel"><h3>Last trick</h3><div id="last-trick">None yet</div></div>
     <div class="panel"><h3>You received</h3><div id="received">&mdash;</div></div>
   </div>
+  <div id="dev-controls" style="display:none"><button id="reset-btn">Reset match (dev)</button></div>
 </div>
 
-<div id="status"></div>
-<div id="pass-controls" style="display:none"><button id="pass-btn" disabled></button></div>
 <div id="hand"></div>
+<div id="pass-controls" style="display:none"><button id="pass-btn" disabled></button></div>
 
 <div id="overlay"><div class="opanel">
   <h2 id="o-title"></h2>
@@ -108,7 +143,11 @@
 <script>
 const SUIT_CHAR = {C:'♣', D:'♦', S:'♠', H:'♥'};
 const AI_DELAY = 800, PASS_DELAY = 150, TRICK_PAUSE = 2000, DEAL_PAUSE = 400;
+const DEV_CONTROLS = true;   // set false to hide testing controls (reset button)
+const RANKS = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'], SUITS = 'CDSH';
+const cardName = c => RANKS[c % 13] + SUITS[Math.floor(c / 13)];
 let sid = null, state = null, busy = false, passSelection = [];
+let preselect = null;   // card queued mid-animation, auto-played on your turn
 
 const el = id => document.getElementById(id);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -125,15 +164,33 @@ const SEAT_IDS = ['seat-bottom', 'seat-left', 'seat-top', 'seat-right'];
 function renderSeats(highlightSeat=null) {
   for (let s = 0; s < 4; s++) {
     const node = el(SEAT_IDS[pos(s)]);
-    const label = s === state.your_seat ? 'You' : 'AI';
+    const label = s === state.your_seat ? 'You' : `Player ${s + 1} (AI)`;
     node.innerHTML = `<span class="tag">${label} &middot; ${state.match_scores[s]}
       <small>(+${state.round_scores[s]})</small></span>`;
     node.classList.toggle('active', s === highlightSeat);
   }
 }
+// Keyed diff, NOT an innerHTML rebuild: the .tcard drop animation runs on
+// node creation, so rebuilding the whole trick re-animated every card on
+// every render (and cut short the animation of a card just played).
+// Existing (pos, name) nodes are left untouched; only new cards animate.
 function renderTrick(cards) {
-  el('trick').innerHTML = cards.map(t =>
-    `<div class="tcard pos${pos(t.seat)}">${cardHTML(t.name)}</div>`).join('');
+  const trick = el('trick');
+  const want = new Map(cards.map(t => [String(pos(t.seat)), t.name]));
+  [...trick.children].forEach(node => {
+    if (want.get(node.dataset.pos) !== node.dataset.name) node.remove();
+  });
+  const have = new Set([...trick.children].map(n => n.dataset.pos));
+  for (const t of cards) {
+    const p = String(pos(t.seat));
+    if (have.has(p)) continue;
+    const div = document.createElement('div');
+    div.className = `tcard pos${p}`;
+    div.dataset.pos = p;
+    div.dataset.name = t.name;
+    div.innerHTML = cardHTML(t.name);
+    trick.appendChild(div);
+  }
 }
 function renderSide() {
   el('deal-info').innerHTML =
@@ -141,16 +198,21 @@ function renderSide() {
   el('last-trick').innerHTML = state.last_trick
     ? state.last_trick.cards.map(c => cardHTML(c.name, 'mini')).join('') +
       `<div>${state.last_trick.winner === null ? '' :
-        (state.last_trick.winner === state.your_seat ? 'you took it' : 'AI took it')}</div>`
+        (state.last_trick.winner === state.your_seat ? 'you took it'
+         : `Player ${state.last_trick.winner + 1} (AI) took it`)}</div>`
     : 'None yet';
   el('received').innerHTML = state.received && state.received.length
     ? state.received.map(n => cardHTML(n, 'mini')).join('') : '&mdash;';
 }
-function renderHand() {
+// showLegal=false renders every card undimmed: used during the AI
+// animation, where the state's legality is computed for your UPCOMING
+// turn and the follow-suit dimming would leak the AI's next lead suit
+// before its card is shown. True legality applies when the turn arrives.
+function renderHand(showLegal = true) {
   const legal = new Set(state.legal);
   el('hand').innerHTML = state.hand.map(h => {
-    let cls = legal.has(h.card) ? '' : 'illegal';
-    if (passSelection.includes(h.card)) cls += ' selected';
+    let cls = (showLegal && !legal.has(h.card)) ? 'illegal' : '';
+    if (passSelection.includes(h.card) || h.card === preselect) cls += ' selected';
     return cardHTML(h.name, cls);
   }).join('');
   document.querySelectorAll('#hand .card:not(.illegal)').forEach(node => {
@@ -177,23 +239,52 @@ function render() {
   renderHand();
   el('banner').textContent = '';
   if (state.finished) return showMatchEnd();
+  // A card queued mid-animation: play it now if it's legal, drop it if not.
+  if (preselect !== null && state.your_turn && !state.passing) {
+    const c = preselect;
+    preselect = null;
+    if (state.legal.includes(c)) {
+      setStatus('Playing your queued card&hellip;');
+      setTimeout(() => { if (!busy && state.your_turn) submit([c]); }, 200);
+      return;
+    }
+    markPreselect();   // clear the stale outline; fall through to normal status
+  }
   if (state.your_turn)
     setStatus(state.passing
       ? `Select ${3 - state.passed_so_far.length} card(s) to pass ${state.pass_direction ?? ''}`
       : 'Your turn - click a card');
 }
 
+function markPreselect() {
+  document.querySelectorAll('#hand .card').forEach(n => {
+    const h = state.hand.find(x => x.name === n.dataset.name);
+    n.classList.toggle('selected', !!h && h.card === preselect);
+  });
+}
+// Apply real legality dimming mid-animation - called the moment it stops
+// being an information leak (the lead of your trick is visible, or you
+// took the trick and lead next). Deselects a queued card that the now-
+// known lead makes illegal.
+function applyLegality() {
+  if (preselect !== null && !state.legal.includes(preselect)) preselect = null;
+  renderHand(true);
+}
 function onCardClick(card) {
-  if (busy || !state.your_turn) return;
-  if (state.passing) {
+  if (!busy && state.your_turn && state.passing) {
     const need = 3 - state.passed_so_far.length;
     const i = passSelection.indexOf(card);
     if (i >= 0) passSelection.splice(i, 1);          // deselect
     else if (passSelection.length < need) passSelection.push(card);
     renderHand();
-  } else {
-    submit([card]);
+    return;
   }
+  if (!busy && state.your_turn) { submit([card]); return; }
+  // Mid-animation: queue the card; it auto-plays when your turn arrives
+  // (or deselects if it turns out to be illegal then).
+  if (state.passing) return;
+  preselect = (preselect === card) ? null : card;
+  markPreselect();
 }
 function confirmPass() {
   if (passSelection.length === 3 - state.passed_so_far.length)
@@ -209,6 +300,9 @@ async function api(path, opts) {
 async function submit(cards) {
   busy = true;
   passSelection = [];
+  // The trick as currently displayed: animate() must build on top of it,
+  // not from empty (earlier plays this trick used to vanish and reappear).
+  const preTrick = state && state.trick ? state.trick.slice() : [];
   try {
     let events = [];
     for (const card of cards) {
@@ -218,32 +312,69 @@ async function submit(cards) {
       events = events.concat(resp.events || []);
       state = resp;
     }
-    await animate(events);
+    // Immediate feedback: the server has already fast-forwarded to your
+    // next turn, so the final hand (passed cards gone, received cards
+    // in) and the side panels can render NOW, before the AI animation.
+    // Exception: if the final state is the NEXT deal's passing phase,
+    // just remove the submitted cards - the full refresh would show
+    // next-deal pass controls while this deal's last trick still plays.
+    if (!state.passing) {
+      renderHand(false);   // no legality dimming until the turn arrives
+      renderSide();
+    } else {
+      el('pass-controls').style.display = 'none';
+      for (const c of cards) {
+        const node = document.querySelector(`#hand .card[data-name="${cardName(c)}"]`);
+        if (node) node.remove();
+      }
+    }
+    await animate(events, preTrick);
     render();
   } catch (e) { setStatus('Error: ' + e.message); }
   finally { busy = false; }
 }
 
-// Replay the server's event list at human speed (desktop-game pacing)
-async function animate(events) {
-  let shown = [];
+// Replay the server's event list at human speed (desktop-game pacing).
+// Legality dimming applies as soon as it's public information: the state's
+// legal set refers to your NEXT decision, whose trick is the one after the
+// last trick_end in the stream - dim when that trick's lead card renders,
+// or at the trick_end itself when you won it (you lead, no plays follow).
+async function animate(events, preTrick = []) {
+  let shown = preTrick.map(t => ({seat: t.seat, name: t.name}));
   const anyPlays = events.some(e => e.type === 'play');
   if (anyPlays) setStatus('AI is thinking', true);
-  for (const ev of events) {
+  const lastTE = events.map(e => e.type).lastIndexOf('trick_end');
+  const playsAfterLastTE = events.some((e, i) => i > lastTE && e.type === 'play');
+  const canDim = () => state.your_turn && !state.passing && !state.finished;
+  let dimmed = false;
+  for (let i = 0; i < events.length; i++) {
+    const ev = events[i];
     if (ev.type === 'play') {
       shown.push({seat: ev.seat, name: ev.name});
       renderTrick(shown);
       renderSeats(ev.seat);
+      if (!dimmed && i > lastTE && canDim()) { dimmed = true; applyLegality(); }
       await sleep(ev.seat === state.your_seat ? 120 : AI_DELAY);
     } else if (ev.type === 'trick_end') {
       renderTrick(ev.cards);
       el('banner').textContent = ev.winner === null ? '' :
-        (ev.winner === state.your_seat ? 'You took the trick' : 'AI took the trick');
+        (ev.winner === state.your_seat ? 'You took the trick'
+                                       : `Player ${ev.winner + 1} (AI) took the trick`);
+      setStatus('&hellip;');   // steady placeholder: the banner says it all
+      if (!dimmed && i === lastTE && !playsAfterLastTE && canDim()) {
+        dimmed = true;
+        applyLegality();   // you lead next: lead legality is known now
+      }
       await sleep(TRICK_PAUSE);
       el('banner').textContent = '';
       shown = [];
       renderTrick([]);
+      if (events.some((e, j) => j > i && e.type === 'play'))
+        setStatus('AI is thinking', true);
     } else if (ev.type === 'deal_end') {
+      preselect = null;   // the hand is about to change entirely
+      if (state.finished) continue;   // match over: skip the deal popup,
+                                      // only the end-game screen shows
       await showDealEnd(ev);
       await sleep(DEAL_PAUSE);
     }
@@ -256,7 +387,7 @@ function showDealEnd(ev) {
       ? (ev.moon_by === state.your_seat ? 'You shot the moon!' : 'The AI shot the moon!')
       : `Deal ${state.deal_no - 1} complete`;
     el('o-body').innerHTML = '<table><tr><th>Player</th><th>This deal</th><th>Total</th></tr>' +
-      [0,1,2,3].map(s => `<tr><td>${s === state.your_seat ? 'You' : 'AI'}</td>
+      [0,1,2,3].map(s => `<tr><td>${s === state.your_seat ? 'You' : `Player ${s + 1} (AI)`}</td>
         <td>+${ev.round_scores[s]}</td><td>${ev.totals[s]}</td></tr>`).join('') + '</table>';
     el('o-btn').textContent = 'Next deal';
     el('o-btn').onclick = () => { el('overlay').style.display = 'none'; resolve(); };
@@ -271,7 +402,7 @@ function showMatchEnd() {
     `You placed ${['','1st','2nd','3rd','4th'][Math.round(p)] || p}`;
   el('o-body').innerHTML = '<table><tr><th>Place</th><th>Player</th><th>Score</th></tr>' +
     order.map(s => `<tr><td>${state.placements[s]}</td>
-      <td>${s === state.your_seat ? 'You' : 'AI'}</td>
+      <td>${s === state.your_seat ? 'You' : `Player ${s + 1} (AI)`}</td>
       <td>${state.match_scores[s]}</td></tr>`).join('') + '</table>';
   el('o-btn').textContent = 'Play again';
   el('o-btn').onclick = () => { el('overlay').style.display = 'none'; newMatch(); };
@@ -280,11 +411,33 @@ function showMatchEnd() {
 
 async function newMatch() {
   passSelection = [];
+  preselect = null;
   state = await api('/api/new', {method:'POST'});
   sid = state.sid;
+  localStorage.setItem('hearts_sid', sid);
   render();
 }
-newMatch();
+// Refreshing resumes the ongoing match (the server keeps the session and
+// is always parked at your turn between requests); only the reset button
+// or a finished/lost session starts a new one.
+async function init() {
+  const saved = localStorage.getItem('hearts_sid');
+  if (saved) {
+    try {
+      const st = await api(`/api/state/${saved}`);
+      if (!st.finished) { sid = saved; state = st; render(); return; }
+    } catch (e) { /* unknown session (e.g. server restarted): start fresh */ }
+  }
+  await newMatch();
+}
+if (DEV_CONTROLS) {
+  el('dev-controls').style.display = 'block';
+  el('reset-btn').onclick = () => {
+    el('overlay').style.display = 'none';
+    newMatch();
+  };
+}
+init();
 </script>
 </body>
 </html>
