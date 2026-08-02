@@ -83,6 +83,7 @@
 #include <fstream>
 #include <iostream>
 #include <memory>
+#include <random>
 #include <string>
 #include <thread>
 #include <vector>
@@ -327,7 +328,8 @@ static void RunMatchWorker(int tid, int quota, long match_base, unsigned int see
                            std::shared_ptr<InferenceBackend> backend, int dim,
                            const SearchPlayer::Config& base_cfg,
                            bool have_start, std::array<double, 4> start_rel,
-                           int start_deals, const std::string& out_path,
+                           int start_deals, int start_jitter,
+                           const std::string& out_path,
                            GenShared& shared) {
     try {
         std::vector<std::unique_ptr<SearchPlayer>> players;
@@ -367,11 +369,29 @@ static void RunMatchWorker(int tid, int quota, long match_base, unsigned int see
             std::array<double, 4> totals{};
             int deals_played = 0;
             if (have_start) {
+                // --start-jitter J: per-match seed-derived offsets in [-J, +J]
+                // per slot turn each seeded family from a single score vector
+                // into a NEIGHBORHOOD on the score-state manifold (2026-08-01;
+                // deterministic from (seed, m) - reproducibility preserved).
+                // Clamp keeps totals in [0, 99] (still pre-elimination).
+                std::array<double, 4> rel = start_rel;
+                if (start_jitter > 0) {
+                    std::mt19937 jrng(seed * 2654435761u +
+                                      static_cast<unsigned>(m) * 40503u + 7u);
+                    std::uniform_int_distribution<int> jd(-start_jitter,
+                                                          start_jitter);
+                    for (int i = 0; i < 4; ++i) {
+                        double v = rel[i] + jd(jrng);
+                        if (v < 0.0) v = 0.0;
+                        if (v > 99.0) v = 99.0;
+                        rel[i] = v;
+                    }
+                }
                 for (int i = 0; i < 4; ++i) {
-                    totals[(rot_seat + i) % 4] = start_rel[i];
+                    totals[(rot_seat + i) % 4] = rel[i];
                 }
                 deals_played = static_cast<int>(std::round(
-                    (start_rel[0] + start_rel[1] + start_rel[2] + start_rel[3]) / 26.0));
+                    (rel[0] + rel[1] + rel[2] + rel[3]) / 26.0));
             }
             if (start_deals >= 0) deals_played = start_deals;
 
@@ -535,7 +555,7 @@ int main(int argc, char** argv) {
     // --match mode (match-aware expert iteration)
     bool match_mode = false;
     std::string equity_path, start_totals_str;
-    int k_endgame = 0, start_deals = -1;
+    int k_endgame = 0, start_deals = -1, start_jitter = 0;
 
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
@@ -560,6 +580,7 @@ int main(int argc, char** argv) {
         else if (a == "--k-endgame") k_endgame = std::stoi(next());
         else if (a == "--start-totals") start_totals_str = next();
         else if (a == "--start-deals") start_deals = std::stoi(next());
+        else if (a == "--start-jitter") start_jitter = std::stoi(next());
         else { std::cerr << "Unknown arg: " << a << "\n"; return 2; }
     }
     if (model_path.empty()) {
@@ -685,7 +706,7 @@ int main(int argc, char** argv) {
         if (match_mode) {
             pool.emplace_back(RunMatchWorker, t, quota, match_base, seed + t,
                               seed, backend, dim, base_cfg, have_start,
-                              start_rel, start_deals,
+                              start_rel, start_deals, start_jitter,
                               ThreadOutPath(out_path, t, threads),
                               std::ref(shared));
             match_base += quota;
