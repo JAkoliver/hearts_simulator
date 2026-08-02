@@ -2,19 +2,32 @@
 
 The v2 replay contract: MatchEnv(seed) + the logged per-deal action
 sequences reproduce a match bit-exactly (verified per deal against the
-logged round scores). On top of the replay this reports per-deal point
-flow, human moons, and MISSED-BLOCK opportunities - tricks the human was
-winning where an AI held a higher card of the led suit and chose not to
-beat it (the moon-defense hole's per-decision signature; see the
-2026-08-02 exploit-session analysis).
+logged round scores). On top of the replay this reports, per deal:
 
-Caveats: in-suit blocks only (discard-choice failures are invisible);
-ducking is CORRECT normal play - judge blocks by the human_pts context.
+- point flow and moon detection (human AND AI moons);
+- MISSED BLOCKS: the human holds the trick, an AI still holding a higher
+  lead-suit card ducks under it;
+- PRE-DUCKS (counterfactual): the AI acted BEFORE the human in a trick
+  the human won, holding a card that would have beaten the human's
+  eventual winner - labeled counterfactual because the human might have
+  played differently;
+- FED POINTS: a void AI discards a point card (heart / QS) into a trick
+  the human won while holding a pointless discard - normal-Hearts
+  dumping instinct inverted into moon fuel;
+- PASS FEEDS: cards each AI passed that ended up in the human's played
+  set (receiver identified with no direction convention needed - a card
+  can only be played by the seat that holds it).
+
+Every finding carries human_pts_before and a moon_alive flag (the human
+holds ALL points taken so far) - ducking/dumping is CORRECT normal play,
+so only moon-alive findings indict the defense. See the 2026-08-02
+exploit-session analysis.
 
 Usage:
   python hearts_web/analyze_matches.py            # latest human match
   python hearts_web/analyze_matches.py --sid SID  # a specific match
   python hearts_web/analyze_matches.py --all      # every v2 match
+                                                  # (+ abandoned sessions)
 """
 import argparse
 import json
@@ -39,6 +52,14 @@ def pts(c):
     return 1 if c // 13 == 3 else (13 if c == 36 else 0)
 
 
+def moon_shooter(round_scores):
+    """Seat index of a successful moon, else None."""
+    for s, v in enumerate(round_scores):
+        if v == 0 and all(x == 26 for i, x in enumerate(round_scores) if i != s):
+            return s
+    return None
+
+
 def analyze_match(match, deals):
     h = match['human_seat']
     print(f"match {match['sid']}: seed {match['seed']}, human seat {h}, "
@@ -47,62 +68,115 @@ def analyze_match(match, deals):
     print(f"final {match['final']} placements {match['placements']}\n")
 
     menv = MatchEnv(seed=match['seed'])
-    all_blocks = []
+    tot = {'block': 0, 'block_alive': 0, 'pre': 0, 'pre_alive': 0,
+           'fed': 0, 'fed_alive': 0}
     for d in sorted(deals, key=lambda x: x['deal_no']):
-        play_seq = []
+        play_seq, pass_by = [], {s: [] for s in range(4)}
         rs = None
         for seat, card, ms in d['actions']:
             assert menv.get_current_player() == seat, 'replay desync'
-            if not menv.is_passing():
+            if menv.is_passing():
+                pass_by[seat].append(card)
+            else:
                 play_seq.append((seat, card))
             _, _, rs = menv.step(card)
         ok = list(map(int, rs)) == d['round_scores']
+        human_played = set(c for s, c in play_seq if s == h)
         remaining = {s: set(c for ss, c in play_seq if ss == s)
                      for s in range(4)}
         tricks = [play_seq[i:i + 4] for i in range(0, 52, 4)]
         taken = [0, 0, 0, 0]
-        timeline, dblocks = [], []
+        timeline, findings = [], []
+
         for ti, tr in enumerate(tricks):
             lead = tr[0][1] // 13
-            cur_ws, cur_wc = tr[0]
+            alive = sum(taken) == taken[h]  # human holds ALL points so far
+            # Final winner of the trick.
+            fw, fwc = tr[0]
             for s, c in tr[1:]:
-                # Block check BEFORE updating the winner: at this seat's
-                # decision the human holds the trick - could it be beaten?
+                if c // 13 == lead and c % 13 > fwc % 13:
+                    fw, fwc = s, c
+            hpos = next((i for i, (s, _) in enumerate(tr) if s == h), None)
+
+            cur_ws, cur_wc = tr[0]
+            for i, (s, c) in enumerate(tr):
+                if i == 0:
+                    continue
                 if s != h and cur_ws == h:
+                    # MISSED BLOCK: human holds the trick at this decision.
                     higher = sorted(x for x in remaining[s]
                                     if x // 13 == lead and x % 13 > cur_wc % 13)
                     beat = c // 13 == lead and c % 13 > cur_wc % 13
                     if higher and not beat:
-                        dblocks.append({'trick': ti + 1, 'ai': s,
-                                        'played': name(c),
-                                        'could_have': [name(x) for x in higher],
-                                        'human_pts_before': taken[h],
-                                        'trick_pts': sum(pts(c2) for _, c2 in tr)})
+                        findings.append(('block', ti, s, alive, taken[h],
+                                         f"played {name(c)}, held "
+                                         f"{','.join(name(x) for x in higher)}"))
                 if c // 13 == lead and c % 13 > cur_wc % 13:
                     cur_ws, cur_wc = s, c
+
+            if fw == h:
+                for i, (s, c) in enumerate(tr):
+                    if s == h:
+                        continue
+                    if hpos is not None and i < hpos:
+                        # PRE-DUCK (counterfactual): acted before the human,
+                        # held a card beating the human's eventual winner.
+                        higher = sorted(x for x in remaining[s]
+                                        if x // 13 == lead and x % 13 > fwc % 13)
+                        beat = c // 13 == lead and c % 13 > fwc % 13
+                        if higher and not beat:
+                            findings.append(('pre', ti, s, alive, taken[h],
+                                             f"played {name(c)} before you; "
+                                             f"held {','.join(name(x) for x in higher)}"))
+                    if c // 13 != lead and pts(c) > 0:
+                        # FED POINTS: void discard of a point card into the
+                        # human's trick, with a pointless discard in hand.
+                        safe = sorted(x for x in remaining[s]
+                                      if x != c and pts(x) == 0)
+                        findings.append(('fed', ti, s, alive, taken[h],
+                                         f"threw {name(c)} into your trick"
+                                         + (f"; safe discards held: "
+                                            f"{','.join(name(x) for x in safe[:6])}"
+                                            if safe else " (held only points)")))
+
             tpts = sum(pts(c) for _, c in tr)
             for s, c in tr:
                 remaining[s].discard(c)
-            taken[cur_ws] += tpts
+            taken[fw] += tpts
             if tpts:
-                who = 'YOU' if cur_ws == h else f'P{cur_ws + 1}'
+                who = 'YOU' if fw == h else f'P{fw + 1}'
                 timeline.append(f"T{ti + 1}:{who}+{tpts}")
-        moon = d['round_scores'][h] == 0 and all(
-            v == 26 for i, v in enumerate(d['round_scores']) if i != h)
-        print(f"deal {d['deal_no']} [{'replay OK' if ok else 'REPLAY FAIL'}] "
-              f"round={d['round_scores']}{' HUMAN MOON' if moon else ''}")
-        print(f"  points: {' '.join(timeline) if timeline else 'none'}")
-        for b in dblocks:
-            print(f"  MISSED BLOCK trick {b['trick']}: Player {b['ai'] + 1} "
-                  f"played {b['played']}, held {','.join(b['could_have'])} "
-                  f"(human had {b['human_pts_before']} pts, trick worth "
-                  f"{b['trick_pts']})")
-        all_blocks += [dict(b, deal=d['deal_no'], moon=moon) for b in dblocks]
 
-    late = [b for b in all_blocks if b['moon'] and b['human_pts_before'] >= 8]
-    print(f"\nTOTALS: {len(all_blocks)} missed-block opportunities; "
-          f"{len([b for b in all_blocks if b['moon']])} in moon deals; "
-          f"{len(late)} with the human already holding >=8 points.\n")
+        shooter = moon_shooter(d['round_scores'])
+        moon_tag = ('' if shooter is None else
+                    ' HUMAN MOON' if shooter == h else
+                    f' PLAYER {shooter + 1} (AI) MOON')
+        print(f"deal {d['deal_no']} [{'replay OK' if ok else 'REPLAY FAIL'}] "
+              f"round={d['round_scores']}{moon_tag}")
+        fed_to_h = {s: [c for c in pass_by[s] if c in human_played]
+                    for s in range(4) if s != h and pass_by[s]}
+        for s, cards in fed_to_h.items():
+            if cards:
+                hot = [name(c) for c in cards if pts(c) > 0 or c % 13 >= 10]
+                print(f"  pass: Player {s + 1} passed you "
+                      f"{','.join(name(c) for c in cards)}"
+                      + (f"  <- high/point cards: {','.join(hot)}" if hot else ''))
+        print(f"  points: {' '.join(timeline) if timeline else 'none'}")
+        label = {'block': 'MISSED BLOCK', 'pre': 'PRE-DUCK (counterfactual)',
+                 'fed': 'FED POINTS'}
+        for kind, ti, s, alive, hp, desc in findings:
+            tag = ' [MOON ALIVE]' if alive and shooter == h else ''
+            print(f"  {label[kind]} trick {ti + 1}: Player {s + 1} {desc} "
+                  f"(human pts {hp}){tag}")
+            tot[kind] += 1
+            if alive and shooter == h:
+                tot[kind + '_alive'] += 1
+
+    print(f"\nTOTALS: blocks {tot['block']} ({tot['block_alive']} moon-alive) | "
+          f"pre-ducks {tot['pre']} ({tot['pre_alive']} moon-alive) | "
+          f"fed points {tot['fed']} ({tot['fed_alive']} moon-alive)")
+    print("moon-alive counts = failures while the human held every point of "
+          "a deal they went on to sweep; the rest is normal point avoidance.\n")
 
 
 def main():
@@ -123,11 +197,23 @@ def main():
         matches = [m for m in matches if m['sid'] == args.sid]
     elif not args.all:
         matches = matches[-1:]
-    if not matches:
+    if not matches and not args.all:
         raise SystemExit('no matching v2 match lines found')
     for m in matches:
         deals = [l for l in v2 if l['kind'] == 'deal' and l['sid'] == m['sid']]
-        analyze_match(m, deals)
+        try:
+            analyze_match(m, deals)
+        except Exception as e:  # keep going: one bad line != dead dataset
+            print(f"WARNING: match {m['sid']} failed to analyze: {e}\n")
+    if args.all:
+        done = {m['sid'] for m in matches}
+        orphans = {}
+        for l in v2:
+            if l['kind'] == 'deal' and l['sid'] not in done:
+                orphans.setdefault(l['sid'], []).append(l)
+        for sid, ds in orphans.items():
+            print(f"abandoned session {sid}: {len(ds)} completed deal(s) "
+                  f"logged (pid {ds[0].get('pid')}, seed {ds[0]['seed']})")
 
 
 if __name__ == '__main__':
