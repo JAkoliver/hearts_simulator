@@ -193,7 +193,17 @@ def main():
     ap.add_argument('--anchor-model', default=None,
                     help='checkpoint for the frozen anchor policy '
                          '(net_from_checkpoint; required when --anchor-coef > 0)')
+    ap.add_argument('--train-seed', type=int, default=None,
+                    help='seed torch/numpy RNGs for reproducible training '
+                         'replicates (expert_iter_v2 prereg: independent '
+                         'training seeds, same data)')
     args = ap.parse_args()
+
+    if args.train_seed is not None:
+        torch.manual_seed(args.train_seed)
+        torch.cuda.manual_seed_all(args.train_seed)
+        np.random.seed(args.train_seed)
+        print(f"Train seed: {args.train_seed}")
 
     device = torch.device(args.device)
     print(f"Device: {device}")

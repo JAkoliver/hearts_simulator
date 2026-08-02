@@ -106,7 +106,7 @@ def _chunk(job):
     return rows
 
 
-def run_gate(cand, base, matches=800, workers=12, seed=None):
+def run_gate(cand, base, matches=800, workers=12, seed=None, csv_out=None):
     """Run the paired match gate; prints the report and returns a stats dict."""
     seed = seed if seed is not None else int(time.time())
     workers = headroom.scaled_workers(workers)
@@ -131,6 +131,25 @@ def run_gate(cand, base, matches=800, workers=12, seed=None):
                               initializer=headroom.apply_process_priority) as pool:
         results = pool.map(_chunk, jobs)
     rows = [r for chunk in results for r in chunk]
+
+    # Per-match paired rows (expert_iter_v2 prereg artifact: the raw eval
+    # CSV with its seed; row order = global match index -- jobs are built
+    # in offset order and pool.map preserves it).
+    if csv_out:
+        os.makedirs(os.path.dirname(csv_out) or '.', exist_ok=True)
+        with open(csv_out, 'w', newline='') as cf:
+            cf.write(f"# cand={cand} base={base} matches={matches} "
+                     f"workers={workers} seed={seed}\n")
+            cf.write("idx,seat,field,a_place,a_score,a_deals,a_moons_for,"
+                     "a_moons_against,b_place,b_score,b_deals,b_moons_for,"
+                     "b_moons_against\n")
+            use_v4 = os.path.exists(V4_ANCHOR)
+            for i, (ra, rb) in enumerate(rows):
+                field = 'v4m10' if (use_v4 and i % 2 == 1) else 'v3m7'
+                cf.write(f"{i},{i % 4},{field},"
+                         + ','.join(str(x) for x in ra) + ','
+                         + ','.join(str(x) for x in rb) + '\n')
+        print(f"Per-match rows -> {csv_out}")
 
     a = np.array([[r[0][0], r[0][1], r[0][2], r[0][3], r[0][4]] for r in rows])
     b = np.array([[r[1][0], r[1][1], r[1][2], r[1][3], r[1][4]] for r in rows])
@@ -184,8 +203,11 @@ def main():
     ap.add_argument('--matches', type=int, default=800)
     ap.add_argument('--workers', type=int, default=12)
     ap.add_argument('--seed', type=int, default=None)
+    ap.add_argument('--csv-out', default=None,
+                    help='write per-match paired rows (a vs b) to this CSV')
     args = ap.parse_args()
-    run_gate(args.cand, args.base, args.matches, args.workers, args.seed)
+    run_gate(args.cand, args.base, args.matches, args.workers, args.seed,
+             csv_out=args.csv_out)
 
 
 if __name__ == '__main__':
