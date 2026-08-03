@@ -187,6 +187,22 @@ probe a different region of design space (low enrichment,
 natural-only) as mechanism probes; promoting one would swap the
 experiment's question mid-flight.
 
+FREEZE PROCEDURE ADDENDUM (2026-08-03, pre-data; user-directed): the
+anchor-coefficient freeze runs AUTOMATICALLY on data-landing as four
+trainings - b_even50, freeze-only seeds {909, 910} (never reused as
+replicates) x coefs {0.25, 1.0}, binary recipe - measured on the bank's
+holdout tail: confident-slice teacher match, non-confident
+KL(candidate || baseline) (direct flat-state-drift measure),
+non-confident entropy ratio (hard constraint <= 2x baseline), value
+EV / belief BCE. A structured report + machine recommendation
+(dominance -> dominator; genuine trade-off -> protective default 1.0;
+both-fail-entropy -> HALT) is produced, and THE PIPELINE PAUSES: the
+final coefficient choice is the USER'S, made from these holdout-only
+diagnostics before any comparative evaluation exists (v1 measured that
+imitation-style metrics can look healthy while played strength
+collapses - hence human judgment at exactly this point). The frozen
+coef applies to both recipes (binary anchor term; CT arms' lambda).
+
 LIFELINE BRANCH (pre-registered now, exercisable only as written):
 IF the binary battery FAILS and at least one continuous arm's
 comparative delta is helpful with familywise-adjusted significance

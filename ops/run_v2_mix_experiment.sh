@@ -12,27 +12,33 @@
 cd /e/hearts_simulator || exit 1
 
 # ---- frozen experiment config ------------------------------------------
+# Env-overridable ONLY for rehearsal (REHEARSAL=1 runs the identical
+# code path at toy scale in scratch dirs); the real run uses defaults.
 BASE=Hall_of_Fame/hearts_model_milestone_1785322724.pth   # 8a89da90 (5th)
 BASE_MD5=8a89da90d522fe51dff4ae2fc8170961
 MIXES="a_nat60 b_even50 c_seed65 d_natonly e_seedspread"
 # Continuous-certainty exploratory arms (prereg amendment 2026-08-02):
 # distill --certainty-weighted, NOT candidate-eligible.
 CT_MIXES="f_ct_nat50 g_ct_2x50 h_ct_nat100"
-REP_SEEDS="101 202"          # confirmation replicate reserves seed 303
+REP_SEEDS="${REP_SEEDS:-101 202}"    # confirmation replicate reserves seed 303
 # Block seeds: disjoint from each other (100M apart >> the ~14.2M span a
 # block's 12 workers cover) AND far above the generation seed space
 # (~26-30M, gen_v2 launchers) so no eval deal sequence can coincide with
 # a training-bank deal. The confirmation BATTERY must use fresh seeds
 # outside both blocks (prereg: fresh-seed battery).
-BLOCK_SEEDS="520260810 620260810"
-N_MATCHES=3200
-WORKERS=12                   # PINNED: pairing depends on worker count
-EPOCHS=3
+BLOCK_SEEDS="${BLOCK_SEEDS:-520260810 620260810}"
+N_MATCHES="${N_MATCHES:-3200}"
+WORKERS="${WORKERS:-12}"             # PINNED: pairing depends on worker count
+EPOCHS="${EPOCHS:-3}"
 HOLDOUT=0.10                 # by-match (mix banks are match-contiguous)
 ANCHOR_COEF="${ANCHOR_COEF:-UNSET}"   # export ANCHOR_COEF=... after recipe freeze
 MIN_CONF=2.0                 # frozen prereg sigma
-EVAL_DIR=equity_data/expert_iter_v2
-MIX_DIR=expert_data/mixes
+DEVICE="${DEVICE:-cuda}"
+EVAL_DIR="${EVAL_DIR:-equity_data/expert_iter_v2}"
+MIX_DIR="${MIX_DIR:-expert_data/mixes}"
+CAND_DIR="${CAND_DIR:-.}"
+VERDICTS_DIR="${VERDICTS_DIR:-equity_data/verdicts}"
+RESULTS_DOC="${RESULTS_DOC:-docs/expert_iter_v2_results.md}"
 # ------------------------------------------------------------------------
 
 echo "=== v2 mix experiment ($(date '+%F %H:%M')) ==="
@@ -65,12 +71,15 @@ for mix in $MIXES $CT_MIXES; do
 done
 # Never share the machine with generation (rule #14 spirit: both arms of
 # every eval share ALL hardware conditions; a generator half-loading the
-# box mid-experiment would also wreck durations).
-if powershell -NoProfile -Command "Get-Process SelfPlayGen -ErrorAction Stop" >/dev/null 2>&1; then
+# box mid-experiment would also wreck durations). REHEARSAL=1 (toy-scale
+# scratch run) is the only exception.
+if [ "${REHEARSAL:-0}" != "1" ] && \
+   powershell -NoProfile -Command "Get-Process SelfPlayGen -ErrorAction Stop" >/dev/null 2>&1; then
   echo "ABORT_CONFIG: SelfPlayGen is running -- generation must be stopped first"
   exit 1
 fi
-mkdir -p "$EVAL_DIR" logs
+[ "${REHEARSAL:-0}" = "1" ] && echo "REHEARSAL MODE: toy scale, scratch outputs"
+mkdir -p "$EVAL_DIR" "$CAND_DIR" logs
 
 # Null calibration (project convention): an arm against itself must give
 # exact-zero paired deltas.
@@ -78,8 +87,9 @@ echo "--- null calibration (base vs base, n=24) ---"
 PYTHONUNBUFFERED=1 python -u match_eval.py --cand "$BASE" --base "$BASE" \
   --matches 24 --workers 4 --seed 999 \
   --csv-out "$EVAL_DIR/null_calibration.csv" > logs/v2mix_null.log 2>&1
-python - << 'PYEOF' || { echo "NULL_CALIBRATION_FAILED"; exit 1; }
-rows = [l.split(',') for l in open('equity_data/expert_iter_v2/null_calibration.csv')
+NULLCSV="$EVAL_DIR/null_calibration.csv" python - << 'PYEOF' || { echo "NULL_CALIBRATION_FAILED"; exit 1; }
+import os
+rows = [l.split(',') for l in open(os.environ['NULLCSV'])
         if not l.startswith(('#', 'idx'))]
 bad = [r for r in rows if r[3] != r[8]]
 raise SystemExit(1 if bad else print(f"null calibration OK ({len(rows)} matches, all deltas zero)"))
@@ -94,14 +104,14 @@ for mix in $MIXES $CT_MIXES; do
     *)          RECIPE_ARGS="--min-confidence $MIN_CONF" ;;
   esac
   for rs in $REP_SEEDS; do
-    cand="cand_v2_${mix}_r${rs}.pth"
+    cand="$CAND_DIR/cand_v2_${mix}_r${rs}.pth"
     if [ ! -f "$cand" ]; then
       echo "--- train $cand ($(date '+%H:%M')) ---"
       PYTHONUNBUFFERED=1 python -u distill.py \
         --data "$MIX_DIR/$mix.bin" --match --arch v5 \
         --init "$BASE" --out "$cand" \
         --epochs "$EPOCHS" --holdout "$HOLDOUT" \
-        $RECIPE_ARGS \
+        $RECIPE_ARGS --device "$DEVICE" \
         --anchor-coef "$ANCHOR_COEF" --anchor-model "$BASE" \
         --train-seed "$rs" > "logs/v2mix_train_${mix}_r${rs}.log" 2>&1
       rc=$?
@@ -135,6 +145,7 @@ done
 
 echo "--- analysis ($(date '+%H:%M')) ---"
 PYTHONUNBUFFERED=1 python -u analyze_v2_mixes.py --eval-dir "$EVAL_DIR" \
-  --write-verdicts --write-results-doc > logs/v2mix_analysis.log 2>&1
+  --write-verdicts "$VERDICTS_DIR" --write-results-doc "$RESULTS_DOC" \
+  > logs/v2mix_analysis.log 2>&1
 cat logs/v2mix_analysis.log
 echo "MIX_EXPERIMENT_COMPLETE $(date '+%F %H:%M')"
