@@ -36,7 +36,9 @@
   body { font-family:system-ui, sans-serif; background:var(--bg); color:var(--text);
          min-height:100vh; display:flex; flex-direction:column; align-items:center;
          user-select:none; cursor:default; }
-  header { width:100%; text-align:center; padding:8px; background:var(--header-bg); }
+  header { width:100%; padding:8px; background:var(--header-bg); position:relative;
+           display:flex; align-items:center; justify-content:center; gap:10px;
+           flex-wrap:wrap; }
   header h1 { font-family:'Space Grotesk', system-ui, sans-serif; font-size:1.25rem;
               font-weight:700; display:inline; letter-spacing:.01em; }
   header .logo { vertical-align:-4px; margin-right:6px; }
@@ -165,14 +167,31 @@
     #side { position:static; margin-left:0; width:min(92vw, 950px);
             flex-direction:row; flex-wrap:wrap; }
     #dev-controls { position:static; margin:0; width:auto; text-align:center; } }
+  /* Phones: smaller trick footprint (no seat-tag collisions), toggle in
+     flow (no header overlap), tagline on its own line. The side panels
+     are relocated below the hand by script (placeSide). */
+  @media (max-width:640px) {
+    #table { height:min(48vh, 400px); }
+    #trick .card { width:52px; height:75px; font-size:.95rem; }
+    .tcard.pos0 { translate:0 58px; }
+    .tcard.pos1 { translate:-88px 0; }
+    .tcard.pos2 { translate:0 -58px; }
+    .tcard.pos3 { translate:88px 0; }
+    #banner { top:calc(50% + 100px); font-size:.9rem; }
+    .seat { font-size:.68rem; }
+    #hand .card { width:52px; height:75px; font-size:.95rem; }
+    #theme-toggle { position:static; }
+    header .sub { width:100%; text-align:center; font-size:.68rem; }
+    #side { margin-top:6px; }
+  }
   #dev-controls { position:absolute; right:100%; top:0; margin-right:12px; width:170px;
                   text-align:right; }
   #dev-controls button { font-size:.75rem; padding:4px 12px; background:#7a2f2f; color:#eee; }
 </style>
 </head>
 <body>
-<div id="theme-toggle"><button id="theme-btn"></button></div>
 <header>
+<div id="theme-toggle"><button id="theme-btn"></button></div>
   <svg class="logo" width="20" height="20" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#00000055"/><path d="M11 27 V7 H17.5 a6.5 6.5 0 0 1 0 13 H11" fill="none" stroke="#ECECEC" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="25.2" cy="7.6" r="3.1" fill="#E5484D"/></svg>
   <h1>Perilune</h1>
   <span class="sub">&mdash; a match-aware Hearts AI &middot; match to 100 &middot; lowest score wins</span>
@@ -765,6 +784,18 @@ async function tablePass(cards) {
       POSTJSON({pid, cards, cursor: tcursor})));
   } catch (e) { setStatus('Error: ' + e.message); }
 }
+
+// Responsive side panels: beside the table on wide screens (absolute,
+// anchored to #layout), below the HAND on narrow ones (DOM relocation -
+// CSS alone can't reorder across the layout/hand boundary).
+const sideMq = matchMedia('(max-width:1300px)');
+function placeSide() {
+  const side = el('side');
+  if (sideMq.matches) el('pass-controls').after(side);
+  else el('layout').appendChild(side);
+}
+sideMq.addEventListener('change', placeSide);
+placeSide();
 
 // Theme: dark is the default; body.green restores the felt look.
 function applyTheme(t) {
