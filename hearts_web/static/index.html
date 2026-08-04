@@ -3,8 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Hearts vs AI &mdash; match to 100</title>
+<title>Perilune &mdash; Hearts vs AI</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
 <style>
+  @font-face { font-family:'Space Grotesk';
+    src:url('/static/fonts/space-grotesk.woff2') format('woff2');
+    font-weight:300 700; font-display:swap; }
   /* DARK theme is the default (:root); body.green restores the felt look.
      Dark surfaces climb in lightness with elevation: page #121212 ->
      header #18181B -> panels #1E1E21 -> overlay #232327 -> felt center
@@ -33,8 +37,13 @@
          min-height:100vh; display:flex; flex-direction:column; align-items:center;
          user-select:none; cursor:default; }
   header { width:100%; text-align:center; padding:8px; background:var(--header-bg); }
-  header h1 { font-size:1.1rem; font-weight:600; display:inline; }
+  header h1 { font-family:'Space Grotesk', system-ui, sans-serif; font-size:1.25rem;
+              font-weight:700; display:inline; letter-spacing:.01em; }
+  header .logo { vertical-align:-4px; margin-right:6px; }
   header .sub { font-size:.78rem; color:var(--muted); }
+  .seat .tag, #overlay td, #overlay th { font-variant-numeric:tabular-nums; }
+  #overlay h2, #home h2 { font-family:'Space Grotesk', system-ui, sans-serif; }
+  footer a { color:var(--muted); }
   #theme-toggle { position:fixed; top:8px; left:10px; z-index:5; }
   #theme-toggle button { font-size:.75rem; padding:4px 12px;
     background:var(--tag-bg); color:var(--text); }
@@ -62,8 +71,18 @@
   #seat-right { right:8px; top:50%; transform:translateY(-50%); }
   #seat-bottom { bottom:8px; left:50%; transform:translateX(-50%); }
   #trick { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; }
-  .tcard { position:absolute; animation:drop .25s ease-out; }
+  .tcard { position:absolute; animation:drop .25s ease-out;
+           transition:translate .45s ease-in, opacity .45s ease-in; }
   @keyframes drop { from { transform:scale(1.25) translateY(-16px); opacity:.4; } }
+  /* Trick-take sweep: cards glide toward the winner's seat and fade. */
+  .tcard.sweep0 { translate:0 240px !important; opacity:0; }
+  .tcard.sweep1 { translate:-520px 0 !important; opacity:0; }
+  .tcard.sweep2 { translate:0 -240px !important; opacity:0; }
+  .tcard.sweep3 { translate:520px 0 !important; opacity:0; }
+  #hb-badge { position:absolute; bottom:10px; left:14px; font-size:.78rem;
+              color:#E5484D; opacity:0; transition:opacity .4s;
+              text-shadow:0 1px 3px #000; pointer-events:none; }
+  #hb-badge.on { opacity:.85; }
   /* Trick cards + cross offsets scaled 1.36x with the 700x410 -> 950x560
      table enlargement (52/84px offsets -> 71/114px). */
   .tcard.pos0 { translate:0 71px; }
@@ -76,14 +95,22 @@
   #banner { position:absolute; top:calc(50% + 130px); width:100%; text-align:center;
             font-size:1.05rem; color:var(--banner); text-shadow:0 1px 3px #000;
             pointer-events:none; font-weight:600; }
-  .card { display:inline-flex; flex-direction:column; justify-content:space-between;
-          width:50px; height:72px; background:var(--card-bg); color:var(--card-ink); border-radius:7px;
-          border:1px solid #999; padding:4px 5px; font-weight:700; font-size:.92rem;
-          box-shadow:0 2px 5px rgba(0,0,0,.45); user-select:none; position:relative; }
-  .card .suit { font-size:1.2rem; line-height:1; align-self:flex-end; }
+  /* Card faces: proper corner indices (rank over suit, mirrored bottom-
+     right) + a centered pip. All internals em-scaled so every card size
+     (hand / trick / mini) shares one markup. */
+  .card { display:inline-block; width:50px; height:72px; background:var(--card-bg);
+          color:var(--card-ink); border-radius:7px; border:1px solid #999;
+          font-weight:700; font-size:.92rem; box-shadow:0 2px 5px rgba(0,0,0,.45);
+          user-select:none; position:relative; }
+  .card .ix { position:absolute; top:.22em; left:.3em; font-size:.68em;
+              line-height:1.02; text-align:center; }
+  .card .ixb { top:auto; left:auto; bottom:.22em; right:.3em;
+               transform:rotate(180deg); }
+  .card .cpip { position:absolute; top:50%; left:50%;
+                transform:translate(-50%,-50%); font-size:1.55em; line-height:1; }
   .card.red { color:var(--card-red); }
-  .card.mini { width:34px; height:48px; font-size:.7rem; padding:2px 3px; border-radius:5px; }
-  .card.mini .suit { font-size:.85rem; }
+  .card.mini { width:34px; height:48px; font-size:.66rem; border-radius:5px; }
+  .card.mini .cpip { font-size:1.3em; }
   /* Top padding = selected-card rise (14px) + outline (3px) + 1px slack:
      a raised card tops out at the hand's edge, clear of the table and
      score tag above, at any resolution (all px-based). */
@@ -146,8 +173,9 @@
 <body>
 <div id="theme-toggle"><button id="theme-btn"></button></div>
 <header>
-  <h1>Hearts vs AI</h1>
-  <span class="sub">&mdash; three seats are a trained AI &middot; match to 100 &middot; lowest score wins</span>
+  <svg class="logo" width="20" height="20" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#00000055"/><path d="M11 27 V7 H17.5 a6.5 6.5 0 0 1 0 13 H11" fill="none" stroke="#ECECEC" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="25.2" cy="7.6" r="3.1" fill="#E5484D"/></svg>
+  <h1>Perilune</h1>
+  <span class="sub">&mdash; a match-aware Hearts AI &middot; match to 100 &middot; lowest score wins</span>
 </header>
 
 <div id="layout">
@@ -159,6 +187,7 @@
     <div id="trick"></div>
     <div id="banner"></div>
     <div id="status"></div>
+    <div id="hb-badge">&hearts; hearts broken</div>
   </div>
   <div id="side">
     <div class="panel"><h3>This deal</h3><div id="deal-info"></div></div>
@@ -187,7 +216,7 @@
   <div id="home-err"></div>
 </div></div>
 
-<footer>An experiment in training a match-aware Hearts AI &middot; matches are recorded anonymously to improve it</footer>
+<footer>An experiment in training a match-aware Hearts AI &middot; matches are recorded anonymously to improve it &middot; <a href="/about">about</a></footer>
 
 <script>
 const SUIT_CHAR = {C:'♣', D:'♦', S:'♠', H:'♥'};
@@ -205,8 +234,18 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 function cardHTML(name, cls='') {
   const suit = name.slice(-1), rank = name.slice(0, -1);
   const red = (suit === 'D' || suit === 'H') ? ' red' : '';
+  const g = SUIT_CHAR[suit];
   return `<div class="card${red} ${cls}" data-name="${name}">
-            <span>${rank}</span><span class="suit">${SUIT_CHAR[suit]}</span></div>`;
+            <span class="ix">${rank}<br>${g}</span>
+            <span class="cpip">${g}</span>
+            <span class="ix ixb">${rank}<br>${g}</span></div>`;
+}
+// Hearts-broken badge: derived client-side from watched plays (public
+// info only - first heart seen this deal), reset at deal boundaries.
+let heartsBroken = false;
+function setHeartsBroken(v) {
+  heartsBroken = v;
+  el('hb-badge').classList.toggle('on', v);
 }
 function pos(seat) { return (seat - state.your_seat + 4) % 4; }
 const SEAT_IDS = ['seat-bottom', 'seat-left', 'seat-top', 'seat-right'];
@@ -225,7 +264,8 @@ function passTarget() {
 function renderSeats(highlightSeat=null) {
   for (let s = 0; s < 4; s++) {
     const node = el(SEAT_IDS[pos(s)]);
-    node.innerHTML = `<span class="tag">${seatName(s)} &middot; ${state.match_scores[s]}
+    const away = state.away_seats && state.away_seats.includes(s);
+    node.innerHTML = `<span class="tag"${away ? ' style="opacity:.55"' : ''}>${seatName(s)}${away ? ' &middot; away' : ''} &middot; ${state.match_scores[s]}
       <small>(+${state.round_scores[s]})</small></span>`;
     node.classList.toggle('active', s === highlightSeat);
   }
@@ -336,8 +376,10 @@ function render() {
     setStatus('Your turn - click a card');
   else if (mode === 'table' && state.waiting_pass && state.waiting_pass.length)
     setStatus(`Waiting for ${state.waiting_pass.map(esc).join(', ')} to pass`, true);
-  else if (mode === 'table' && state.current_seat != null)
-    setStatus(`${seatName(state.current_seat)}'s turn`, true);
+  else if (mode === 'table' && state.current_seat != null) {
+    const away = state.away_seats && state.away_seats.includes(state.current_seat);
+    setStatus(`${seatName(state.current_seat)}'s turn${away ? ' (disconnected)' : ''}`, true);
+  }
 }
 
 function markPreselect() {
@@ -456,6 +498,7 @@ async function animate(events, preTrick = []) {
   for (let i = 0; i < events.length; i++) {
     const ev = events[i];
     if (ev.type === 'play') {
+      if (ev.name.endsWith('H')) setHeartsBroken(true);
       shown.push({seat: ev.seat, name: ev.name});
       renderTrick(shown);
       renderSeats(ev.seat);
@@ -471,7 +514,14 @@ async function animate(events, preTrick = []) {
         dimmed = true;
         applyLegality();   // you lead next: lead legality is known now
       }
-      await sleep(TRICK_PAUSE);
+      await sleep(TRICK_PAUSE - 450);
+      // Sweep the trick toward the winner, then clear.
+      if (ev.winner !== null) {
+        const p = pos(ev.winner);
+        document.querySelectorAll('#trick .tcard').forEach(n =>
+          n.classList.add(`sweep${p}`));
+        await sleep(450);
+      }
       el('banner').textContent = '';
       shown = [];
       renderTrick([]);
@@ -479,6 +529,7 @@ async function animate(events, preTrick = []) {
         setStatus('AI is thinking', true);
     } else if (ev.type === 'deal_end') {
       preselect = null;   // the hand is about to change entirely
+      setHeartsBroken(false);
       if (state.finished) continue;   // match over: skip the deal popup,
                                       // only the end-game screen shows
       await showDealEnd(ev);
@@ -507,14 +558,21 @@ function showMatchEnd() {
   const p = state.placements[state.your_seat];
   el('o-title').textContent = p === 1 ? 'You won the match!' :
     `You placed ${['','1st','2nd','3rd','4th'][Math.round(p)] || p}`;
+  const hostBtns = (mode === 'table' && state.you_host)
+    ? '<button id="rematch-btn">Rematch</button>' +
+      '<button id="close-table-btn">Close table for everyone</button>'
+    : '';
   el('o-body').innerHTML = '<table><tr><th>Place</th><th>Player</th><th>Score</th></tr>' +
     order.map(s => `<tr><td>${state.placements[s]}</td>
       <td>${seatName(s)}</td>
       <td>${state.match_scores[s]}</td></tr>`).join('') + '</table>' +
-    (mode === 'table' && state.you_host
-      ? '<div style="margin-top:8px"><button id="close-table-btn">Close table for everyone</button></div>'
-      : '');
+    `<div style="margin-top:8px"><button id="insight-btn">Show AI insights</button>${hostBtns}</div>`;
+  el('insight-btn').onclick = showInsights;
   if (mode === 'table' && state.you_host) {
+    el('rematch-btn').onclick = async () => {
+      try { handleTableState(await api('/api/table/rematch', POSTJSON({code: tcode, pid}))); }
+      catch (e) { setStatus('Error: ' + e.message); }
+    };
     el('close-table-btn').onclick = async () => {
       try { await api('/api/table/close', POSTJSON({code: tcode, pid})); }
       catch (e) {}
@@ -530,9 +588,38 @@ function showMatchEnd() {
   el('overlay').style.display = 'flex';
 }
 
+// Post-match insight: the net re-judges every play you made this match.
+async function showInsights() {
+  el('o-body').innerHTML = 'Analyzing your match&hellip;';
+  try {
+    const path = mode === 'table'
+      ? `/api/table/insight/${tcode}?pid=${encodeURIComponent(pid)}`
+      : `/api/insight/${sid}?pid=${encodeURIComponent(pid)}`;
+    const r = await api(path);
+    let html = `<p>Perilune agreed with <b>${r.n_agree} of ${r.n_decisions}</b>
+      of your plays (${r.agree_pct}%).</p>`;
+    if (r.disagreements.length) {
+      html += '<table><tr><th>Deal</th><th>Trick</th><th>You</th><th>Perilune</th></tr>' +
+        r.disagreements.map(d =>
+          `<tr><td>${d.deal}</td><td>${d.trick}</td>
+           <td>${cardHTML(d.you, 'mini')}</td><td>${cardHTML(d.ai, 'mini')}</td></tr>`).join('') +
+        '</table>';
+    }
+    html += `<p style="font-size:.75rem; opacity:.7">${esc(r.note)}</p>` +
+            '<div><button id="insight-back">Back</button></div>';
+    el('o-body').innerHTML = html;
+    el('insight-back').onclick = showMatchEnd;
+  } catch (e) {
+    el('o-body').innerHTML = `Insights unavailable: ${esc(e.message)}
+      <div><button id="insight-back">Back</button></div>`;
+    el('insight-back').onclick = showMatchEnd;
+  }
+}
+
 // ---- table mode (multi-human) --------------------------------------------
 let mode = 'solo', tcode = null, tcursor = 0, pollTimer = null;
 let evq = [], pumping = false, shownTrick = [];
+let curMatchNo = null, pollMs = 1500;
 
 const POSTJSON = o => ({method: 'POST',
   headers: {'Content-Type': 'application/json'}, body: JSON.stringify(o)});
@@ -580,9 +667,10 @@ function leaveTable() {
   setMode('solo');
   showHome();
 }
-function startPolling() {
+function startPolling(ms = 1500) {
   stopPolling();
-  pollTimer = setInterval(pollTable, 1500);
+  pollMs = ms;
+  pollTimer = setInterval(pollTable, ms);
 }
 function stopPolling() { if (pollTimer) clearInterval(pollTimer); pollTimer = null; }
 
@@ -624,6 +712,15 @@ function renderLobby(ts) {
 
 function handleTableState(ts) {
   if (ts.state === 'lobby') return renderLobby(ts);
+  if (ts.match_no !== undefined && ts.match_no !== curMatchNo) {
+    // Rematch (or first sight of this table): new event epoch - reset
+    // local progress and animate the new match from its beginning.
+    curMatchNo = ts.match_no;
+    tcursor = 0; evq = []; shownTrick = [];
+    preselect = null; passSelection = [];
+    setHeartsBroken(false);
+    el('overlay').style.display = 'none';
+  }
   if (ts.cursor < tcursor) return;         // stale response: drop
   el('o-btn').style.display = '';
   if (el('o-title').textContent.startsWith('Table ')) el('overlay').style.display = 'none';
@@ -631,6 +728,10 @@ function handleTableState(ts) {
   const fresh = ts.events ? ts.events.slice(Math.max(0, tcursor - start)) : [];
   tcursor = ts.cursor;
   state = ts;
+  // End screens idle at a gentle 5s poll (still alive for host-close and
+  // rematch propagation); live play polls at 1.5s.
+  const want = ts.finished ? 5000 : 1500;
+  if (want !== pollMs && pollTimer) startPolling(want);
   if (fresh.length) { evq.push(...fresh); pumpEvents(); }
   else if (!pumping) render();
 }
@@ -715,6 +816,7 @@ async function init() {
         if (ts.state === 'lobby') renderLobby(ts);
         else {   // resume at current state: no replay of the whole history
           tcursor = ts.cursor; state = ts;
+          curMatchNo = ts.match_no !== undefined ? ts.match_no : null;
           shownTrick = ts.trick ? ts.trick.slice() : [];
           render();
         }

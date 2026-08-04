@@ -29,6 +29,7 @@ from collections import deque
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -41,7 +42,9 @@ RANKS = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A']
 LOG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                         'match_logs.jsonl')
 
-app = FastAPI(title="Hearts vs AI")
+app = FastAPI(title="Perilune - Hearts vs AI")
+app.mount('/static', StaticFiles(directory=os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), 'static')), name='static')
 
 MODEL_PATH = 'hearts_model_final.pth'
 _net = net_from_checkpoint(MODEL_PATH)
@@ -295,6 +298,7 @@ class Table:
         self.deal_actions = []
         self.n_actions = 0
         self.finished = False
+        self.match_no = 1          # increments on rematch (client epoch)
         self.t0 = time.time()
         self.created = time.time()
         self.last_seen = {host_pid: time.time()}   # pid -> last poll (heartbeat)
@@ -320,6 +324,25 @@ class Table:
         for i, p in enumerate(self.lobby):
             self.seat_of[p['pid']] = seats[i]
             self.names[seats[i]] = p['name']
+        self._snapshot_deal()
+        self.emit('start')
+        self.advance()
+
+    def rematch(self):
+        """Fresh match at the same table: same code, same seats (minus
+        departed players, whose seats revert to AI), new seed/deal."""
+        for pid in list(self.seat_of):
+            if pid in self.departed:
+                self.names.pop(self.seat_of[pid], None)
+                del self.seat_of[pid]
+        self.match_no += 1
+        self.seed = secrets.randbits(31)
+        self.menv = MatchEnv(seed=self.seed)
+        self.events = []
+        self.trick, self.last_trick = [], None
+        self.deal_no, self.deal_actions, self.n_actions = 1, [], 0
+        self.finished = False
+        self.t0 = time.time()
         self._snapshot_deal()
         self.emit('start')
         self.advance()
@@ -392,9 +415,10 @@ class Table:
                                else None))
             log_line({'v': LOG_V, 'kind': 'deal', 'sid': f'table:{self.code}',
                       'pid': None, 'mode': 'table', 'seed': self.seed,
-                      'human_seat': None,
+                      'human_seat': None, 'match_no': self.match_no,
                       'seats': {str(s): ('human' if s in self.humans() else 'ai')
                                 for s in range(4)},
+                      'seat_pids': {str(s): p for p, s in self.seat_of.items()},
                       'model': MODEL_MD5, 'ts': round(time.time(), 3),
                       'deal_no': self.deal_no, 'actions': self.deal_actions,
                       'round_scores': list(map(int, round_scores)),
@@ -450,8 +474,13 @@ class Table:
                 int(self.menv.env.get_pass_direction())]
         except Exception:
             pass_dir = None
+        now = time.time()
+        away = [s for p, s in self.seat_of.items()
+                if p != pid and (p in self.departed
+                                 or now - self.last_seen.get(p, 0) > 10)]
         return {**base,
                 'you_host': pid == self.host_pid,
+                'match_no': self.match_no, 'away_seats': sorted(away),
                 'your_seat': seat, 'roster': self.roster(),
                 'your_turn': my_turn, 'passing': need_pass,
                 'passed_so_far': [],
@@ -489,6 +518,96 @@ class PlayBody(BaseModel):
 
 class NewBody(BaseModel):
     pid: str | None = None
+
+
+# ---------------------------------------------------------------------------
+# Post-match insight: replay a finished match from the telemetry log and
+# annotate every play-phase decision of ONE seat with the net's own choice.
+# The AI's preference is a lens, not ground truth (rules #5 spirit).
+# ---------------------------------------------------------------------------
+def compute_insight(deal_lines, seat):
+    deal_lines = sorted(deal_lines, key=lambda d: d['deal_no'])
+    menv = MatchEnv(seed=deal_lines[0]['seed'])
+    n_dec, n_agree, dis = 0, 0, []
+    for d in deal_lines:
+        plays = 0
+        for s, card, ms in d['actions']:
+            if menv.get_current_player() != s:
+                raise HTTPException(500, 'replay desync in insight')
+            passing = menv.is_passing()
+            if not passing and s == seat:
+                obs = torch.from_numpy(menv.observe()).unsqueeze(0)
+                mask = torch.zeros((1, 52), dtype=torch.bool)
+                legal = [a for a in menv.get_legal_actions() if a != -1]
+                for a in legal:
+                    mask[0, a] = True
+                with _net_lock, torch.no_grad():
+                    logits, _ = _net(obs, mask)
+                probs = torch.softmax(logits[0], dim=0)
+                ai = int(torch.argmax(logits, dim=1).item())
+                n_dec += 1
+                if ai == card:
+                    n_agree += 1
+                elif len(legal) > 1:
+                    dis.append({'deal': d['deal_no'], 'trick': plays // 4 + 1,
+                                'you': card_name(card), 'ai': card_name(ai),
+                                'p_you': round(float(probs[card]), 3),
+                                'p_ai': round(float(probs[ai]), 3)})
+            if not passing:
+                plays += 1
+            menv.step(card)
+    dis.sort(key=lambda x: x['p_ai'] - x['p_you'], reverse=True)
+    return {'n_decisions': n_dec, 'n_agree': n_agree,
+            'agree_pct': round(100 * n_agree / max(1, n_dec), 1),
+            'disagreements': dis[:8],
+            'note': ("Perilune's preference, not ground truth - the AI has "
+                     "measured blind spots of its own.")}
+
+
+def _log_lines_for(sid):
+    out = []
+    with _log_lock:
+        try:
+            with open(LOG_PATH) as f:
+                for line in f:
+                    try:
+                        d = json.loads(line)
+                    except ValueError:
+                        continue
+                    if d.get('v') == LOG_V and d.get('sid') == sid \
+                            and d.get('kind') == 'deal':
+                        out.append(d)
+        except FileNotFoundError:
+            pass
+    return out
+
+
+@app.get('/api/insight/{sid}')
+def solo_insight(sid: str, pid: str):
+    lines = [l for l in _log_lines_for(sid) if l.get('pid') == pid]
+    if not lines:
+        raise HTTPException(404, 'no recorded deals for this match')
+    return compute_insight(lines, lines[0]['human_seat'])
+
+
+@app.get('/api/table/insight/{code}')
+def table_insight(code: str, pid: str):
+    lines = _log_lines_for(f'table:{code.upper()}')
+    if not lines:
+        raise HTTPException(404, 'no recorded deals for this table')
+    latest = max(l.get('match_no', 1) for l in lines)
+    lines = [l for l in lines if l.get('match_no', 1) == latest]
+    seat = next((int(s) for s, p in (lines[0].get('seat_pids') or {}).items()
+                 if p == pid), None)
+    if seat is None:
+        raise HTTPException(403, 'you were not seated in this match')
+    return compute_insight(lines, seat)
+
+
+@app.get('/about')
+def about():
+    return FileResponse(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                     'static', 'about.html'))
 
 
 @app.get('/')
@@ -611,6 +730,19 @@ def table_state(code: str, pid: str, cursor: int = 0):
     t = _get_table(code)
     with t.lock:
         return t.view(pid, cursor)
+
+
+@app.post('/api/table/rematch')
+def table_rematch(body: TableJoinBody):
+    """Host-only, finished matches only: new match, same table and seats."""
+    t = _get_table(body.code)
+    with t.lock:
+        if body.pid != t.host_pid:
+            raise HTTPException(403, 'only the host can start a rematch')
+        if t.state != 'playing' or not t.finished:
+            raise HTTPException(409, 'rematch is only available after a match ends')
+        t.rematch()
+        return t.view(body.pid, 0)
 
 
 @app.post('/api/table/close')

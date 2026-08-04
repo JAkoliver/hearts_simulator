@@ -1,0 +1,4 @@
+Space Grotesk (c) 2020 The Space Grotesk Project Authors
+(https://github.com/floriankarsten/space-grotesk)
+Licensed under the SIL Open Font License 1.1 - https://openfontlicense.org
+Self-hosted variable-weight woff2 (latin subset) for play.perilune.ai.

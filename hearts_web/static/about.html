@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>About Perilune</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<style>
+  @font-face { font-family:'Space Grotesk';
+    src:url('/static/fonts/space-grotesk.woff2') format('woff2');
+    font-weight:300 700; font-display:swap; }
+  body { font-family:system-ui, sans-serif; background:#121212; color:#ECECEC;
+         max-width:640px; margin:0 auto; padding:32px 20px; line-height:1.55; }
+  h1 { font-family:'Space Grotesk', system-ui, sans-serif; color:#FFD97A;
+       font-size:1.9rem; margin-bottom:2px; }
+  h2 { font-family:'Space Grotesk', system-ui, sans-serif; color:#A6A6AF;
+       font-size:1.05rem; margin:22px 0 6px; }
+  .tag { color:#A6A6AF; font-style:italic; margin-bottom:18px; }
+  a { color:#E8B923; }
+  .dot { color:#E5484D; }
+</style>
+</head>
+<body>
+<h1>Perilune<span class="dot">.</span></h1>
+<div class="tag">per·i·lune - the lowest point of an orbit around the Moon.</div>
+
+<p>Hearts is a game where the lowest score wins and the boldest play is
+shooting the moon. A <em>perilune</em> is the point of a lunar orbit
+closest to the Moon - the lowest point, at the moon. One word, both
+ideas. That's the name of the AI you're playing against.</p>
+
+<h2>What this is</h2>
+<p>Perilune is a neural network trained to play Hearts as a
+<em>match</em> - games to 100, lowest total wins - rather than deal by
+deal. It learned by playing millions of games against itself, guided by
+search and a learned sense of match-winning equity. This site is its
+public table: one human seat (or up to four, at a hosted table) against
+the current strongest network.</p>
+
+<h2>What gets recorded</h2>
+<p>Matches are recorded anonymously to improve the AI: the cards played,
+timing, and outcomes of each deal, tied to a random identifier stored in
+your browser. No accounts, no emails, no personal information. Human
+games are especially valuable because people find weaknesses self-play
+never does - if you beat Perilune by shooting the moon four times in a
+row, you have personally contributed training pressure (someone has).</p>
+
+<h2>The project</h2>
+<p>Perilune is an ongoing experiment in training a card-game AI end to
+end - engine, search, training loops, and measurement discipline. An
+open-source release of the code, models, and methodology is planned.</p>
+
+<p><a href="/">&larr; back to the table</a></p>
+</body>
+</html>
