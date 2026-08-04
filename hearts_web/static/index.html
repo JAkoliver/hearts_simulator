@@ -215,6 +215,12 @@ function seatName(s) {
   if (state.roster) return esc(state.roster[s].name);
   return `Player ${s + 1} (AI)`;
 }
+// Receiver of your pass: HeartsEnv convention 0=left(+1) 1=right(+3)
+// 2=across(+2) (HeartsEnv.hpp pass_direction comment).
+function passTarget() {
+  const off = {left: 1, right: 3, across: 2}[state.pass_direction];
+  return off ? ` (${seatName((state.your_seat + off) % 4)})` : '';
+}
 function renderSeats(highlightSeat=null) {
   for (let s = 0; s < 4; s++) {
     const node = el(SEAT_IDS[pos(s)]);
@@ -252,7 +258,7 @@ function renderSide() {
     ? state.last_trick.cards.map(c => cardHTML(c.name, 'mini')).join('') +
       `<div>${state.last_trick.winner === null ? '' :
         (state.last_trick.winner === state.your_seat ? 'you took it'
-         : `Player ${state.last_trick.winner + 1} (AI) took it`)}</div>`
+         : `${seatName(state.last_trick.winner)} took it`)}</div>`
     : 'None yet';
   el('received').innerHTML = state.received && state.received.length
     ? state.received.map(n => cardHTML(n, 'mini')).join('') : '&mdash;';
@@ -311,9 +317,9 @@ function render() {
     markPreselect();   // clear the stale outline; fall through to normal status
   }
   if (mode === 'table' && state.passing)
-    setStatus(`Select 3 cards to pass ${state.pass_direction ?? ''}`);
+    setStatus(`Select 3 cards to pass ${state.pass_direction ?? ''}${passTarget()}`);
   else if (state.your_turn && state.passing)
-    setStatus(`Select ${3 - state.passed_so_far.length} card(s) to pass ${state.pass_direction ?? ''}`);
+    setStatus(`Select ${3 - state.passed_so_far.length} card(s) to pass ${state.pass_direction ?? ''}${passTarget()}`);
   else if (state.your_turn)
     setStatus('Your turn - click a card');
   else if (mode === 'table' && state.waiting_pass && state.waiting_pass.length)
@@ -441,7 +447,7 @@ async function animate(events, preTrick = []) {
       renderTrick(ev.cards);
       el('banner').textContent = ev.winner === null ? '' :
         (ev.winner === state.your_seat ? 'You took the trick'
-                                       : `Player ${ev.winner + 1} (AI) took the trick`);
+                                       : `${seatName(ev.winner)} took the trick`);
       setStatus('&hellip;');   // steady placeholder: the banner says it all
       if (!dimmed && i === lastTE && !playsAfterLastTE && canDim()) {
         dimmed = true;
@@ -469,7 +475,7 @@ function showDealEnd(ev) {
       ? (ev.moon_by === state.your_seat ? 'You shot the moon!' : 'The AI shot the moon!')
       : `Deal ${state.deal_no - 1} complete`;
     el('o-body').innerHTML = '<table><tr><th>Player</th><th>This deal</th><th>Total</th></tr>' +
-      [0,1,2,3].map(s => `<tr><td>${s === state.your_seat ? 'You' : `Player ${s + 1} (AI)`}</td>
+      [0,1,2,3].map(s => `<tr><td>${seatName(s)}</td>
         <td>+${ev.round_scores[s]}</td><td>${ev.totals[s]}</td></tr>`).join('') + '</table>';
     el('o-btn').textContent = 'Next deal';
     el('o-btn').style.display = '';
@@ -485,7 +491,7 @@ function showMatchEnd() {
     `You placed ${['','1st','2nd','3rd','4th'][Math.round(p)] || p}`;
   el('o-body').innerHTML = '<table><tr><th>Place</th><th>Player</th><th>Score</th></tr>' +
     order.map(s => `<tr><td>${state.placements[s]}</td>
-      <td>${s === state.your_seat ? 'You' : `Player ${s + 1} (AI)`}</td>
+      <td>${seatName(s)}</td>
       <td>${state.match_scores[s]}</td></tr>`).join('') + '</table>';
   el('o-btn').textContent = mode === 'table' ? 'Back to menu' : 'Play again';
   el('o-btn').style.display = '';
