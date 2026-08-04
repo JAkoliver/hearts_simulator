@@ -25,8 +25,10 @@ import time
 
 import numpy as np
 import torch
+from collections import deque
+
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -58,6 +60,50 @@ _log_lock = threading.Lock()
 def log_line(obj):
     with _log_lock, open(LOG_PATH, 'a') as f:
         f.write(json.dumps(obj) + '\n')
+
+
+# ---------------------------------------------------------------------------
+# Per-IP rate limiting for TUNNELED traffic (requests carrying
+# CF-Connecting-IP). Local/LAN requests are exempt - dev flows and phone
+# testing never fight the limiter; public traffic always has the header.
+# General: 80 requests / 10s / IP (a 4-player NAT household polling at
+# 1.5s plus actions is ~30). Creation (session/table/join): 12 / 60s / IP
+# - also throttles table-code enumeration.
+# ---------------------------------------------------------------------------
+_rl_lock = threading.Lock()
+_rl_general, _rl_create = {}, {}
+RL_GENERAL = (80, 10.0)
+RL_CREATE = (12, 60.0)
+CREATE_PATHS = ('/api/new', '/api/table/new', '/api/table/join')
+
+
+def _limited(bucket, ip, limit, window):
+    now = time.time()
+    with _rl_lock:
+        dq = bucket.setdefault(ip, deque())
+        while dq and now - dq[0] > window:
+            dq.popleft()
+        if len(dq) >= limit:
+            return True
+        dq.append(now)
+        if len(bucket) > 10000:      # evict stale IPs, keep memory bounded
+            for k in list(bucket):
+                d = bucket[k]
+                if not d or now - d[-1] > window:
+                    bucket.pop(k, None)
+    return False
+
+
+@app.middleware('http')
+async def rate_limit(request: Request, call_next):
+    ip = request.headers.get('cf-connecting-ip')
+    if ip and request.url.path.startswith('/api/'):
+        if _limited(_rl_general, ip, *RL_GENERAL):
+            return JSONResponse({'detail': 'rate limited'}, status_code=429)
+        if request.url.path in CREATE_PATHS and _limited(_rl_create, ip, *RL_CREATE):
+            return JSONResponse({'detail': 'rate limited - slow down'},
+                                status_code=429)
+    return await call_next(request)
 
 
 def card_name(idx):
@@ -380,6 +426,8 @@ class Table:
         self.departed.discard(pid)
         base = {'code': self.code, 'state': self.state, 'target': TARGET}
         if self.state == 'lobby':
+            if pid not in (p['pid'] for p in self.lobby):
+                raise HTTPException(403, 'not seated at this table')
             return {**base,
                     'players': [p['name'] for p in self.lobby],
                     'you_host': pid == self.host_pid}
@@ -443,9 +491,22 @@ class NewBody(BaseModel):
 
 
 @app.get('/')
-def index():
-    return FileResponse(os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                     'static', 'index.html'))
+def index(request: Request):
+    """Serve the app; dev controls (reset button, ?player= identity
+    override) are injected ONLY for direct localhost requests - anything
+    arriving through the tunnel (CF-Connecting-IP present) or the LAN
+    gets DEV_CONTROLS = false."""
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                        'static', 'index.html')
+    with open(path, encoding='utf-8') as f:
+        html = f.read()
+    local = (request.headers.get('cf-connecting-ip') is None
+             and request.client is not None
+             and request.client.host in ('127.0.0.1', '::1'))
+    if not local:
+        html = html.replace('const DEV_CONTROLS = true;',
+                            'const DEV_CONTROLS = false;', 1)
+    return Response(content=html, media_type='text/html')
 
 
 @app.post('/api/new')
@@ -497,7 +558,9 @@ class TableActBody(BaseModel):
 
 
 def _clean_name(name, fallback):
-    n = (name or '').strip()[:20]
+    # Strip HTML-significant chars server-side (client escapes too -
+    # belt and braces; names are the only user strings ever displayed).
+    n = ''.join(c for c in (name or '') if c not in '<>&"\'').strip()[:20]
     return n if n else fallback
 
 

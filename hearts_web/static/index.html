@@ -396,7 +396,9 @@ async function api(path, opts) {
     let msg = `error ${r.status}`;
     try { msg = JSON.parse(t).detail || msg; } catch (e) {}
     if (/[<>]/.test(msg) || msg.length > 120) msg = `error ${r.status}`;
-    throw new Error(msg);
+    const err = new Error(msg);
+    err.status = r.status;
+    throw err;
   }
   return r.json();
 }
@@ -578,12 +580,18 @@ async function pollTable() {
   if (mode !== 'table' || !tcode) return stopPolling();
   try {
     const ts = await api(`/api/table/state/${tcode}?pid=${encodeURIComponent(pid)}&cursor=${tcursor}`);
+    pollMisses = 0;
     handleTableState(ts);
   } catch (e) {
-    leaveTable();
-    showHome('Table closed - connection lost or the host ended it.');
+    // Leave only on a definitive answer (table gone / not seated) or a
+    // sustained outage; a transient blip or 429 must not eject anyone.
+    if (e.status === 404 || e.status === 403 || ++pollMisses >= 20) {
+      leaveTable();
+      showHome('Table closed - connection lost or the host ended it.');
+    }
   }
 }
+let pollMisses = 0;
 
 function renderLobby(ts) {
   el('o-title').textContent = `Table ${ts.code}`;
