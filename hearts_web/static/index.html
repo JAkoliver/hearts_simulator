@@ -197,6 +197,7 @@ const RANKS = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'], SUITS = 'C
 const cardName = c => RANKS[c % 13] + SUITS[Math.floor(c / 13)];
 let sid = null, state = null, busy = false, passSelection = [];
 let preselect = null;   // card queued mid-animation, auto-played on your turn
+let lastHandHTML = null;  // renderHand rebuild-skip cache
 
 const el = id => document.getElementById(id);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -275,15 +276,22 @@ function renderHand(showLegal = true) {
   const inPassing = mode === 'table' ? state.passing
                                      : (state.your_turn && state.passing);
   const dim = showLegal && state.your_turn && !inPassing;
-  el('hand').innerHTML = state.hand.map(h => {
+  const html = state.hand.map(h => {
     let cls = (dim && !legal.has(h.card)) ? 'illegal' : '';
     if (passSelection.includes(h.card) || h.card === preselect) cls += ' selected';
     return cardHTML(h.name, cls);
   }).join('');
-  document.querySelectorAll('#hand .card:not(.illegal)').forEach(node => {
-    const card = state.hand.find(h => h.name === node.dataset.name).card;
-    node.onclick = () => onCardClick(card);
-  });
+  // Rebuild only on real change: the table-mode poll re-renders every
+  // 1.5s, and replacing the DOM under the cursor resets :hover (cards
+  // visibly dropped and re-lifted mid-hover).
+  if (html !== lastHandHTML) {
+    lastHandHTML = html;
+    el('hand').innerHTML = html;
+    document.querySelectorAll('#hand .card:not(.illegal)').forEach(node => {
+      const card = state.hand.find(h => h.name === node.dataset.name).card;
+      node.onclick = () => onCardClick(card);
+    });
+  }
   const passing = mode === 'table' ? state.passing
                                    : (state.your_turn && state.passing);
   el('pass-controls').style.display = passing ? 'block' : 'none';
