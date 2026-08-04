@@ -122,7 +122,14 @@ ledger/experiment_ledger) - release the milestones that mark eras:
    claims only (vs anchor fields, vs the frozen reference, N and CIs).
    The user calibration matches are n=1 anecdotes and labeled so.
 6. DEMO PATH: hearts_web/ ships as the way outsiders can play the
-   final net; document localhost setup; optional hosted demo later.
+   final net; document localhost setup. UPDATE 2026-08-04: hearts_web
+   is now Perilune's LIVE public site (play.perilune.ai via named
+   Cloudflare tunnel) with table multiplayer, per-card telemetry (v2
+   log + replay analyzer), post-match AI insights, and hardening.
+   Release boundary maintained: match_logs.jsonl (player data), tunnel
+   credentials, and machine-specific launcher .cmd files stay OUT of
+   the repo; fonts are OFL with notice; the favicon is custom-drawn
+   (project-owned).
 7. COMMUNITY SURFACE: issues policy, a CONTRIBUTING note (or an
    explicit "archive, not maintained" statement), citation entry.
 8. FINAL: user reviews this checklist executed, then flips the repo.
