@@ -203,6 +203,20 @@ imitation-style metrics can look healthy while played strength
 collapses - hence human judgment at exactly this point). The frozen
 coef applies to both recipes (binary anchor term; CT arms' lambda).
 
+AMENDMENT 2026-08-04 (USER-APPROVED, pre-unblinding): anchor
+coefficient FROZEN AT lambda = 4.0, superseding the candidate set
+{0.25, 1.0} - BOTH original values violated the pre-specified entropy
+diagnostic in the freeze trainings (ratios 3.03 / 2.35 vs <= 2.0), so
+an amendment was required on any path. The choice rests on a
+holdout-only dose-response measured under the halt
+(docs/expert_iter_v2_freeze_report.md; equity_data/verdicts/
+expert_iter_v2_freeze_exploration_*.json): monotone improvement on ALL
+diagnostics with anchor strength (conf match 0.594 -> 0.688, non-conf
+KL 1.62 -> 0.229, entropy ratio 3.03 -> 1.762 across coefs 0.25 -> 4.0;
+saturation at 3.0-4.0; 4.0 dominant and passing). No comparative
+evaluation existed at amendment time. lambda = 4.0 applies to both
+recipes (binary anchor term; CT arms' lambda).
+
 LIFELINE BRANCH (pre-registered now, exercisable only as written):
 IF the binary battery FAILS and at least one continuous arm's
 comparative delta is helpful with familywise-adjusted significance
