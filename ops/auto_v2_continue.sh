@@ -7,10 +7,18 @@
 cd /e/hearts_simulator || exit 1
 COEF="$1"
 LOG=logs/auto_v2_pipeline.log
-case "$COEF" in 0.25|1.0) ;; *) echo "usage: auto_v2_continue.sh 0.25|1.0"; exit 1;; esac
+# Accepted values widened 2026-08-04 after the freeze halt: the original
+# {0.25, 1.0} both violated the entropy diagnostic; the dose-response
+# exploration (freeze report) supports higher anchors. USING a value
+# outside the original prereg set requires the user-approved amendment.
+case "$COEF" in 0.25|1.0|2.0|3.0|4.0) ;; *) echo "usage: auto_v2_continue.sh <0.25|1.0|2.0|3.0|4.0>"; exit 1;; esac
 exec >> "$LOG" 2>&1
 echo "AUTO_V2_CONTINUE coef=$COEF $(date '+%F %H:%M')"
 echo "COEF=$COEF" >> logs/auto_v2_state
+# Windows pid for pause-by-tree-kill (PAUSE_V2_EXPERIMENT.cmd);
+# resume = rerun this script with the same coef (idempotent).
+cat /proc/$$/winpid > logs/v2exp_driver.pid 2>/dev/null \
+  || echo $$ > logs/v2exp_driver.pid
 
 export ANCHOR_COEF="$COEF"
 bash ops/run_v2_mix_experiment.sh --run
