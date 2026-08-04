@@ -451,6 +451,7 @@ class Table:
         except Exception:
             pass_dir = None
         return {**base,
+                'you_host': pid == self.host_pid,
                 'your_seat': seat, 'roster': self.roster(),
                 'your_turn': my_turn, 'passing': need_pass,
                 'passed_so_far': [],
@@ -585,9 +586,10 @@ def table_join(body: TableJoinBody):
         if any(p['pid'] == pid for p in t.lobby) or pid in t.seat_of:
             return t.view(pid)          # idempotent rejoin
         if t.state != 'lobby':
-            raise HTTPException(409, 'table already started')
+            raise HTTPException(409, 'match already in progress - ask the '
+                                     'host to close and start a new table')
         if len(t.lobby) >= 4:
-            raise HTTPException(409, 'table is full')
+            raise HTTPException(409, 'table is full (4 players max)')
         n = _clean_name(body.name, f'Guest {len(t.lobby) + 1}')
         t.lobby.append({'pid': pid, 'name': n})
         return t.view(pid)
@@ -609,6 +611,19 @@ def table_state(code: str, pid: str, cursor: int = 0):
     t = _get_table(code)
     with t.lock:
         return t.view(pid, cursor)
+
+
+@app.post('/api/table/close')
+def table_close(body: TableJoinBody):
+    """Host-only: delete the table for everyone (end-game screen button).
+    Other players' next poll gets 404 and returns to the menu cleanly."""
+    t = _get_table(body.code)
+    with t.lock:
+        if body.pid != t.host_pid:
+            raise HTTPException(403, 'only the host can close the table')
+    with _tables_lock:
+        _tables.pop(t.code, None)
+    return {'ok': True}
 
 
 @app.post('/api/table/leave')

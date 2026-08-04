@@ -180,8 +180,8 @@
 <div id="home"><div class="opanel">
   <h2>Hearts</h2>
   <div class="hrow"><button id="home-solo">Play vs AI</button></div>
-  <div class="hrow"><input id="home-name" placeholder="Your name (optional)" maxlength="20"></div>
   <div class="hrow"><button id="home-host">Host a table</button></div>
+  <div class="hrow"><input id="home-name" placeholder="Your name (optional)" maxlength="20"></div>
   <div class="hrow"><input id="home-code" placeholder="CODE" maxlength="4">
     <button id="home-join">Join table</button></div>
   <div id="home-err"></div>
@@ -510,7 +510,17 @@ function showMatchEnd() {
   el('o-body').innerHTML = '<table><tr><th>Place</th><th>Player</th><th>Score</th></tr>' +
     order.map(s => `<tr><td>${state.placements[s]}</td>
       <td>${seatName(s)}</td>
-      <td>${state.match_scores[s]}</td></tr>`).join('') + '</table>';
+      <td>${state.match_scores[s]}</td></tr>`).join('') + '</table>' +
+    (mode === 'table' && state.you_host
+      ? '<div style="margin-top:8px"><button id="close-table-btn">Close table for everyone</button></div>'
+      : '');
+  if (mode === 'table' && state.you_host) {
+    el('close-table-btn').onclick = async () => {
+      try { await api('/api/table/close', POSTJSON({code: tcode, pid})); }
+      catch (e) {}
+      leaveTable();
+    };
+  }
   el('o-btn').textContent = mode === 'table' ? 'Back to menu' : 'Play again';
   el('o-btn').style.display = '';
   el('o-btn').onclick = () => {
