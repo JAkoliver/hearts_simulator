@@ -251,7 +251,13 @@ class Table:
         self.finished = False
         self.t0 = time.time()
         self.created = time.time()
+        self.last_seen = {host_pid: time.time()}   # pid -> last poll (heartbeat)
+        self.departed = set()                      # pids that explicitly left
         self.lock = threading.Lock()
+
+    def human_pids(self):
+        return ([p['pid'] for p in self.lobby] if self.state == 'lobby'
+                else list(self.seat_of))
 
     # -- lifecycle ----------------------------------------------------------
     def emit(self, type_, **kw):
@@ -368,6 +374,10 @@ class Table:
 
     # -- per-seat view ------------------------------------------------------
     def view(self, pid, cursor=0):
+        # Every poll is a heartbeat; polling again also revokes a departure
+        # (e.g. an accidental leave followed by a rejoin).
+        self.last_seen[pid] = time.time()
+        self.departed.discard(pid)
         base = {'code': self.code, 'state': self.state, 'target': TARGET}
         if self.state == 'lobby':
             return {**base,
@@ -536,6 +546,53 @@ def table_state(code: str, pid: str, cursor: int = 0):
     t = _get_table(code)
     with t.lock:
         return t.view(pid, cursor)
+
+
+@app.post('/api/table/leave')
+def table_leave(body: TableJoinBody):
+    """Explicit leave (menu/reset button). When the LAST human leaves this
+    way the table is deleted immediately; silent departures (closed tabs,
+    dead links) are reaped by staleness instead."""
+    t = _get_table(body.code)
+    with t.lock:
+        pid = body.pid[:64]
+        t.departed.add(pid)
+        if t.state == 'lobby':
+            if pid == t.host_pid:
+                all_gone = True          # host abandoned the lobby: close it
+            else:
+                t.lobby = [p for p in t.lobby if p['pid'] != pid]
+                all_gone = not t.lobby
+        else:
+            all_gone = all(p in t.departed for p in t.human_pids())
+    if all_gone:
+        with _tables_lock:
+            _tables.pop(t.code, None)
+    return {'ok': True, 'closed': all_gone}
+
+
+def _reaper():
+    """Delete tables whose humans are all gone: explicitly departed, or
+    silent for over 2 minutes (the 1.5s poll is the heartbeat - a refresh
+    takes seconds and can never trip this)."""
+    while True:
+        time.sleep(60)
+        now = time.time()
+        with _tables_lock:
+            items = list(_tables.items())
+        for code, t in items:
+            with t.lock:
+                pids = t.human_pids()
+                drop = (not pids or
+                        all(p in t.departed
+                            or now - t.last_seen.get(p, t.created) > 120
+                            for p in pids))
+            if drop:
+                with _tables_lock:
+                    _tables.pop(code, None)
+
+
+threading.Thread(target=_reaper, daemon=True).start()
 
 
 @app.post('/api/table/pass/{code}')

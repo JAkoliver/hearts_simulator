@@ -561,6 +561,8 @@ function enterTable(ts) {
   startPolling();
 }
 function leaveTable() {
+  if (tcode)   // tell the server; when the last human leaves, the table closes
+    api('/api/table/leave', POSTJSON({code: tcode, pid})).catch(() => {});
   stopPolling();
   el('overlay').style.display = 'none';
   setMode('solo');
