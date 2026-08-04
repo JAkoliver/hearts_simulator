@@ -263,8 +263,14 @@ function renderSide() {
 // before its card is shown. True legality applies when the turn arrives.
 function renderHand(showLegal = true) {
   const legal = new Set(state.legal);
+  // Dim only when there is real legality to show: your play turn, outside
+  // passing. (Table mode: the server sends `legal` only on your turn -
+  // passing and waiting states must render every card selectable.)
+  const inPassing = mode === 'table' ? state.passing
+                                     : (state.your_turn && state.passing);
+  const dim = showLegal && state.your_turn && !inPassing;
   el('hand').innerHTML = state.hand.map(h => {
-    let cls = (showLegal && !legal.has(h.card)) ? 'illegal' : '';
+    let cls = (dim && !legal.has(h.card)) ? 'illegal' : '';
     if (passSelection.includes(h.card) || h.card === preselect) cls += ' selected';
     return cardHTML(h.name, cls);
   }).join('');
