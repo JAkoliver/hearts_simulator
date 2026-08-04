@@ -390,9 +390,13 @@ function confirmPass() {
 async function api(path, opts) {
   const r = await fetch(path, opts);
   if (!r.ok) {
+    // Only surface short JSON `detail` strings; anything else (e.g. a
+    // Cloudflare tunnel-down HTML page) becomes a terse status message.
     const t = await r.text();
-    try { throw new Error(JSON.parse(t).detail || t); }
-    catch (e) { throw (e instanceof SyntaxError ? new Error(t) : e); }
+    let msg = `error ${r.status}`;
+    try { msg = JSON.parse(t).detail || msg; } catch (e) {}
+    if (/[<>]/.test(msg) || msg.length > 120) msg = `error ${r.status}`;
+    throw new Error(msg);
   }
   return r.json();
 }
@@ -573,7 +577,10 @@ async function pollTable() {
   try {
     const ts = await api(`/api/table/state/${tcode}?pid=${encodeURIComponent(pid)}&cursor=${tcursor}`);
     handleTableState(ts);
-  } catch (e) { leaveTable(); showHome('Table unavailable: ' + e.message); }
+  } catch (e) {
+    leaveTable();
+    showHome('Table closed - connection lost or the host ended it.');
+  }
 }
 
 function renderLobby(ts) {
