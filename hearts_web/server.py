@@ -64,6 +64,31 @@ def card_name(idx):
     return RANKS[idx % 13] + SUITS[idx // 13]
 
 
+def ai_action(menv):
+    """Argmax raw-net action for the current player of any MatchEnv."""
+    obs = torch.from_numpy(menv.observe()).unsqueeze(0)
+    mask = torch.zeros((1, 52), dtype=torch.bool)
+    for a in menv.get_legal_actions():
+        if a != -1:
+            mask[0, a] = True
+    with _net_lock, torch.no_grad():
+        logits, _ = _net(obs, mask)
+    return int(torch.argmax(logits, dim=1).item())
+
+
+def hand_of(menv, seat):
+    """Any seat's current hand, server-side ground truth (never shipped to
+    anyone but that seat). Rows of observe_opponent_hands are the hands of
+    seats (current+k)%4 for k=1..3 (HeartsEnv.ObserveOpponentHandsFor)."""
+    p = menv.get_current_player()
+    if seat == p:
+        obs = np.asarray(menv.env.observe(), dtype=np.float32)
+        return sorted(int(c) for c in np.flatnonzero(obs[:52] > 0))
+    labels = np.asarray(menv.env.observe_opponent_hands(), dtype=np.float32)
+    k = (seat - p) % 4
+    return sorted(int(c) for c in np.flatnonzero(labels[(k - 1) * 52:k * 52] > 0))
+
+
 class Session:
     def __init__(self, pid=None, ua=''):
         self.sid = secrets.token_urlsafe(12)
@@ -94,13 +119,7 @@ class Session:
         return [a for a in self.menv.get_legal_actions() if a != -1]
 
     def _ai_action(self):
-        obs = torch.from_numpy(self.menv.observe()).unsqueeze(0)
-        mask = torch.zeros((1, 52), dtype=torch.bool)
-        for a in self._legal():
-            mask[0, a] = True
-        with _net_lock, torch.no_grad():
-            logits, _ = _net(obs, mask)
-        return int(torch.argmax(logits, dim=1).item())
+        return ai_action(self.menv)
 
     def _apply(self, seat, action):
         in_play = not self.menv.is_passing()
@@ -199,6 +218,212 @@ class Session:
         }
 
 
+# ---------------------------------------------------------------------------
+# TABLE MODE: 1-4 humans + AI fill, join-code lobby, poll-based updates.
+# Privacy: each pid is served ONLY its own seat's hand/legality; events carry
+# public information only (plays, trick/deal outcomes - never hands/passes).
+# ---------------------------------------------------------------------------
+CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'  # no 0/O/1/I/L lookalikes
+_tables = {}
+_tables_lock = threading.Lock()
+
+
+class Table:
+    def __init__(self, host_pid, host_name):
+        self.code = ''.join(secrets.choice(CODE_ALPHABET) for _ in range(4))
+        self.state = 'lobby'
+        self.lobby = [{'pid': host_pid, 'name': host_name}]  # join order
+        self.host_pid = host_pid
+        self.seat_of = {}         # pid -> seat (assigned at start)
+        self.names = {}           # seat -> display name (humans)
+        self.menv = None
+        self.seed = None
+        self.events = []          # public event log; index == cursor
+        self.pending_pass = {}    # seat -> queued cards (applied in env order)
+        self.passed_by = {}       # seat -> cards applied this deal
+        self.deal_start_hands = {}
+        self.received = {}        # seat -> cards received this deal
+        self.trick = []
+        self.last_trick = None
+        self.deal_no = 1
+        self.deal_actions = []
+        self.n_actions = 0
+        self.finished = False
+        self.t0 = time.time()
+        self.created = time.time()
+        self.lock = threading.Lock()
+
+    # -- lifecycle ----------------------------------------------------------
+    def emit(self, type_, **kw):
+        self.events.append({'type': type_, **kw})
+
+    def start(self):
+        self.state = 'playing'
+        self.seed = secrets.randbits(31)
+        self.menv = MatchEnv(seed=self.seed)
+        seats = list(range(4))
+        # Deterministic shuffle from the table seed: fair + reproducible.
+        rng = np.random.default_rng(self.seed)
+        rng.shuffle(seats)
+        for i, p in enumerate(self.lobby):
+            self.seat_of[p['pid']] = seats[i]
+            self.names[seats[i]] = p['name']
+        self._snapshot_deal()
+        self.emit('start')
+        self.advance()
+
+    def roster(self):
+        human = {s: self.names.get(s) for s in self.seat_of.values()}
+        return [{'seat': s,
+                 'type': 'human' if s in human else 'ai',
+                 'name': human.get(s) or f'Player {s + 1} (AI)'}
+                for s in range(4)]
+
+    def _snapshot_deal(self):
+        self.deal_start_hands = {s: set(hand_of(self.menv, s)) for s in range(4)}
+        self.passed_by, self.received, self.pending_pass = {}, {}, {}
+
+    # -- engine pump --------------------------------------------------------
+    def humans(self):
+        return set(self.seat_of.values())
+
+    def advance(self):
+        """Run AI turns and queued human passes until a human must act."""
+        while not self.finished:
+            s = self.menv.get_current_player()
+            if self.menv.is_passing():
+                if s in self.humans():
+                    q = self.pending_pass.get(s)
+                    if not q:
+                        break
+                    card = q.pop(0)
+                else:
+                    card = ai_action(self.menv)
+                self.passed_by.setdefault(s, []).append(card)
+                self._apply(s, card)
+            else:
+                if s in self.humans():
+                    break
+                self._apply(s, ai_action(self.menv))
+
+    def _apply(self, seat, action):
+        was_passing = self.menv.is_passing()
+        self.deal_actions.append((seat, int(action),
+                                  int((time.time() - self.t0) * 1000)))
+        self.n_actions += 1
+        if not was_passing:
+            self.trick.append((seat, action))
+            self.emit('play', seat=seat, name=card_name(action))
+        deal_done, match_done, round_scores = self.menv.step(action)
+        if was_passing and not self.menv.is_passing() and not deal_done:
+            # Pass exchange resolved: received = hand now minus what was
+            # kept (convention-free - no direction mapping needed).
+            for s in range(4):
+                kept = self.deal_start_hands[s] - set(self.passed_by.get(s, []))
+                self.received[s] = sorted(set(hand_of(self.menv, s)) - kept)
+            self.emit('passing_done')
+        if not was_passing and len(self.trick) == 4:
+            winner = None if deal_done else self.menv.get_current_player()
+            self.last_trick = {'cards': list(self.trick), 'winner': winner}
+            self.emit('trick_end', winner=winner,
+                      cards=[{'seat': s, 'name': card_name(c)}
+                             for s, c in self.trick])
+            self.trick = []
+        if deal_done:
+            self.trick = []
+            srt = sorted(round_scores)
+            self.emit('deal_end',
+                      round_scores=list(map(int, round_scores)),
+                      totals=list(map(int, self.menv.match_scores)),
+                      moon_by=(int(np.argmin(round_scores))
+                               if srt[0] == 0 and all(v == 26 for v in srt[1:])
+                               else None))
+            log_line({'v': LOG_V, 'kind': 'deal', 'sid': f'table:{self.code}',
+                      'pid': None, 'mode': 'table', 'seed': self.seed,
+                      'human_seat': None,
+                      'seats': {str(s): ('human' if s in self.humans() else 'ai')
+                                for s in range(4)},
+                      'model': MODEL_MD5, 'ts': round(time.time(), 3),
+                      'deal_no': self.deal_no, 'actions': self.deal_actions,
+                      'round_scores': list(map(int, round_scores)),
+                      'totals': list(map(int, self.menv.match_scores))})
+            self.deal_actions = []
+            self.deal_no += 1
+            self._snapshot_deal()
+        if match_done:
+            self.finished = True
+            self.emit('match_end',
+                      final=list(map(int, self.menv.match_scores)),
+                      placements=list(self.menv.placements()))
+            log_line({'v': LOG_V, 'kind': 'match', 'sid': f'table:{self.code}',
+                      'pid': None, 'mode': 'table', 'seed': self.seed,
+                      'human_seat': None,
+                      'seats': {str(s): ('human' if s in self.humans() else 'ai')
+                                for s in range(4)},
+                      'model': MODEL_MD5, 'ts': round(time.time(), 3),
+                      'deals': self.deal_no - 1, 'n_actions': self.n_actions,
+                      'final': list(map(int, self.menv.match_scores)),
+                      'placements': list(self.menv.placements()),
+                      'duration_s': round(time.time() - self.t0, 1), 'ua': ''})
+
+    # -- per-seat view ------------------------------------------------------
+    def view(self, pid, cursor=0):
+        base = {'code': self.code, 'state': self.state, 'target': TARGET}
+        if self.state == 'lobby':
+            return {**base,
+                    'players': [p['name'] for p in self.lobby],
+                    'you_host': pid == self.host_pid}
+        seat = self.seat_of.get(pid)
+        if seat is None:
+            raise HTTPException(403, 'not seated at this table')
+        cur = self.menv.get_current_player() if not self.finished else None
+        passing = bool(self.menv.is_passing()) if not self.finished else False
+        need_pass = (passing and seat in self.humans()
+                     and len(self.passed_by.get(seat, [])) == 0
+                     and seat not in self.pending_pass)
+        my_turn = (not self.finished and not passing and cur == seat)
+        legal = ([a for a in self.menv.get_legal_actions() if a != -1]
+                 if my_turn else [])
+        waiting = [self.names[s] for s in self.humans()
+                   if passing and len(self.passed_by.get(s, [])) == 0
+                   and s not in self.pending_pass and s != seat]
+        try:
+            pass_dir = ['left', 'right', 'across', 'hold'][
+                int(self.menv.env.get_pass_direction())]
+        except Exception:
+            pass_dir = None
+        return {**base,
+                'your_seat': seat, 'roster': self.roster(),
+                'your_turn': my_turn, 'passing': need_pass,
+                'passed_so_far': [],
+                'current_seat': cur, 'waiting_pass': waiting,
+                'deal_no': self.deal_no, 'pass_direction': pass_dir,
+                'received': [card_name(c) for c in self.received.get(seat, [])],
+                'round_scores': list(map(int, self.menv.env.get_round_scores())),
+                'match_scores': list(map(int, self.menv.match_scores)),
+                'hand': [{'card': c, 'name': card_name(c)}
+                         for c in hand_of(self.menv, seat)],
+                'legal': sorted(legal),
+                'trick': [{'seat': s, 'name': card_name(c)}
+                          for s, c in self.trick],
+                'last_trick': (None if self.last_trick is None else {
+                    'cards': [{'seat': s, 'name': card_name(c)}
+                              for s, c in self.last_trick['cards']],
+                    'winner': self.last_trick['winner']}),
+                'finished': self.finished,
+                'placements': (list(self.menv.placements())
+                               if self.finished else None),
+                'events': self.events[cursor:], 'cursor': len(self.events)}
+
+
+def _get_table(code):
+    with _tables_lock:
+        t = _tables.get(code.upper())
+    if t is None:
+        raise HTTPException(404, 'unknown table code')
+    return t
+
+
 class PlayBody(BaseModel):
     card: int
 
@@ -241,6 +466,114 @@ def get_state(sid: str):
     s = _get(sid)
     with s.lock:
         return s.state()
+
+
+class TableNewBody(BaseModel):
+    pid: str
+    name: str | None = None
+
+
+class TableJoinBody(BaseModel):
+    code: str
+    pid: str
+    name: str | None = None
+
+
+class TableActBody(BaseModel):
+    pid: str
+    card: int | None = None
+    cards: list[int] | None = None
+    cursor: int = 0
+
+
+def _clean_name(name, fallback):
+    n = (name or '').strip()[:20]
+    return n if n else fallback
+
+
+@app.post('/api/table/new')
+def table_new(body: TableNewBody):
+    t = Table(body.pid[:64], _clean_name(body.name, 'Host'))
+    with _tables_lock:
+        while t.code in _tables:
+            t.code = ''.join(secrets.choice(CODE_ALPHABET) for _ in range(4))
+        # Drop stale tables past a sane cap (oldest first).
+        while len(_tables) > 200:
+            _tables.pop(next(iter(_tables)))
+        _tables[t.code] = t
+    return t.view(body.pid)
+
+
+@app.post('/api/table/join')
+def table_join(body: TableJoinBody):
+    t = _get_table(body.code)
+    with t.lock:
+        pid = body.pid[:64]
+        if any(p['pid'] == pid for p in t.lobby) or pid in t.seat_of:
+            return t.view(pid)          # idempotent rejoin
+        if t.state != 'lobby':
+            raise HTTPException(409, 'table already started')
+        if len(t.lobby) >= 4:
+            raise HTTPException(409, 'table is full')
+        n = _clean_name(body.name, f'Guest {len(t.lobby) + 1}')
+        t.lobby.append({'pid': pid, 'name': n})
+        return t.view(pid)
+
+
+@app.post('/api/table/start')
+def table_start(body: TableJoinBody):
+    t = _get_table(body.code)
+    with t.lock:
+        if body.pid != t.host_pid:
+            raise HTTPException(403, 'only the host can start')
+        if t.state == 'lobby':
+            t.start()
+        return t.view(body.pid)
+
+
+@app.get('/api/table/state/{code}')
+def table_state(code: str, pid: str, cursor: int = 0):
+    t = _get_table(code)
+    with t.lock:
+        return t.view(pid, cursor)
+
+
+@app.post('/api/table/pass/{code}')
+def table_pass(code: str, body: TableActBody):
+    t = _get_table(code)
+    with t.lock:
+        seat = t.seat_of.get(body.pid)
+        if seat is None:
+            raise HTTPException(403, 'not seated at this table')
+        if t.state != 'playing' or t.finished or not t.menv.is_passing():
+            raise HTTPException(409, 'not in a passing phase')
+        if t.passed_by.get(seat) or seat in t.pending_pass:
+            raise HTTPException(409, 'already passed')
+        cards = body.cards or []
+        hand = set(hand_of(t.menv, seat))
+        if len(cards) != 3 or len(set(cards)) != 3 or not set(cards) <= hand:
+            raise HTTPException(400, 'pass must be 3 distinct cards from your hand')
+        t.pending_pass[seat] = list(cards)
+        t.advance()
+        return t.view(body.pid, body.cursor)
+
+
+@app.post('/api/table/play/{code}')
+def table_play(code: str, body: TableActBody):
+    t = _get_table(code)
+    with t.lock:
+        seat = t.seat_of.get(body.pid)
+        if seat is None:
+            raise HTTPException(403, 'not seated at this table')
+        if t.state != 'playing' or t.finished:
+            raise HTTPException(409, 'table not in play')
+        if t.menv.is_passing() or t.menv.get_current_player() != seat:
+            raise HTTPException(409, 'not your turn')
+        if body.card not in [a for a in t.menv.get_legal_actions() if a != -1]:
+            raise HTTPException(400, f'illegal card {body.card}')
+        t._apply(seat, body.card)
+        t.advance()
+        return t.view(body.pid, body.cursor)
 
 
 @app.post('/api/play/{sid}')

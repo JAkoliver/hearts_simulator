@@ -5,14 +5,39 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Hearts vs AI &mdash; match to 100</title>
 <style>
-  :root { --felt:#1d6b3c; --felt-dark:#155230; --card-bg:#fdfdf8; --gold:#e8b923; }
+  /* DARK theme is the default (:root); body.green restores the felt look.
+     Dark surfaces climb in lightness with elevation: page #121212 ->
+     header #18181B -> panels #1E1E21 -> overlay #232327 -> felt center
+     #2A2A2E. Cards stay light (warm paper, not pure white) so they
+     remain the brightest objects on screen. */
+  :root {
+    --bg:#121212; --header-bg:#18181B;
+    --felt:#2A2A2E; --felt-edge:#1B1B1E;
+    --panel-bg:#1E1E21; --overlay-panel:#232327;
+    --tag-bg:rgba(255,255,255,.08);
+    --text:#ECECEC; --muted:#A6A6AF; --seat-text:#B9B9C2; --footer:#77777F;
+    --gold:#E8B923; --banner:#FFD97A;
+    --card-bg:#F0EDE5; --card-ink:#1F1F23; --card-red:#C3342E;
+  }
+  body.green {
+    --bg:#155230; --header-bg:#0e3a20;
+    --felt:#1d6b3c; --felt-edge:#155230;
+    --panel-bg:rgba(0,0,0,.35); --overlay-panel:#12331f;
+    --tag-bg:rgba(0,0,0,.35);
+    --text:#eee; --muted:#9fd4b3; --seat-text:#cfe9d8; --footer:#88ab96;
+    --gold:#e8b923; --banner:#ffe28a;
+    --card-bg:#fdfdf8; --card-ink:#111; --card-red:#c22;
+  }
   * { box-sizing:border-box; margin:0; padding:0; }
-  body { font-family:system-ui, sans-serif; background:var(--felt-dark); color:#eee;
+  body { font-family:system-ui, sans-serif; background:var(--bg); color:var(--text);
          min-height:100vh; display:flex; flex-direction:column; align-items:center;
          user-select:none; cursor:default; }
-  header { width:100%; text-align:center; padding:8px; background:#0e3a20; }
+  header { width:100%; text-align:center; padding:8px; background:var(--header-bg); }
   header h1 { font-size:1.1rem; font-weight:600; display:inline; }
-  header .sub { font-size:.78rem; color:#9fd4b3; }
+  header .sub { font-size:.78rem; color:var(--muted); }
+  #theme-toggle { position:fixed; top:8px; left:10px; z-index:5; }
+  #theme-toggle button { font-size:.75rem; padding:4px 12px;
+    background:var(--tag-bg); color:var(--text); }
   /* The table centers to the viewport (same axis as the hand); the side
      panel hangs off its right edge absolutely so it can't push it over. */
   /* Auto margins here + on the footer split the leftover viewport height
@@ -22,15 +47,15 @@
      clipping. */
   #layout { position:relative; display:flex; gap:12px; align-items:flex-start; margin-top:auto; }
   #table { position:relative; width:min(72vw, 950px); height:min(60vh, 560px);
-           background:radial-gradient(ellipse at center, var(--felt) 0%, var(--felt-dark) 100%);
-           border-radius:16px; box-shadow:0 4px 18px rgba(0,0,0,.5); }
+           background:radial-gradient(ellipse at center, var(--felt) 0%, var(--felt-edge) 100%);
+           border-radius:16px; box-shadow:0 4px 18px rgba(0,0,0,.55); }
   #side { position:absolute; left:100%; top:0; margin-left:12px; width:170px;
           font-size:.8rem; display:flex; flex-direction:column; gap:8px; }
-  .panel { background:rgba(0,0,0,.35); border-radius:10px; padding:8px 10px; }
-  .panel h3 { font-size:.75rem; color:#9fd4b3; text-transform:uppercase; margin-bottom:5px; }
+  .panel { background:var(--panel-bg); border-radius:10px; padding:8px 10px; }
+  .panel h3 { font-size:.75rem; color:var(--muted); text-transform:uppercase; margin-bottom:5px; }
   .panel .mini { display:inline-flex; margin:1px; }
-  .seat { position:absolute; text-align:center; font-size:.82rem; color:#cfe9d8; }
-  .seat .tag { background:rgba(0,0,0,.35); padding:2px 10px; border-radius:10px; white-space:nowrap; }
+  .seat { position:absolute; text-align:center; font-size:.82rem; color:var(--seat-text); }
+  .seat .tag { background:var(--tag-bg); padding:2px 10px; border-radius:10px; white-space:nowrap; }
   .seat.active .tag { background:var(--gold); color:#222; font-weight:600; }
   #seat-top { top:8px; left:50%; transform:translateX(-50%); }
   #seat-left { left:8px; top:50%; transform:translateY(-50%); }
@@ -49,14 +74,14 @@
                  padding:5px 7px; }
   #trick .card .suit { font-size:1.6rem; }
   #banner { position:absolute; top:calc(50% + 130px); width:100%; text-align:center;
-            font-size:1.05rem; color:#ffe28a; text-shadow:0 1px 3px #000;
+            font-size:1.05rem; color:var(--banner); text-shadow:0 1px 3px #000;
             pointer-events:none; font-weight:600; }
   .card { display:inline-flex; flex-direction:column; justify-content:space-between;
-          width:50px; height:72px; background:var(--card-bg); color:#111; border-radius:7px;
+          width:50px; height:72px; background:var(--card-bg); color:var(--card-ink); border-radius:7px;
           border:1px solid #999; padding:4px 5px; font-weight:700; font-size:.92rem;
-          box-shadow:0 2px 5px rgba(0,0,0,.35); user-select:none; position:relative; }
+          box-shadow:0 2px 5px rgba(0,0,0,.45); user-select:none; position:relative; }
   .card .suit { font-size:1.2rem; line-height:1; align-self:flex-end; }
-  .card.red { color:#c22; }
+  .card.red { color:var(--card-red); }
   .card.mini { width:34px; height:48px; font-size:.7rem; padding:2px 3px; border-radius:5px; }
   .card.mini .suit { font-size:.85rem; }
   /* Top padding = selected-card rise (14px) + outline (3px) + 1px slack:
@@ -75,7 +100,7 @@
      collide with cards rising out of the hand, and the hand needs no
      reserved headroom above it. */
   #status { position:absolute; bottom:38px; left:0; width:100%; text-align:center;
-            font-size:.95rem; color:#eee; text-shadow:0 1px 3px #000;
+            font-size:.95rem; color:var(--text); text-shadow:0 1px 3px #000;
             pointer-events:none; }
   #status .thinking::after { content:''; animation:dots 1.2s steps(4) infinite; }
   @keyframes dots { 0% {content:'';} 25% {content:'.';} 50% {content:'..';} 75% {content:'...';} }
@@ -85,12 +110,25 @@
   button:hover:not(:disabled) { filter:brightness(1.08); }
   #overlay { position:fixed; inset:0; background:rgba(0,0,0,.72); display:none;
              align-items:center; justify-content:center; z-index:10; }
-  #overlay .opanel { background:#12331f; border-radius:14px; padding:24px 32px; text-align:center;
-                     max-width:440px; }
-  #overlay h2 { color:#ffe28a; margin-bottom:10px; }
+  #home { position:fixed; inset:0; background:rgba(0,0,0,.72); display:none;
+          align-items:center; justify-content:center; z-index:9; }
+  #home .opanel { background:var(--overlay-panel); border-radius:14px;
+                  padding:24px 32px; text-align:center; min-width:300px; }
+  #home h2 { color:var(--banner); margin-bottom:14px; }
+  #home .hrow { margin:8px 0; }
+  #home input { background:var(--tag-bg); color:var(--text); border:1px solid #555;
+                border-radius:6px; padding:7px 10px; font-size:.9rem; width:150px;
+                text-align:center; }
+  #home input::placeholder { color:var(--muted); }
+  #home-code { width:80px; text-transform:uppercase; }
+  #home-err { color:#E5484D; font-size:.8rem; min-height:1.2em; margin-top:6px; }
+  #lobby-players div { padding:2px; }
+  #overlay .opanel { background:var(--overlay-panel); border-radius:14px; padding:24px 32px;
+                     text-align:center; max-width:440px; }
+  #overlay h2 { color:var(--banner); margin-bottom:10px; }
   #overlay table { margin:0 auto 10px; border-collapse:collapse; }
   #overlay td, #overlay th { padding:4px 14px; text-align:center; }
-  footer { font-size:.7rem; color:#88ab96; padding:6px; text-align:center;
+  footer { font-size:.7rem; color:var(--footer); padding:6px; text-align:center;
            margin-bottom:auto; }
   /* Below this width the absolute side panels would clip off-screen
      (72vw table + 2 x 182px panels = 100vw at 1300px): put them back in
@@ -106,6 +144,7 @@
 </style>
 </head>
 <body>
+<div id="theme-toggle"><button id="theme-btn"></button></div>
 <header>
   <h1>Hearts vs AI</h1>
   <span class="sub">&mdash; three seats are a trained AI &middot; match to 100 &middot; lowest score wins</span>
@@ -138,6 +177,16 @@
   <button id="o-btn"></button>
 </div></div>
 
+<div id="home"><div class="opanel">
+  <h2>Hearts</h2>
+  <div class="hrow"><button id="home-solo">Play vs AI</button></div>
+  <div class="hrow"><input id="home-name" placeholder="Your name (optional)" maxlength="20"></div>
+  <div class="hrow"><button id="home-host">Host a table</button></div>
+  <div class="hrow"><input id="home-code" placeholder="CODE" maxlength="4">
+    <button id="home-join">Join table</button></div>
+  <div id="home-err"></div>
+</div></div>
+
 <footer>An experiment in training a match-aware Hearts AI &middot; matches are recorded anonymously to improve it</footer>
 
 <script>
@@ -161,11 +210,15 @@ function cardHTML(name, cls='') {
 function pos(seat) { return (seat - state.your_seat + 4) % 4; }
 const SEAT_IDS = ['seat-bottom', 'seat-left', 'seat-top', 'seat-right'];
 
+function seatName(s) {
+  if (s === state.your_seat) return 'You';
+  if (state.roster) return esc(state.roster[s].name);
+  return `Player ${s + 1} (AI)`;
+}
 function renderSeats(highlightSeat=null) {
   for (let s = 0; s < 4; s++) {
     const node = el(SEAT_IDS[pos(s)]);
-    const label = s === state.your_seat ? 'You' : `Player ${s + 1} (AI)`;
-    node.innerHTML = `<span class="tag">${label} &middot; ${state.match_scores[s]}
+    node.innerHTML = `<span class="tag">${seatName(s)} &middot; ${state.match_scores[s]}
       <small>(+${state.round_scores[s]})</small></span>`;
     node.classList.toggle('active', s === highlightSeat);
   }
@@ -219,13 +272,14 @@ function renderHand(showLegal = true) {
     const card = state.hand.find(h => h.name === node.dataset.name).card;
     node.onclick = () => onCardClick(card);
   });
-  const passing = state.your_turn && state.passing;
+  const passing = mode === 'table' ? state.passing
+                                   : (state.your_turn && state.passing);
   el('pass-controls').style.display = passing ? 'block' : 'none';
   if (passing) {
-    const need = 3 - state.passed_so_far.length;
+    const need = 3 - (state.passed_so_far ? state.passed_so_far.length : 0);
     el('pass-btn').textContent =
       `Pass ${passSelection.length}/${need} ${state.pass_direction ?? ''}`;
-    el('pass-btn').disabled = passSelection.length !== need || busy;
+    el('pass-btn').disabled = passSelection.length !== need || !actionable();
     el('pass-btn').onclick = confirmPass;
   }
 }
@@ -245,15 +299,21 @@ function render() {
     preselect = null;
     if (state.legal.includes(c)) {
       setStatus('Playing your queued card&hellip;');
-      setTimeout(() => { if (!busy && state.your_turn) submit([c]); }, 200);
+      setTimeout(() => { if (actionable() && state.your_turn) playCard(c); }, 200);
       return;
     }
     markPreselect();   // clear the stale outline; fall through to normal status
   }
-  if (state.your_turn)
-    setStatus(state.passing
-      ? `Select ${3 - state.passed_so_far.length} card(s) to pass ${state.pass_direction ?? ''}`
-      : 'Your turn - click a card');
+  if (mode === 'table' && state.passing)
+    setStatus(`Select 3 cards to pass ${state.pass_direction ?? ''}`);
+  else if (state.your_turn && state.passing)
+    setStatus(`Select ${3 - state.passed_so_far.length} card(s) to pass ${state.pass_direction ?? ''}`);
+  else if (state.your_turn)
+    setStatus('Your turn - click a card');
+  else if (mode === 'table' && state.waiting_pass && state.waiting_pass.length)
+    setStatus(`Waiting for ${state.waiting_pass.map(esc).join(', ')} to pass`, true);
+  else if (mode === 'table' && state.current_seat != null)
+    setStatus(`${seatName(state.current_seat)}'s turn`, true);
 }
 
 function markPreselect() {
@@ -270,30 +330,46 @@ function applyLegality() {
   if (preselect !== null && !state.legal.includes(preselect)) preselect = null;
   renderHand(true);
 }
+function actionable() {          // may the player act right now?
+  return mode === 'table' ? !pumping : !busy;
+}
 function onCardClick(card) {
-  if (!busy && state.your_turn && state.passing) {
-    const need = 3 - state.passed_so_far.length;
+  const canAct = actionable();
+  const selecting = mode === 'table' ? state.passing
+                                     : (state.your_turn && state.passing);
+  if (canAct && selecting) {
+    const need = 3 - (state.passed_so_far ? state.passed_so_far.length : 0);
     const i = passSelection.indexOf(card);
     if (i >= 0) passSelection.splice(i, 1);          // deselect
     else if (passSelection.length < need) passSelection.push(card);
     renderHand();
     return;
   }
-  if (!busy && state.your_turn) { submit([card]); return; }
+  if (canAct && state.your_turn) { playCard(card); return; }
   // Mid-animation: queue the card; it auto-plays when your turn arrives
   // (or deselects if it turns out to be illegal then).
   if (state.passing) return;
   preselect = (preselect === card) ? null : card;
   markPreselect();
 }
+function playCard(card) {
+  if (mode === 'table') tablePlay(card);
+  else submit([card]);
+}
 function confirmPass() {
-  if (passSelection.length === 3 - state.passed_so_far.length)
-    submit(passSelection.slice());
+  const need = 3 - (state.passed_so_far ? state.passed_so_far.length : 0);
+  if (passSelection.length !== need) return;
+  if (mode === 'table') tablePass(passSelection.slice());
+  else submit(passSelection.slice());
 }
 
 async function api(path, opts) {
   const r = await fetch(path, opts);
-  if (!r.ok) throw new Error(await r.text());
+  if (!r.ok) {
+    const t = await r.text();
+    try { throw new Error(JSON.parse(t).detail || t); }
+    catch (e) { throw (e instanceof SyntaxError ? new Error(t) : e); }
+  }
   return r.json();
 }
 
@@ -390,6 +466,7 @@ function showDealEnd(ev) {
       [0,1,2,3].map(s => `<tr><td>${s === state.your_seat ? 'You' : `Player ${s + 1} (AI)`}</td>
         <td>+${ev.round_scores[s]}</td><td>${ev.totals[s]}</td></tr>`).join('') + '</table>';
     el('o-btn').textContent = 'Next deal';
+    el('o-btn').style.display = '';
     el('o-btn').onclick = () => { el('overlay').style.display = 'none'; resolve(); };
     el('overlay').style.display = 'flex';
   });
@@ -404,43 +481,215 @@ function showMatchEnd() {
     order.map(s => `<tr><td>${state.placements[s]}</td>
       <td>${s === state.your_seat ? 'You' : `Player ${s + 1} (AI)`}</td>
       <td>${state.match_scores[s]}</td></tr>`).join('') + '</table>';
-  el('o-btn').textContent = 'Play again';
-  el('o-btn').onclick = () => { el('overlay').style.display = 'none'; newMatch(); };
+  el('o-btn').textContent = mode === 'table' ? 'Back to menu' : 'Play again';
+  el('o-btn').style.display = '';
+  el('o-btn').onclick = () => {
+    el('overlay').style.display = 'none';
+    if (mode === 'table') leaveTable(); else newMatch();
+  };
   el('overlay').style.display = 'flex';
 }
 
+// ---- table mode (multi-human) --------------------------------------------
+let mode = 'solo', tcode = null, tcursor = 0, pollTimer = null;
+let evq = [], pumping = false, shownTrick = [];
+
+const POSTJSON = o => ({method: 'POST',
+  headers: {'Content-Type': 'application/json'}, body: JSON.stringify(o)});
+
+function setMode(m, code) {
+  mode = m; tcode = code || null;
+  localStorage.setItem(K('hearts_mode'), m);
+  if (code) localStorage.setItem(K('hearts_table'), code);
+  else localStorage.removeItem(K('hearts_table'));
+}
+function showHome(err) {
+  el('home').style.display = 'flex';
+  el('home-err').textContent = err || '';
+}
+function hideHome() { el('home').style.display = 'none'; }
+
+async function hostTable() {
+  try {
+    const ts = await api('/api/table/new',
+      POSTJSON({pid, name: el('home-name').value}));
+    enterTable(ts);
+  } catch (e) { el('home-err').textContent = e.message; }
+}
+async function joinTable() {
+  const code = el('home-code').value.trim().toUpperCase();
+  if (code.length !== 4) { el('home-err').textContent = 'code is 4 characters'; return; }
+  try {
+    const ts = await api('/api/table/join',
+      POSTJSON({code, pid, name: el('home-name').value}));
+    enterTable(ts);
+  } catch (e) { el('home-err').textContent = e.message; }
+}
+function enterTable(ts) {
+  hideHome();
+  setMode('table', ts.code);
+  tcursor = 0; evq = []; shownTrick = []; passSelection = []; preselect = null;
+  handleTableState(ts);
+  startPolling();
+}
+function leaveTable() {
+  stopPolling();
+  el('overlay').style.display = 'none';
+  setMode('solo');
+  showHome();
+}
+function startPolling() {
+  stopPolling();
+  pollTimer = setInterval(pollTable, 1500);
+}
+function stopPolling() { if (pollTimer) clearInterval(pollTimer); pollTimer = null; }
+
+async function pollTable() {
+  if (mode !== 'table' || !tcode) return stopPolling();
+  try {
+    const ts = await api(`/api/table/state/${tcode}?pid=${encodeURIComponent(pid)}&cursor=${tcursor}`);
+    handleTableState(ts);
+  } catch (e) { leaveTable(); showHome('Table unavailable: ' + e.message); }
+}
+
+function renderLobby(ts) {
+  el('o-title').textContent = `Table ${ts.code}`;
+  el('o-body').innerHTML =
+    '<p>Share this code with up to 3 friends.</p><div id="lobby-players">' +
+    ts.players.map(n => `<div>${esc(n)}</div>`).join('') + '</div>' +
+    (ts.you_host ? '<p style="opacity:.7">AI fills any empty seats.</p>'
+                 : '<p style="opacity:.7">Waiting for the host to start&hellip;</p>');
+  const b = el('o-btn');
+  if (ts.you_host) {
+    b.style.display = '';
+    b.textContent = `Start (${ts.players.length} human${ts.players.length > 1 ? 's' : ''})`;
+    b.onclick = async () => {
+      try { handleTableState(await api('/api/table/start', POSTJSON({code: tcode, pid}))); }
+      catch (e) { setStatus('Error: ' + e.message); }
+    };
+  } else b.style.display = 'none';
+  el('overlay').style.display = 'flex';
+}
+
+function handleTableState(ts) {
+  if (ts.state === 'lobby') return renderLobby(ts);
+  if (ts.cursor < tcursor) return;         // stale response: drop
+  el('o-btn').style.display = '';
+  if (el('o-title').textContent.startsWith('Table ')) el('overlay').style.display = 'none';
+  const start = ts.cursor - (ts.events ? ts.events.length : 0);
+  const fresh = ts.events ? ts.events.slice(Math.max(0, tcursor - start)) : [];
+  tcursor = ts.cursor;
+  state = ts;
+  if (fresh.length) { evq.push(...fresh); pumpEvents(); }
+  else if (!pumping) render();
+}
+
+// Single animator consuming the event queue: polls arriving mid-animation
+// append and are drained afterwards - never re-entered.
+async function pumpEvents() {
+  if (pumping) return;
+  pumping = true;
+  try {
+    while (evq.length) {
+      const batch = evq.splice(0, evq.length)
+        .filter(e => ['play', 'trick_end', 'deal_end'].includes(e.type));
+      if (batch.length) await animate(batch, shownTrick);
+      shownTrick = state.trick ? state.trick.slice() : [];
+    }
+    render();
+  } finally { pumping = false; }
+}
+
+async function tablePlay(card) {
+  try {
+    handleTableState(await api(`/api/table/play/${tcode}`,
+      POSTJSON({pid, card, cursor: tcursor})));
+  } catch (e) { setStatus('Error: ' + e.message); }
+}
+async function tablePass(cards) {
+  passSelection = [];
+  try {
+    handleTableState(await api(`/api/table/pass/${tcode}`,
+      POSTJSON({pid, cards, cursor: tcursor})));
+  } catch (e) { setStatus('Error: ' + e.message); }
+}
+
+// Theme: dark is the default; body.green restores the felt look.
+function applyTheme(t) {
+  document.body.classList.toggle('green', t === 'green');
+  el('theme-btn').textContent = t === 'green' ? 'Green mode' : 'Dark mode';
+}
+let theme = localStorage.getItem('hearts_theme') || 'dark';
+applyTheme(theme);
+el('theme-btn').onclick = () => {
+  theme = theme === 'green' ? 'dark' : 'green';
+  localStorage.setItem('hearts_theme', theme);
+  applyTheme(theme);
+};
+
+// Dev identity override: ?player=2 scopes all identity keys so multiple
+// tabs of ONE browser act as distinct players (multiplayer testing on one
+// machine). Only honored when DEV_CONTROLS is on.
+const _q = new URLSearchParams(location.search);
+const devPlayer = DEV_CONTROLS ? _q.get('player') : null;
+const K = k => devPlayer ? `${k}_${devPlayer}` : k;
+const esc = s => String(s).replace(/[&<>"']/g,
+  c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
 // Anonymous persistent player id: lets the server group matches by
 // player (skill estimation, dedup) without any account or personal data.
-let pid = localStorage.getItem('hearts_pid');
-if (!pid) { pid = crypto.randomUUID(); localStorage.setItem('hearts_pid', pid); }
+let pid = localStorage.getItem(K('hearts_pid'));
+if (!pid) { pid = crypto.randomUUID(); localStorage.setItem(K('hearts_pid'), pid); }
 
 async function newMatch() {
   passSelection = [];
   preselect = null;
-  state = await api('/api/new', {method:'POST',
-    headers:{'Content-Type':'application/json'}, body: JSON.stringify({pid})});
+  setMode('solo');
+  hideHome();
+  state = await api('/api/new', POSTJSON({pid}));
   sid = state.sid;
-  localStorage.setItem('hearts_sid', sid);
+  localStorage.setItem(K('hearts_sid'), sid);
   render();
 }
-// Refreshing resumes the ongoing match (the server keeps the session and
-// is always parked at your turn between requests); only the reset button
-// or a finished/lost session starts a new one.
+// Refreshing resumes the ongoing game (solo session or table); the reset
+// button, a finished match, or a lost session returns to the menu.
 async function init() {
-  const saved = localStorage.getItem('hearts_sid');
+  if (localStorage.getItem(K('hearts_mode')) === 'table') {
+    const code = localStorage.getItem(K('hearts_table'));
+    if (code) {
+      try {
+        mode = 'table'; tcode = code;
+        const ts = await api(`/api/table/state/${code}?pid=${encodeURIComponent(pid)}&cursor=0`);
+        hideHome();
+        if (ts.state === 'lobby') renderLobby(ts);
+        else {   // resume at current state: no replay of the whole history
+          tcursor = ts.cursor; state = ts;
+          shownTrick = ts.trick ? ts.trick.slice() : [];
+          render();
+        }
+        startPolling();
+        return;
+      } catch (e) { setMode('solo'); }
+    } else setMode('solo');
+  }
+  const saved = localStorage.getItem(K('hearts_sid'));
   if (saved) {
     try {
       const st = await api(`/api/state/${saved}`);
-      if (!st.finished) { sid = saved; state = st; render(); return; }
-    } catch (e) { /* unknown session (e.g. server restarted): start fresh */ }
+      if (!st.finished) { sid = saved; state = st; hideHome(); render(); return; }
+    } catch (e) { /* unknown session (e.g. server restarted) */ }
   }
-  await newMatch();
+  showHome();
 }
+el('home-solo').onclick = () => newMatch().catch(e => showHome(e.message));
+el('home-host').onclick = hostTable;
+el('home-join').onclick = joinTable;
 if (DEV_CONTROLS) {
   el('dev-controls').style.display = 'block';
   el('reset-btn').onclick = () => {
     el('overlay').style.display = 'none';
-    newMatch();
+    if (mode === 'table') leaveTable();
+    else showHome();
   };
 }
 init();
