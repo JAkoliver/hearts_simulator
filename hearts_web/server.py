@@ -46,7 +46,19 @@ app = FastAPI(title="Perilune - Hearts vs AI")
 app.mount('/static', StaticFiles(directory=os.path.join(
     os.path.dirname(os.path.abspath(__file__)), 'static')), name='static')
 
-MODEL_PATH = 'hearts_model_final.pth'
+# Site-ops config: local site_config.py (gitignored, production values)
+# with the committed example as fallback - publish the instrument, keep
+# the operations (release-boundary decision 2026-08-04).
+import importlib.util as _ilu
+_cfg_dir = os.path.dirname(os.path.abspath(__file__))
+_cfg_path = os.path.join(_cfg_dir, 'site_config.py')
+if not os.path.exists(_cfg_path):
+    _cfg_path = os.path.join(_cfg_dir, 'site_config_example.py')
+_spec = _ilu.spec_from_file_location('site_config', _cfg_path)
+cfg = _ilu.module_from_spec(_spec)
+_spec.loader.exec_module(cfg)
+
+MODEL_PATH = cfg.MODEL_PATH
 _net = net_from_checkpoint(MODEL_PATH)
 _net.eval()
 _net_lock = threading.Lock()
@@ -75,8 +87,8 @@ def log_line(obj):
 # ---------------------------------------------------------------------------
 _rl_lock = threading.Lock()
 _rl_general, _rl_create = {}, {}
-RL_GENERAL = (80, 10.0)
-RL_CREATE = (12, 60.0)
+RL_GENERAL = cfg.RL_GENERAL
+RL_CREATE = cfg.RL_CREATE
 CREATE_PATHS = ('/api/new', '/api/table/new', '/api/table/join')
 
 
@@ -279,7 +291,8 @@ _tables_lock = threading.Lock()
 
 class Table:
     def __init__(self, host_pid, host_name):
-        self.code = ''.join(secrets.choice(CODE_ALPHABET) for _ in range(4))
+        self.code = ''.join(secrets.choice(CODE_ALPHABET)
+                            for _ in range(cfg.CODE_LEN))
         self.state = 'lobby'
         self.lobby = [{'pid': host_pid, 'name': host_name}]  # join order
         self.host_pid = host_pid
@@ -477,7 +490,7 @@ class Table:
         now = time.time()
         away = [s for p, s in self.seat_of.items()
                 if p != pid and (p in self.departed
-                                 or now - self.last_seen.get(p, 0) > 10)]
+                                 or now - self.last_seen.get(p, 0) > cfg.AWAY_S)]
         return {**base,
                 'you_host': pid == self.host_pid,
                 'match_no': self.match_no, 'away_seats': sorted(away),
@@ -620,7 +633,8 @@ def index(request: Request):
                         'static', 'index.html')
     with open(path, encoding='utf-8') as f:
         html = f.read()
-    local = (request.headers.get('cf-connecting-ip') is None
+    local = (cfg.DEV_MODE == 'localhost'
+             and request.headers.get('cf-connecting-ip') is None
              and request.client is not None
              and request.client.host in ('127.0.0.1', '::1'))
     if not local:
@@ -637,7 +651,7 @@ def new_session(body: NewBody | None = None, request: Request = None):
     with _sessions_lock:
         _sessions[s.sid] = s
         # Drop oldest sessions past a sane cap
-        while len(_sessions) > 500:
+        while len(_sessions) > cfg.SESSION_CAP:
             _sessions.pop(next(iter(_sessions)))
     with s.lock:
         s.run_ai_turns()
@@ -689,9 +703,10 @@ def table_new(body: TableNewBody):
     t = Table(body.pid[:64], _clean_name(body.name, 'Host'))
     with _tables_lock:
         while t.code in _tables:
-            t.code = ''.join(secrets.choice(CODE_ALPHABET) for _ in range(4))
+            t.code = ''.join(secrets.choice(CODE_ALPHABET)
+                             for _ in range(cfg.CODE_LEN))
         # Drop stale tables past a sane cap (oldest first).
-        while len(_tables) > 200:
+        while len(_tables) > cfg.TABLE_CAP:
             _tables.pop(next(iter(_tables)))
         _tables[t.code] = t
     return t.view(body.pid)
@@ -786,7 +801,7 @@ def _reaper():
     silent for over 2 minutes (the 1.5s poll is the heartbeat - a refresh
     takes seconds and can never trip this)."""
     while True:
-        time.sleep(60)
+        time.sleep(cfg.REAPER_INTERVAL_S)
         now = time.time()
         with _tables_lock:
             items = list(_tables.items())
@@ -795,7 +810,7 @@ def _reaper():
                 pids = t.human_pids()
                 drop = (not pids or
                         all(p in t.departed
-                            or now - t.last_seen.get(p, t.created) > 120
+                            or now - t.last_seen.get(p, t.created) > cfg.STALE_S
                             for p in pids))
             if drop:
                 with _tables_lock:

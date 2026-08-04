@@ -63,3 +63,4 @@ hearts_match_log.csv
 # AOTI packages are per-arch build artifacts
 *.pt2
 cloud_jobs/
+hearts_web/site_config.py
