@@ -303,8 +303,12 @@ function renderHand(showLegal = true) {
     el('pass-btn').onclick = confirmPass;
   }
 }
+let lastStatusHTML = null;
 function setStatus(msg, thinking=false) {
-  el('status').innerHTML = thinking ? `<span class="thinking">${msg}</span>` : msg;
+  const html = thinking ? `<span class="thinking">${msg}</span>` : msg;
+  if (html === lastStatusHTML) return;   // polls must not restart the dots
+  lastStatusHTML = html;
+  el('status').innerHTML = html;
 }
 function render() {
   renderSeats(state.your_turn && !state.finished ? state.your_seat : null);
