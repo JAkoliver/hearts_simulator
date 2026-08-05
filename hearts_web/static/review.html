@@ -52,7 +52,7 @@
   .seat-tag { font-size:.72rem; background:rgba(255,255,255,.08);
               border-radius:8px; padding:2px 8px; margin-right:6px;
               white-space:nowrap; font-variant-numeric:tabular-nums; }
-  .seat-tag.acting { background:#E8B923; color:#222; font-weight:600; }
+  .seat-tag.acting { color:#222; font-weight:600; }  /* bg = seat color inline */
   .card { display:inline-block; width:var(--cw); height:calc(var(--cw)*1.42);
           background:#F0EDE5; color:#1F1F23;
           border-radius:calc(var(--cw)*.13); border:1px solid #999;
@@ -146,6 +146,9 @@
     <div id="dtoggle">
       <button id="d-you" class="on">Your plays</button>
       <button id="d-all">All seats</button>
+      &nbsp;
+      <button id="d-time" class="on">Time</button>
+      <button id="d-gap">%</button>
     </div>
     <div id="dis"></div>
   </div>
@@ -187,6 +190,7 @@ let R = null;          // review payload
 let steps = [];        // [{type:'start'|'play', d, i}]
 let cur = 0;
 let disMode = 'you';
+let disSort = 'time';  // 'time' (chronological) | 'gap' (severity)
 
 const q = new URLSearchParams(location.search);
 
@@ -246,7 +250,8 @@ function render() {
   const taken = upto >= 0 ? deal._taken[upto] : [0,0,0,0];
 
   const tag = s => `<span class="seat-tag${s === acting ? ' acting' : ''}"
-      style="border-left:3px solid ${SEAT_COLORS[s]}">${esc(seatLabel(s))}
+      style="border-left:3px solid ${SEAT_COLORS[s]}${
+        s === acting ? `;background:${SEAT_COLORS[s]}` : ''}">${esc(seatLabel(s))}
       &middot; ${deal._totals_before[s]} <small>(+${taken[s]})</small></span>`;
   const cards = s => deal._hands[s].map(c =>
       cardHTML(c, played.has(c) ? 'dim' : '')).join('');
@@ -261,10 +266,21 @@ function render() {
     const t0 = upto - (upto % 4);
     const show = (upto % 4 === 3) ? deal.plays.slice(t0, t0 + 4)
                                   : deal.plays.slice(t0, upto + 1);
+    // Completed trick: color the winner's name label with their seat color.
+    let winner = null;
+    if (show.length === 4) {
+      const lead = show[0][1].slice(-1);
+      winner = show[0][0];
+      let wv = cardVal(show[0][1]);
+      for (const p of show.slice(1))
+        if (p[1].slice(-1) === lead && cardVal(p[1]) > wv) {
+          winner = p[0]; wv = cardVal(p[1]);
+        }
+    }
     slots = show.map(p =>
       `<div class="rslot pos${(p[0] - v + 4) % 4}">
         ${cardHTML(p[1], p === deal.plays[upto] ? 'hot' : '')}
-        <div>${esc(seatLabel(p[0]))}</div></div>`).join('');
+        <div${p[0] === winner ? ` style="color:${SEAT_COLORS[winner]};font-weight:700"` : ''}>${esc(seatLabel(p[0]))}</div></div>`).join('');
   } else {
     slots = `<div class="rcenter">deal ${deal.deal_no} &middot; passing ${esc(deal.pass_direction)}</div>`;
   }
@@ -332,7 +348,8 @@ function disagreements() {
       out.push({idx, d: R.deals[st.d].deal_no, t: Math.floor(st.i / 4) + 1,
                 s, name, ai: top[0][0], gap: top[0][1] - p});
   });
-  out.sort((a, b) => b.gap - a.gap);
+  if (disSort === 'gap') out.sort((a, b) => b.gap - a.gap);
+  else out.sort((a, b) => a.idx - b.idx);
   return out;
 }
 function renderDis() {
@@ -444,6 +461,12 @@ el('d-you').onclick = () => { disMode = 'you';
 el('d-all').onclick = () => { disMode = 'all';
   el('d-all').classList.add('on'); el('d-you').classList.remove('on');
   renderDis(); renderScrub(); render(); };
+el('d-time').onclick = () => { disSort = 'time';
+  el('d-time').classList.add('on'); el('d-gap').classList.remove('on');
+  renderDis(); };
+el('d-gap').onclick = () => { disSort = 'gap';
+  el('d-gap').classList.add('on'); el('d-time').classList.remove('on');
+  renderDis(); };
 
 // ---- boot -----------------------------------------------------------------
 (async () => {
