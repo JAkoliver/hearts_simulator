@@ -110,7 +110,9 @@
   .seg.even { background:#232327; }
   .seg.threat { background:#3A2328; }
   .tick { position:absolute; top:0; bottom:0; width:2px; background:#E5484D; }
-  #cursor { position:absolute; top:0; bottom:0; width:2px; background:#E8B923; }
+  /* cursor must beat segments and ticks regardless of DOM order */
+  #cursor { position:absolute; top:0; bottom:0; width:3px; background:#E8B923;
+            z-index:5; box-shadow:0 0 4px #E8B923; }
   #controls { margin-top:8px; display:flex; gap:6px; flex-wrap:wrap;
               align-items:center; }
   #controls button { background:#26262A; color:#ECECEC; border:0;
@@ -373,11 +375,20 @@ function renderDis() {
 }
 
 // ---- win-prob strip + scrub ----------------------------------------------
+// One coordinate system for chart columns AND the scrub: the fraction of
+// the step timeline at each deal boundary (boundary i = start of deal i;
+// the final boundary = the last step). Clicking a column lands the
+// cursor exactly under it.
+function boundaryFrac(i) {
+  if (i >= R.deals.length) return 1;
+  const idx = steps.findIndex(st => st.type === 'start' && st.d === i);
+  return idx / (steps.length - 1);
+}
 function renderStrip() {
   const pts = [R.win_prob_start, ...R.deals.map(d => d.win_prob_after)];
   if (pts.some(p => !p)) { el('strip').style.display = 'none'; return; }
   const W = el('strip').clientWidth || 700, H = 74, pad = 4;
-  const x = i => pad + i * (W - 2 * pad) / (pts.length - 1);
+  const x = i => boundaryFrac(i) * W;
   const y = v => H - pad - v * (H - 2 * pad);
   let svg = '';
   for (let s = 0; s < 4; s++) {
@@ -396,8 +407,8 @@ function renderStrip() {
     n.onclick = () => { jumpDeal(+n.dataset.deal); });
 }
 function jumpDeal(d) {
-  const target = Math.min(d, R.deals.length - 1);
-  cur = steps.findIndex(st => st.type === 'start' && st.d === target);
+  if (d >= R.deals.length) { cur = steps.length - 1; render(); return; }
+  cur = steps.findIndex(st => st.type === 'start' && st.d === d);
   render();
 }
 function renderScrub() {
