@@ -534,14 +534,208 @@ class NewBody(BaseModel):
 
 
 # ---------------------------------------------------------------------------
+# Match review (/review): full-match replay payload - every state, every
+# seat's hands (x-ray; post-game public), the net's top-3 at every play
+# (info-honest: computed from what THAT seat could see), moon-threat
+# markers, and a per-deal win-probability strip from the equity net.
+# Reads the telemetry log, so it is independent of live tables (rematch/
+# close cannot disturb an open review tab).
+# ---------------------------------------------------------------------------
+_equity = None
+
+
+def _equity_net():
+    global _equity
+    if _equity is None:
+        try:
+            _equity = torch.jit.load('hearts_equity.pt')
+            _equity.eval()
+        except Exception:
+            _equity = False
+    return _equity or None
+
+
+def _win_probs(totals, deals_played):
+    """Per-seat P(place 1). Exact tie-split when the match is over, else
+    the equity net with the DEPLOYED input layout (SearchPlayer.hpp
+    ScoreEquity: rotation, deals/20, leader distance, onehot[deals%4])."""
+    totals = [float(t) for t in totals]
+    if max(totals) >= 100:
+        best = min(totals)
+        winners = [i for i, t in enumerate(totals) if t == best]
+        return [round(1.0 / len(winners), 4) if i in winners else 0.0
+                for i in range(4)]
+    net = _equity_net()
+    if net is None:
+        return None
+    x = torch.zeros((4, 10))
+    for s in range(4):
+        for k in range(4):
+            x[s, k] = totals[(s + k) % 4] / 100.0
+        x[s, 4] = deals_played / 20.0
+        x[s, 5] = (100.0 - max(totals)) / 100.0
+        x[s, 6 + (deals_played % 4)] = 1.0
+    with torch.no_grad():
+        probs = torch.softmax(net(x), 1)
+    return [round(float(probs[s, 0]), 4) for s in range(4)]
+
+
+_review_cache = {}   # (sid_key, match_no) -> seat-independent payload
+
+
+def compute_review(deal_lines, viewer_seat):
+    # PASS 1: replay once, collecting every play-state observation; then
+    # ONE batched net forward (sequential per-play forwards took minutes
+    # under load - measured 2026-08-04).
+    deal_lines = sorted(deal_lines, key=lambda d: d['deal_no'])
+    menv = MatchEnv(seed=deal_lines[0]['seed'])
+    out_deals = []
+    win0 = _win_probs([0, 0, 0, 0], 0)
+    all_obs, all_mask, all_ref = [], [], []   # ref -> (deal_idx, play_idx)
+    for di, d in enumerate(deal_lines):
+        start_hands = [sorted(hand_of(menv, s)) for s in range(4)]
+        try:
+            pdir = int(menv.env.get_pass_direction())
+        except Exception:
+            pdir = 3
+        passed = [[] for _ in range(4)]
+        plays, threats = [], []
+        taken = [0, 0, 0, 0]
+        trick_cards = []
+        for s, card, ms in d['actions']:
+            if menv.get_current_player() != s:
+                raise HTTPException(500, 'replay desync in review')
+            if menv.is_passing():
+                passed[s].append(card)
+                menv.step(card)
+                continue
+            if not trick_cards:
+                # Entering a new trick: moon-threat check on points so far.
+                holders = [i for i in range(4) if taken[i] > 0]
+                if len(holders) == 1 and taken[holders[0]] >= 4:
+                    threats.append({'trick': len(plays) // 4 + 1,
+                                    'seat': holders[0]})
+            mask = np.zeros(52, dtype=bool)
+            for a in menv.get_legal_actions():
+                if a != -1:
+                    mask[a] = True
+            all_obs.append(np.array(menv.observe(), dtype=np.float32))
+            all_mask.append(mask)
+            all_ref.append((di, len(plays)))
+            plays.append([s, card_name(card), 0.0, []])   # evals filled below
+            trick_cards.append((s, card))
+            if len(trick_cards) == 4:
+                lead = trick_cards[0][1] // 13
+                ws, wc = trick_cards[0]
+                for ts, tc in trick_cards[1:]:
+                    if tc // 13 == lead and tc % 13 > wc % 13:
+                        ws, wc = ts, tc
+                taken[ws] += sum(1 if c // 13 == 3 else (13 if c == 36 else 0)
+                                 for _, c in trick_cards)
+                trick_cards = []
+            menv.step(card)
+        # Received = post-pass hand minus what was kept; the play-phase
+        # cards per seat ARE the post-pass hand (all 13 get played).
+        received = [[] for _ in range(4)]
+        if pdir != 3:
+            passing_n = sum(len(p) for p in passed)
+            played_sets = {s: set() for s in range(4)}
+            for j, (s, card, ms) in enumerate(d['actions']):
+                if j >= passing_n:
+                    played_sets[s].add(card)
+            for s in range(4):
+                kept = set(start_hands[s]) - set(passed[s])
+                received[s] = sorted(played_sets[s] - kept)
+        out_deals.append({
+            'deal_no': d['deal_no'],
+            'start_hands': [[card_name(c) for c in h] for h in start_hands],
+            'pass_direction': ['left', 'right', 'across', 'hold'][pdir],
+            'passed': [[card_name(c) for c in p] for p in passed],
+            'received': [[card_name(c) for c in r] for r in received],
+            'plays': plays, 'threats': threats,
+            'round_scores': d['round_scores'], 'totals': d['totals'],
+            'win_prob_after': _win_probs(d['totals'], d['deal_no'])})
+    # PASS 2: single batched forward for every play state.
+    if all_obs:
+        obs_t = torch.from_numpy(np.stack(all_obs))
+        mask_t = torch.from_numpy(np.stack(all_mask))
+        chunks = []
+        with _net_lock, torch.no_grad():
+            for i in range(0, len(all_obs), 512):
+                logits, _ = _net(obs_t[i:i + 512], mask_t[i:i + 512])
+                chunks.append(torch.softmax(logits, dim=1))
+        probs = torch.cat(chunks)
+        for row, (di, pi) in enumerate(all_ref):
+            play = out_deals[di]['plays'][pi]
+            card = play[1]
+            pr = probs[row]
+            k = min(3, int(mask_t[row].sum()))
+            topv, topi = torch.topk(pr, k)
+            cid = RANKS.index(card[:-1]) + SUITS.index(card[-1]) * 13
+            play[2] = round(float(pr[cid]), 3)
+            play[3] = [[card_name(int(topi[j])), round(float(topv[j]), 3)]
+                       for j in range(k)]
+    return {'viewer_seat': viewer_seat,
+            'seat_types': deal_lines[0].get('seats'),
+            'win_prob_start': win0, 'deals': out_deals,
+            'note': ('Evals are information-honest: each seat is judged on '
+                     'what it could see, even though the review shows all '
+                     'hands.')}
+
+
+@app.get('/api/review')
+def api_review(pid: str, sid: str = None, code: str = None,
+               match_no: int = None):
+    if code:
+        lines = _log_lines_for(f'table:{code.upper()}')
+        if not lines:
+            raise HTTPException(404, 'no recorded deals for this table')
+        want = match_no or max(l.get('match_no', 1) for l in lines)
+        lines = [l for l in lines if l.get('match_no', 1) == want]
+        if not lines:
+            raise HTTPException(404, f'no deals for match {want}')
+        seat = next((int(s) for s, p in (lines[0].get('seat_pids') or {}).items()
+                     if p == pid), None)
+        if seat is None:
+            raise HTTPException(403, 'you were not seated in this match')
+        key = (f'table:{code.upper()}', want)
+    elif sid:
+        lines = [l for l in _log_lines_for(sid) if l.get('pid') == pid]
+        if not lines:
+            raise HTTPException(404, 'no recorded deals for this match')
+        seat = lines[0]['human_seat']
+        key = (sid, 1)
+    else:
+        raise HTTPException(400, 'sid or code required')
+    cached = _review_cache.get(key)
+    if cached is None or cached['n_deals'] != len(lines):
+        cached = {'n_deals': len(lines),
+                  'payload': compute_review(lines, -1)}
+        _review_cache[key] = cached
+        while len(_review_cache) > 20:
+            _review_cache.pop(next(iter(_review_cache)))
+    out = dict(cached['payload'])
+    out['viewer_seat'] = seat
+    return out
+
+
+@app.get('/review')
+def review_page():
+    return FileResponse(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                     'static', 'review.html'))
+
+
+# ---------------------------------------------------------------------------
 # Post-match insight: replay a finished match from the telemetry log and
 # annotate every play-phase decision of ONE seat with the net's own choice.
 # The AI's preference is a lens, not ground truth (rules #5 spirit).
 # ---------------------------------------------------------------------------
 def compute_insight(deal_lines, seat):
+    # Replay collecting the seat's decision states, then ONE batched
+    # forward (per-play forwards crawl when the box is busy).
     deal_lines = sorted(deal_lines, key=lambda d: d['deal_no'])
     menv = MatchEnv(seed=deal_lines[0]['seed'])
-    n_dec, n_agree, dis = 0, 0, []
+    obs_l, mask_l, meta = [], [], []
     for d in deal_lines:
         plays = 0
         for s, card, ms in d['actions']:
@@ -549,26 +743,35 @@ def compute_insight(deal_lines, seat):
                 raise HTTPException(500, 'replay desync in insight')
             passing = menv.is_passing()
             if not passing and s == seat:
-                obs = torch.from_numpy(menv.observe()).unsqueeze(0)
-                mask = torch.zeros((1, 52), dtype=torch.bool)
-                legal = [a for a in menv.get_legal_actions() if a != -1]
-                for a in legal:
-                    mask[0, a] = True
-                with _net_lock, torch.no_grad():
-                    logits, _ = _net(obs, mask)
-                probs = torch.softmax(logits[0], dim=0)
-                ai = int(torch.argmax(logits, dim=1).item())
-                n_dec += 1
-                if ai == card:
-                    n_agree += 1
-                elif len(legal) > 1:
-                    dis.append({'deal': d['deal_no'], 'trick': plays // 4 + 1,
-                                'you': card_name(card), 'ai': card_name(ai),
-                                'p_you': round(float(probs[card]), 3),
-                                'p_ai': round(float(probs[ai]), 3)})
+                mask = np.zeros(52, dtype=bool)
+                n_legal = 0
+                for a in menv.get_legal_actions():
+                    if a != -1:
+                        mask[a] = True
+                        n_legal += 1
+                obs_l.append(np.array(menv.observe(), dtype=np.float32))
+                mask_l.append(mask)
+                meta.append((d['deal_no'], plays // 4 + 1, card, n_legal))
             if not passing:
                 plays += 1
             menv.step(card)
+    n_dec, n_agree, dis = len(meta), 0, []
+    if meta:
+        obs_t = torch.from_numpy(np.stack(obs_l))
+        mask_t = torch.from_numpy(np.stack(mask_l))
+        with _net_lock, torch.no_grad():
+            logits, _ = _net(obs_t, mask_t)
+            probs = torch.softmax(logits, dim=1)
+        ais = torch.argmax(logits, dim=1)
+        for i, (deal_no, trick, card, n_legal) in enumerate(meta):
+            ai = int(ais[i])
+            if ai == card:
+                n_agree += 1
+            elif n_legal > 1:
+                dis.append({'deal': deal_no, 'trick': trick,
+                            'you': card_name(card), 'ai': card_name(ai),
+                            'p_you': round(float(probs[i, card]), 3),
+                            'p_ai': round(float(probs[i, ai]), 3)})
     dis.sort(key=lambda x: x['p_ai'] - x['p_you'], reverse=True)
     return {'n_decisions': n_dec, 'n_agree': n_agree,
             'agree_pct': round(100 * n_agree / max(1, n_dec), 1),

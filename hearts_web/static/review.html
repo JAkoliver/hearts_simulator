@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Perilune &mdash; Match review</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<style>
+  @font-face { font-family:'Space Grotesk';
+    src:url('/static/fonts/space-grotesk.woff2') format('woff2');
+    font-weight:300 700; font-display:swap; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:system-ui, sans-serif; background:#121212; color:#ECECEC;
+         user-select:none; padding:10px 14px; }
+  h1 { font-family:'Space Grotesk', system-ui, sans-serif; font-size:1.05rem;
+       display:inline; }
+  a { color:#E8B923; }
+  .muted { color:#A6A6AF; }
+  #top { display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+         margin-bottom:10px; }
+  #grid { display:grid; grid-template-columns:220px 1fr 240px; gap:12px; }
+  @media (max-width:980px) { #grid { grid-template-columns:1fr; } }
+  .panel { background:#1E1E21; border-radius:10px; padding:10px; }
+  .panel h3 { font-size:.72rem; color:#A6A6AF; text-transform:uppercase;
+              margin-bottom:6px; }
+  /* board */
+  #board { background:radial-gradient(ellipse at center, #2A2A2E 0%, #1B1B1E 100%);
+           border-radius:12px; padding:10px 12px; }
+  .hand-row { display:flex; align-items:center; gap:3px; flex-wrap:wrap;
+              min-height:44px; margin:4px 0; }
+  .seat-tag { font-size:.72rem; background:rgba(255,255,255,.08);
+              border-radius:8px; padding:2px 8px; margin-right:6px;
+              white-space:nowrap; font-variant-numeric:tabular-nums; }
+  .seat-tag.acting { background:#E8B923; color:#222; font-weight:600; }
+  .card { display:inline-block; width:30px; height:42px; background:#F0EDE5;
+          color:#1F1F23; border-radius:4px; border:1px solid #999;
+          font-weight:700; font-size:.62rem; position:relative;
+          box-shadow:0 1px 3px rgba(0,0,0,.4); }
+  .card .ix { position:absolute; top:1px; left:2px; line-height:1.02;
+              text-align:center; }
+  .card .cpip { position:absolute; bottom:2px; right:3px; font-size:1em; }
+  .card.red { color:#C3342E; }
+  .card.dim { opacity:.32; }
+  .card.hot { outline:2px solid #E8B923; }
+  #trickzone { display:flex; align-items:center; justify-content:center;
+               gap:14px; min-height:64px; margin:8px 0; }
+  .tc { text-align:center; font-size:.68rem; color:#A6A6AF; }
+  .tc .card { width:38px; height:54px; font-size:.78rem; }
+  /* eval panel */
+  .bar { background:#26262A; border-radius:5px; height:18px; position:relative;
+         margin:3px 0; overflow:hidden; }
+  .bar .fill { position:absolute; inset:0 auto 0 0; background:#3E3E46; }
+  .bar.played .fill { background:#7A5A17; }
+  .bar span { position:relative; font-size:.72rem; padding-left:6px;
+              line-height:18px; font-variant-numeric:tabular-nums; }
+  /* disagreements */
+  #dis { max-height:420px; overflow-y:auto; }
+  .dline { font-size:.75rem; padding:4px 6px; border-radius:6px; cursor:pointer;
+           font-variant-numeric:tabular-nums; }
+  .dline:hover { background:#26262A; }
+  .dline b { color:#E5484D; }
+  #dtoggle { font-size:.68rem; margin-bottom:5px; }
+  #dtoggle button { background:#26262A; color:#ECECEC; border:0;
+                    border-radius:6px; padding:2px 8px; margin-right:4px;
+                    cursor:pointer; }
+  #dtoggle button.on { background:#E8B923; color:#222; }
+  /* strip + scrub */
+  #strip { width:100%; height:74px; margin-top:8px; }
+  #scrub { position:relative; height:26px; background:#1E1E21; border-radius:7px;
+           margin-top:6px; cursor:pointer; overflow:hidden; }
+  .seg { position:absolute; top:0; bottom:0; }
+  .seg.even { background:#232327; }
+  .seg.threat { background:#3A2328; }
+  .tick { position:absolute; top:0; bottom:0; width:2px; background:#E5484D; }
+  #cursor { position:absolute; top:0; bottom:0; width:2px; background:#E8B923; }
+  #controls { margin-top:8px; display:flex; gap:6px; flex-wrap:wrap;
+              align-items:center; }
+  #controls button { background:#26262A; color:#ECECEC; border:0;
+                     border-radius:7px; padding:6px 12px; cursor:pointer;
+                     font-size:.85rem; }
+  #controls button:hover { background:#33333A; }
+  #posinfo { font-size:.8rem; color:#A6A6AF; margin-left:8px;
+             font-variant-numeric:tabular-nums; }
+  #passinfo { font-size:.75rem; margin-top:6px; color:#A6A6AF; }
+  .legend { font-size:.68rem; color:#A6A6AF; }
+  .legend i { display:inline-block; width:9px; height:9px; border-radius:2px;
+              margin:0 3px 0 8px; }
+</style>
+</head>
+<body>
+<div id="top">
+  <svg width="18" height="18" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#00000055"/><path d="M11 27 V7 H17.5 a6.5 6.5 0 0 1 0 13 H11" fill="none" stroke="#ECECEC" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="25.2" cy="7.6" r="3.1" fill="#E5484D"/></svg>
+  <h1>Match review</h1>
+  <span id="matchinfo" class="muted"></span>
+  <span style="flex:1"></span>
+  <span class="muted" id="xray-note" style="font-size:.7rem"></span>
+</div>
+
+<div id="grid">
+  <div class="panel">
+    <h3>Disagreements</h3>
+    <div id="dtoggle">
+      <button id="d-you" class="on">Your plays</button>
+      <button id="d-all">All seats</button>
+    </div>
+    <div id="dis"></div>
+  </div>
+
+  <div>
+    <div id="board"></div>
+    <svg id="strip"></svg>
+    <div id="scrub"><div id="cursor"></div></div>
+    <div id="controls">
+      <button id="b-pd" title="previous deal (&uarr;)">&#9668;&#9668; deal</button>
+      <button id="b-pt" title="previous trick (shift+&larr;)">&#9668; trick</button>
+      <button id="b-pp" title="previous play (&larr;)">&#9668;</button>
+      <button id="b-np" title="next play (&rarr;)">&#9658;</button>
+      <button id="b-nt" title="next trick (shift+&rarr;)">trick &#9658;</button>
+      <button id="b-nd" title="next deal (&darr;)">deal &#9658;&#9658;</button>
+      <span id="posinfo"></span>
+      <span style="flex:1"></span>
+      <span class="legend">markers: <i style="background:#E5484D"></i>disagreement
+        <i style="background:#3A2328"></i>moon threat</span>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3>Perilune's view</h3>
+    <div id="evalbox"></div>
+    <div id="passinfo"></div>
+  </div>
+</div>
+
+<script>
+const SUIT_CHAR = {C:'♣', D:'♦', S:'♠', H:'♥'};
+const RANK_ORDER = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+const SEAT_COLORS = ['#E8B923', '#5B9BD5', '#7FBF7F', '#C97FA8'];
+const el = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g,
+  c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+let R = null;          // review payload
+let steps = [];        // [{type:'start'|'play', d, i}]
+let cur = 0;
+let disMode = 'you';
+
+const q = new URLSearchParams(location.search);
+
+function cardHTML(name, cls='') {
+  const suit = name.slice(-1), rank = name.slice(0, -1);
+  const red = (suit === 'D' || suit === 'H') ? ' red' : '';
+  return `<div class="card${red} ${cls}"><span class="ix">${rank}<br>${SUIT_CHAR[suit]}</span><span class="cpip">${SUIT_CHAR[suit]}</span></div>`;
+}
+function cardVal(name) {   // engine ordering within a suit
+  return RANK_ORDER.indexOf(name.slice(0, -1));
+}
+function seatLabel(s) {
+  if (s === R.viewer_seat) return 'You';
+  const t = R.seat_types ? R.seat_types[String(s)] : 'ai';
+  return `Seat ${s + 1} (${t === 'human' ? 'Human' : 'AI'})`;
+}
+
+// ---- derived per-deal data ------------------------------------------------
+function prep() {
+  steps = [];
+  for (let d = 0; d < R.deals.length; d++) {
+    const deal = R.deals[d];
+    steps.push({type: 'start', d});
+    for (let i = 0; i < deal.plays.length; i++) steps.push({type: 'play', d, i});
+    // Post-pass hands + running points per play, computed once.
+    deal._hands = deal.start_hands.map((h, s) => {
+      const kept = h.filter(c => !deal.passed[s].includes(c));
+      return kept.concat(deal.received[s]);
+    });
+    deal._taken = [];   // points per seat AFTER play i
+    const taken = [0, 0, 0, 0];
+    let trick = [];
+    for (const [s, name] of deal.plays.map(p => [p[0], p[1]])) {
+      trick.push([s, name]);
+      if (trick.length === 4) {
+        const lead = trick[0][1].slice(-1);
+        let ws = trick[0][0], wv = cardVal(trick[0][1]);
+        for (const [ts, tn] of trick.slice(1))
+          if (tn.slice(-1) === lead && cardVal(tn) > wv) { ws = ts; wv = cardVal(tn); }
+        for (const [, tn] of trick)
+          taken[ws] += tn.slice(-1) === 'H' ? 1 : (tn === 'QS' ? 13 : 0);
+        trick = [];
+      }
+      deal._taken.push(taken.slice());
+    }
+    deal._totals_before = d === 0 ? [0,0,0,0] : R.deals[d-1].totals;
+  }
+}
+
+// ---- rendering ------------------------------------------------------------
+function render() {
+  const st = steps[cur], deal = R.deals[st.d];
+  const upto = st.type === 'play' ? st.i : -1;
+  const played = new Set();
+  for (let i = 0; i <= upto; i++) played.add(deal.plays[i][1]);
+  const acting = st.type === 'play' ? deal.plays[st.i][0] : null;
+  const taken = upto >= 0 ? deal._taken[upto] : [0,0,0,0];
+
+  const handRow = s => {
+    const t = deal._totals_before[s];
+    return `<div class="hand-row">
+      <span class="seat-tag${s === acting ? ' acting' : ''}"
+        style="border-left:3px solid ${SEAT_COLORS[s]}">${esc(seatLabel(s))}
+        &middot; ${t} <small>(+${taken[s]})</small></span>` +
+      deal._hands[s].map(c =>
+        cardHTML(c, played.has(c) ? 'dim' : '')).join('') + '</div>';
+  };
+  // current trick display
+  let trickHTML = '';
+  if (upto >= 0) {
+    const t0 = upto - (upto % 4);
+    const show = (upto % 4 === 3) ? deal.plays.slice(t0, t0 + 4)
+                                  : deal.plays.slice(t0, upto + 1);
+    trickHTML = show.map(p =>
+      `<div class="tc">${cardHTML(p[1], p[0] === acting && p === deal.plays[upto] ? 'hot' : '')}
+       <div>${esc(seatLabel(p[0]))}</div></div>`).join('');
+  } else {
+    trickHTML = `<div class="tc muted">deal ${deal.deal_no} &middot; passing ${deal.pass_direction}</div>`;
+  }
+  // Rows relative to the viewer: across / left / trick / right / you.
+  const v = R.viewer_seat ?? 0;
+  el('board').innerHTML =
+    handRow((v + 2) % 4) + handRow((v + 1) % 4) +
+    `<div id="trickzone">${trickHTML}</div>` +
+    handRow((v + 3) % 4) + handRow(v);
+
+  renderEval(st, deal);
+  renderPos(st, deal);
+  el('cursor').style.left = (cur / (steps.length - 1) * 100) + '%';
+}
+
+function renderEval(st, deal) {
+  if (st.type === 'start') {
+    el('evalbox').innerHTML = `<div class="muted" style="font-size:.8rem">
+      Deal ${deal.deal_no} begins &middot; passing ${esc(deal.pass_direction)}</div>`;
+    if (deal.pass_direction !== 'hold') {
+      el('passinfo').innerHTML = [0,1,2,3].map(s =>
+        `<div>${esc(seatLabel(s))} passed ${deal.passed[s].map(c => cardHTML(c)).join('')}
+         &middot; got ${deal.received[s].map(c => cardHTML(c)).join('')}</div>`).join('');
+    } else el('passinfo').innerHTML = 'Hold deal - no passing.';
+    return;
+  }
+  el('passinfo').innerHTML = '';
+  const [s, name, p, top] = deal.plays[st.i];
+  let html = `<div style="font-size:.85rem; margin-bottom:6px">
+    ${esc(seatLabel(s))} played <b>${esc(name)}</b>
+    <span class="muted">(${(p * 100).toFixed(0)}%)</span></div>`;
+  for (const [c, cp] of top) {
+    html += `<div class="bar${c === name ? ' played' : ''}">
+      <div class="fill" style="width:${cp * 100}%"></div>
+      <span>${esc(c)} &middot; ${(cp * 100).toFixed(1)}%${c === name ? ' &larr; played' : ''}</span></div>`;
+  }
+  if (!top.some(([c]) => c === name))
+    html += `<div class="bar played"><div class="fill" style="width:${p * 100}%"></div>
+      <span>${esc(name)} &middot; ${(p * 100).toFixed(1)}% &larr; played</span></div>`;
+  el('evalbox').innerHTML = html;
+}
+
+function renderPos(st, deal) {
+  const trick = st.type === 'play' ? Math.floor(st.i / 4) + 1 : '-';
+  el('posinfo').textContent =
+    `deal ${deal.deal_no}/${R.deals.length} · trick ${trick} · step ${cur + 1}/${steps.length}`;
+}
+
+// ---- disagreements --------------------------------------------------------
+function disagreements() {
+  const out = [];
+  steps.forEach((st, idx) => {
+    if (st.type !== 'play') return;
+    const [s, name, p, top] = R.deals[st.d].plays[st.i];
+    if (disMode === 'you' && s !== R.viewer_seat) return;
+    if (top.length && top[0][0] !== name)
+      out.push({idx, d: R.deals[st.d].deal_no, t: Math.floor(st.i / 4) + 1,
+                s, name, ai: top[0][0], gap: top[0][1] - p});
+  });
+  out.sort((a, b) => b.gap - a.gap);
+  return out;
+}
+function renderDis() {
+  el('dis').innerHTML = disagreements().map(d =>
+    `<div class="dline" data-idx="${d.idx}">D${d.d} T${d.t} &middot;
+      ${esc(seatLabel(d.s))}: ${esc(d.name)} &rarr; <b>${esc(d.ai)}</b>
+      <span class="muted">(+${(d.gap * 100).toFixed(0)}%)</span></div>`).join('')
+    || '<div class="muted" style="font-size:.75rem">No disagreements.</div>';
+  document.querySelectorAll('.dline').forEach(n =>
+    n.onclick = () => { cur = +n.dataset.idx; render(); });
+}
+
+// ---- win-prob strip + scrub ----------------------------------------------
+function renderStrip() {
+  const pts = [R.win_prob_start, ...R.deals.map(d => d.win_prob_after)];
+  if (pts.some(p => !p)) { el('strip').style.display = 'none'; return; }
+  const W = el('strip').clientWidth || 700, H = 74, pad = 4;
+  const x = i => pad + i * (W - 2 * pad) / (pts.length - 1);
+  const y = v => H - pad - v * (H - 2 * pad);
+  let svg = '';
+  for (let s = 0; s < 4; s++) {
+    const line = pts.map((p, i) => `${x(i)},${y(p[s])}`).join(' ');
+    svg += `<polyline points="${line}" fill="none" stroke="${SEAT_COLORS[s]}"
+            stroke-width="${s === R.viewer_seat ? 2.5 : 1.4}" opacity=".9"/>`;
+  }
+  for (let i = 0; i < pts.length; i++)
+    svg += `<line x1="${x(i)}" y1="0" x2="${x(i)}" y2="${H}"
+            stroke="#ffffff14" data-deal="${i}" style="cursor:pointer"
+            stroke-width="8" />`;
+  el('strip').setAttribute('viewBox', `0 0 ${W} ${H}`);
+  el('strip').innerHTML = svg +
+    `<text x="${pad}" y="10" fill="#A6A6AF" font-size="9">P(win) per seat - click a column to jump</text>`;
+  el('strip').querySelectorAll('line[data-deal]').forEach(n =>
+    n.onclick = () => { jumpDeal(+n.dataset.deal); });
+}
+function jumpDeal(d) {
+  const target = Math.min(d, R.deals.length - 1);
+  cur = steps.findIndex(st => st.type === 'start' && st.d === target);
+  render();
+}
+function renderScrub() {
+  const sc = el('scrub');
+  let html = '<div id="cursor"></div>';
+  const px = i => (i / (steps.length - 1) * 100);
+  steps.forEach((st, i) => {
+    if (st.type === 'start' && st.d % 2 === 0) {
+      const end = steps.findIndex((s2, j) => j > i && s2.type === 'start');
+      html += `<div class="seg even" style="left:${px(i)}%;
+        width:${((end < 0 ? steps.length - 1 : end) - i) / (steps.length - 1) * 100}%"></div>`;
+    }
+  });
+  // moon-threat segments
+  R.deals.forEach((deal, d) => {
+    for (const th of deal.threats) {
+      const i0 = steps.findIndex(st => st.type === 'play' && st.d === d
+                                  && st.i === (th.trick - 1) * 4);
+      if (i0 >= 0) html += `<div class="seg threat" style="left:${px(i0)}%;
+        width:${4 / (steps.length - 1) * 100}%"></div>`;
+    }
+  });
+  for (const d of disagreements())
+    html += `<div class="tick" style="left:${px(d.idx)}%"></div>`;
+  sc.innerHTML = html;
+  sc.onclick = e => {
+    const r = sc.getBoundingClientRect();
+    cur = Math.round((e.clientX - r.left) / r.width * (steps.length - 1));
+    cur = Math.max(0, Math.min(steps.length - 1, cur));
+    render();
+  };
+}
+
+// ---- navigation -----------------------------------------------------------
+function step(n) { cur = Math.max(0, Math.min(steps.length - 1, cur + n)); render(); }
+function trickStep(dir) {
+  const st = steps[cur];
+  if (st.type === 'play') {
+    const t = Math.floor(st.i / 4);
+    const targetTrick = t + dir;
+    const target = steps.findIndex(s2 => s2.type === 'play' && s2.d === st.d
+                                    && s2.i === targetTrick * 4);
+    if (target >= 0) { cur = target; render(); return; }
+  }
+  step(dir * 4);
+}
+function dealStep(dir) {
+  const d = steps[cur].d + dir;
+  if (d >= 0 && d < R.deals.length) jumpDeal(d);
+  else if (dir < 0) jumpDeal(steps[cur].d);   // to start of current deal
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight') e.shiftKey ? trickStep(1) : step(1);
+  else if (e.key === 'ArrowLeft') e.shiftKey ? trickStep(-1) : step(-1);
+  else if (e.key === 'ArrowDown') dealStep(1);
+  else if (e.key === 'ArrowUp') dealStep(-1);
+  else if (e.key === 'Home') { cur = 0; render(); }
+  else if (e.key === 'End') { cur = steps.length - 1; render(); }
+  else return;
+  e.preventDefault();
+});
+el('b-pp').onclick = () => step(-1);
+el('b-np').onclick = () => step(1);
+el('b-pt').onclick = () => trickStep(-1);
+el('b-nt').onclick = () => trickStep(1);
+el('b-pd').onclick = () => dealStep(-1);
+el('b-nd').onclick = () => dealStep(1);
+el('d-you').onclick = () => { disMode = 'you';
+  el('d-you').classList.add('on'); el('d-all').classList.remove('on');
+  renderDis(); renderScrub(); render(); };
+el('d-all').onclick = () => { disMode = 'all';
+  el('d-all').classList.add('on'); el('d-you').classList.remove('on');
+  renderDis(); renderScrub(); render(); };
+
+// ---- boot -----------------------------------------------------------------
+(async () => {
+  const params = new URLSearchParams();
+  params.set('pid', q.get('pid') || '');
+  if (q.get('code')) { params.set('code', q.get('code'));
+    if (q.get('match_no')) params.set('match_no', q.get('match_no')); }
+  else params.set('sid', q.get('sid') || '');
+  try {
+    const r = await fetch(`/api/review?${params}`);
+    if (!r.ok) throw new Error((await r.json()).detail || `error ${r.status}`);
+    R = await r.json();
+  } catch (e) {
+    document.body.innerHTML = `<p style="padding:30px">Review unavailable:
+      ${esc(e.message)}</p><p style="padding:0 30px"><a href="/">back</a></p>`;
+    return;
+  }
+  el('matchinfo').textContent =
+    `${R.deals.length} deals · final ${R.deals[R.deals.length - 1].totals.join(' / ')}`;
+  el('xray-note').textContent = R.note;
+  prep();
+  renderDis();
+  renderScrub();
+  renderStrip();
+  render();
+})();
+</script>
+</body>
+</html>

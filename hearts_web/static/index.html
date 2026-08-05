@@ -589,7 +589,17 @@ function showMatchEnd() {
     order.map(s => `<tr><td>${state.placements[s]}</td>
       <td>${seatName(s)}</td>
       <td>${state.match_scores[s]}</td></tr>`).join('') + '</table>' +
-    `<div style="margin-top:8px"><button id="insight-btn">Show AI insights</button>${hostBtns}</div>`;
+    `<div style="margin-top:8px"><button id="analyze-btn">Analyze match</button>` +
+    `<button id="insight-btn">Quick insights</button>${hostBtns}</div>`;
+  // Full review opens in its OWN TAB reading the telemetry log - a host
+  // rematch or table close cannot disturb it, and this tab stays free to
+  // follow the rematch.
+  el('analyze-btn').onclick = () => {
+    const p = new URLSearchParams({pid});
+    if (mode === 'table') { p.set('code', tcode); p.set('match_no', state.match_no); }
+    else p.set('sid', sid);
+    window.open(`/review?${p}`, '_blank');
+  };
   el('insight-btn').onclick = showInsights;
   if (mode === 'table' && state.you_host) {
     el('rematch-btn').onclick = async () => {
