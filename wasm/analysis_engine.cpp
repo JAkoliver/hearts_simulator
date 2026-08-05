@@ -57,9 +57,13 @@ struct Sim {
 
 struct Engine {
     // ---- match replay ------------------------------------------------------
+    // Hands are EXPLICIT per deal (52 ids, seat-major 4x13): seed-based
+    // dealing is std::shuffle-implementation-bound, so a WASM (libc++)
+    // build cannot reproduce an MSVC-recorded match from the seed alone -
+    // measured 2026-08-05 on a real logged match.
     unsigned match_seed = 0;
     std::vector<std::vector<int>> deal_actions;   // per deal, raw action ids
-    std::vector<std::array<double, 4>> deal_totals;  // totals ENTERING deal d
+    std::vector<std::array<std::vector<int>, 4>> deal_hands;
 
     // ---- decision state ----------------------------------------------------
     HeartsEnv env{1, true};
@@ -289,12 +293,14 @@ struct Engine {
         totals = {0, 0, 0, 0};
         for (int d = 0; d < deal_idx; ++d) {
             env.Reset();
+            if (d < (int)deal_hands.size()) env.SetDeal(deal_hands[d]);
             for (int a : deal_actions[d]) env.Step(a);
             auto sc = env.GetRoundScores();
             for (int i = 0; i < 4; ++i) totals[i] += sc[i];
         }
         deals_played = deal_idx;
         env.Reset();
+        if (deal_idx < (int)deal_hands.size()) env.SetDeal(deal_hands[deal_idx]);
         const auto& acts = deal_actions[deal_idx];
         if (action_idx >= (int)acts.size()) return false;
         for (int i = 0; i < action_idx; ++i) env.Step(acts[i]);
@@ -449,14 +455,23 @@ KEEP void an_init(unsigned rng_seed) {
     E.rng.seed(rng_seed);
 }
 
-// Match replay: seed + all actions, deal boundaries via offsets array
-// (n_deals+1 entries into actions). The proven MatchEnv replay contract.
+// Match replay: actions (deal boundaries via offsets, n_deals+1 entries)
+// plus EXPLICIT start hands per deal (52 ids, seat-major 4x13; pass
+// hands=null to fall back to seed dealing - same-toolchain only).
 KEEP int an_load_match(unsigned seed, const int* offsets, int n_deals,
-                       const int* actions) {
+                       const int* actions, const int* hands) {
     E.match_seed = seed;
     E.deal_actions.assign(n_deals, {});
+    E.deal_hands.clear();
     for (int d = 0; d < n_deals; ++d) {
         E.deal_actions[d].assign(actions + offsets[d], actions + offsets[d + 1]);
+        if (hands) {
+            std::array<std::vector<int>, 4> h;
+            for (int s = 0; s < 4; ++s) {
+                h[s].assign(hands + d * 52 + s * 13, hands + d * 52 + s * 13 + 13);
+            }
+            E.deal_hands.push_back(std::move(h));
+        }
     }
     return n_deals;
 }
@@ -533,11 +548,16 @@ KEEP int an_debug_selfplay(unsigned seed) {
     std::mt19937 rr(seed);
     HeartsEnv env(seed, true);
     std::vector<int> offsets = {0};
-    std::vector<int> actions;
+    std::vector<int> actions, hands;
     std::array<double, 4> tot{};
     int deals = 0;
     while (deals < 60) {
         env.Reset();
+        for (int s = 0; s < 4; ++s) {
+            for (const auto& c : env.GetState().hands[s]) {
+                hands.push_back((int)c.suit * 13 + (c.rank - 2));
+            }
+        }
         bool done = false;
         while (!done) {
             auto lr = env.GetLegalActions();
@@ -555,7 +575,8 @@ KEEP int an_debug_selfplay(unsigned seed) {
         deals++;
         if (*std::max_element(tot.begin(), tot.end()) >= 100.0) break;
     }
-    return an_load_match(seed, offsets.data(), deals, actions.data());
+    return an_load_match(seed, offsets.data(), deals, actions.data(),
+                         hands.data());
 }
 
 KEEP int an_result_n() { return (int)E.r_actions.size(); }
@@ -576,11 +597,16 @@ int main() {
     std::mt19937 rr(7);
     HeartsEnv env(424242, true);
     std::vector<int> offsets = {0};
-    std::vector<int> actions;
+    std::vector<int> actions, hands;
     std::array<double, 4> tot{};
     int deals = 0;
     while (deals < 60) {
         env.Reset();
+        for (int s = 0; s < 4; ++s) {
+            for (const auto& c : env.GetState().hands[s]) {
+                hands.push_back((int)c.suit * 13 + (c.rank - 2));
+            }
+        }
         bool done = false;
         while (!done) {
             auto lr = env.GetLegalActions();
@@ -601,7 +627,7 @@ int main() {
     printf("built match: %d deals, %d actions\n", deals, (int)actions.size());
 
     an_init(1);
-    an_load_match(424242, offsets.data(), deals, actions.data());
+    an_load_match(424242, offsets.data(), deals, actions.data(), hands.data());
     int analyzed = 0, rounds = 0, forced_free = 0;
     std::mt19937 fr(9);
     for (int d = 0; d < deals; d += 2) {

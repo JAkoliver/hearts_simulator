@@ -143,6 +143,17 @@
   #posinfo { font-size:.8rem; color:#A6A6AF; margin-left:8px;
              font-variant-numeric:tabular-nums; }
   #passinfo { font-size:.75rem; margin-top:6px; color:#A6A6AF; }
+  /* deep-search layer: a DISTINCT authority from the raw policy - own
+     color (cyan), value units (win %), never probability bars */
+  #deepbar { margin-top:8px; padding-top:6px; border-top:1px solid #2E2E33; }
+  .dbar { position:relative; height:18px; margin:2px 0; background:#20262B;
+          border-radius:4px; overflow:hidden; font-size:.72rem; }
+  .dbar .fill { position:absolute; inset:0 auto 0 0; background:#194A5E; }
+  .dbar.played .fill { background:#1F6B85; }
+  .dbar span { position:relative; padding-left:6px; line-height:18px; }
+  .deep-h { color:#4CC2FF; font-size:.7rem; margin:8px 0 2px; }
+  .dv { color:#4CC2FF; font-size:.68rem; margin-left:4px; }
+  .dv.ok { color:#7CBF8E; }
   #ai-note { margin-top:auto; padding-top:8px; border-top:1px solid #2E2E33;
              font-size:.68rem; color:#8A8A93; line-height:1.45; }
   /* pass chain: one row per giver - "name [cards] -> receiver" */
@@ -208,6 +219,11 @@
     <h3>Perilune's view</h3>
     <div id="evalbox"></div>
     <div id="passinfo"></div>
+    <div id="deepbar">
+      <button id="deep-btn" class="xbtn">Deep analysis</button>
+      <button id="deep64-btn" class="xbtn" style="display:none">K=64 here</button>
+      <span id="deep-status" class="muted" style="font-size:.68rem"></span>
+    </div>
     <div id="ai-note">Perilune is a work in progress. Its pick is not
       necessarily the best move.</div>
   </div>
@@ -447,6 +463,7 @@ function renderEval(st, deal) {
       el('passinfo').querySelectorAll('.passrow').forEach(n =>
         n.onclick = () => { passSeat = +n.dataset.seat; render(); });
     } else el('passinfo').innerHTML = 'Hold deal - no passing.';
+    el('deep64-btn').style.display = 'none';
     return;
   }
   el('passinfo').innerHTML = '';
@@ -459,7 +476,29 @@ function renderEval(st, deal) {
   if (bars.n > 3)
     html += `<button class="xbtn" id="ev-x">${evalExpanded
       ? 'show top 3' : `show all ${bars.n} legal moves`}</button>`;
+  // Deep-search layer: a separate authority in VALUE units (win chance),
+  // rendered only where the client-side search has produced a result.
+  const dr = deepResults[deepKey(st.d, st.i)];
+  if (dr && dr.actions.length) {
+    const playedId = cardId(name);
+    const order = [...dr.actions.keys()].sort((a, b) => dr.mean[b] - dr.mean[a]);
+    const shown = order.slice(0, 3);
+    if (!shown.some(ix => dr.actions[ix] === playedId)) {
+      const pix = dr.actions.indexOf(playedId);
+      if (pix >= 0) shown.push(pix);
+    }
+    html += `<div class="deep-h">Deep search &middot; K=${dr.K} &middot; win chance (this device)</div>`;
+    for (const ix of shown) {
+      const isP = dr.actions[ix] === playedId;
+      html += `<div class="dbar${isP ? ' played' : ''}">
+        <div class="fill" style="width:${Math.max(2, dr.mean[ix] * 100)}%"></div>
+        <span>${ct(idName(dr.actions[ix]))} &middot; ${(dr.mean[ix] * 100).toFixed(1)}%
+          &plusmn;${(dr.se[ix] * 100).toFixed(1)}${isP ? ' &larr; played' : ''}</span></div>`;
+    }
+  }
   el('evalbox').innerHTML = html;
+  el('deep64-btn').style.display =
+    (deepWorker && !dr) || (dr && dr.K < 64) ? 'inline-block' : 'none';
   const x = el('ev-x');
   if (x) x.onclick = () => { evalExpanded = !evalExpanded; render(); };
 }
@@ -490,11 +529,31 @@ function disagreements() {
   else out.sort((a, b) => a.idx - b.idx);
   return out;
 }
+// Deep-search verdict for a disagreement: search VALUES decide whether the
+// raw-policy complaint was a real mistake ("verified, cost X% win chance")
+// or noise ("retracted" - the moves are statistically indistinguishable).
+function deepBadge(idx, playedName) {
+  const st = steps[idx];
+  const dr = deepResults[deepKey(st.d, st.i)];
+  if (!dr || dr.actions.length < 2) return '';
+  const pix = dr.actions.indexOf(cardId(playedName));
+  if (pix < 0) return '';
+  let best = 0;
+  for (let i = 1; i < dr.mean.length; i++) {
+    if (dr.mean[i] > dr.mean[best]) best = i;
+  }
+  const diff = dr.mean[best] - dr.mean[pix];
+  const sig = 2 * Math.sqrt(dr.se[best] ** 2 + dr.se[pix] ** 2);
+  return diff > sig
+    ? `<span class="dv">&#10003; &minus;${(diff * 100).toFixed(1)}%</span>`
+    : `<span class="dv ok">retracted</span>`;
+}
+
 function renderDis() {
   el('dis').innerHTML = disagreements().map(d =>
     `<div class="dline" data-idx="${d.idx}">D${d.d} T${d.t} &middot;
       ${esc(seatLabel(d.s))}: ${ct(d.name)} &rarr; ${ctG(d.ai)}
-      <span class="muted">(+${(d.gap * 100).toFixed(0)}%)</span></div>`).join('')
+      <span class="muted">(+${(d.gap * 100).toFixed(0)}%)</span>${deepBadge(d.idx, d.name)}</div>`).join('')
     || '<div class="muted" style="font-size:.75rem">No disagreements.</div>';
   document.querySelectorAll('.dline').forEach(n =>
     n.onclick = () => { cur = +n.dataset.idx; render(); });
@@ -669,6 +728,148 @@ el('d-gap').onclick = () => { disSort = 'gap';
   render();
   addEventListener('resize', renderStrip);
 })();
+
+// ---- deep analysis (client-side search; runs on the viewer's device) ------
+// A Web Worker drives the WASM engine + onnxruntime-web through the pump
+// protocol. Results cache in IndexedDB keyed by match + model hash + K, so
+// an analyzed match scrubs instantly forever after. Priority: your
+// disagreements -> all disagreements -> your plays -> everything else.
+let deepWorker = null, deepResults = {}, deepMd5 = '', deepRunning = false;
+const deepKey = (d, i) => d + '|' + i;
+const cardId = n => 'CDSH'.indexOf(n.slice(-1)) * 13 + cardVal(n);
+const idName = c => RANK_ORDER[c % 13] + 'CDSH'[Math.floor(c / 13)];
+const matchIdent = () => q.get('code')
+  ? `T${q.get('code')}#${q.get('match_no') || ''}` : (q.get('sid') || '');
+const passOffset = deal => deal.pass_direction === 'hold' ? 0 : 12;
+const dstatus = s => { el('deep-status').textContent = s; };
+
+function idbOpen() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open('perilune-review', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('evals');
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+async function idbLoadCached() {
+  const db = await idbOpen();
+  const pre = `${matchIdent()}|${deepMd5}|`;
+  return new Promise(res => {
+    const out = [];
+    const cur = db.transaction('evals').objectStore('evals')
+      .openCursor(IDBKeyRange.bound(pre, pre + '￿'));
+    cur.onsuccess = () => {
+      if (cur.result) { out.push(cur.result.value); cur.result.continue(); }
+      else res(out);
+    };
+    cur.onerror = () => res(out);
+  });
+}
+async function idbSave(v) {
+  const db = await idbOpen();
+  db.transaction('evals', 'readwrite').objectStore('evals')
+    .put(v, `${matchIdent()}|${deepMd5}|${v.K}|${v.d}|${v.i}`);
+}
+
+function deepAccept(v) {
+  const k = deepKey(v.d, v.i);
+  if (!deepResults[k] || v.K >= deepResults[k].K) deepResults[k] = v;
+}
+
+function deepJobs(K, skipDone) {
+  const disIdx = new Set();
+  steps.forEach((st, idx) => {
+    if (st.type !== 'play') return;
+    const [s, name, , top, eq2] = R.deals[st.d].plays[st.i];
+    const merged = mergeTop(top, eq2);
+    if (merged.length && !merged[0][0].includes(name)) disIdx.add(idx);
+  });
+  const jobs = [];
+  steps.forEach((st, idx) => {
+    if (st.type !== 'play') return;
+    if (skipDone && deepResults[deepKey(st.d, st.i)]) return;
+    const [s, name] = R.deals[st.d].plays[st.i];
+    const prio = (disIdx.has(idx) && s === R.viewer_seat) ? 0
+               : disIdx.has(idx) ? 1 : (s === R.viewer_seat) ? 2 : 3;
+    jobs.push({prio, key: deepKey(st.d, st.i), d: st.d, i: st.i,
+               deal: st.d, actionIdx: passOffset(R.deals[st.d]) + st.i,
+               K, playedId: cardId(name)});
+  });
+  jobs.sort((a, b) => a.prio - b.prio);
+  return jobs;
+}
+
+async function deepStart() {
+  if (!R.replay) { dstatus('no replay data for this match'); return; }
+  el('deep-btn').disabled = true;
+  dstatus('loading engine + model…');
+  try {
+    const man = await (await fetch('/static/models/manifest.json')).json();
+    deepMd5 = (man.policy_onnx_md5 || '').slice(0, 8);
+  } catch (e) { deepMd5 = 'nomd5'; }
+  for (const v of await idbLoadCached()) deepAccept(v);
+  deepWorker = new Worker('/static/analysis_worker.js');
+  deepWorker.onmessage = ev => {
+    const m = ev.data;
+    if (m.type === 'ready') {
+      dstatus(`engine ready (${m.ep})`);
+      deepWorker.postMessage({type: 'load', seed: R.replay.seed,
+                              dealActions: R.replay.deal_actions,
+                              startHands: R.deals.map(d =>
+                                d.start_hands.map(h => h.map(cardId)))});
+    } else if (m.type === 'loaded') {
+      const jobs = deepJobs(16, true);
+      if (!jobs.length) { dstatus('all positions analyzed'); deepDone(); return; }
+      deepRunning = true;
+      el('deep-btn').textContent = 'Stop';
+      el('deep-btn').disabled = false;
+      deepWorker.postMessage({type: 'queue', jobs});
+      dstatus(`analyzing 0/${jobs.length}…`);
+      render();
+    } else if (m.type === 'result') {
+      if (m.desync) { dstatus('replay mismatch - analysis unavailable'); deepDone(); return; }
+      const v = {d: m.d, i: m.i, K: m.K, actions: m.actions,
+                 mean: m.mean, se: m.se};
+      deepAccept(v);
+      idbSave(v);
+      const st = steps[cur];
+      if (st && st.type === 'play' && st.d === v.d && st.i === v.i) render();
+      renderDis();
+    } else if (m.type === 'progress') {
+      dstatus(`analyzing ${m.done}/${m.total}…`);
+      if (m.done >= m.total) { dstatus(`done (${m.total} positions)`); deepDone(); }
+    } else if (m.type === 'fatal') {
+      dstatus('analysis failed: ' + m.message);
+      deepDone();
+    }
+  };
+  deepWorker.postMessage({type: 'init'});
+}
+
+function deepDone() {
+  deepRunning = false;
+  el('deep-btn').textContent = 'Deep analysis';
+  el('deep-btn').disabled = false;
+}
+
+el('deep-btn').onclick = () => {
+  if (deepRunning) {
+    deepWorker.postMessage({type: 'clear'});
+    dstatus('stopped');
+    deepDone();
+  } else deepStart();
+};
+
+el('deep64-btn').onclick = () => {
+  const st = steps[cur];
+  if (!deepWorker || !st || st.type !== 'play') return;
+  const [, name] = R.deals[st.d].plays[st.i];
+  deepWorker.postMessage({type: 'queue', front: true, jobs: [{
+    key: deepKey(st.d, st.i), d: st.d, i: st.i, deal: st.d,
+    actionIdx: passOffset(R.deals[st.d]) + st.i, K: 64,
+    playedId: cardId(name)}]});
+  dstatus('deep-checking this position (K=64)…');
+};
 </script>
 </body>
 </html>

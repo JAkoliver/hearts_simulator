@@ -554,6 +554,17 @@ public:
 
     // Replace all four hands with a determinization (action ids). Validates
     // that the hands form a partition of the correct sizes with no duplicates.
+    // Replace a freshly-dealt deal's hands with explicit ones and fix the
+    // opening leader. For cross-toolchain replay (WASM client analysis):
+    // seed-based dealing is std::shuffle-IMPLEMENTATION-bound (MSVC, libc++
+    // and libstdc++ all consume the RNG differently), so replays that must
+    // work off-toolchain ship the actual dealt hands instead of trusting
+    // the seed. Call immediately after Reset(), before any Step.
+    void SetDeal(const std::array<std::vector<int>, 4>& hand_ids) {
+        SetHands(hand_ids);
+        if (!in_passing) LocateTwoOfClubs();
+    }
+
     void SetHands(const std::array<std::vector<int>, 4>& hand_ids) {
         std::array<bool, 52> seen_card;
         seen_card.fill(false);

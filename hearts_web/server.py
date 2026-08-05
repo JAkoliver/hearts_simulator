@@ -804,6 +804,12 @@ def compute_review(deal_lines, viewer_seat):
     return {'viewer_seat': viewer_seat,
             'seat_types': deal_lines[0].get('seats'),
             'win_prob_start': win0, 'deals': out_deals,
+            # Client-side deep analysis (WASM engine): the replay contract.
+            # Raw action ids per deal INCLUDING pass picks - the engine
+            # rebuilds any decision state from (seed, prefix).
+            'replay': {'seed': deal_lines[0]['seed'],
+                       'deal_actions': [[a for _, a, _ in d['actions']]
+                                        for d in deal_lines]},
             'note': ('Evals are information-honest: each seat is judged on '
                      'what it could see, even though the review shows all '
                      'hands.')}
