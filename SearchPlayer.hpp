@@ -155,6 +155,18 @@ public:
         // better-calibrated belief head from another checkpoint. Null =
         // use the main backend.
         std::shared_ptr<InferenceBackend> belief_backend;
+        // Moon-shooter mode (exploiter league round 1,
+        // docs/exploiter_league_prereg.md): "" (off), "agg", or "sel".
+        // While the moon is alive for this seat, candidate moves are
+        // scored by MOON PROBABILITY - the fraction of completed rollouts
+        // (this seat playing a moon-seeking heuristic inside the rollout,
+        // everyone else the policy) where this seat takes all 26. AGG
+        // plays the moon argmax from the pass until the moon is
+        // mathematically dead; SEL additionally estimates the shoot
+        // line's MATCH EQUITY vs the normal line's at every alive
+        // decision and shoots only while shoot >= normal. Requires
+        // match_aware (equity units + completed-rollout scoring).
+        std::string shooter_mode;
     };
 
     // Shared-backend constructor: many players (threads) funnel inference
@@ -173,6 +185,12 @@ public:
             if (cfg_.rollout_tricks >= 0)
                 throw std::runtime_error("match_aware requires FULL rollouts "
                                          "(equity units != value-head units)");
+        }
+        if (!cfg_.shooter_mode.empty()) {
+            if (cfg_.shooter_mode != "agg" && cfg_.shooter_mode != "sel")
+                throw std::runtime_error("shooter_mode must be \"agg\" or \"sel\"");
+            if (!cfg_.match_aware)
+                throw std::runtime_error("shooter_mode requires match_aware");
         }
     }
 
@@ -202,8 +220,32 @@ public:
     };
     const ActionStats& LastStats() const { return last_stats_; }
 
+    // Shooter-mode state for the LAST ChooseAction call (Phase A logging).
+    // valid only when cfg_.shooter_mode is set. alive = the moon was still
+    // possible for this seat at the decision; shooting = the decision was
+    // made under moon scoring (AGG: always while alive; SEL: only when the
+    // shoot line's equity won). The pass commit decision is made once, on
+    // the FIRST pick; the 2nd/3rd queued picks report shooting=false, so
+    // read the commit state from the first pick only.
+    struct ShooterStats {
+        bool valid = false;
+        bool alive = false;
+        bool shooting = false;
+        bool pass_phase = false;
+        float moon_p = 0.0f;    // moon prob of the chosen shoot action
+        float eq_shoot = 0.0f;  // match equity of the shoot line
+        float eq_norm = 0.0f;   // SEL only: match equity of the normal line
+    };
+    const ShooterStats& LastShooter() const { return last_shooter_; }
+
     int ChooseAction(const HeartsEnv& env) override {
         std::vector<int> legal = LegalVector(env);
+        if (!cfg_.shooter_mode.empty()) {
+            last_shooter_ = ShooterStats();
+            last_shooter_.valid = true;
+            last_shooter_.pass_phase = env.IsPassing();
+            last_shooter_.alive = MoonAliveFor(env, env.GetCurrentPlayer());
+        }
         if (env.IsPassing()) {
             last_stats_ = ActionStats();
             last_stats_.pass_phase = true;
@@ -215,6 +257,16 @@ public:
         }
 
         int me = env.GetCurrentPlayer();
+        if (!cfg_.shooter_mode.empty() && last_shooter_.alive) {
+            // Moon decision: same K schedule as the normal search
+            int nd = cfg_.determinizations;
+            if (cfg_.k_endgame > 0 &&
+                *std::max_element(probe_totals_.begin(), probe_totals_.end()) >= 85.0) {
+                nd = cfg_.k_endgame;
+            }
+            last_stats_ = ActionStats();   // shooter decisions carry no v2 stats
+            return SetOneHot(ChooseShoot(env, legal, nd));
+        }
 
         // Sample K determinizations, shared across candidate actions
         // (K boosted in endgame score states when k_endgame is set)
@@ -403,6 +455,10 @@ private:
         std::vector<int> script;
         int script_seat = -1;
         size_t script_pos = 0;
+        // Moon rollout continuation: while the moon is alive for this seat,
+        // it plays MoonHeuristicAction inside the rollout instead of the
+        // policy (reverts to policy once the moon dies). -1 = off.
+        int moon_seat = -1;
 
         Sim(HeartsEnv e, int t) : sim_env(std::move(e)), tag(t) {}
     };
@@ -411,6 +467,197 @@ private:
         auto sc = env.GetRoundScores();
         double avg = (sc[0] + sc[1] + sc[2] + sc[3]) / 4.0;
         return avg - sc[seat];
+    }
+
+    // ------------------------- moon-shooter helpers -------------------------
+
+    // Mid-deal round_scores are RAW accumulated points (the 0/26/26/26 moon
+    // adjustment happens only at trick 13), so: alive iff no OTHER seat has
+    // taken a point this deal.
+    static bool MoonAliveFor(const HeartsEnv& env, int seat) {
+        auto sc = env.GetRoundScores();
+        for (int i = 0; i < 4; ++i) {
+            if (i != seat && sc[i] > 0) return false;
+        }
+        return true;
+    }
+
+    // Completed-deal moon signature: post-adjustment scores are 0/26/26/26
+    // (total 78) with the shooter at 0.
+    static bool MoonSuccess(const HeartsEnv& env, int seat) {
+        auto sc = env.GetRoundScores();
+        return (sc[0] + sc[1] + sc[2] + sc[3]) == 78 && sc[seat] == 0;
+    }
+
+    // Rollout continuation for a committed shooter: cash winners, keep
+    // control cards. Deliberately simple - it only needs to be
+    // moon-DIRECTED, and the same policy applies to every candidate action
+    // over the same shared determinizations, so its biases pair out of the
+    // per-action comparison.
+    static int MoonHeuristicAction(const HeartsEnv& env) {
+        std::vector<int> legal;
+        {
+            auto lr = env.GetLegalActions();
+            for (int i = 0; i < 13; ++i) {
+                if (lr[i] != -1) legal.push_back(lr[i]);
+            }
+        }
+        if (legal.size() == 1) return legal[0];
+        const auto& st = env.GetState();
+        const auto& played_by = env.GetPlayedBy();
+        int me = env.GetCurrentPlayer();
+        std::array<bool, 52> mine{};
+        for (const auto& c : st.hands[me]) {
+            mine[static_cast<int>(c.suit) * 13 + c.rank - 2] = true;
+        }
+        auto gone = [&](int id) {
+            return mine[id] || played_by[0][id] || played_by[1][id]
+                   || played_by[2][id] || played_by[3][id];
+        };
+        auto is_master = [&](int id) {   // no higher card of its suit is live
+            for (int r = id % 13 + 1; r < 13; ++r) {
+                if (!gone((id / 13) * 13 + r)) return false;
+            }
+            return true;
+        };
+        if (st.current_trick.empty()) {
+            // Lead: highest master if any, else highest of the longest suit.
+            int best = -1;
+            for (int a : legal) {
+                if (is_master(a) && (best < 0 || a % 13 > best % 13)) best = a;
+            }
+            if (best >= 0) return best;
+            std::array<int, 4> cnt{};
+            for (int a : legal) cnt[a / 13]++;
+            int suit = 0;
+            for (int s = 1; s < 4; ++s) {
+                if (cnt[s] > cnt[suit]) suit = s;
+            }
+            for (int a : legal) {
+                if (a / 13 == suit && (best < 0 || a % 13 > best % 13)) best = a;
+            }
+            return best;
+        }
+        int led = static_cast<int>(st.getLedSuit());
+        bool have_led = false;
+        for (int a : legal) {
+            if (a / 13 == led) have_led = true;
+        }
+        if (have_led) {
+            // Beat the current winner with our highest, else duck lowest.
+            int win_rank = -1;
+            for (const auto& pc : st.current_trick) {
+                if (static_cast<int>(pc.card.suit) == led && pc.card.rank - 2 > win_rank)
+                    win_rank = pc.card.rank - 2;
+            }
+            int hi = -1, lo = -1;
+            for (int a : legal) {
+                if (a / 13 != led) continue;
+                if (hi < 0 || a % 13 > hi % 13) hi = a;
+                if (lo < 0 || a % 13 < lo % 13) lo = a;
+            }
+            return (hi % 13 > win_rank) ? hi : lo;
+        }
+        // Void in the led suit: discard the lowest non-point card (hearts and
+        // the QS are the shooter's ammunition), else the lowest point card.
+        int best = -1;
+        for (int a : legal) {
+            if (a / 13 == 3 || a == 36) continue;   // hearts / QS
+            if (best < 0 || a % 13 < best % 13) best = a;
+        }
+        if (best >= 0) return best;
+        for (int a : legal) {
+            if (best < 0 || a % 13 < best % 13) best = a;
+        }
+        return best;
+    }
+
+    // Moon pass candidates the policy distribution would not propose: the
+    // shooter KEEPS controls and dumps its lowest cards. Two heuristics:
+    // 3 lowest overall, 3 lowest non-hearts (hearts must be won back).
+    static void AddMoonPassCandidates(const std::vector<int>& legal,
+                                      std::vector<std::array<int, 3>>& combos) {
+        auto add = [&](std::array<int, 3> c) {
+            std::sort(c.begin(), c.end());
+            if (std::find(combos.begin(), combos.end(), c) == combos.end())
+                combos.push_back(c);
+        };
+        std::vector<int> by_rank = legal;
+        std::sort(by_rank.begin(), by_rank.end(),
+                  [](int a, int b) { return a % 13 < b % 13; });
+        add({by_rank[0], by_rank[1], by_rank[2]});
+        std::vector<int> nh;
+        for (int a : by_rank) {
+            if (a / 13 != 3) nh.push_back(a);
+        }
+        if (nh.size() >= 3) add({nh[0], nh[1], nh[2]});
+    }
+
+    // Shooter play decision while the moon is alive: score legal moves by
+    // moon probability over shared determinizations (this seat playing the
+    // moon heuristic inside rollouts). SEL also runs the normal search on
+    // the SAME determinizations and shoots only while the shoot line's
+    // match equity >= the normal line's. Ties in moon probability break
+    // toward higher equity (early decisions often tie at 0).
+    int ChooseShoot(const HeartsEnv& env, const std::vector<int>& legal, int n_dets) {
+        int me = env.GetCurrentPlayer();
+        BuildContext(env);
+        std::vector<std::array<std::vector<int>, 4>> dets(n_dets);
+        for (auto& d : dets) d = SampleHands(env);
+        int start_tricks = env.GetState().tricks_played;
+
+        auto run = [&](bool moon, std::vector<double>& eq, std::vector<double>& mp) {
+            std::vector<Sim> sims;
+            sims.reserve(legal.size() * dets.size());
+            for (size_t ai = 0; ai < legal.size(); ++ai) {
+                for (const auto& det : dets) {
+                    Sim s(env.Clone(), static_cast<int>(ai));
+                    s.eval_seat = me;
+                    s.start_tricks = start_tricks;
+                    if (moon) s.moon_seat = me;
+                    s.sim_env.SetHands(det);
+                    s.done = s.sim_env.Step(legal[ai]).done;
+                    sims.push_back(std::move(s));
+                }
+            }
+            RolloutAll(sims);
+            eq.assign(legal.size(), 0.0);
+            mp.assign(legal.size(), 0.0);
+            std::vector<int> n(legal.size(), 0);
+            for (const auto& s : sims) {
+                eq[s.tag] += s.result;
+                mp[s.tag] += MoonSuccess(s.sim_env, me) ? 1.0 : 0.0;
+                n[s.tag] += 1;
+            }
+            for (size_t ai = 0; ai < legal.size(); ++ai) {
+                if (n[ai]) { eq[ai] /= n[ai]; mp[ai] /= n[ai]; }
+            }
+        };
+
+        std::vector<double> meq, mmp;
+        run(true, meq, mmp);
+        size_t bm = 0;
+        for (size_t ai = 1; ai < legal.size(); ++ai) {
+            if (mmp[ai] > mmp[bm] || (mmp[ai] == mmp[bm] && meq[ai] > meq[bm])) bm = ai;
+        }
+        last_shooter_.moon_p = static_cast<float>(mmp[bm]);
+        last_shooter_.eq_shoot = static_cast<float>(meq[bm]);
+        if (cfg_.shooter_mode == "agg") {
+            last_shooter_.shooting = true;
+            return legal[bm];
+        }
+        std::vector<double> neq, nmp;
+        run(false, neq, nmp);
+        size_t bn = 0;
+        for (size_t ai = 1; ai < legal.size(); ++ai) {
+            if (neq[ai] > neq[bn]) bn = ai;
+        }
+        last_shooter_.eq_norm = static_cast<float>(neq[bn]);
+        if (meq[bm] >= neq[bn]) {
+            last_shooter_.shooting = true;
+            return legal[bm];
+        }
+        return legal[bn];
     }
 
     // Match-aware helpers ---------------------------------------------------
@@ -513,7 +760,8 @@ private:
 
         std::vector<size_t> active;
         while (true) {
-            // Consume any scripted picks first (no inference needed)
+            // Consume any scripted picks and moon-heuristic steps first
+            // (no inference needed for either)
             bool progressed = true;
             while (progressed) {
                 progressed = false;
@@ -521,6 +769,14 @@ private:
                     if (!s.done && s.script_pos < s.script.size() && s.sim_env.IsPassing()
                         && s.sim_env.GetCurrentPlayer() == s.script_seat) {
                         s.done = s.sim_env.Step(s.script[s.script_pos++]).done;
+                        progressed = true;
+                    }
+                    if (!s.done && !s.truncated && s.moon_seat >= 0
+                        && !s.sim_env.IsPassing()
+                        && s.sim_env.GetCurrentPlayer() == s.moon_seat
+                        && MoonAliveFor(s.sim_env, s.moon_seat)) {
+                        s.done = s.sim_env.Step(MoonHeuristicAction(s.sim_env)).done;
+                        check_truncate(s);
                         progressed = true;
                     }
                 }
@@ -639,28 +895,76 @@ private:
         std::vector<std::array<std::vector<int>, 4>> dets(cfg_.pass_k);
         for (auto& d : dets) d = SampleHands(env);
 
-        std::vector<Sim> sims;
-        sims.reserve(combos.size() * dets.size());
-        for (size_t ci = 0; ci < combos.size(); ++ci) {
-            for (const auto& det : dets) {
-                Sim s(env.Clone(), static_cast<int>(ci));
-                s.sim_env.ResetForPassSearch(det);
-                s.eval_seat = me;
-                s.start_tricks = 0;  // pass search rewinds to the deal start
-                s.script.assign(combos[ci].begin(), combos[ci].end());
-                s.script_seat = me;
-                sims.push_back(std::move(s));
+        // Evaluate a candidate list over the shared determinizations: mean
+        // result (match equity when match_aware) and mean moon probability.
+        auto eval = [&](const std::vector<std::array<int, 3>>& cs, bool moon,
+                        std::vector<double>& eq, std::vector<double>& mp) {
+            std::vector<Sim> sims;
+            sims.reserve(cs.size() * dets.size());
+            for (size_t ci = 0; ci < cs.size(); ++ci) {
+                for (const auto& det : dets) {
+                    Sim s(env.Clone(), static_cast<int>(ci));
+                    s.sim_env.ResetForPassSearch(det);
+                    s.eval_seat = me;
+                    s.start_tricks = 0;  // pass search rewinds to the deal start
+                    s.script.assign(cs[ci].begin(), cs[ci].end());
+                    s.script_seat = me;
+                    if (moon) s.moon_seat = me;
+                    sims.push_back(std::move(s));
+                }
             }
-        }
-        RolloutAll(sims);
+            RolloutAll(sims);
+            eq.assign(cs.size(), 0.0);
+            mp.assign(cs.size(), 0.0);
+            std::vector<int> n(cs.size(), 0);
+            for (const auto& s : sims) {
+                eq[s.tag] += s.result;
+                mp[s.tag] += MoonSuccess(s.sim_env, me) ? 1.0 : 0.0;
+                n[s.tag] += 1;
+            }
+            for (size_t ci = 0; ci < cs.size(); ++ci) {
+                if (n[ci]) { eq[ci] /= n[ci]; mp[ci] /= n[ci]; }
+            }
+        };
 
-        std::vector<double> score(combos.size(), 0.0);
-        for (const auto& s : sims) {
-            score[s.tag] += s.result;
+        if (!cfg_.shooter_mode.empty()) {
+            // Moon pass (the moon is trivially alive at the pass). AGG
+            // commits unconditionally; SEL prices the best moon pass against
+            // the best normal pass in match equity and commits only if the
+            // shoot line wins. The commit decision is made ONCE here; picks
+            // 2/3 are queued from the chosen combo.
+            std::vector<std::array<int, 3>> mcombos = combos;
+            AddMoonPassCandidates(legal, mcombos);
+            std::vector<double> meq, mmp;
+            eval(mcombos, true, meq, mmp);
+            size_t bm = 0;
+            for (size_t ci = 1; ci < mcombos.size(); ++ci) {
+                if (mmp[ci] > mmp[bm] || (mmp[ci] == mmp[bm] && meq[ci] > meq[bm])) bm = ci;
+            }
+            last_shooter_.moon_p = static_cast<float>(mmp[bm]);
+            last_shooter_.eq_shoot = static_cast<float>(meq[bm]);
+            bool commit = true;
+            size_t bn = 0;
+            std::vector<double> neq, nmp;
+            if (cfg_.shooter_mode == "sel") {
+                eval(combos, false, neq, nmp);
+                for (size_t ci = 1; ci < combos.size(); ++ci) {
+                    if (neq[ci] > neq[bn]) bn = ci;
+                }
+                last_shooter_.eq_norm = static_cast<float>(neq[bn]);
+                commit = meq[bm] >= neq[bn];
+            }
+            const auto& pick = commit ? mcombos[bm] : combos[bn];
+            last_shooter_.shooting = commit;
+            queued.assign(pick.begin() + 1, pick.end());
+            return pick[0];
         }
+
+        std::vector<double> eq, mp;
+        eval(combos, false, eq, mp);
         size_t best = 0;
         for (size_t ci = 1; ci < combos.size(); ++ci) {
-            if (score[ci] > score[best]) best = ci;
+            if (eq[ci] > eq[best]) best = ci;
         }
         queued.assign(combos[best].begin() + 1, combos[best].end());
         return combos[best][0];
@@ -887,4 +1191,5 @@ private:
     std::array<std::vector<int>, 4> pending_pass_;  // per-seat queued picks
     std::array<float, 52> last_pi_{};
     ActionStats last_stats_;
+    ShooterStats last_shooter_;
 };

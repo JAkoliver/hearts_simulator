@@ -289,7 +289,8 @@ int main(int argc, char** argv) {
     // 0 deals in 25 min vs 0.95 s/deal with the pool pinned).
     torch::set_num_threads(1);
     std::string search_path, opp_path, belief_path, match_path, probe_log,
-        b_search_path, equity_path, behave_totals, out_path = "search_eval_results.csv";
+        b_search_path, equity_path, behave_totals, shooter_flag, tricks_path,
+        out_path = "search_eval_results.csv";
     int behave_deals = 200;
     int deals = 300, k = 32, rollout_tricks = -1, matches = 200, probe_every = 5,
         k_endgame = 0;
@@ -315,6 +316,8 @@ int main(int argc, char** argv) {
         else if (a == "--equity-model") equity_path = next();
         else if (a == "--behave-totals") behave_totals = next();
         else if (a == "--behave-deals") behave_deals = std::stoi(next());
+        else if (a == "--shooter") shooter_flag = next();
+        else if (a == "--tricks-out") tricks_path = next();
         else if (a == "--deals") deals = std::stoi(next());
         else if (a == "--k") k = std::stoi(next());
         else if (a == "--seed") seed = static_cast<unsigned int>(std::stoul(next()));
@@ -394,11 +397,22 @@ int main(int argc, char** argv) {
         return 1;
     }
 
+    if (!shooter_flag.empty()) {
+        // Moon-shooter instrument (exploiter league Phase A,
+        // docs/exploiter_league_prereg.md): the deployed match-aware search
+        // stack with moon scoring - equity model, pass search, flat player.
+        if (equity_path.empty() || !pass_search || use_tree) {
+            std::cerr << "--shooter requires --equity-model and --pass-search"
+                         " (and no --tree)\n";
+            return 2;
+        }
+    }
     SearchPlayer::Config cfg;
     cfg.determinizations = k;
     cfg.belief_weighted = !uniform;
     cfg.seed = seed + 1000;
     cfg.pass_search = pass_search;
+    cfg.shooter_mode = shooter_flag;
     cfg.device = device;
     cfg.bf16 = use_bf16;
     cfg.rollout_tricks = rollout_tricks;
@@ -449,6 +463,131 @@ int main(int argc, char** argv) {
         sp = std::make_unique<SearchPlayer>(search_model, sdim, cfg);
     }
     RawPolicy opp(opp_model, odim);
+
+    if (!shooter_flag.empty()) {
+        // ------------------- Phase A: shooter vs defender field -------------------
+        // One search-shooter seat (rotating mi % 4) vs three copies of the
+        // defender net (--opponent-model: 556 match trace plays with match
+        // context, 550/238 raw plays match-blind), matches to 100.
+        //
+        // ROBUSTNESS: raw per-trick events (winner + points from the trick's
+        // CARD CONTENTS - GetRoundScores is corrupted for trick 13, where
+        // Step applies the 0/26/26/26 moon adjustment in the same call) plus
+        // per-deal rows, flushed per deal. Metric definitions (threat-alive,
+        // defense cost, interventions) are computed OFFLINE from the events
+        // (analyze_phasea.py), so they can be refined without re-running
+        // search-speed matches.
+        SearchPlayer* sp_flat = static_cast<SearchPlayer*>(sp.get());
+        std::unique_ptr<MatchRawPolicy> mdef;
+        if (odim == 556) mdef = std::make_unique<MatchRawPolicy>(opp_model);
+        std::ofstream dcsv(out_path);
+        dcsv << "match,seed,seat,deal,pass_dir,play_dec,alive_dec,shoot_dec,"
+                "pass_committed,pass_moonp,pass_eq_shoot,pass_eq_norm,"
+                "first_dead_trick,moon_success,defender_moon,"
+                "s0,s1,s2,s3,t0,t1,t2,t3\n";
+        std::ofstream tcsv(tricks_path.empty() ? out_path + ".tricks.csv"
+                                               : tricks_path);
+        tcsv << "match,deal,trick,winner,points,shooter_seat\n";
+        int moons = 0, committed_deals = 0, total_deals = 0;
+        auto pt0 = std::chrono::steady_clock::now();
+
+        for (int mi = 0; mi < matches; ++mi) {
+            int seat = mi % 4;
+            unsigned mseed = seed + (unsigned)mi * 1000u;
+            HeartsEnv env(mseed, true);
+            std::array<double, 4> totals{};
+            int deals = 0;
+            while (true) {
+                sp_flat->SetMatchContext(totals, deals);
+                env.Reset();
+                int pdir = env.GetPassDirection();
+                int play_dec = 0, alive_dec = 0, shoot_dec = 0;
+                int pass_committed = -1;   // -1 = hold deal (no pass decision)
+                float pass_moonp = 0.0f, pass_eqs = 0.0f, pass_eqn = 0.0f;
+                int first_dead = -1;
+                bool pass_seen = false;
+                bool done = false;
+                while (!done) {
+                    int p = env.GetCurrentPlayer();
+                    bool was_passing = env.IsPassing();
+                    int action;
+                    if (p == seat) {
+                        action = sp->ChooseAction(env);
+                        const auto& ss = sp_flat->LastShooter();
+                        if (ss.valid) {
+                            if (was_passing) {
+                                if (!pass_seen) {   // commit decided on pick 1
+                                    pass_seen = true;
+                                    pass_committed = ss.shooting ? 1 : 0;
+                                    pass_moonp = ss.moon_p;
+                                    pass_eqs = ss.eq_shoot;
+                                    pass_eqn = ss.eq_norm;
+                                }
+                            } else {
+                                play_dec++;
+                                if (ss.alive) alive_dec++;
+                                if (ss.shooting) shoot_dec++;
+                            }
+                        }
+                    } else if (mdef) {
+                        action = mdef->ChooseAction(env, totals, deals);
+                    } else {
+                        action = opp.ChooseAction(env);
+                    }
+                    int tp = env.GetState().tricks_played;
+                    done = env.Step(action).done;
+                    if (env.GetState().tricks_played > tp) {
+                        const auto& st = env.GetState();
+                        int pts = 0;
+                        for (const auto& pc : st.last_trick) {
+                            if (pc.card.suit == Suit::Hearts) pts += 1;
+                            else if (pc.card.suit == Suit::Spades && pc.card.rank == 12)
+                                pts += 13;
+                        }
+                        int w = st.last_trick_winner;
+                        tcsv << mi << ',' << deals << ',' << (tp + 1) << ','
+                             << w << ',' << pts << ',' << seat << '\n';
+                        if (first_dead < 0 && pts > 0 && w != seat)
+                            first_dead = tp + 1;
+                    }
+                }
+                auto sc = env.GetRoundScores();
+                int stot = sc[0] + sc[1] + sc[2] + sc[3];
+                bool success = (stot == 78 && sc[seat] == 0);
+                bool dmoon = (stot == 78 && sc[seat] != 0);
+                for (int i2 = 0; i2 < 4; ++i2) totals[i2] += sc[i2];
+                dcsv << mi << ',' << mseed << ',' << seat << ',' << deals << ','
+                     << pdir << ',' << play_dec << ',' << alive_dec << ','
+                     << shoot_dec << ',' << pass_committed << ',' << pass_moonp
+                     << ',' << pass_eqs << ',' << pass_eqn << ',' << first_dead
+                     << ',' << (success ? 1 : 0) << ',' << (dmoon ? 1 : 0);
+                for (int i2 = 0; i2 < 4; ++i2) dcsv << ',' << sc[i2];
+                for (int i2 = 0; i2 < 4; ++i2) dcsv << ',' << totals[i2];
+                dcsv << '\n';
+                dcsv.flush();
+                tcsv.flush();
+                moons += success;
+                committed_deals += (pass_committed == 1 || shoot_dec > 0);
+                total_deals++;
+                deals++;
+                if (deals >= 60 ||
+                    *std::max_element(totals.begin(), totals.end()) >= 100.0) break;
+            }
+            auto el = std::chrono::duration_cast<std::chrono::seconds>(
+                          std::chrono::steady_clock::now() - pt0).count();
+            std::cerr << "shooter match " << (mi + 1) << "/" << matches
+                      << "  deals " << total_deals << "  committed "
+                      << committed_deals << "  moons " << moons
+                      << "  elapsed " << el << "s\n";
+        }
+        dcsv.close();
+        tcsv.close();
+        std::cout << "shooter " << shooter_flag << " matches " << matches
+                  << " deals " << total_deals << " committed " << committed_deals
+                  << " moons " << moons << "\n";
+        std::cout << "results " << out_path << "\n";
+        return 0;
+    }
 
     if (!match_path.empty() || !b_search_path.empty()) {
         // Paired matches to 100: table A = the (possibly match-aware) search
