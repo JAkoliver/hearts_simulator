@@ -227,7 +227,7 @@
         <button id="deep64-btn" class="xbtn" style="display:none">K=64 here</button>
       </div>
       <div id="deep-status" class="muted" style="font-size:.68rem; margin-top:4px"></div>
-      <div id="deep-pos" class="muted" style="font-size:.68rem"></div>
+      <div id="deep-pos" style="font-size:.68rem; color:#4CC2FF"></div>
     </div>
     <div id="ai-note">Perilune is a work in progress. Its pick is not
       necessarily the best move.</div>
@@ -495,7 +495,7 @@ function renderEval(st, deal) {
       if (pix >= 0) shown.push(pix);
     }
     const spread = dr.mean[order[0]] - dr.mean[order[order.length - 1]];
-    html += `<div class="deep-h">Deep search &middot; K=${dr.K} &middot; played out on this device</div>`;
+    html += `<div style="margin-top:8px"></div>`;
     for (const ix of shown) {
       const isP = dr.actions[ix] === playedId;
       const seTxt = dr.se[ix] >= 0.0005
