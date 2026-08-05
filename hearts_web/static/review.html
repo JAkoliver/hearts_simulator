@@ -10,24 +10,36 @@
     src:url('/static/fonts/space-grotesk.woff2') format('woff2');
     font-weight:300 700; font-display:swap; }
   * { box-sizing:border-box; margin:0; padding:0; }
+  html, body { height:100%; }
   body { font-family:system-ui, sans-serif; background:#121212; color:#ECECEC;
-         user-select:none; padding:10px 14px; }
+         user-select:none; padding:10px 14px; display:flex;
+         flex-direction:column; overflow:hidden; }
   h1 { font-family:'Space Grotesk', system-ui, sans-serif; font-size:1.05rem;
        display:inline; }
   a { color:#E8B923; }
   .muted { color:#A6A6AF; }
   #top { display:flex; align-items:center; gap:10px; flex-wrap:wrap;
          margin-bottom:10px; }
-  #grid { display:grid; grid-template-columns:220px 1fr 240px; gap:12px; }
-  @media (max-width:980px) { #grid { grid-template-columns:1fr; } }
-  .panel { background:#1E1E21; border-radius:10px; padding:10px; }
+  #grid { flex:1 1 auto; min-height:0; display:grid;
+          grid-template-columns:220px 1fr 240px; gap:12px; }
+  @media (max-width:980px) { #grid { grid-template-columns:1fr; }
+    body { overflow:auto; } }
+  .panel { background:#1E1E21; border-radius:10px; padding:10px;
+           display:flex; flex-direction:column; min-height:0; }
   .panel h3 { font-size:.72rem; color:#A6A6AF; text-transform:uppercase;
               margin-bottom:6px; }
-  /* board */
-  #board { background:radial-gradient(ellipse at center, #2A2A2E 0%, #1B1B1E 100%);
-           border-radius:12px; padding:10px 12px; }
+  /* board: hands surround the table at their seats' positions */
+  #maincol { display:flex; flex-direction:column; min-height:0; }
+  #board { flex:1; display:flex; flex-direction:column; min-height:0;
+           gap:4px; }
+  .hrow-c { display:flex; justify-content:center; }
+  #mid { flex:1; display:flex; align-items:stretch; justify-content:center;
+         gap:10px; min-height:0; }
+  .vhand { display:flex; flex-direction:column; align-items:center; gap:5px;
+           justify-content:center; }
+  .vhand .cards { display:grid; grid-template-columns:repeat(2, auto); gap:2px; }
   .hand-row { display:flex; align-items:center; gap:3px; flex-wrap:wrap;
-              min-height:44px; margin:4px 0; }
+              min-height:44px; margin:2px 0; }
   .seat-tag { font-size:.72rem; background:rgba(255,255,255,.08);
               border-radius:8px; padding:2px 8px; margin-right:6px;
               white-space:nowrap; font-variant-numeric:tabular-nums; }
@@ -42,9 +54,10 @@
   .card.red { color:#C3342E; }
   .card.dim { opacity:.32; }
   .card.hot { outline:2px solid #E8B923; }
-  /* Mini felt table: each played card sits at ITS SEAT'S position
-     (viewer at bottom), so who-played-what is spatially obvious. */
-  #rtable { position:relative; height:210px; margin:8px auto; max-width:440px;
+  /* Felt table: each played card sits at ITS SEAT'S position (viewer at
+     bottom); stretches to fill the middle band of the viewport. */
+  #rtable { position:relative; flex:1; min-height:170px; max-width:720px;
+            align-self:stretch; margin:0 auto; width:100%;
             background:radial-gradient(ellipse at center, #2A2A2E 0%, #1B1B1E 100%);
             border-radius:12px; }
   .rslot { position:absolute; text-align:center; font-size:.64rem; color:#A6A6AF; }
@@ -63,7 +76,7 @@
   .bar span { position:relative; font-size:.72rem; padding-left:6px;
               line-height:18px; font-variant-numeric:tabular-nums; }
   /* disagreements */
-  #dis { max-height:420px; overflow-y:auto; }
+  #dis { flex:1; min-height:0; overflow-y:auto; }
   .dline { font-size:.75rem; padding:4px 6px; border-radius:6px; cursor:pointer;
            font-variant-numeric:tabular-nums; }
   .dline:hover { background:#26262A; }
@@ -115,7 +128,7 @@
     <div id="dis"></div>
   </div>
 
-  <div>
+  <div id="maincol">
     <div id="board"></div>
     <svg id="strip"></svg>
     <div id="scrub"><div id="cursor"></div></div>
@@ -210,15 +223,14 @@ function render() {
   const acting = st.type === 'play' ? deal.plays[st.i][0] : null;
   const taken = upto >= 0 ? deal._taken[upto] : [0,0,0,0];
 
-  const handRow = s => {
-    const t = deal._totals_before[s];
-    return `<div class="hand-row">
-      <span class="seat-tag${s === acting ? ' acting' : ''}"
-        style="border-left:3px solid ${SEAT_COLORS[s]}">${esc(seatLabel(s))}
-        &middot; ${t} <small>(+${taken[s]})</small></span>` +
-      deal._hands[s].map(c =>
-        cardHTML(c, played.has(c) ? 'dim' : '')).join('') + '</div>';
-  };
+  const tag = s => `<span class="seat-tag${s === acting ? ' acting' : ''}"
+      style="border-left:3px solid ${SEAT_COLORS[s]}">${esc(seatLabel(s))}
+      &middot; ${deal._totals_before[s]} <small>(+${taken[s]})</small></span>`;
+  const cards = s => deal._hands[s].map(c =>
+      cardHTML(c, played.has(c) ? 'dim' : '')).join('');
+  const handRow = s => `<div class="hand-row">${tag(s)}${cards(s)}</div>`;
+  const vhand = s => `<div class="vhand">${tag(s)}
+      <div class="cards">${cards(s)}</div></div>`;
   // Current trick on the mini table: card at the PLAYER'S position.
   const v = R.viewer_seat ?? 0;
   let slots = '';
@@ -233,11 +245,12 @@ function render() {
   } else {
     slots = `<div class="rcenter">deal ${deal.deal_no} &middot; passing ${esc(deal.pass_direction)}</div>`;
   }
-  // Rows relative to the viewer: across / left / TABLE / right / you.
+  // Hands surround the table at their seats' positions: across above,
+  // left/right flanking as compact columns, viewer below.
   el('board').innerHTML =
-    handRow((v + 2) % 4) + handRow((v + 1) % 4) +
-    `<div id="rtable">${slots}</div>` +
-    handRow((v + 3) % 4) + handRow(v);
+    `<div class="hrow-c">${handRow((v + 2) % 4)}</div>` +
+    `<div id="mid">${vhand((v + 1) % 4)}<div id="rtable">${slots}</div>${vhand((v + 3) % 4)}</div>` +
+    `<div class="hrow-c">${handRow(v)}</div>`;
 
   renderEval(st, deal);
   renderPos(st, deal);
@@ -425,6 +438,7 @@ el('d-all').onclick = () => { disMode = 'all';
   renderScrub();
   renderStrip();
   render();
+  addEventListener('resize', renderStrip);
 })();
 </script>
 </body>
