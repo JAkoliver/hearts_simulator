@@ -80,6 +80,18 @@
   .rslot.pos3 { right:20%; top:50%; transform:translateY(-50%); }
   .rcenter { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
              color:#A6A6AF; font-size:.75rem; }
+  /* ghost of the previous trick, swept to its winner's edge */
+  .gslot { position:absolute; display:flex; opacity:.30; }
+  .gslot .card { width:calc(var(--cw)*.9); height:calc(var(--cw)*1.28);
+                 font-size:calc(var(--cw)*.29); }
+  .gslot .card + .card { margin-left:calc(var(--cw)*-.45); }
+  .gslot.pos0 { bottom:2%; left:50%; transform:translateX(-50%); }
+  .gslot.pos1 { left:1.5%; top:50%; transform:translateY(-50%); }
+  .gslot.pos2 { top:2%; left:50%; transform:translateX(-50%); }
+  .gslot.pos3 { right:1.5%; top:50%; transform:translateY(-50%); }
+  .xbtn { background:#26262A; color:#ECECEC; border:0; border-radius:6px;
+          padding:3px 9px; font-size:.68rem; cursor:pointer; margin-top:5px; }
+  .xbtn:hover { background:#33333A; }
   /* eval panel */
   .bar { background:#26262A; border-radius:5px; height:21px; position:relative;
          margin:3px 0; overflow:hidden; display:flex; align-items:center; }
@@ -187,6 +199,9 @@
       <span class="legend">markers: <i style="background:#E5484D"></i>disagreement
         <i style="background:#3A2328"></i>moon threat</span>
     </div>
+    <div class="legend" style="margin-top:3px">
+      &#9000; &larr;/&rarr; play &middot; Shift+&larr;/&rarr; trick &middot;
+      &uarr;/&darr; deal &middot; Home/End &middot; drag the bar to scrub</div>
   </div>
 
   <div class="panel">
@@ -309,6 +324,19 @@ function render() {
       `<div class="rslot pos${(p[0] - v + 4) % 4}">
         ${cardHTML(p[1], p === deal.plays[upto] ? 'hot' : '')}
         <div${p[0] === winner ? ` style="color:${SEAT_COLORS[winner]};font-weight:700"` : ''}>${esc(seatLabel(p[0]))}</div></div>`).join('');
+    // Ghost of the PREVIOUS trick at its winner's edge (only while the
+    // current trick is incomplete - continuity without clutter).
+    if (upto % 4 !== 3 && t0 > 0) {
+      const prev = deal.plays.slice(t0 - 4, t0);
+      const lead = prev[0][1].slice(-1);
+      let gw = prev[0][0], gv = cardVal(prev[0][1]);
+      for (const p of prev.slice(1))
+        if (p[1].slice(-1) === lead && cardVal(p[1]) > gv) {
+          gw = p[0]; gv = cardVal(p[1]);
+        }
+      slots += `<div class="gslot pos${(gw - v + 4) % 4}">
+        ${prev.map(p => cardHTML(p[1])).join('')}</div>`;
+    }
   } else {
     slots = `<div class="rcenter">deal ${deal.deal_no} &middot; passing ${esc(deal.pass_direction)}</div>`;
   }
@@ -345,19 +373,26 @@ function renderEval(st, deal) {
   }
   el('passinfo').innerHTML = '';
   const [s, name, p, top] = deal.plays[st.i];
+  const shown = evalExpanded ? top : top.slice(0, 3);
   let html = `<div style="font-size:.85rem; margin-bottom:6px">
     ${esc(seatLabel(s))} played ${ct(name)}
     <span class="muted">(${(p * 100).toFixed(0)}%)</span></div>`;
-  for (const [c, cp] of top) {
+  for (const [c, cp] of shown) {
     html += `<div class="bar${c === name ? ' played' : ''}">
       <div class="fill" style="width:${cp * 100}%"></div>
       <span>${ct(c)} &middot; ${(cp * 100).toFixed(1)}%${c === name ? ' &larr; played' : ''}</span></div>`;
   }
-  if (!top.some(([c]) => c === name))
+  if (!shown.some(([c]) => c === name))
     html += `<div class="bar played"><div class="fill" style="width:${p * 100}%"></div>
       <span>${ct(name)} &middot; ${(p * 100).toFixed(1)}% &larr; played</span></div>`;
+  if (top.length > 3)
+    html += `<button class="xbtn" id="ev-x">${evalExpanded
+      ? 'show top 3' : `show all ${top.length} legal moves`}</button>`;
   el('evalbox').innerHTML = html;
+  const x = el('ev-x');
+  if (x) x.onclick = () => { evalExpanded = !evalExpanded; render(); };
 }
+let evalExpanded = false;
 
 function renderPos(st, deal) {
   const trick = st.type === 'play' ? Math.floor(st.i / 4) + 1 : '-';

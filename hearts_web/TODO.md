@@ -4,10 +4,16 @@ Review mode extensions (2026-08-04 design session):
 - BELIEF HEATMAP in review: what the net BELIEVED about hidden cards at
   each step vs reality (belief head per opponent) - unique feature;
   heavy payload + UI, deferred.
-- MATCH HISTORY: list a pid's past matches (from telemetry) so any old
-  game can be re-reviewed, not just the one just finished.
-- SHAREABLE REVIEW LINKS: encode match + position; pairs with history.
+- SHAREABLE REVIEW LINKS: encode match + position; pairs with history
+  (DONE 2026-08-05: match history menu list + /api/history).
 - EXPORT match JSON from the review page.
+- SEARCH-VERIFIED DISAGREEMENTS: re-judge top disagreements offline
+  with the K=64 search player ("verified mistakes" - the raw-policy
+  gap metric conflates player error with net overconfidence).
+- Mobile pass for the review page (game page done; review is
+  desktop-first).
+- Log index for review/history (whole-file JSONL scan per request;
+  fine at current scale).
 
 Gameplay / table:
 - Big-batch animation fast-forward on tab refocus (background-tab

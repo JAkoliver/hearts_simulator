@@ -446,7 +446,8 @@ class Table:
                       placements=list(self.menv.placements()))
             log_line({'v': LOG_V, 'kind': 'match', 'sid': f'table:{self.code}',
                       'pid': None, 'mode': 'table', 'seed': self.seed,
-                      'human_seat': None,
+                      'human_seat': None, 'match_no': self.match_no,
+                      'seat_pids': {str(s): p for p, s in self.seat_of.items()},
                       'seats': {str(s): ('human' if s in self.humans() else 'ai')
                                 for s in range(4)},
                       'model': MODEL_MD5, 'ts': round(time.time(), 3),
@@ -669,7 +670,8 @@ def compute_review(deal_lines, viewer_seat):
             play = out_deals[di]['plays'][pi]
             card = play[1]
             pr = probs[row]
-            k = min(3, int(mask_t[row].sum()))
+            # Full ranked legal list (client shows top-3 with an expander).
+            k = int(mask_t[row].sum())
             topv, topi = torch.topk(pr, k)
             cid = RANKS.index(card[:-1]) + SUITS.index(card[-1]) * 13
             play[2] = round(float(pr[cid]), 3)
@@ -818,6 +820,55 @@ def table_insight(code: str, pid: str):
     if seat is None:
         raise HTTPException(403, 'you were not seated in this match')
     return compute_insight(lines, seat)
+
+
+@app.get('/api/history')
+def api_history(pid: str, limit: int = 12):
+    """The pid's completed matches, newest first (menu 'Recent matches').
+    One pass over the log: table seat_pids come from deal lines for
+    matches logged before match lines carried them."""
+    seat_pids = {}   # (sid, match_no) -> {seat: pid}
+    out = []
+    with _log_lock:
+        try:
+            with open(LOG_PATH) as f:
+                for line in f:
+                    try:
+                        d = json.loads(line)
+                    except ValueError:
+                        continue
+                    if d.get('v') != LOG_V:
+                        continue
+                    key = (d.get('sid'), d.get('match_no', 1))
+                    if d.get('kind') == 'deal' and d.get('seat_pids') \
+                            and key not in seat_pids:
+                        seat_pids[key] = d['seat_pids']
+                    if d.get('kind') != 'match':
+                        continue
+                    if d.get('mode') == 'table':
+                        sp = d.get('seat_pids') or seat_pids.get(key, {})
+                        seat = next((int(s) for s, p in sp.items() if p == pid),
+                                    None)
+                        if seat is None:
+                            continue
+                        out.append({'mode': 'table',
+                                    'code': d['sid'].split(':', 1)[1],
+                                    'match_no': d.get('match_no', 1),
+                                    'ts': d['ts'], 'deals': d['deals'],
+                                    'seat': seat,
+                                    'place': d['placements'][seat],
+                                    'final': d['final']})
+                    elif d.get('pid') == pid:
+                        seat = d['human_seat']
+                        out.append({'mode': 'solo', 'sid': d['sid'],
+                                    'ts': d['ts'], 'deals': d['deals'],
+                                    'seat': seat,
+                                    'place': d['placements'][seat],
+                                    'final': d['final']})
+        except FileNotFoundError:
+            pass
+    out.sort(key=lambda m: m['ts'], reverse=True)
+    return {'matches': out[:limit]}
 
 
 @app.get('/about')
