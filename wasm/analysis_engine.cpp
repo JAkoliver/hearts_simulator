@@ -515,10 +515,11 @@ KEEP int an_analyze(int deal_idx, int action_idx, int k) {
     if (E.env.IsPassing()) return -1;
     E.legal = Engine::LegalVector(E.env);
     E.me = E.env.GetCurrentPlayer();
-    if (E.legal.size() < 2) {   // forced: trivially done
+    if (E.legal.size() < 2) {   // forced: trivially done, counts=0 marks it
         E.r_actions.assign(E.legal.begin(), E.legal.end());
         E.r_mean.assign(E.legal.size(), 0.0f);
         E.r_se.assign(E.legal.size(), 0.0f);
+        E.r_pts.assign(E.legal.size(), 0.0f);
         E.r_n.assign(E.legal.size(), 0);
         E.stage = PUMP_DONE;
         return PUMP_DONE;

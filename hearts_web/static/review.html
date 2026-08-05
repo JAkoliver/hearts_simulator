@@ -485,7 +485,11 @@ function renderEval(st, deal) {
       ? 'show top 3' : `show all ${bars.n} legal moves`}</button>`;
   // Deep-search layer: a separate authority in VALUE units (win chance),
   // rendered only where the client-side search has produced a result.
-  const dr = deepResults[deepKey(st.d, st.i)];
+  // Forced moves carry no decision - never render placeholder zeros as
+  // data (a forced 2D once showed '0.0% win', which is a blank, not a
+  // measurement).
+  const forced = top.length < 2;
+  const dr = forced ? null : deepResults[deepKey(st.d, st.i)];
   if (dr && dr.actions.length) {
     const playedId = cardId(name);
     const order = [...dr.actions.keys()].sort((a, b) => dr.mean[b] - dr.mean[a]);
@@ -528,9 +532,11 @@ function renderEval(st, deal) {
   // worker exists, grayed when the position is already at K>=64; the line
   // below the buttons says how deep this position has been analyzed.
   const b64 = el('deep64-btn');
-  b64.style.display = deepWorker ? 'inline-block' : 'none';
+  b64.style.display = deepWorker && !forced ? 'inline-block' : 'none';
   b64.disabled = !!(dr && dr.K >= 64);
-  el('deep-pos').innerHTML = dr
+  el('deep-pos').innerHTML = forced
+    ? (deepWorker ? 'this position: forced move (only one legal card)' : '')
+    : dr
     ? `this position: analyzed at K=${dr.K}${dr.K >= 64 ? ' (max)' : ''}`
     : (deepWorker ? 'this position: not yet analyzed' : '');
   updateDeepBtn();
@@ -837,6 +843,7 @@ function deepJobs(K, skipDone) {
   const jobs = [];
   steps.forEach((st, idx) => {
     if (st.type !== 'play') return;
+    if (isForced(st)) return;   // one legal card: nothing to evaluate
     if (skipDone && deepResults[deepKey(st.d, st.i)]) return;
     const [s, name] = R.deals[st.d].plays[st.i];
     const prio = (disIdx.has(idx) && s === R.viewer_seat) ? 0
@@ -904,8 +911,12 @@ async function deepStart() {
   deepWorker.postMessage({type: 'init'});
 }
 
+// A forced play (single legal card) carries no decision - the ranked list
+// from the server has one entry.
+const isForced = st => R.deals[st.d].plays[st.i][3].length < 2;
+
 function deepAllDone() {
-  return steps.every(st => st.type !== 'play'
+  return steps.every(st => st.type !== 'play' || isForced(st)
                      || deepResults[deepKey(st.d, st.i)]);
 }
 // Gray out 'Deep analysis' once every play position has a result (the
