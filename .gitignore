@@ -64,3 +64,5 @@ hearts_match_log.csv
 *.pt2
 cloud_jobs/
 hearts_web/site_config.py
+hearts_web/static/models/
+hearts_web/static/ort/

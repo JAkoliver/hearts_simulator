@@ -1,0 +1,112 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Perilune search lab — browser inference benchmark</title>
+<style>
+  body { background:#121212; color:#ECECEC; font-family:ui-monospace,Consolas,monospace;
+         max-width:860px; margin:2rem auto; padding:0 1rem; font-size:14px; }
+  h1 { font-size:1.1rem; } .muted { color:#9a9a9a; }
+  table { border-collapse:collapse; margin:1rem 0; }
+  td,th { border:1px solid #333; padding:4px 10px; text-align:right; }
+  th { background:#1c1c1c; }
+  button { background:#2b2b2b; color:#ECECEC; border:1px solid #444; padding:8px 16px;
+           border-radius:6px; cursor:pointer; font:inherit; margin-right:8px; }
+  button:disabled { opacity:.4 }
+  #log { white-space:pre-wrap; background:#181818; border-radius:8px; padding:12px;
+         min-height:120px; margin-top:1rem; }
+</style>
+</head>
+<body>
+<h1>Perilune search lab — Phase 1 inference benchmark</h1>
+<p class="muted">Measures in-browser forward latency of the deployed policy net
+(7.6M, 556-dim) via onnxruntime-web, on WebGPU and WASM-CPU. These numbers
+calibrate the client-side deep-analysis design (K choice, scheduling).
+Everything runs on YOUR device; nothing is sent anywhere.</p>
+<button id="run">Run benchmark</button>
+<button id="copy" disabled>Copy results</button>
+<div id="log">idle - click Run benchmark</div>
+<script src="/static/ort/ort.all.min.js"></script>
+<script>
+const el = id => document.getElementById(id);
+const BATCHES = [64, 208, 416, 832];   // 208=K16 decision round, 832=K64
+let report = [];
+function log(s) { el('log').textContent += '\n' + s; report.push(s); }
+
+function randInputs(b) {
+  const obs = new Float32Array(b * 556);
+  for (let i = 0; i < obs.length; i++) obs[i] = Math.random() < 0.1 ? 1 : 0;
+  const mask = new Uint8Array(b * 52);
+  for (let r = 0; r < b; r++) {
+    const n = 1 + Math.floor(Math.random() * 13);
+    for (let j = 0; j < n; j++) mask[r * 52 + Math.floor(Math.random() * 52)] = 1;
+    mask[r * 52 + Math.floor(Math.random() * 52)] = 1; // ensure >=1 legal
+  }
+  return {
+    obs: new ort.Tensor('float32', obs, [b, 556]),
+    mask: new ort.Tensor('bool', mask, [b, 52]),
+  };
+}
+
+async function bench(ep) {
+  log(`\n=== ${ep} ===`);
+  let sess;
+  const t0 = performance.now();
+  try {
+    sess = await ort.InferenceSession.create('/static/models/perilune_policy.onnx',
+      { executionProviders: [ep] });
+  } catch (e) { log(`${ep}: session FAILED - ${e.message.slice(0, 200)}`); return null; }
+  log(`session created in ${(performance.now() - t0).toFixed(0)} ms`);
+  const rows = [];
+  for (const b of BATCHES) {
+    const inp = randInputs(b);
+    try {
+      for (let i = 0; i < 3; i++) await sess.run({ obs: inp.obs, mask: inp.mask }); // warmup
+      const times = [];
+      for (let i = 0; i < 10; i++) {
+        const t = performance.now();
+        await sess.run({ obs: inp.obs, mask: inp.mask });
+        times.push(performance.now() - t);
+      }
+      times.sort((a, b2) => a - b2);
+      const med = times[5];
+      rows.push([b, med]);
+      log(`batch ${String(b).padStart(4)}: median ${med.toFixed(1)} ms  ` +
+          `(min ${times[0].toFixed(1)}, max ${times[9].toFixed(1)})`);
+    } catch (e) { log(`batch ${b}: FAILED - ${e.message.slice(0, 120)}`); }
+  }
+  // Derived: one K=64 play decision ~ 45 sequential rounds at batch<=832
+  // (13 legal x 64 dets, rollout ~45 steps); K=16 ~ 45 rounds at batch<=208.
+  const t832 = rows.find(r => r[0] === 832), t208 = rows.find(r => r[0] === 208);
+  if (t832) log(`est. K=64 decision: ${(45 * t832[1] / 1000).toFixed(1)} s; ` +
+                `full match (~400 dec): ${(400 * 45 * t832[1] / 60000).toFixed(0)} min`);
+  if (t208) log(`est. K=16 decision: ${(45 * t208[1] / 1000).toFixed(1)} s; ` +
+                `disagreements-only pass (~60 dec): ${(60 * 45 * t208[1] / 60000).toFixed(1)} min`);
+  return rows;
+}
+
+el('run').onclick = async () => {
+  el('run').disabled = true;
+  report = [];
+  el('log').textContent = 'running...';
+  ort.env.wasm.wasmPaths = '/static/ort/';
+  log(`UA: ${navigator.userAgent}`);
+  log(`crossOriginIsolated: ${window.crossOriginIsolated} ` +
+      `(false => WASM runs single-threaded)`);
+  log(`WebGPU available: ${!!navigator.gpu}`);
+  if (navigator.gpu) {
+    try {
+      const a = await navigator.gpu.requestAdapter();
+      log(`GPU adapter: ${a ? (a.info ? a.info.vendor + ' ' + a.info.architecture : 'yes') : 'none'}`);
+    } catch (e) { log('adapter query failed'); }
+  }
+  if (navigator.gpu) await bench('webgpu');
+  await bench('wasm');
+  log('\nDONE - use Copy results and paste back.');
+  el('copy').disabled = false;
+  el('run').disabled = false;
+};
+el('copy').onclick = () => navigator.clipboard.writeText(report.join('\n'));
+</script>
+</body>
+</html>
