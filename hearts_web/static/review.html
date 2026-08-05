@@ -131,6 +131,8 @@
   #posinfo { font-size:.8rem; color:#A6A6AF; margin-left:8px;
              font-variant-numeric:tabular-nums; }
   #passinfo { font-size:.75rem; margin-top:6px; color:#A6A6AF; }
+  #ai-note { margin-top:auto; padding-top:8px; border-top:1px solid #2E2E33;
+             font-size:.68rem; color:#8A8A93; line-height:1.45; }
   /* pass chain: one row per giver - "name [cards] -> receiver" */
   .passrow { display:flex; align-items:center; gap:6px; margin:6px 0; }
   .passrow .pname { min-width:46px; text-align:right; color:#A6A6AF;
@@ -191,6 +193,10 @@
     <h3>Perilune's view</h3>
     <div id="evalbox"></div>
     <div id="passinfo"></div>
+    <div id="ai-note">Perilune is a work in progress. Its picks are one
+      strong player's opinion, not ground truth &mdash; it has measured
+      blind spots of its own. Treat a disagreement as a second opinion,
+      not a correction.</div>
   </div>
 </div>
 
