@@ -581,21 +581,32 @@ def _win_probs(totals, deals_played):
     return [round(float(probs[s, 0]), 4) for s in range(4)]
 
 
+_QS = SUITS.index('S') * 13 + RANKS.index('Q')
+
+
 def _equiv_groups(hand_set, played_set, legal):
-    """Groups of strictly-equivalent legal cards: same suit, and every
-    rank between them is in the acting seat's own hand or already played
-    (visible info only). Such cards win/lose identical tricks in every
-    continuation - preferences inside a group are meaningless."""
+    """Groups of strictly-equivalent legal cards: same suit, every rank
+    between them in the acting seat's own hand or already played
+    (visible info only), and equal penalty value. Such cards win/lose
+    identical tricks AND score identically in every continuation -
+    preferences inside a group are meaningless.
+
+    The QS never joins a group (13 points vs 0 for its neighbors),
+    though held it still bridges J-K connectivity. Hearts all carry the
+    same 1 point, so heart groups are fine."""
     by_suit = {}
     for c in legal:
+        if c == _QS:      # 13 points: never equivalent to 0-point neighbors
+            continue
         by_suit.setdefault(c // 13, []).append(c)
     groups = []
     for suit, cards in by_suit.items():
         cards.sort()
         cur = [cards[0]]
         for prev, nxt in zip(cards, cards[1:]):
-            ok = all((suit * 13 + r) in hand_set or (suit * 13 + r) in played_set
-                     for r in range(prev % 13 + 1, nxt % 13))
+            ok = all(
+                (suit * 13 + r) in hand_set or (suit * 13 + r) in played_set
+                for r in range(prev % 13 + 1, nxt % 13))
             if ok:
                 cur.append(nxt)
             else:
