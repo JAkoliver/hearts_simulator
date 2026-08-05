@@ -116,6 +116,25 @@ variable.) Every reopening gets its own pre-registration.
   visit-count targets.
 - Search amplification past the net's ceiling: K>64, ISMCTS, learned
   leaf evaluation (both variants).
+- Equity-scored-target distillation, ANY recipe (2026-08-05, expert-iter
+  v2 comparative stage, docs/expert_iter_v2_results.md). Binary
+  confidence-filtered hard-CE at the strongest health-passing anchor
+  (lambda=4.0): ALL five compositions degrade placement +0.10..+0.16
+  (hier. SE 0.003-0.017; one-sided max-T p_adj=1.0; 6400 CRN units x 2
+  blocks). Continuous-certainty weighting (erf(z/2), same lambda; incl.
+  2x enrichment and 2x data arms): statistically identical to baseline
+  (|delta| <= 0.009, p_adj 0.81-0.99; registered enrichment and size
+  contrasts both null). MECHANISM: refutes the v1 noise hypothesis -
+  the harm lives in the confident teacher signal itself, and
+  neutralizing noise converges to no-change, so the equity-teacher
+  ordering signal is inert for match play. Lifeline branch (prereg
+  2026-08-02) not triggered: no continuous arm helpful at familywise
+  p<.05. Per the prereg stop rule the closure covers binary AND
+  continuous variants; v1+v2 are two independent designs with the same
+  verdict. Untested variables: none within the recipe family (teacher
+  = search-equity ordering; a future teacher with a DIFFERENT signal
+  source, e.g. visit counts or exploiter-league games, is outside this
+  closure).
 
 ## Strategy (2026-07-23): see docs/ROADMAP.md
 
