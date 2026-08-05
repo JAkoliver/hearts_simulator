@@ -146,6 +146,7 @@
   /* deep-search layer: a DISTINCT authority from the raw policy - own
      color (cyan), value units (win %), never probability bars */
   #deepbar { margin-top:8px; padding-top:6px; border-top:1px solid #2E2E33; }
+  #deepbar .xbtn:disabled { opacity:.35; cursor:default; }
   .dbar { position:relative; height:18px; margin:2px 0; background:#20262B;
           border-radius:4px; overflow:hidden; font-size:.72rem; }
   .dbar .fill { position:absolute; inset:0 auto 0 0; background:#194A5E; }
@@ -221,9 +222,12 @@
     <div id="evalbox"></div>
     <div id="passinfo"></div>
     <div id="deepbar">
-      <button id="deep-btn" class="xbtn">Deep analysis</button>
-      <button id="deep64-btn" class="xbtn" style="display:none">K=64 here</button>
-      <span id="deep-status" class="muted" style="font-size:.68rem"></span>
+      <div>
+        <button id="deep-btn" class="xbtn">Deep analysis</button>
+        <button id="deep64-btn" class="xbtn" style="display:none">K=64 here</button>
+      </div>
+      <div id="deep-status" class="muted" style="font-size:.68rem; margin-top:4px"></div>
+      <div id="deep-pos" class="muted" style="font-size:.68rem"></div>
     </div>
     <div id="ai-note">Perilune is a work in progress. Its pick is not
       necessarily the best move.</div>
@@ -465,6 +469,8 @@ function renderEval(st, deal) {
         n.onclick = () => { passSeat = +n.dataset.seat; render(); });
     } else el('passinfo').innerHTML = 'Hold deal - no passing.';
     el('deep64-btn').style.display = 'none';
+    el('deep-pos').innerHTML = '';
+    updateDeepBtn();
     return;
   }
   el('passinfo').innerHTML = '';
@@ -518,8 +524,16 @@ function renderEval(st, deal) {
     }
   }
   el('evalbox').innerHTML = html;
-  el('deep64-btn').style.display =
-    (deepWorker && !dr) || (dr && dr.K < 64) ? 'inline-block' : 'none';
+  // Deep-analysis button states for THIS position: K=64 visible once the
+  // worker exists, grayed when the position is already at K>=64; the line
+  // below the buttons says how deep this position has been analyzed.
+  const b64 = el('deep64-btn');
+  b64.style.display = deepWorker ? 'inline-block' : 'none';
+  b64.disabled = !!(dr && dr.K >= 64);
+  el('deep-pos').innerHTML = dr
+    ? `this position: analyzed at K=${dr.K}${dr.K >= 64 ? ' (max)' : ''}`
+    : (deepWorker ? 'this position: not yet analyzed' : '');
+  updateDeepBtn();
   const x = el('ev-x');
   if (x) x.onclick = () => { evalExpanded = !evalExpanded; render(); };
 }
@@ -879,10 +893,24 @@ async function deepStart() {
   deepWorker.postMessage({type: 'init'});
 }
 
+function deepAllDone() {
+  return steps.every(st => st.type !== 'play'
+                     || deepResults[deepKey(st.d, st.i)]);
+}
+// Gray out 'Deep analysis' once every play position has a result (the
+// whole-match pass has nothing left to do; K=64-here still works).
+function updateDeepBtn() {
+  if (deepRunning) return;
+  const done = deepWorker && deepAllDone();
+  el('deep-btn').disabled = !!done;
+  if (done) dstatus('all positions analyzed');
+}
+
 function deepDone() {
   deepRunning = false;
   el('deep-btn').textContent = 'Deep analysis';
   el('deep-btn').disabled = false;
+  updateDeepBtn();
 }
 
 el('deep-btn').onclick = () => {
