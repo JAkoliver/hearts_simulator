@@ -798,9 +798,12 @@ function idbOpen() {
     r.onerror = () => rej(r.error);
   });
 }
+// Bump DEEP_SCHEMA whenever the stored result shape changes (v2: added
+// per-action pts) - stale entries stop matching and re-analyze cleanly.
+const DEEP_SCHEMA = 'v2';
 async function idbLoadCached() {
   const db = await idbOpen();
-  const pre = `${matchIdent()}|${deepMd5}|`;
+  const pre = `${DEEP_SCHEMA}|${matchIdent()}|${deepMd5}|`;
   return new Promise(res => {
     const out = [];
     const cur = db.transaction('evals').objectStore('evals')
@@ -815,7 +818,7 @@ async function idbLoadCached() {
 async function idbSave(v) {
   const db = await idbOpen();
   db.transaction('evals', 'readwrite').objectStore('evals')
-    .put(v, `${matchIdent()}|${deepMd5}|${v.K}|${v.d}|${v.i}`);
+    .put(v, `${DEEP_SCHEMA}|${matchIdent()}|${deepMd5}|${v.K}|${v.d}|${v.i}`);
 }
 
 function deepAccept(v) {
