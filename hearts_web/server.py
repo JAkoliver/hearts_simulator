@@ -600,13 +600,22 @@ def compute_review(deal_lines, viewer_seat):
         except Exception:
             pdir = 3
         passed = [[] for _ in range(4)]
-        plays, threats = [], []
+        plays, pass_evals, threats = [], [], []
         taken = [0, 0, 0, 0]
         trick_cards = []
         for s, card, ms in d['actions']:
             if menv.get_current_player() != s:
                 raise HTTPException(500, 'replay desync in review')
             if menv.is_passing():
+                # Pass picks are decision states too: same batched eval.
+                mask = np.zeros(52, dtype=bool)
+                for a in menv.get_legal_actions():
+                    if a != -1:
+                        mask[a] = True
+                all_obs.append(np.array(menv.observe(), dtype=np.float32))
+                all_mask.append(mask)
+                all_ref.append(('pass', di, len(pass_evals)))
+                pass_evals.append([s, card_name(card), 0.0, []])
                 passed[s].append(card)
                 menv.step(card)
                 continue
@@ -622,7 +631,7 @@ def compute_review(deal_lines, viewer_seat):
                     mask[a] = True
             all_obs.append(np.array(menv.observe(), dtype=np.float32))
             all_mask.append(mask)
-            all_ref.append((di, len(plays)))
+            all_ref.append(('play', di, len(plays)))
             plays.append([s, card_name(card), 0.0, []])   # evals filled below
             trick_cards.append((s, card))
             if len(trick_cards) == 4:
@@ -653,7 +662,7 @@ def compute_review(deal_lines, viewer_seat):
             'pass_direction': ['left', 'right', 'across', 'hold'][pdir],
             'passed': [[card_name(c) for c in p] for p in passed],
             'received': [[card_name(c) for c in r] for r in received],
-            'plays': plays, 'threats': threats,
+            'plays': plays, 'pass_evals': pass_evals, 'threats': threats,
             'round_scores': d['round_scores'], 'totals': d['totals'],
             'win_prob_after': _win_probs(d['totals'], d['deal_no'])})
     # PASS 2: single batched forward for every play state.
@@ -666,8 +675,8 @@ def compute_review(deal_lines, viewer_seat):
                 logits, _ = _net(obs_t[i:i + 512], mask_t[i:i + 512])
                 chunks.append(torch.softmax(logits, dim=1))
         probs = torch.cat(chunks)
-        for row, (di, pi) in enumerate(all_ref):
-            play = out_deals[di]['plays'][pi]
+        for row, (kind, di, pi) in enumerate(all_ref):
+            play = out_deals[di]['plays' if kind == 'play' else 'pass_evals'][pi]
             card = play[1]
             pr = probs[row]
             # Full ranked legal list (client shows top-3 with an expander).

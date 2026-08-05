@@ -352,22 +352,56 @@ function render() {
   el('cursor').style.left = (cur / (steps.length - 1) * 100) + '%';
 }
 
+let passSeat = null, lastPassDeal = -1;
 function renderEval(st, deal) {
   if (st.type === 'start') {
-    el('evalbox').innerHTML = `<div class="muted" style="font-size:.8rem">
-      Deal ${deal.deal_no} begins &middot; passing ${esc(deal.pass_direction)}</div>`;
+    if (st.d !== lastPassDeal) { passSeat = R.viewer_seat ?? 0; lastPassDeal = st.d; }
+    const pe = deal.pass_evals || [];
+    const picks = pe.filter(e => e[0] === passSeat);
+    let html = `<div style="font-size:.85rem; margin-bottom:4px">
+      Deal ${deal.deal_no} &middot; passing ${esc(deal.pass_direction)}</div>`;
+    if (!picks.length) {
+      html += `<div class="muted" style="font-size:.75rem">No pass evaluation.</div>`;
+    } else {
+      html += `<div class="muted" style="font-size:.72rem; margin-bottom:4px">
+        ${esc(seatLabel(passSeat))}'s picks (click a row below to switch seat):</div>`;
+      picks.forEach((e, i) => {
+        const [, name, p, top] = e;
+        html += `<div class="muted" style="font-size:.68rem; margin-top:5px">pick ${i + 1}</div>`;
+        const shown = top.slice(0, 3);
+        for (const [c, cp] of shown)
+          html += `<div class="bar${c === name ? ' played' : ''}">
+            <div class="fill" style="width:${cp * 100}%"></div>
+            <span>${ct(c)} &middot; ${(cp * 100).toFixed(1)}%${c === name ? ' &larr; picked' : ''}</span></div>`;
+        if (!shown.some(([c]) => c === name))
+          html += `<div class="bar played"><div class="fill" style="width:${p * 100}%"></div>
+            <span>${ct(name)} &middot; ${(p * 100).toFixed(1)}% &larr; picked</span></div>`;
+      });
+      html += `<div class="muted" style="font-size:.64rem; margin-top:6px">
+        Pass evals use the raw policy, judged pick by pick; the full
+        engine evaluates passes with deeper search.</div>`;
+    }
+    el('evalbox').innerHTML = html;
     if (deal.pass_direction !== 'hold') {
-      // One row per giver: name -> cards -> receiver. Encodes passed AND
-      // received in four rows (your received row is the one pointing at
-      // "You").
+      // One row per giver: name -> cards -> receiver, with an agreement
+      // badge; click a row to inspect that seat's picks.
       const off = {left: 1, right: 3, across: 2}[deal.pass_direction];
       const short = s => s === R.viewer_seat ? 'You' : `Seat ${s + 1}`;
+      const agree = s => {
+        const rows = pe.filter(e => e[0] === s);
+        const m = rows.filter(e => e[3].length && e[3][0][0] === e[1]).length;
+        return `${m}/${rows.length}`;
+      };
       el('passinfo').innerHTML =
         `<div class="muted" style="margin-bottom:2px">who passed what to whom:</div>` +
-        [0,1,2,3].map(s => `<div class="passrow">
+        [0,1,2,3].map(s => `<div class="passrow" data-seat="${s}"
+           style="cursor:pointer${s === passSeat ? ';background:#26262A;border-radius:6px' : ''}">
            <span class="pname">${esc(short(s))}</span>
            <span class="pcards">${deal.passed[s].map(c => cardHTML(c)).join('')}</span>
-           <span class="pto">&rarr; ${esc(short((s + off) % 4))}</span></div>`).join('');
+           <span class="pto">&rarr; ${esc(short((s + off) % 4))}
+             <span class="muted">&middot; ${agree(s)}</span></span></div>`).join('');
+      el('passinfo').querySelectorAll('.passrow').forEach(n =>
+        n.onclick = () => { passSeat = +n.dataset.seat; render(); });
     } else el('passinfo').innerHTML = 'Hold deal - no passing.';
     return;
   }
