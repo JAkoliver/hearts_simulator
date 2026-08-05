@@ -33,13 +33,19 @@
   #board { flex:1; display:flex; flex-direction:column; min-height:0;
            gap:4px; }
   .hrow-c { display:flex; justify-content:center; }
-  #mid { flex:1; display:flex; align-items:stretch; justify-content:center;
-         gap:10px; min-height:0; }
+  /* top/bottom hands: tag ABOVE the cards so the card row centers on the
+     table axis */
+  .hstack { display:flex; flex-direction:column; align-items:center; gap:3px; }
+  #mid { flex:1; display:flex; align-items:center; justify-content:center;
+         gap:14px; min-height:0; }
   .vhand { display:flex; flex-direction:column; align-items:center; gap:5px;
-           justify-content:center; }
-  .vhand .cards { display:grid; grid-template-columns:repeat(2, auto); gap:2px; }
+           justify-content:center; max-height:100%; }
+  /* side hands: single straight column when the viewport allows */
+  .vhand .cards { display:grid; grid-template-columns:repeat(1, auto); gap:2px; }
+  @media (max-height:820px) {
+    .vhand .cards { grid-template-columns:repeat(2, auto); } }
   .hand-row { display:flex; align-items:center; gap:3px; flex-wrap:wrap;
-              min-height:44px; margin:2px 0; }
+              justify-content:center; margin:2px 0; }
   .seat-tag { font-size:.72rem; background:rgba(255,255,255,.08);
               border-radius:8px; padding:2px 8px; margin-right:6px;
               white-space:nowrap; font-variant-numeric:tabular-nums; }
@@ -55,9 +61,10 @@
   .card.dim { opacity:.32; }
   .card.hot { outline:2px solid #E8B923; }
   /* Felt table: each played card sits at ITS SEAT'S position (viewer at
-     bottom); stretches to fill the middle band of the viewport. */
-  #rtable { position:relative; flex:1; min-height:170px; max-width:720px;
-            align-self:stretch; margin:0 auto; width:100%;
+     bottom). Sized to roughly match the hand extents: width ~ a 13-card
+     row, height ~ a 13-card column. */
+  #rtable { position:relative; flex:0 1 auto; width:min(100%, 520px);
+            height:min(100%, 580px); min-height:170px;
             background:radial-gradient(ellipse at center, #2A2A2E 0%, #1B1B1E 100%);
             border-radius:12px; }
   .rslot { position:absolute; text-align:center; font-size:.64rem; color:#A6A6AF; }
@@ -228,7 +235,8 @@ function render() {
       &middot; ${deal._totals_before[s]} <small>(+${taken[s]})</small></span>`;
   const cards = s => deal._hands[s].map(c =>
       cardHTML(c, played.has(c) ? 'dim' : '')).join('');
-  const handRow = s => `<div class="hand-row">${tag(s)}${cards(s)}</div>`;
+  const hstack = s => `<div class="hstack">${tag(s)}
+      <div class="hand-row">${cards(s)}</div></div>`;
   const vhand = s => `<div class="vhand">${tag(s)}
       <div class="cards">${cards(s)}</div></div>`;
   // Current trick on the mini table: card at the PLAYER'S position.
@@ -248,9 +256,9 @@ function render() {
   // Hands surround the table at their seats' positions: across above,
   // left/right flanking as compact columns, viewer below.
   el('board').innerHTML =
-    `<div class="hrow-c">${handRow((v + 2) % 4)}</div>` +
+    `<div class="hrow-c">${hstack((v + 2) % 4)}</div>` +
     `<div id="mid">${vhand((v + 1) % 4)}<div id="rtable">${slots}</div>${vhand((v + 3) % 4)}</div>` +
-    `<div class="hrow-c">${handRow(v)}</div>`;
+    `<div class="hrow-c">${hstack(v)}</div>`;
 
   renderEval(st, deal);
   renderPos(st, deal);
@@ -263,8 +271,11 @@ function renderEval(st, deal) {
       Deal ${deal.deal_no} begins &middot; passing ${esc(deal.pass_direction)}</div>`;
     if (deal.pass_direction !== 'hold') {
       el('passinfo').innerHTML = [0,1,2,3].map(s =>
-        `<div>${esc(seatLabel(s))} passed ${deal.passed[s].map(c => cardHTML(c)).join('')}
-         &middot; got ${deal.received[s].map(c => cardHTML(c)).join('')}</div>`).join('');
+        `<div style="margin:7px 0; text-align:left">
+           <div class="muted">${esc(seatLabel(s))}</div>
+           <div>passed&nbsp; ${deal.passed[s].map(c => cardHTML(c)).join('')}</div>
+           <div>got&nbsp; ${deal.received[s].map(c => cardHTML(c)).join('')}</div>
+         </div>`).join('');
     } else el('passinfo').innerHTML = 'Hold deal - no passing.';
     return;
   }
