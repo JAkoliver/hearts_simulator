@@ -20,8 +20,13 @@ importScripts('/static/ort/ort.all.min.js');
 importScripts('/static/analysis_engine.js');
 
 const CHUNK = 416;
+const MAX_ROUNDS = 400;   // stall guard: no decision needs this many forwards
 let M = null, policy = null, equity = null, ep = null;
 let jobs = [], running = false, jobsDone = 0, jobsTotal = 0;
+// Fast path fetches the in-graph argmax ('act'); if the backend ever
+// produces an illegal action (engine-validated), fall back permanently to
+// fetching logits and doing masked argmax in JS.
+let useAct = true;
 
 async function init() {
   ort.env.wasm.wasmPaths = '/static/ort/';
@@ -61,23 +66,44 @@ function loadMatch(seed, dealActions, startHands) {
   postMessage({ type: 'loaded', deals: n });
 }
 
-async function runPolicy(rows, fetches) {
-  // Chunked to <=CHUNK rows; returns {belief?, act?} with concatenated data.
+// Watchdog: a wedged backend (GPU device loss, jsep hang) must surface as
+// an error, not an eternally-pending await.
+function withTimeout(promise, ms, what) {
+  return Promise.race([promise, new Promise((_, rej) =>
+    setTimeout(() => rej(new Error(`${what} timed out after ${ms}ms (ep=${ep})`)), ms))]);
+}
+
+async function runPolicy(rows, wantBelief) {
+  // Chunked to <=CHUNK rows; returns {belief?, acts?} with concatenated data.
   const obs = new Float32Array(M.HEAPF32.buffer, M._an_obs(), rows * 556);
   const mask = new Uint8Array(M.HEAPU8.buffer, M._an_mask(), rows * 52);
-  const acts = fetches.includes('act') ? new Int32Array(rows) : null;
+  const acts = wantBelief ? null : new Int32Array(rows);
   let belief = null;
   for (let off = 0; off < rows; off += CHUNK) {
     const n = Math.min(CHUNK, rows - off);
-    const out = await policy.run(
+    const maskChunk = mask.slice(off * 52, (off + n) * 52);
+    const out = await withTimeout(policy.run(
       { obs: new ort.Tensor('float32',
                obs.slice(off * 556, (off + n) * 556), [n, 556]),
-        mask: new ort.Tensor('bool',
-               mask.slice(off * 52, (off + n) * 52), [n, 52]) },
-      fetches);
+        mask: new ort.Tensor('bool', maskChunk, [n, 52]) },
+      wantBelief ? ['belief'] : (useAct ? ['act'] : ['logits'])),
+      30000, 'policy forward');
     if (out.act) {
       const a = out.act.data;
       for (let i = 0; i < n; i++) acts[off + i] = Number(a[i]);
+    } else if (out.logits) {
+      // JS-side masked argmax (fallback path)
+      const lg = out.logits.data;
+      for (let i = 0; i < n; i++) {
+        let best = -1, bv = -Infinity;
+        for (let c = 0; c < 52; c++) {
+          if (maskChunk[i * 52 + c] && lg[i * 52 + c] > bv) {
+            bv = lg[i * 52 + c];
+            best = c;
+          }
+        }
+        acts[off + i] = best;
+      }
     }
     if (out.belief) belief = out.belief.data;   // root is always 1 row
   }
@@ -87,24 +113,35 @@ async function runPolicy(rows, fetches) {
 async function analyzeOne(job) {
   let kind = M._an_analyze(job.deal, job.actionIdx, job.K);
   if (kind < 0) return { ...job, actions: [], mean: [], se: [], desync: true };
+  let rounds = 0;
   while (kind !== 0) {
+    if (++rounds > MAX_ROUNDS)
+      throw new Error(`stalled after ${MAX_ROUNDS} rounds (ep=${ep})`);
     const rows = M._an_rows();
     if (kind === 1) {
       if (M._an_is_root()) {
-        const { belief } = await runPolicy(1, ['belief']);
+        const { belief } = await runPolicy(1, true);
         const p = M._malloc(156 * 4);
         M.HEAPF32.set(belief, p >> 2);
         kind = M._an_feed_root(p);
         M._free(p);
       } else {
-        const { acts } = await runPolicy(rows, ['act']);
+        const { acts } = await runPolicy(rows, false);
         new Int32Array(M.HEAP32.buffer, M._an_act_in(), rows).set(acts);
         kind = M._an_feed_acts();
+        if (kind === -2) {
+          // Backend produced an illegal action: drop the in-graph argmax
+          // fast path for this session and redo the decision via logits.
+          if (!useAct) throw new Error('illegal action even via logits');
+          useAct = false;
+          return analyzeOne(job);
+        }
       }
     } else {
       const x = new Float32Array(M.HEAPF32.buffer, M._an_eq_in(), rows * 10);
-      const out = await equity.run(
-        { x: new ort.Tensor('float32', x.slice(), [rows, 10]) }, ['logits']);
+      const out = await withTimeout(equity.run(
+        { x: new ort.Tensor('float32', x.slice(), [rows, 10]) }, ['logits']),
+        30000, 'equity forward');
       const lg = out.logits.data;
       const dst = new Float32Array(M.HEAPF32.buffer, M._an_f_in(), rows);
       for (let i = 0; i < rows; i++) {
@@ -138,6 +175,20 @@ async function pumpQueue() {
       postMessage({ type: 'progress', done: jobsDone, total: jobsTotal });
       if (r.desync) { jobs = []; break; }   // stop on replay divergence
     } catch (e) {
+      // A wedged/lost WebGPU device gets ONE full retreat to the CPU
+      // backend (slower but correct) before giving up.
+      if (ep === 'webgpu') {
+        try {
+          policy = await ort.InferenceSession.create(
+            '/static/models/perilune_policy.onnx',
+            { executionProviders: ['wasm'] });
+          ep = 'wasm-fallback';
+          useAct = true;
+          jobs.unshift(job);
+          postMessage({ type: 'ready', ep });
+          continue;
+        } catch (e2) { /* fall through to fatal */ }
+      }
       postMessage({ type: 'fatal', message: String(e).slice(0, 300) });
       jobs = [];
       break;

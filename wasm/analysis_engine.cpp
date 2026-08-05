@@ -530,11 +530,22 @@ KEEP int an_feed_root(const float* belief156) {
     return E.NextRolloutRequest();
 }
 
-// Feed rollout argmax actions for the current active set.
+// Feed rollout argmax actions for the current active set. Every action is
+// validated against that sim's legal set: an illegal act (a broken or
+// unsupported backend output path, e.g. int64 ArgMax on some WebGPU
+// stacks) would otherwise step nothing and spin the rollout loop forever.
+// Returns -2 so the JS side can fall back to logits + JS-side argmax.
 KEEP int an_feed_acts() {
     for (size_t j = 0; j < E.active.size(); ++j) {
         Sim& s = E.sims[E.active[j]];
-        s.done = s.env.Step(E.act_buf[j]).done;
+        int a = E.act_buf[j];
+        auto lr = s.env.GetLegalActions();
+        bool ok = false;
+        for (int i = 0; i < 13; ++i) {
+            if (lr[i] == a) ok = true;
+        }
+        if (!ok) return -2;
+        s.done = s.env.Step(a).done;
     }
     return E.NextRolloutRequest();
 }
