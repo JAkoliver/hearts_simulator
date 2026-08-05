@@ -72,9 +72,75 @@ LOG_V = 2
 _log_lock = threading.Lock()
 
 
+# ---------------------------------------------------------------------------
+# Log index (in-memory, exact): this process is the log's only writer, so a
+# one-pass build at startup plus an update on every append keeps review /
+# insight / history from rescanning the whole JSONL per request.
+#   _idx_deals    sid -> [byte offset of each deal line]  (seek-and-read)
+#   _idx_seatpids (sid, match_no) -> first seat_pids seen (old table matches
+#                 logged summaries before seat_pids existed on them)
+#   _idx_history  pid -> [ready history entries, append order]
+# Offsets are BINARY-file offsets; the log is appended in binary from here on
+# (legacy text-mode lines ended \r\n - readers tolerate both).
+# ---------------------------------------------------------------------------
+_idx_deals = {}
+_idx_seatpids = {}
+_idx_history = {}
+
+
+def _index_add(d, off):
+    if d.get('v') != LOG_V:
+        return
+    key = (d.get('sid'), d.get('match_no', 1))
+    kind = d.get('kind')
+    if kind == 'deal':
+        _idx_deals.setdefault(d['sid'], []).append(off)
+        if d.get('seat_pids') and key not in _idx_seatpids:
+            _idx_seatpids[key] = d['seat_pids']
+    elif kind == 'match':
+        if d.get('mode') == 'table':
+            sp = d.get('seat_pids') or _idx_seatpids.get(key, {})
+            for s, p in sp.items():
+                _idx_history.setdefault(p, []).append(
+                    {'mode': 'table', 'code': d['sid'].split(':', 1)[1],
+                     'match_no': d.get('match_no', 1), 'ts': d['ts'],
+                     'deals': d['deals'], 'seat': int(s),
+                     'place': d['placements'][int(s)], 'final': d['final']})
+        elif d.get('pid'):
+            seat = d['human_seat']
+            _idx_history.setdefault(d['pid'], []).append(
+                {'mode': 'solo', 'sid': d['sid'], 'ts': d['ts'],
+                 'deals': d['deals'], 'seat': seat,
+                 'place': d['placements'][seat], 'final': d['final']})
+
+
+def _build_log_index():
+    try:
+        with open(LOG_PATH, 'rb') as f:
+            off = 0
+            for raw in f:
+                if raw.strip():
+                    try:
+                        _index_add(json.loads(raw.decode()), off)
+                    except (ValueError, KeyError):
+                        pass
+                off += len(raw)
+    except FileNotFoundError:
+        pass
+
+
+_build_log_index()
+
+
 def log_line(obj):
-    with _log_lock, open(LOG_PATH, 'a') as f:
-        f.write(json.dumps(obj) + '\n')
+    with _log_lock:
+        with open(LOG_PATH, 'ab') as f:
+            off = f.seek(0, 2)
+            f.write((json.dumps(obj) + '\n').encode())
+        try:
+            _index_add(obj, off)
+        except KeyError:
+            pass   # a malformed entry must never block the log append
 
 
 # ---------------------------------------------------------------------------
@@ -848,18 +914,19 @@ def compute_insight(deal_lines, seat):
 
 
 def _log_lines_for(sid):
+    """Deal lines for one sid via the index: seek straight to its lines
+    instead of scanning the whole log."""
     out = []
     with _log_lock:
+        offs = list(_idx_deals.get(sid, ()))
         try:
-            with open(LOG_PATH) as f:
-                for line in f:
+            with open(LOG_PATH, 'rb') as f:
+                for off in offs:
+                    f.seek(off)
                     try:
-                        d = json.loads(line)
+                        out.append(json.loads(f.readline().decode()))
                     except ValueError:
                         continue
-                    if d.get('v') == LOG_V and d.get('sid') == sid \
-                            and d.get('kind') == 'deal':
-                        out.append(d)
         except FileNotFoundError:
             pass
     return out
@@ -890,48 +957,9 @@ def table_insight(code: str, pid: str):
 @app.get('/api/history')
 def api_history(pid: str, limit: int = 12):
     """The pid's completed matches, newest first (menu 'Recent matches').
-    One pass over the log: table seat_pids come from deal lines for
-    matches logged before match lines carried them."""
-    seat_pids = {}   # (sid, match_no) -> {seat: pid}
-    out = []
+    Served straight from the in-memory index - no log scan."""
     with _log_lock:
-        try:
-            with open(LOG_PATH) as f:
-                for line in f:
-                    try:
-                        d = json.loads(line)
-                    except ValueError:
-                        continue
-                    if d.get('v') != LOG_V:
-                        continue
-                    key = (d.get('sid'), d.get('match_no', 1))
-                    if d.get('kind') == 'deal' and d.get('seat_pids') \
-                            and key not in seat_pids:
-                        seat_pids[key] = d['seat_pids']
-                    if d.get('kind') != 'match':
-                        continue
-                    if d.get('mode') == 'table':
-                        sp = d.get('seat_pids') or seat_pids.get(key, {})
-                        seat = next((int(s) for s, p in sp.items() if p == pid),
-                                    None)
-                        if seat is None:
-                            continue
-                        out.append({'mode': 'table',
-                                    'code': d['sid'].split(':', 1)[1],
-                                    'match_no': d.get('match_no', 1),
-                                    'ts': d['ts'], 'deals': d['deals'],
-                                    'seat': seat,
-                                    'place': d['placements'][seat],
-                                    'final': d['final']})
-                    elif d.get('pid') == pid:
-                        seat = d['human_seat']
-                        out.append({'mode': 'solo', 'sid': d['sid'],
-                                    'ts': d['ts'], 'deals': d['deals'],
-                                    'seat': seat,
-                                    'place': d['placements'][seat],
-                                    'final': d['final']})
-        except FileNotFoundError:
-            pass
+        out = list(_idx_history.get(pid, ()))
     out.sort(key=lambda m: m['ts'], reverse=True)
     return {'matches': out[:limit]}
 
