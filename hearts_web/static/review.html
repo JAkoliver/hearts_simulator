@@ -858,7 +858,7 @@ async function deepStart() {
     deepMd5 = (man.policy_onnx_md5 || '').slice(0, 8);
   } catch (e) { deepMd5 = 'nomd5'; }
   for (const v of await idbLoadCached()) deepAccept(v);
-  deepWorker = new Worker('/static/analysis_worker.js?v=5');
+  deepWorker = new Worker('/static/analysis_worker.js?v=6');
   // A crashed worker (e.g. a wasm abort) must be VISIBLE, never a frozen
   // counter.
   deepWorker.onerror = e => {
@@ -894,6 +894,8 @@ async function deepStart() {
     } else if (m.type === 'progress') {
       dstatus(`analyzing ${m.done}/${m.total}…`);
       if (m.done >= m.total) { dstatus(`done (${m.total} positions)`); deepDone(); }
+    } else if (m.type === 'note') {
+      dstatus(m.message);
     } else if (m.type === 'fatal') {
       dstatus('analysis failed: ' + m.message);
       deepDone();

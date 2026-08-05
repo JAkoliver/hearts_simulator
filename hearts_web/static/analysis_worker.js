@@ -18,7 +18,13 @@
 
 // VER busts HTTP caches for the engine glue AND its .wasm (locateFile) -
 // without it, browsers happily run a stale engine forever.
-const VER = 5;
+const VER = 6;
+// Fixed batch buckets: WebGPU compiles a pipeline PER TENSOR SHAPE, and
+// rollout rounds shrink row counts continuously - hundreds of one-off
+// shapes means hundreds of shader compiles (stalls, device pressure).
+// Padding every forward to one of four shapes compiles each kernel once.
+const BUCKETS = [16, 64, 208, 416];
+const bucketOf = n => BUCKETS.find(b => b >= n) || 416;
 importScripts('/static/ort/ort.all.min.js');
 importScripts('/static/analysis_engine.js?v=' + VER);
 
@@ -97,11 +103,18 @@ async function runPolicy(rows, wantBelief) {
   let belief = null;
   for (let off = 0; off < rows; off += CHUNK) {
     const n = Math.min(CHUNK, rows - off);
-    const maskChunk = mask.slice(off * 52, (off + n) * 52);
+    const B = bucketOf(n);
+    // Pad to the bucket: dummy rows are zero obs with an all-ones mask
+    // (valid inputs, outputs ignored - real rows come first).
+    const obsB = new Float32Array(B * 556);
+    obsB.set(obs.subarray(off * 556, (off + n) * 556));
+    const maskB = new Uint8Array(B * 52);
+    maskB.set(mask.subarray(off * 52, (off + n) * 52));
+    for (let r = n; r < B; r++) maskB.fill(1, r * 52, (r + 1) * 52);
+    const maskChunk = maskB.subarray(0, n * 52);
     const out = await withTimeout(policy.run(
-      { obs: new ort.Tensor('float32',
-               obs.slice(off * 556, (off + n) * 556), [n, 556]),
-        mask: new ort.Tensor('bool', maskChunk, [n, 52]) },
+      { obs: new ort.Tensor('float32', obsB, [B, 556]),
+        mask: new ort.Tensor('bool', maskB, [B, 52]) },
       wantBelief ? ['belief'] : (useAct ? ['act'] : ['logits'])),
       30000, 'policy forward');
     if (out.act) {
@@ -193,19 +206,22 @@ async function pumpQueue() {
       postMessage({ type: 'progress', done: jobsDone, total: jobsTotal });
       if (r.desync) { jobs = []; break; }   // stop on replay divergence
     } catch (e) {
-      // A wedged/lost WebGPU device gets ONE full retreat to the CPU
-      // backend (slower but correct) before giving up.
-      if (ep === 'webgpu') {
+      // NEVER retreat silently: report the cause, recreate the WebGPU
+      // session once (a lost device can recover), and only then give up
+      // with the ORIGINAL error - a single-threaded CPU fallback would
+      // burn hours pretending to work.
+      console.warn('deep-analysis job failed:', e);
+      if (ep === 'webgpu' && !pumpQueue.retried) {
+        pumpQueue.retried = true;
+        postMessage({ type: 'note',
+                      message: `webgpu error (${String(e).slice(0, 120)}) - retrying once` });
         try {
           policy = await ort.InferenceSession.create(
             '/static/models/perilune_policy.onnx',
-            { executionProviders: ['wasm'] });
-          ep = 'wasm-fallback';
-          useAct = true;
+            { executionProviders: ['webgpu'] });
           jobs.unshift(job);
-          postMessage({ type: 'ready', ep });
           continue;
-        } catch (e2) { /* fall through to fatal */ }
+        } catch (e2) { /* fall through to fatal with the original error */ }
       }
       postMessage({ type: 'fatal', message: String(e).slice(0, 300) });
       jobs = [];
