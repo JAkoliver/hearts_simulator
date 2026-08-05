@@ -240,7 +240,9 @@ function prep() {
     // Post-pass hands + running points per play, computed once.
     deal._hands = deal.start_hands.map((h, s) => {
       const kept = h.filter(c => !deal.passed[s].includes(c));
-      return kept.concat(deal.received[s]);
+      // Received cards must merge into suit order, not dangle at the end.
+      const key = n => 'CDSH'.indexOf(n.slice(-1)) * 13 + cardVal(n);
+      return kept.concat(deal.received[s]).sort((a, b) => key(a) - key(b));
     });
     deal._taken = [];   // points per seat AFTER play i
     const taken = [0, 0, 0, 0];
