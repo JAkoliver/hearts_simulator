@@ -104,6 +104,13 @@
   #dtoggle button.on { background:#E8B923; color:#222; }
   /* strip + scrub */
   #strip { width:100%; height:74px; margin-top:8px; }
+  #wtip { position:fixed; z-index:20; background:#232327; border-radius:8px;
+          padding:6px 10px; font-size:.72rem; pointer-events:none;
+          display:none; box-shadow:0 3px 10px rgba(0,0,0,.5); min-width:130px; }
+  #wtip .wrow { display:flex; align-items:center; gap:6px;
+                font-variant-numeric:tabular-nums; }
+  #wtip .sw { width:8px; height:8px; border-radius:2px; flex:0 0 auto; }
+  #wtip .wpct { margin-left:auto; }
   #scrub { position:relative; height:26px; background:#1E1E21; border-radius:7px;
            margin-top:6px; cursor:pointer; overflow:hidden; touch-action:none; }
   .seg { position:absolute; top:0; bottom:0; }
@@ -148,6 +155,7 @@
   <span class="muted" id="xray-note" style="font-size:.7rem"></span>
 </div>
 
+<div id="wtip"></div>
 <div id="grid">
   <div class="panel">
     <h3>Disagreements</h3>
@@ -404,9 +412,31 @@ function renderStrip() {
             stroke-width="8" />`;
   el('strip').setAttribute('viewBox', `0 0 ${W} ${H}`);
   el('strip').innerHTML = svg +
-    `<text x="${pad}" y="10" fill="#A6A6AF" font-size="9">P(win) per seat - click a column to jump</text>`;
+    `<text x="${pad}" y="10" fill="#A6A6AF" font-size="9">Predicted win % per seat &middot; hover for values &middot; click a column to jump</text>`;
   el('strip').querySelectorAll('line[data-deal]').forEach(n =>
     n.onclick = () => { jumpDeal(+n.dataset.deal); });
+  // Hover tooltip: snaps to the nearest deal boundary (the data is
+  // per-deal - no fake interpolated values).
+  const strip = el('strip'), tip = el('wtip');
+  strip.onpointermove = e => {
+    const r = strip.getBoundingClientRect();
+    const fx = (e.clientX - r.left) / r.width;
+    let best = 0, bd = 2;
+    for (let i = 0; i < pts.length; i++) {
+      const d = Math.abs(boundaryFrac(i) - fx);
+      if (d < bd) { bd = d; best = i; }
+    }
+    const p = pts[best];
+    tip.innerHTML =
+      `<div class="muted" style="margin-bottom:3px">${best === 0 ? 'match start' : 'after deal ' + best}</div>` +
+      [0,1,2,3].map(s => `<div class="wrow">
+        <span class="sw" style="background:${SEAT_COLORS[s]}"></span>
+        ${esc(seatLabel(s))}<span class="wpct">${(p[s] * 100).toFixed(1)}%</span></div>`).join('');
+    tip.style.display = 'block';
+    tip.style.left = Math.min(e.clientX + 14, innerWidth - 160) + 'px';
+    tip.style.top = (e.clientY - 12) + 'px';
+  };
+  strip.onpointerleave = () => { tip.style.display = 'none'; };
 }
 function jumpDeal(d) {
   if (d >= R.deals.length) { cur = steps.length - 1; render(); return; }
