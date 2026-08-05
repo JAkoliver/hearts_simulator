@@ -42,10 +42,19 @@
   .card.red { color:#C3342E; }
   .card.dim { opacity:.32; }
   .card.hot { outline:2px solid #E8B923; }
-  #trickzone { display:flex; align-items:center; justify-content:center;
-               gap:14px; min-height:64px; margin:8px 0; }
-  .tc { text-align:center; font-size:.68rem; color:#A6A6AF; }
-  .tc .card { width:38px; height:54px; font-size:.78rem; }
+  /* Mini felt table: each played card sits at ITS SEAT'S position
+     (viewer at bottom), so who-played-what is spatially obvious. */
+  #rtable { position:relative; height:210px; margin:8px auto; max-width:440px;
+            background:radial-gradient(ellipse at center, #2A2A2E 0%, #1B1B1E 100%);
+            border-radius:12px; }
+  .rslot { position:absolute; text-align:center; font-size:.64rem; color:#A6A6AF; }
+  .rslot .card { width:38px; height:54px; font-size:.78rem; }
+  .rslot.pos0 { bottom:6px; left:50%; transform:translateX(-50%); }
+  .rslot.pos1 { left:14px; top:50%; transform:translateY(-50%); }
+  .rslot.pos2 { top:6px; left:50%; transform:translateX(-50%); }
+  .rslot.pos3 { right:14px; top:50%; transform:translateY(-50%); }
+  .rcenter { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+             color:#A6A6AF; font-size:.75rem; }
   /* eval panel */
   .bar { background:#26262A; border-radius:5px; height:18px; position:relative;
          margin:3px 0; overflow:hidden; }
@@ -210,23 +219,24 @@ function render() {
       deal._hands[s].map(c =>
         cardHTML(c, played.has(c) ? 'dim' : '')).join('') + '</div>';
   };
-  // current trick display
-  let trickHTML = '';
+  // Current trick on the mini table: card at the PLAYER'S position.
+  const v = R.viewer_seat ?? 0;
+  let slots = '';
   if (upto >= 0) {
     const t0 = upto - (upto % 4);
     const show = (upto % 4 === 3) ? deal.plays.slice(t0, t0 + 4)
                                   : deal.plays.slice(t0, upto + 1);
-    trickHTML = show.map(p =>
-      `<div class="tc">${cardHTML(p[1], p[0] === acting && p === deal.plays[upto] ? 'hot' : '')}
-       <div>${esc(seatLabel(p[0]))}</div></div>`).join('');
+    slots = show.map(p =>
+      `<div class="rslot pos${(p[0] - v + 4) % 4}">
+        ${cardHTML(p[1], p === deal.plays[upto] ? 'hot' : '')}
+        <div>${esc(seatLabel(p[0]))}</div></div>`).join('');
   } else {
-    trickHTML = `<div class="tc muted">deal ${deal.deal_no} &middot; passing ${deal.pass_direction}</div>`;
+    slots = `<div class="rcenter">deal ${deal.deal_no} &middot; passing ${esc(deal.pass_direction)}</div>`;
   }
-  // Rows relative to the viewer: across / left / trick / right / you.
-  const v = R.viewer_seat ?? 0;
+  // Rows relative to the viewer: across / left / TABLE / right / you.
   el('board').innerHTML =
     handRow((v + 2) % 4) + handRow((v + 1) % 4) +
-    `<div id="trickzone">${trickHTML}</div>` +
+    `<div id="rtable">${slots}</div>` +
     handRow((v + 3) % 4) + handRow(v);
 
   renderEval(st, deal);
