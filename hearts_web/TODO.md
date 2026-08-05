@@ -27,8 +27,9 @@ Review mode extensions (2026-08-04 design session):
   action prefix -> per-move values JSON, reusing the replay contract).
 - Mobile pass for the review page (game page done; review is
   desktop-first).
-- Log index for review/history (whole-file JSONL scan per request;
-  fine at current scale).
+- Log index for review/history (DONE 2026-08-05: in-memory offset
+  index built at startup, updated on append; history precomputed
+  per pid).
 
 Gameplay / table:
 - Big-batch animation fast-forward on tab refocus (background-tab
