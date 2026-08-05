@@ -152,8 +152,9 @@
   .dbar.played .fill { background:#1F6B85; }
   .dbar span { position:relative; padding-left:6px; line-height:18px; }
   .deep-h { color:#4CC2FF; font-size:.7rem; margin:8px 0 2px; }
-  .dv { color:#4CC2FF; font-size:.68rem; margin-left:4px; }
+  .dv { color:#E5484D; font-size:.68rem; margin-left:4px; }
   .dv.ok { color:#7CBF8E; }
+  .dv.unk { color:#C8A24A; }
   #ai-note { margin-top:auto; padding-top:8px; border-top:1px solid #2E2E33;
              font-size:.68rem; color:#8A8A93; line-height:1.45; }
   /* pass chain: one row per giver - "name [cards] -> receiver" */
@@ -487,13 +488,33 @@ function renderEval(st, deal) {
       const pix = dr.actions.indexOf(playedId);
       if (pix >= 0) shown.push(pix);
     }
-    html += `<div class="deep-h">Deep search &middot; K=${dr.K} &middot; win chance (this device)</div>`;
+    const spread = dr.mean[order[0]] - dr.mean[order[order.length - 1]];
+    html += `<div class="deep-h">Deep search &middot; K=${dr.K} &middot; played out on this device</div>`;
     for (const ix of shown) {
       const isP = dr.actions[ix] === playedId;
+      const seTxt = dr.se[ix] >= 0.0005
+        ? ` &plusmn;${(dr.se[ix] * 100).toFixed(1)}` : '';
+      const ptsTxt = dr.pts ? ` &middot; ${dr.pts[ix].toFixed(1)} pts` : '';
       html += `<div class="dbar${isP ? ' played' : ''}">
         <div class="fill" style="width:${Math.max(2, dr.mean[ix] * 100)}%"></div>
-        <span>${ct(idName(dr.actions[ix]))} &middot; ${(dr.mean[ix] * 100).toFixed(1)}%
-          &plusmn;${(dr.se[ix] * 100).toFixed(1)}${isP ? ' &larr; played' : ''}</span></div>`;
+        <span>${ct(idName(dr.actions[ix]))} &middot; ${(dr.mean[ix] * 100).toFixed(1)}% win${seTxt}${ptsTxt}${isP ? ' &larr; played' : ''}</span></div>`;
+    }
+    // One-sentence verdict tying the two panels together.
+    if (spread < 0.01) {
+      html += `<div class="muted" style="font-size:.68rem; margin-top:3px">
+        All moves are worth about the same here${dr.mean[order[0]] < 0.03
+          ? ' (the match is effectively out of reach)' : dr.mean[order[0]] > 0.97
+          ? ' (the match is effectively won)' : ''} &mdash; any raw-policy
+        preference above is habit, not value.</div>`;
+    } else {
+      const v = deepVerdict(cur, name);
+      if (v && v.kind === 'cost')
+        html += `<div class="muted" style="font-size:.68rem; margin-top:3px">
+          The search confirms this play cost real win chance.</div>`;
+      else if (v && v.kind === 'nocost')
+        html += `<div class="muted" style="font-size:.68rem; margin-top:3px">
+          Played out, your card matches the best move's value &mdash; the
+          raw-policy preference above carried no real cost.</div>`;
     }
   }
   el('evalbox').innerHTML = html;
@@ -529,31 +550,43 @@ function disagreements() {
   else out.sort((a, b) => a.idx - b.idx);
   return out;
 }
-// Deep-search verdict for a disagreement: search VALUES decide whether the
-// raw-policy complaint was a real mistake ("verified, cost X% win chance")
-// or noise ("retracted" - the moves are statistically indistinguishable).
-function deepBadge(idx, playedName) {
+// Deep-search verdict on a raw-policy disagreement. The raw panel measures
+// HABIT (how often the net plays a card); the search measures VALUE (win
+// chance after actually playing the line out). A complaint stands only if
+// the played move costs MATERIAL win chance (>=1 point) beyond noise:
+//   'cost -x.x% win'  real mistake, priced
+//   'no cost'         moves are equal in value - the preference was noise
+//   '? try K=64'      possibly real but not resolvable at this K
+function deepVerdict(idx, playedName) {
   const st = steps[idx];
   const dr = deepResults[deepKey(st.d, st.i)];
-  if (!dr || dr.actions.length < 2) return '';
+  if (!dr || dr.actions.length < 2) return null;
   const pix = dr.actions.indexOf(cardId(playedName));
-  if (pix < 0) return '';
+  if (pix < 0) return null;
   let best = 0;
   for (let i = 1; i < dr.mean.length; i++) {
     if (dr.mean[i] > dr.mean[best]) best = i;
   }
   const diff = dr.mean[best] - dr.mean[pix];
   const sig = 2 * Math.sqrt(dr.se[best] ** 2 + dr.se[pix] ** 2);
-  return diff > sig
-    ? `<span class="dv">&#10003; &minus;${(diff * 100).toFixed(1)}%</span>`
-    : `<span class="dv ok">retracted</span>`;
+  const MATERIAL = 0.01;   // 1 point of win chance
+  if (diff >= MATERIAL && diff > sig)
+    return {kind: 'cost', text: `cost &minus;${(diff * 100).toFixed(1)}% win`,
+            cls: 'dv'};
+  if (diff < MATERIAL)
+    return {kind: 'nocost', text: 'no cost', cls: 'dv ok'};
+  return {kind: 'unclear', text: '? try K=64', cls: 'dv unk'};
+}
+function deepBadge(idx, playedName) {
+  const v = deepVerdict(idx, playedName);
+  return v ? ` <span class="${v.cls}">${v.text}</span>` : '';
 }
 
 function renderDis() {
   el('dis').innerHTML = disagreements().map(d =>
     `<div class="dline" data-idx="${d.idx}">D${d.d} T${d.t} &middot;
       ${esc(seatLabel(d.s))}: ${ct(d.name)} &rarr; ${ctG(d.ai)}
-      <span class="muted">(+${(d.gap * 100).toFixed(0)}%)</span>${deepBadge(d.idx, d.name)}</div>`).join('')
+      <span class="muted" title="raw-policy preference gap - habit strength, not value">(+${(d.gap * 100).toFixed(0)}%)</span>${deepBadge(d.idx, d.name)}</div>`).join('')
     || '<div class="muted" style="font-size:.75rem">No disagreements.</div>';
   document.querySelectorAll('.dline').forEach(n =>
     n.onclick = () => { cur = +n.dataset.idx; render(); });
@@ -829,7 +862,7 @@ async function deepStart() {
     } else if (m.type === 'result') {
       if (m.desync) { dstatus('replay mismatch - analysis unavailable'); deepDone(); return; }
       const v = {d: m.d, i: m.i, K: m.K, actions: m.actions,
-                 mean: m.mean, se: m.se};
+                 mean: m.mean, se: m.se, pts: m.pts};
       deepAccept(v);
       idbSave(v);
       const st = steps[cur];

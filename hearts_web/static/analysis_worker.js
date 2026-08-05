@@ -120,9 +120,10 @@ async function analyzeOne(job) {
   const actions = [...new Int32Array(M.HEAP32.buffer, M._an_result_actions(), n)];
   const mean = [...new Float32Array(M.HEAPF32.buffer, M._an_result_mean(), n)];
   const se = [...new Float32Array(M.HEAPF32.buffer, M._an_result_se(), n)];
+  const pts = [...new Float32Array(M.HEAPF32.buffer, M._an_result_pts(), n)];
   // Desync guard: the card actually played must be legal here.
   const desync = job.playedId != null && !actions.includes(job.playedId);
-  return { ...job, actions, mean, se, desync };
+  return { ...job, actions, mean, se, pts, desync };
 }
 
 async function pumpQueue() {

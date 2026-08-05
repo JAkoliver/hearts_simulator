@@ -95,7 +95,7 @@ struct Engine {
 
     // results
     std::vector<int32_t> r_actions;
-    std::vector<float> r_mean, r_se;
+    std::vector<float> r_mean, r_se, r_pts;
     std::vector<int32_t> r_n;
 
     // ---- helpers (ports) ---------------------------------------------------
@@ -414,21 +414,26 @@ struct Engine {
 
     int Finish() {
         size_t n = legal.size();
-        std::vector<double> sum(n, 0.0), sumsq(n, 0.0);
+        std::vector<double> sum(n, 0.0), sumsq(n, 0.0), psum(n, 0.0);
         std::vector<int> cnt(n, 0);
         for (const auto& s : sims) {
             sum[s.tag] += s.result;
             sumsq[s.tag] += s.result * s.result;
+            // Deal points for the mover (post-moon-adjusted at deal end):
+            // a concrete, human-readable second axis next to win chance.
+            psum[s.tag] += s.env.GetRoundScores()[me];
             cnt[s.tag] += 1;
         }
         r_actions.assign(legal.begin(), legal.end());
         r_mean.assign(n, 0.0f);
         r_se.assign(n, 0.0f);
+        r_pts.assign(n, 0.0f);
         r_n.assign(cnt.begin(), cnt.end());
         for (size_t i = 0; i < n; ++i) {
             int c = cnt[i];
             double mu = c > 0 ? sum[i] / c : 0.0;
             r_mean[i] = (float)mu;
+            r_pts[i] = (float)(c > 0 ? psum[i] / c : 0.0);
             double se = 0.0;
             if (c >= 2) {
                 double var = (sumsq[i] - c * mu * mu) / (c - 1);
@@ -584,6 +589,7 @@ KEEP int32_t* an_result_actions() { return E.r_actions.data(); }
 KEEP float* an_result_mean() { return E.r_mean.data(); }
 KEEP float* an_result_se() { return E.r_se.data(); }
 KEEP int32_t* an_result_counts() { return E.r_n.data(); }
+KEEP float* an_result_pts() { return E.r_pts.data(); }
 
 }  // extern "C"
 
