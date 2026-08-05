@@ -18,7 +18,7 @@
 
 // VER busts HTTP caches for the engine glue AND its .wasm (locateFile) -
 // without it, browsers happily run a stale engine forever.
-const VER = 6;
+const VER = 7;
 // Fixed batch buckets: WebGPU compiles a pipeline PER TENSOR SHAPE, and
 // rollout rounds shrink row counts continuously - hundreds of one-off
 // shapes means hundreds of shader compiles (stalls, device pressure).
@@ -134,7 +134,10 @@ async function runPolicy(rows, wantBelief) {
         acts[off + i] = best;
       }
     }
-    if (out.belief) belief = out.belief.data;   // root is always 1 row
+    // Root is 1 real row PADDED to a bucket: keep only the real rows'
+    // belief - copying the padded output into the 156-float feed buffer
+    // corrupted the wasm heap (the 'memory access out of bounds' crash).
+    if (out.belief) belief = out.belief.data.subarray(0, n * 156);
   }
   return { acts, belief };
 }
