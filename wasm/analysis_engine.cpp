@@ -28,6 +28,7 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <random>
 #include <vector>
@@ -450,10 +451,32 @@ struct Engine {
 };
 
 Engine E;
+char g_err[256] = {};
+
+// A C++ throw in a default Emscripten build calls abort() and KILLS the
+// worker thread with no message - the UI just freezes. Every entry point
+// that can throw (env validation, sampling) is trapped instead: the pump
+// returns -3 and an_error_msg() carries the reason to JS.
+template <typename F>
+int Trap(F&& f) {
+    try {
+        return f();
+    } catch (const std::exception& e) {
+        std::snprintf(g_err, sizeof(g_err), "%s", e.what());
+        E.stage = PUMP_DONE;
+        return -3;
+    } catch (...) {
+        std::snprintf(g_err, sizeof(g_err), "unknown C++ exception");
+        E.stage = PUMP_DONE;
+        return -3;
+    }
+}
 
 }  // namespace
 
 extern "C" {
+
+KEEP const char* an_error_msg() { return g_err; }
 
 KEEP void an_init(unsigned rng_seed) {
     E = Engine();
@@ -484,6 +507,7 @@ KEEP int an_load_match(unsigned seed, const int* offsets, int n_deals,
 // Begin analysis of one decision. Returns first pump kind (or -1 on bad
 // coordinates / passing decision - v1 analyzes PLAY decisions only).
 KEEP int an_analyze(int deal_idx, int action_idx, int k) {
+  return Trap([&]() -> int {
     E.K = k;
     E.sims.clear();
     E.dets.clear();
@@ -501,6 +525,7 @@ KEEP int an_analyze(int deal_idx, int action_idx, int k) {
     }
     E.BuildContext();
     return E.RequestRoot();
+  });
 }
 
 KEEP int an_rows() {
@@ -519,6 +544,7 @@ KEEP float* an_f_in() { return E.f_in_buf.data(); }
 // Feed the ROOT forward's outputs (logits unused for play analysis, belief
 // drives determinization weighting), then sims spawn and rollouts begin.
 KEEP int an_feed_root(const float* belief156) {
+  return Trap([&]() -> int {
     for (int k = 0; k < 3; ++k) {
         for (int c = 0; c < 52; ++c) {
             float v = belief156[k * 52 + c];
@@ -528,6 +554,7 @@ KEEP int an_feed_root(const float* belief156) {
     E.root_pending = false;
     E.SpawnSims();
     return E.NextRolloutRequest();
+  });
 }
 
 // Feed rollout argmax actions for the current active set. Every action is
@@ -536,6 +563,7 @@ KEEP int an_feed_root(const float* belief156) {
 // stacks) would otherwise step nothing and spin the rollout loop forever.
 // Returns -2 so the JS side can fall back to logits + JS-side argmax.
 KEEP int an_feed_acts() {
+  return Trap([&]() -> int {
     for (size_t j = 0; j < E.active.size(); ++j) {
         Sim& s = E.sims[E.active[j]];
         int a = E.act_buf[j];
@@ -548,14 +576,17 @@ KEEP int an_feed_acts() {
         s.done = s.env.Step(a).done;
     }
     return E.NextRolloutRequest();
+  });
 }
 
 // Feed equity P(place 1) per pending row.
 KEEP int an_feed_equity() {
+  return Trap([&]() -> int {
     for (size_t j = 0; j < E.eq_rows.size(); ++j) {
         E.sims[E.eq_rows[j]].result = E.f_in_buf[j];
     }
     return E.Finish();
+  });
 }
 
 // Debug/test: build a random-self-play match internally and load it

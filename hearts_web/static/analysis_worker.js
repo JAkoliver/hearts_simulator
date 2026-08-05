@@ -16,8 +16,11 @@
 // vs fp32), fp32 on the CPU fallback; rollout rounds fetch only the
 // in-graph argmax output.
 
+// VER busts HTTP caches for the engine glue AND its .wasm (locateFile) -
+// without it, browsers happily run a stale engine forever.
+const VER = 4;
 importScripts('/static/ort/ort.all.min.js');
-importScripts('/static/analysis_engine.js');
+importScripts('/static/analysis_engine.js?v=' + VER);
 
 const CHUNK = 416;
 const MAX_ROUNDS = 400;   // stall guard: no decision needs this many forwards
@@ -28,9 +31,18 @@ let jobs = [], running = false, jobsDone = 0, jobsTotal = 0;
 // fetching logits and doing masked argmax in JS.
 let useAct = true;
 
+function anError() {
+  // read NUL-terminated error string from the wasm heap
+  let s = '', p = M._an_error_msg();
+  const h = M.HEAPU8;
+  for (let i = p; h[i] && i < p + 256; i++) s += String.fromCharCode(h[i]);
+  return s;
+}
+
 async function init() {
   ort.env.wasm.wasmPaths = '/static/ort/';
-  M = await AnalysisEngine();
+  M = await AnalysisEngine({
+    locateFile: f => '/static/' + f + '?v=' + VER });
   M._an_init(1);
   try {
     if (!self.navigator || !navigator.gpu) throw new Error('no webgpu');
@@ -112,9 +124,11 @@ async function runPolicy(rows, wantBelief) {
 
 async function analyzeOne(job) {
   let kind = M._an_analyze(job.deal, job.actionIdx, job.K);
+  if (kind === -3) throw new Error('engine: ' + anError());
   if (kind < 0) return { ...job, actions: [], mean: [], se: [], desync: true };
   let rounds = 0;
   while (kind !== 0) {
+    if (kind === -3) throw new Error('engine: ' + anError());
     if (++rounds > MAX_ROUNDS)
       throw new Error(`stalled after ${MAX_ROUNDS} rounds (ep=${ep})`);
     const rows = M._an_rows();
