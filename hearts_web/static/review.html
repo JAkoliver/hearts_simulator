@@ -243,6 +243,54 @@ function ct(name) {
   const red = (suit === 'D' || suit === 'H') ? ' cr' : '';
   return `<span class="ct${red}">${rank}${SUIT_CHAR[suit]}</span>`;
 }
+// ---- equivalence merging ---------------------------------------------------
+// Server marks groups of strictly-equivalent cards (connected strings given
+// visible info). The net's preference inside a group is meaningless, so the
+// UI merges them: one bar with summed probability, and no disagreement when
+// the played card and the net's pick share a group.
+function eqGroup(eq, name) {
+  if (eq) for (const g of eq) if (g.includes(name)) return g;
+  return null;
+}
+function ctG(cards) {   // "J/Q♠" - same-suit group, ranks in rank order
+  if (cards.length === 1) return ct(cards[0]);
+  const suit = cards[0].slice(-1);
+  const red = (suit === 'D' || suit === 'H') ? ' cr' : '';
+  const ranks = cards.slice().sort((a, b) => cardVal(a) - cardVal(b))
+    .map(c => c.slice(0, -1)).join('/');
+  return `<span class="ct${red}">${ranks}${SUIT_CHAR[suit]}</span>`;
+}
+function mergeTop(top, eq) {   // ranked [[card,p],...] -> [[cards[],p],...]
+  if (!eq || !eq.length) return top.map(([c, p]) => [[c], p]);
+  const items = [], byG = new Map();
+  for (const [c, p] of top) {
+    const g = eqGroup(eq, c);
+    if (!g) { items.push([[c], p]); continue; }
+    let it = byG.get(g);
+    if (!it) { it = [[], 0]; byG.set(g, it); items.push(it); }
+    it[0].push(c); it[1] += p;
+  }
+  items.sort((a, b) => b[1] - a[1]);
+  return items;
+}
+// One merged pick list rendered as bars; marks the item holding `name`.
+function evalBars(top, eq, name, p, verb, expanded) {
+  const merged = mergeTop(top, eq);
+  const shown = expanded ? merged : merged.slice(0, 3);
+  let html = '';
+  for (const [cs, cp] of shown)
+    html += `<div class="bar${cs.includes(name) ? ' played' : ''}">
+      <div class="fill" style="width:${cp * 100}%"></div>
+      <span>${ctG(cs)} &middot; ${(cp * 100).toFixed(1)}%${
+        cs.includes(name) ? ` &larr; ${verb}` : ''}</span></div>`;
+  if (!shown.some(([cs]) => cs.includes(name))) {
+    const mine = merged.find(([cs]) => cs.includes(name));
+    const [cs, cp] = mine || [[name], p];
+    html += `<div class="bar played"><div class="fill" style="width:${cp * 100}%"></div>
+      <span>${ctG(cs)} &middot; ${(cp * 100).toFixed(1)}% &larr; ${verb}</span></div>`;
+  }
+  return {html, n: merged.length};
+}
 function seatLabel(s) {
   if (s === R.viewer_seat) return 'You';
   const t = R.seat_types ? R.seat_types[String(s)] : 'ai';
@@ -366,16 +414,9 @@ function renderEval(st, deal) {
       html += `<div class="muted" style="font-size:.72rem; margin-bottom:4px">
         ${esc(seatLabel(passSeat))}'s picks (click a row below to switch seat):</div>`;
       picks.forEach((e, i) => {
-        const [, name, p, top] = e;
+        const [, name, p, top, eq] = e;
         html += `<div class="muted" style="font-size:.68rem; margin-top:5px">pick ${i + 1}</div>`;
-        const shown = top.slice(0, 3);
-        for (const [c, cp] of shown)
-          html += `<div class="bar${c === name ? ' played' : ''}">
-            <div class="fill" style="width:${cp * 100}%"></div>
-            <span>${ct(c)} &middot; ${(cp * 100).toFixed(1)}%${c === name ? ' &larr; picked' : ''}</span></div>`;
-        if (!shown.some(([c]) => c === name))
-          html += `<div class="bar played"><div class="fill" style="width:${p * 100}%"></div>
-            <span>${ct(name)} &middot; ${(p * 100).toFixed(1)}% &larr; picked</span></div>`;
+        html += evalBars(top, eq, name, p, 'picked', false).html;
       });
       html += `<div class="muted" style="font-size:.64rem; margin-top:6px">
         Pass evals use the raw policy, judged pick by pick; the full
@@ -389,7 +430,10 @@ function renderEval(st, deal) {
       const short = s => s === R.viewer_seat ? 'You' : `Seat ${s + 1}`;
       const agree = s => {
         const rows = pe.filter(e => e[0] === s);
-        const m = rows.filter(e => e[3].length && e[3][0][0] === e[1]).length;
+        const m = rows.filter(e => {
+          const mg = mergeTop(e[3], e[4]);
+          return mg.length && mg[0][0].includes(e[1]);
+        }).length;
         return `${m}/${rows.length}`;
       };
       el('passinfo').innerHTML =
@@ -406,22 +450,15 @@ function renderEval(st, deal) {
     return;
   }
   el('passinfo').innerHTML = '';
-  const [s, name, p, top] = deal.plays[st.i];
-  const shown = evalExpanded ? top : top.slice(0, 3);
+  const [s, name, p, top, eq] = deal.plays[st.i];
   let html = `<div style="font-size:.85rem; margin-bottom:6px">
     ${esc(seatLabel(s))} played ${ct(name)}
     <span class="muted">(${(p * 100).toFixed(0)}%)</span></div>`;
-  for (const [c, cp] of shown) {
-    html += `<div class="bar${c === name ? ' played' : ''}">
-      <div class="fill" style="width:${cp * 100}%"></div>
-      <span>${ct(c)} &middot; ${(cp * 100).toFixed(1)}%${c === name ? ' &larr; played' : ''}</span></div>`;
-  }
-  if (!shown.some(([c]) => c === name))
-    html += `<div class="bar played"><div class="fill" style="width:${p * 100}%"></div>
-      <span>${ct(name)} &middot; ${(p * 100).toFixed(1)}% &larr; played</span></div>`;
-  if (top.length > 3)
+  const bars = evalBars(top, eq, name, p, 'played', evalExpanded);
+  html += bars.html;
+  if (bars.n > 3)
     html += `<button class="xbtn" id="ev-x">${evalExpanded
-      ? 'show top 3' : `show all ${top.length} legal moves`}</button>`;
+      ? 'show top 3' : `show all ${bars.n} legal moves`}</button>`;
   el('evalbox').innerHTML = html;
   const x = el('ev-x');
   if (x) x.onclick = () => { evalExpanded = !evalExpanded; render(); };
@@ -439,11 +476,15 @@ function disagreements() {
   const out = [];
   steps.forEach((st, idx) => {
     if (st.type !== 'play') return;
-    const [s, name, p, top] = R.deals[st.d].plays[st.i];
+    const [s, name, p, top, eq] = R.deals[st.d].plays[st.i];
     if (disMode === 'you' && s !== R.viewer_seat) return;
-    if (top.length && top[0][0] !== name)
+    const merged = mergeTop(top, eq);
+    if (merged.length && !merged[0][0].includes(name)) {
+      const mine = merged.find(([cs]) => cs.includes(name));
       out.push({idx, d: R.deals[st.d].deal_no, t: Math.floor(st.i / 4) + 1,
-                s, name, ai: top[0][0], gap: top[0][1] - p});
+                s, name, ai: merged[0][0],
+                gap: merged[0][1] - (mine ? mine[1] : p)});
+    }
   });
   if (disSort === 'gap') out.sort((a, b) => b.gap - a.gap);
   else out.sort((a, b) => a.idx - b.idx);
@@ -452,7 +493,7 @@ function disagreements() {
 function renderDis() {
   el('dis').innerHTML = disagreements().map(d =>
     `<div class="dline" data-idx="${d.idx}">D${d.d} T${d.t} &middot;
-      ${esc(seatLabel(d.s))}: ${ct(d.name)} &rarr; ${ct(d.ai)}
+      ${esc(seatLabel(d.s))}: ${ct(d.name)} &rarr; ${ctG(d.ai)}
       <span class="muted">(+${(d.gap * 100).toFixed(0)}%)</span></div>`).join('')
     || '<div class="muted" style="font-size:.75rem">No disagreements.</div>';
   document.querySelectorAll('.dline').forEach(n =>

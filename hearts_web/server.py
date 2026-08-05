@@ -581,6 +581,30 @@ def _win_probs(totals, deals_played):
     return [round(float(probs[s, 0]), 4) for s in range(4)]
 
 
+def _equiv_groups(hand_set, played_set, legal):
+    """Groups of strictly-equivalent legal cards: same suit, and every
+    rank between them is in the acting seat's own hand or already played
+    (visible info only). Such cards win/lose identical tricks in every
+    continuation - preferences inside a group are meaningless."""
+    by_suit = {}
+    for c in legal:
+        by_suit.setdefault(c // 13, []).append(c)
+    groups = []
+    for suit, cards in by_suit.items():
+        cards.sort()
+        cur = [cards[0]]
+        for prev, nxt in zip(cards, cards[1:]):
+            ok = all((suit * 13 + r) in hand_set or (suit * 13 + r) in played_set
+                     for r in range(prev % 13 + 1, nxt % 13))
+            if ok:
+                cur.append(nxt)
+            else:
+                groups.append(cur)
+                cur = [nxt]
+        groups.append(cur)
+    return [g for g in groups if len(g) > 1]
+
+
 _review_cache = {}   # (sid_key, match_no) -> seat-independent payload
 
 
@@ -603,19 +627,26 @@ def compute_review(deal_lines, viewer_seat):
         plays, pass_evals, threats = [], [], []
         taken = [0, 0, 0, 0]
         trick_cards = []
+        played_deal = set()   # cards visibly played this deal (equivalence)
         for s, card, ms in d['actions']:
             if menv.get_current_player() != s:
                 raise HTTPException(500, 'replay desync in review')
             if menv.is_passing():
                 # Pass picks are decision states too: same batched eval.
                 mask = np.zeros(52, dtype=bool)
+                legal = []
                 for a in menv.get_legal_actions():
                     if a != -1:
                         mask[a] = True
-                all_obs.append(np.array(menv.observe(), dtype=np.float32))
+                        legal.append(a)
+                obs = np.array(menv.observe(), dtype=np.float32)
+                all_obs.append(obs)
                 all_mask.append(mask)
                 all_ref.append(('pass', di, len(pass_evals)))
-                pass_evals.append([s, card_name(card), 0.0, []])
+                hand = set(np.flatnonzero(obs[:52] > 0).tolist())
+                eq = [[card_name(c) for c in g]
+                      for g in _equiv_groups(hand, set(), legal)]
+                pass_evals.append([s, card_name(card), 0.0, [], eq])
                 passed[s].append(card)
                 menv.step(card)
                 continue
@@ -626,13 +657,20 @@ def compute_review(deal_lines, viewer_seat):
                     threats.append({'trick': len(plays) // 4 + 1,
                                     'seat': holders[0]})
             mask = np.zeros(52, dtype=bool)
+            legal = []
             for a in menv.get_legal_actions():
                 if a != -1:
                     mask[a] = True
-            all_obs.append(np.array(menv.observe(), dtype=np.float32))
+                    legal.append(a)
+            obs = np.array(menv.observe(), dtype=np.float32)
+            all_obs.append(obs)
             all_mask.append(mask)
             all_ref.append(('play', di, len(plays)))
-            plays.append([s, card_name(card), 0.0, []])   # evals filled below
+            hand = set(np.flatnonzero(obs[:52] > 0).tolist())
+            eq = [[card_name(c) for c in g]
+                  for g in _equiv_groups(hand, played_deal, legal)]
+            plays.append([s, card_name(card), 0.0, [], eq])  # evals fill below
+            played_deal.add(card)
             trick_cards.append((s, card))
             if len(trick_cards) == 4:
                 lead = trick_cards[0][1] // 13
@@ -749,21 +787,26 @@ def compute_insight(deal_lines, seat):
     obs_l, mask_l, meta = [], [], []
     for d in deal_lines:
         plays = 0
+        played_deal = set()
         for s, card, ms in d['actions']:
             if menv.get_current_player() != s:
                 raise HTTPException(500, 'replay desync in insight')
             passing = menv.is_passing()
             if not passing and s == seat:
                 mask = np.zeros(52, dtype=bool)
-                n_legal = 0
+                legal = []
                 for a in menv.get_legal_actions():
                     if a != -1:
                         mask[a] = True
-                        n_legal += 1
-                obs_l.append(np.array(menv.observe(), dtype=np.float32))
+                        legal.append(a)
+                obs = np.array(menv.observe(), dtype=np.float32)
+                obs_l.append(obs)
                 mask_l.append(mask)
-                meta.append((d['deal_no'], plays // 4 + 1, card, n_legal))
+                hand = set(np.flatnonzero(obs[:52] > 0).tolist())
+                eq = _equiv_groups(hand, played_deal, legal)
+                meta.append((d['deal_no'], plays // 4 + 1, card, len(legal), eq))
             if not passing:
+                played_deal.add(card)
                 plays += 1
             menv.step(card)
     n_dec, n_agree, dis = len(meta), 0, []
@@ -774,9 +817,11 @@ def compute_insight(deal_lines, seat):
             logits, _ = _net(obs_t, mask_t)
             probs = torch.softmax(logits, dim=1)
         ais = torch.argmax(logits, dim=1)
-        for i, (deal_no, trick, card, n_legal) in enumerate(meta):
+        for i, (deal_no, trick, card, n_legal, eq) in enumerate(meta):
             ai = int(ais[i])
-            if ai == card:
+            # Equivalent cards (connected string, visible info) count as
+            # agreement - the net's preference inside a group is arbitrary.
+            if ai == card or any(ai in g and card in g for g in eq):
                 n_agree += 1
             elif n_legal > 1:
                 dis.append({'deal': deal_no, 'trick': trick,
