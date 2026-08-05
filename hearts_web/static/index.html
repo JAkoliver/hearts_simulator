@@ -179,6 +179,10 @@
     .tcard.pos3 { translate:88px 0; }
     #banner { top:calc(50% + 100px); font-size:.9rem; }
     .seat { font-size:.68rem; }
+    /* Narrow screens: the wide left/right tags collide with their seats'
+       played cards at mid-height - lift them ABOVE the trick zone. */
+    #seat-left { top:20%; transform:none; }
+    #seat-right { top:20%; transform:none; }
     #hand .card { width:52px; height:75px; font-size:.95rem; }
     #theme-toggle { position:static; }
     header .sub { width:100%; text-align:center; font-size:.68rem; }
