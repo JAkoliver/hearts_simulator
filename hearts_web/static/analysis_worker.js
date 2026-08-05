@@ -18,7 +18,7 @@
 
 // VER busts HTTP caches for the engine glue AND its .wasm (locateFile) -
 // without it, browsers happily run a stale engine forever.
-const VER = 4;
+const VER = 5;
 importScripts('/static/ort/ort.all.min.js');
 importScripts('/static/analysis_engine.js?v=' + VER);
 
@@ -46,8 +46,12 @@ async function init() {
   M._an_init(1);
   try {
     if (!self.navigator || !navigator.gpu) throw new Error('no webgpu');
+    // fp32 on WebGPU. The fp16 variant OVERFLOWS on real observations
+    // (NaN logits -> illegal actions, 2026-08-05); the CPU parity check
+    // was blind to it because ORT's CPU EP upcasts fp16 to fp32. Parked
+    // until range-calibrated. The searchlab numbers were fp32 anyway.
     policy = await ort.InferenceSession.create(
-      '/static/models/perilune_policy_fp16.onnx',
+      '/static/models/perilune_policy.onnx',
       { executionProviders: ['webgpu'] });
     ep = 'webgpu';
   } catch (e) {
