@@ -105,14 +105,16 @@
   /* strip + scrub */
   #strip { width:100%; height:74px; margin-top:8px; }
   #scrub { position:relative; height:26px; background:#1E1E21; border-radius:7px;
-           margin-top:6px; cursor:pointer; overflow:hidden; }
+           margin-top:6px; cursor:pointer; overflow:hidden; touch-action:none; }
   .seg { position:absolute; top:0; bottom:0; }
   .seg.even { background:#232327; }
   .seg.threat { background:#3A2328; }
   .tick { position:absolute; top:0; bottom:0; width:2px; background:#E5484D; }
-  /* cursor must beat segments and ticks regardless of DOM order */
+  /* cursor must beat segments and ticks regardless of DOM order; centered
+     on its position so it lines up exactly under the chart columns */
   #cursor { position:absolute; top:0; bottom:0; width:3px; background:#E8B923;
-            z-index:5; box-shadow:0 0 4px #E8B923; }
+            z-index:5; box-shadow:0 0 4px #E8B923;
+            transform:translateX(-50%); }
   #controls { margin-top:8px; display:flex; gap:6px; flex-wrap:wrap;
               align-items:center; }
   #controls button { background:#26262A; color:#ECECEC; border:0;
@@ -434,12 +436,18 @@ function renderScrub() {
   for (const d of disagreements())
     html += `<div class="tick" style="left:${px(d.idx)}%"></div>`;
   sc.innerHTML = html;
-  sc.onclick = e => {
+  // Click OR drag to scrub; the whole UI follows in real time (render()
+  // only fires when the integer step changes, a natural throttle).
+  const seek = e => {
     const r = sc.getBoundingClientRect();
-    cur = Math.round((e.clientX - r.left) / r.width * (steps.length - 1));
-    cur = Math.max(0, Math.min(steps.length - 1, cur));
-    render();
+    let c = Math.round((e.clientX - r.left) / r.width * (steps.length - 1));
+    c = Math.max(0, Math.min(steps.length - 1, c));
+    if (c !== cur) { cur = c; render(); }
   };
+  let dragging = false;
+  sc.onpointerdown = e => { dragging = true; sc.setPointerCapture(e.pointerId); seek(e); };
+  sc.onpointermove = e => { if (dragging) seek(e); };
+  sc.onpointerup = sc.onpointercancel = () => { dragging = false; };
 }
 
 // ---- navigation -----------------------------------------------------------
