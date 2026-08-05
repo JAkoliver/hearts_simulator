@@ -1,0 +1,650 @@
+// Client-side match analysis engine (hearts_web/TODO.md: client-side search).
+//
+// Compiles the SAME HeartsEnv the server uses to WASM, plus a torch-free
+// port of SearchPlayer's determinized full-rollout search (belief-weighted
+// sampling, match-equity scoring). Inference is PUMPED, not embedded:
+// the engine fills an obs/mask request buffer and returns control; the JS
+// side runs onnxruntime-web asynchronously and feeds results back. No
+// Asyncify, no libtorch.
+//
+//   an_load_match(seed, deal_action_offsets, actions)   full-replay contract
+//   an_analyze(deal, action_idx, K)  -> pump kind
+//   an_pump kinds: 0 done, 1 policy rows wanted (root: feed logits+belief;
+//                  rollout: feed argmax acts), 2 equity rows wanted
+//
+// Efficiency baked in (Phase-1 calibration): rollout rounds request only
+// argmax actions (the 'act' graph output); FORCED moves (single legal
+// card - endemic in Hearts endgames) are stepped engine-side with no net
+// call at all; JS chunks any request to <=416 rows (the measured WebGPU
+// cliff sits at 832).
+//
+// Faithfulness: BuildContext / TrySample / TrySampleExact / AssignSuits /
+// ScoreEquity / TerminalWinValue are line-for-line ports from
+// SearchPlayer.hpp (same constraints, same weighting, same units). Client
+// results are near-parity, not bit-parity, with the native engine
+// (different inference backend numerics) - the UI labels them with K.
+
+#include <algorithm>
+#include <array>
+#include <cmath>
+#include <cstdint>
+#include <cstring>
+#include <random>
+#include <vector>
+
+#include "../HeartsEnv.hpp"
+
+#ifdef __EMSCRIPTEN__
+#include <emscripten/emscripten.h>
+#define KEEP EMSCRIPTEN_KEEPALIVE
+#else
+#define KEEP
+#endif
+
+namespace {
+
+constexpr int PUMP_DONE = 0;
+constexpr int PUMP_POLICY = 1;   // rows in obs/mask; root wants logits+belief
+constexpr int PUMP_EQUITY = 2;   // rows of 10 floats in eq_in; feed P(place1)
+
+struct Sim {
+    HeartsEnv env;
+    int tag;                 // candidate-action index
+    bool done = false;
+    double result = 0.0;
+    Sim(HeartsEnv e, int t) : env(std::move(e)), tag(t) {}
+};
+
+struct Engine {
+    // ---- match replay ------------------------------------------------------
+    unsigned match_seed = 0;
+    std::vector<std::vector<int>> deal_actions;   // per deal, raw action ids
+    std::vector<std::array<double, 4>> deal_totals;  // totals ENTERING deal d
+
+    // ---- decision state ----------------------------------------------------
+    HeartsEnv env{1, true};
+    bool env_valid = false;
+    int me = 0;
+    int deals_played = 0;
+    std::array<double, 4> totals{};
+    std::vector<int> legal;
+    int K = 16;
+    std::mt19937 rng{12345};
+
+    // context (port of SearchPlayer::Context)
+    std::vector<int> my_hand, unseen, pinned_rel;
+    std::array<int, 3> cap{};
+    std::array<std::array<bool, 4>, 3> is_void{};
+    float belief[3][52] = {};
+
+    // pump state
+    int stage = PUMP_DONE;       // what the CURRENT request wants
+    bool root_pending = false;
+    std::vector<Sim> sims;
+    std::vector<size_t> active;      // sims awaiting a policy act
+    std::vector<size_t> eq_rows;     // sims awaiting an equity score
+    std::vector<float> obs_buf;      // rows x 556
+    std::vector<uint8_t> mask_buf;   // rows x 52
+    std::vector<float> eq_buf;       // rows x 10
+    std::vector<int32_t> act_buf;    // rows (JS writes)
+    std::vector<float> f_in_buf;     // rows (JS writes equity P1)
+
+    // results
+    std::vector<int32_t> r_actions;
+    std::vector<float> r_mean, r_se;
+    std::vector<int32_t> r_n;
+
+    // ---- helpers (ports) ---------------------------------------------------
+    static std::vector<int> LegalVector(const HeartsEnv& e) {
+        std::vector<int> out;
+        auto lr = e.GetLegalActions();
+        for (int i = 0; i < 13; ++i) {
+            if (lr[i] != -1) out.push_back(lr[i]);
+        }
+        return out;
+    }
+
+    void WriteCtx(float* row, int seat) const {
+        double mx = *std::max_element(totals.begin(), totals.end());
+        for (int i = 0; i < 4; ++i) {
+            row[550 + i] = (float)(totals[(seat + i) % 4] / 100.0);
+        }
+        row[554] = (float)(deals_played / 20.0);
+        row[555] = (float)((100.0 - mx) / 100.0);
+    }
+
+    void FillObsRow(float* row, const HeartsEnv& e) const {
+        auto obs = e.Observe();
+        std::memcpy(row, obs.data(), 550 * sizeof(float));
+        WriteCtx(row, e.GetCurrentPlayer());
+    }
+
+    void BuildContext() {
+        my_hand.clear();
+        unseen.clear();
+        me = env.GetCurrentPlayer();
+        const auto& played_by = env.GetPlayedBy();
+        const auto& voids = env.GetVoidTracker();
+        std::array<bool, 52> mine{};
+        for (const auto& c : env.GetState().hands[me]) {
+            int id = (int)c.suit * 13 + (c.rank - 2);
+            mine[id] = true;
+            my_hand.push_back(id);
+        }
+        for (int c = 0; c < 52; ++c) {
+            bool played = played_by[0][c] || played_by[1][c] || played_by[2][c]
+                          || played_by[3][c];
+            if (!played && !mine[c]) unseen.push_back(c);
+        }
+        for (int k = 1; k < 4; ++k) {
+            int abs_seat = (me + k) % 4;
+            cap[k - 1] = env.GetHandSize(abs_seat);
+            for (int s = 0; s < 4; ++s) {
+                is_void[k - 1][s] = voids[abs_seat * 4 + s];
+            }
+        }
+        pinned_rel.assign(52, -1);
+        if (env.GetPassDirection() != 3) {
+            int off = (env.GetPassDirection() == 0) ? 1
+                      : (env.GetPassDirection() == 1) ? 3 : 2;
+            for (int a : env.GetPassPicks(me)) {
+                if (std::find(unseen.begin(), unseen.end(), a) != unseen.end())
+                    pinned_rel[a] = off - 1;
+            }
+        }
+    }
+
+    bool TrySample(bool use_belief, std::array<std::vector<int>, 4>& out) {
+        std::array<int, 3> caps = cap;
+        std::vector<int> owner(52, -1);
+        std::vector<int> todo;
+        for (int c : unseen) {
+            int pin = pinned_rel[c];
+            if (pin >= 0) {
+                if (caps[pin] <= 0 || is_void[pin][c / 13]) return false;
+                owner[c] = pin;
+                caps[pin]--;
+            } else {
+                todo.push_back(c);
+            }
+        }
+        while (!todo.empty()) {
+            int best_idx = -1, best_count = 4;
+            for (size_t i = 0; i < todo.size(); ++i) {
+                int c = todo[i], count = 0;
+                for (int k = 0; k < 3; ++k) {
+                    if (caps[k] > 0 && !is_void[k][c / 13]) count++;
+                }
+                if (count == 0) return false;
+                if (count < best_count || (count == best_count && (rng() & 1))) {
+                    best_count = count;
+                    best_idx = (int)i;
+                }
+            }
+            int c = todo[best_idx];
+            todo.erase(todo.begin() + best_idx);
+            double w[3], total = 0.0;
+            for (int k = 0; k < 3; ++k) {
+                bool ok = caps[k] > 0 && !is_void[k][c / 13];
+                w[k] = ok ? (use_belief ? std::max(belief[k][c], 1e-4f) : 1.0)
+                          : 0.0;
+                total += w[k];
+            }
+            std::uniform_real_distribution<double> u(0.0, total);
+            double r = u(rng);
+            int pick = 2;
+            for (int k = 0; k < 3; ++k) {
+                if (r < w[k]) { pick = k; break; }
+                r -= w[k];
+            }
+            if (w[pick] == 0.0) return false;
+            owner[c] = pick;
+            caps[pick]--;
+        }
+        out[me] = my_hand;
+        for (int c = 0; c < 52; ++c) {
+            if (owner[c] >= 0) out[(me + owner[c] + 1) % 4].push_back(c);
+        }
+        return true;
+    }
+
+    bool AssignSuits(int s, const std::array<int, 4>& need,
+                     std::array<int, 3>& caps, int x[4][3]) {
+        if (s == 4) return true;
+        int n = need[s];
+        int max0 = is_void[0][s] ? 0 : std::min(n, caps[0]);
+        for (int i = 0; i <= max0; ++i) {
+            int max1 = is_void[1][s] ? 0 : std::min(n - i, caps[1]);
+            for (int j = 0; j <= max1; ++j) {
+                int k = n - i - j;
+                if (k > (is_void[2][s] ? 0 : caps[2])) continue;
+                x[s][0] = i; x[s][1] = j; x[s][2] = k;
+                caps[0] -= i; caps[1] -= j; caps[2] -= k;
+                if (AssignSuits(s + 1, need, caps, x)) return true;
+                caps[0] += i; caps[1] += j; caps[2] += k;
+            }
+        }
+        return false;
+    }
+
+    bool TrySampleExact(std::array<std::vector<int>, 4>& out) {
+        std::array<int, 3> caps = cap;
+        std::vector<int> owner(52, -1);
+        std::array<std::vector<int>, 4> suit_cards;
+        for (int c : unseen) {
+            int pin = pinned_rel[c];
+            if (pin >= 0) {
+                if (caps[pin] <= 0 || is_void[pin][c / 13]) return false;
+                owner[c] = pin;
+                caps[pin]--;
+            } else {
+                suit_cards[c / 13].push_back(c);
+            }
+        }
+        std::array<int, 4> need{};
+        for (int s = 0; s < 4; ++s) need[s] = (int)suit_cards[s].size();
+        int x[4][3] = {};
+        if (!AssignSuits(0, need, caps, x)) return false;
+        for (int s = 0; s < 4; ++s) {
+            std::shuffle(suit_cards[s].begin(), suit_cards[s].end(), rng);
+            size_t i = 0;
+            for (int k = 0; k < 3; ++k) {
+                for (int j = 0; j < x[s][k]; ++j) owner[suit_cards[s][i++]] = k;
+            }
+        }
+        out[me] = my_hand;
+        for (int c = 0; c < 52; ++c) {
+            if (owner[c] >= 0) out[(me + owner[c] + 1) % 4].push_back(c);
+        }
+        return true;
+    }
+
+    std::array<std::vector<int>, 4> SampleHands() {
+        for (int attempt = 0; attempt < 200; ++attempt) {
+            std::array<std::vector<int>, 4> hands;
+            if (TrySample(attempt < 100, hands)) return hands;
+        }
+        std::array<std::vector<int>, 4> hands;
+        if (TrySampleExact(hands)) return hands;
+        // Unsatisfiable constraints = engine-state bug; surface as done/empty.
+        return {};
+    }
+
+    static double TerminalWinValue(const std::array<double, 4>& t, int seat) {
+        double mine = t[seat];
+        int better = 0, tied = 0;
+        for (int i = 0; i < 4; ++i) {
+            if (i == seat) continue;
+            if (t[i] < mine) ++better;
+            else if (t[i] == mine) ++tied;
+        }
+        if (better > 0) return 0.0;
+        return 1.0 / (1 + tied);
+    }
+
+    // ---- replay ------------------------------------------------------------
+    bool SeekTo(int deal_idx, int action_idx) {
+        if (deal_idx >= (int)deal_actions.size()) return false;
+        env = HeartsEnv(match_seed, true);
+        totals = {0, 0, 0, 0};
+        for (int d = 0; d < deal_idx; ++d) {
+            env.Reset();
+            for (int a : deal_actions[d]) env.Step(a);
+            auto sc = env.GetRoundScores();
+            for (int i = 0; i < 4; ++i) totals[i] += sc[i];
+        }
+        deals_played = deal_idx;
+        env.Reset();
+        const auto& acts = deal_actions[deal_idx];
+        if (action_idx >= (int)acts.size()) return false;
+        for (int i = 0; i < action_idx; ++i) env.Step(acts[i]);
+        env_valid = true;
+        return true;
+    }
+
+    // ---- pump --------------------------------------------------------------
+    int RequestRoot() {
+        obs_buf.assign(556, 0.0f);
+        mask_buf.assign(52, 1);
+        FillObsRow(obs_buf.data(), env);
+        root_pending = true;
+        stage = PUMP_POLICY;
+        return stage;
+    }
+
+    void SpawnSims() {
+        int start_deals = deals_played;
+        (void)start_deals;
+        sims.clear();
+        sims.reserve(legal.size() * K);
+        for (size_t ai = 0; ai < legal.size(); ++ai) {
+            for (int d = 0; d < K; ++d) {
+                // dets shared across actions: sample once per det index on
+                // ai==0, reuse for the rest (paired comparison).
+                if (ai == 0) {
+                    dets.push_back(SampleHands());
+                }
+                Sim s(env.Clone(), (int)ai);
+                s.env.SetHands(dets[d]);
+                s.done = s.env.Step(legal[ai]).done;
+                sims.push_back(std::move(s));
+            }
+        }
+    }
+    std::vector<std::array<std::vector<int>, 4>> dets;
+
+    // Step every sim that needs no inference: forced single-legal moves.
+    // Hearts rollouts are full of them (suit-following, late tricks) - each
+    // one stepped here is a net call that never happens.
+    void DrainForced() {
+        bool progressed = true;
+        while (progressed) {
+            progressed = false;
+            for (auto& s : sims) {
+                if (s.done) continue;
+                auto lr = s.env.GetLegalActions();
+                int only = -1, n = 0;
+                for (int i = 0; i < 13 && n < 2; ++i) {
+                    if (lr[i] != -1) { only = lr[i]; n++; }
+                }
+                if (n == 1) {
+                    s.done = s.env.Step(only).done;
+                    progressed = true;
+                }
+            }
+        }
+    }
+
+    int NextRolloutRequest() {
+        DrainForced();
+        active.clear();
+        for (size_t i = 0; i < sims.size(); ++i) {
+            if (!sims[i].done) active.push_back(i);
+        }
+        if (active.empty()) return RequestEquity();
+        obs_buf.assign(active.size() * 556, 0.0f);
+        mask_buf.assign(active.size() * 52, 0);
+        for (size_t j = 0; j < active.size(); ++j) {
+            FillObsRow(obs_buf.data() + j * 556, sims[active[j]].env);
+            auto lr = sims[active[j]].env.GetLegalActions();
+            for (int i = 0; i < 13; ++i) {
+                if (lr[i] != -1) mask_buf[j * 52 + lr[i]] = 1;
+            }
+        }
+        act_buf.assign(active.size(), 0);
+        stage = PUMP_POLICY;
+        return stage;
+    }
+
+    int RequestEquity() {
+        eq_rows.clear();
+        const int deals_after = deals_played + 1;
+        std::vector<float> rows;
+        for (size_t i = 0; i < sims.size(); ++i) {
+            auto sc = sims[i].env.GetRoundScores();
+            std::array<double, 4> t = totals;
+            for (int k = 0; k < 4; ++k) t[k] += sc[k];
+            double mx = *std::max_element(t.begin(), t.end());
+            if (mx >= 100.0) {
+                sims[i].result = TerminalWinValue(t, me);
+            } else {
+                float row[10] = {};
+                for (int k = 0; k < 4; ++k) {
+                    row[k] = (float)(t[(me + k) % 4] / 100.0);
+                }
+                row[4] = (float)(deals_after / 20.0);
+                row[5] = (float)((100.0 - mx) / 100.0);
+                row[6 + (deals_after % 4)] = 1.0f;
+                rows.insert(rows.end(), row, row + 10);
+                eq_rows.push_back(i);
+            }
+        }
+        if (eq_rows.empty()) return Finish();
+        eq_buf = std::move(rows);
+        f_in_buf.assign(eq_rows.size(), 0.0f);
+        stage = PUMP_EQUITY;
+        return stage;
+    }
+
+    int Finish() {
+        size_t n = legal.size();
+        std::vector<double> sum(n, 0.0), sumsq(n, 0.0);
+        std::vector<int> cnt(n, 0);
+        for (const auto& s : sims) {
+            sum[s.tag] += s.result;
+            sumsq[s.tag] += s.result * s.result;
+            cnt[s.tag] += 1;
+        }
+        r_actions.assign(legal.begin(), legal.end());
+        r_mean.assign(n, 0.0f);
+        r_se.assign(n, 0.0f);
+        r_n.assign(cnt.begin(), cnt.end());
+        for (size_t i = 0; i < n; ++i) {
+            int c = cnt[i];
+            double mu = c > 0 ? sum[i] / c : 0.0;
+            r_mean[i] = (float)mu;
+            double se = 0.0;
+            if (c >= 2) {
+                double var = (sumsq[i] - c * mu * mu) / (c - 1);
+                if (var < 0.0) var = 0.0;
+                se = std::sqrt(var / c);
+            }
+            r_se[i] = (float)se;
+        }
+        sims.clear();
+        dets.clear();
+        stage = PUMP_DONE;
+        return stage;
+    }
+};
+
+Engine E;
+
+}  // namespace
+
+extern "C" {
+
+KEEP void an_init(unsigned rng_seed) {
+    E = Engine();
+    E.rng.seed(rng_seed);
+}
+
+// Match replay: seed + all actions, deal boundaries via offsets array
+// (n_deals+1 entries into actions). The proven MatchEnv replay contract.
+KEEP int an_load_match(unsigned seed, const int* offsets, int n_deals,
+                       const int* actions) {
+    E.match_seed = seed;
+    E.deal_actions.assign(n_deals, {});
+    for (int d = 0; d < n_deals; ++d) {
+        E.deal_actions[d].assign(actions + offsets[d], actions + offsets[d + 1]);
+    }
+    return n_deals;
+}
+
+// Begin analysis of one decision. Returns first pump kind (or -1 on bad
+// coordinates / passing decision - v1 analyzes PLAY decisions only).
+KEEP int an_analyze(int deal_idx, int action_idx, int k) {
+    E.K = k;
+    E.sims.clear();
+    E.dets.clear();
+    if (!E.SeekTo(deal_idx, action_idx)) return -1;
+    if (E.env.IsPassing()) return -1;
+    E.legal = Engine::LegalVector(E.env);
+    E.me = E.env.GetCurrentPlayer();
+    if (E.legal.size() < 2) {   // forced: trivially done
+        E.r_actions.assign(E.legal.begin(), E.legal.end());
+        E.r_mean.assign(E.legal.size(), 0.0f);
+        E.r_se.assign(E.legal.size(), 0.0f);
+        E.r_n.assign(E.legal.size(), 0);
+        E.stage = PUMP_DONE;
+        return PUMP_DONE;
+    }
+    E.BuildContext();
+    return E.RequestRoot();
+}
+
+KEEP int an_rows() {
+    return E.stage == PUMP_EQUITY ? (int)E.eq_rows.size()
+         : E.root_pending ? 1 : (int)E.active.size();
+}
+// Current policy request is the ROOT call (feed logits+belief via
+// an_feed_root) vs a rollout round (feed acts via an_feed_acts).
+KEEP int an_is_root() { return E.root_pending ? 1 : 0; }
+KEEP float* an_obs() { return E.obs_buf.data(); }
+KEEP uint8_t* an_mask() { return E.mask_buf.data(); }
+KEEP float* an_eq_in() { return E.eq_buf.data(); }
+KEEP int32_t* an_act_in() { return E.act_buf.data(); }
+KEEP float* an_f_in() { return E.f_in_buf.data(); }
+
+// Feed the ROOT forward's outputs (logits unused for play analysis, belief
+// drives determinization weighting), then sims spawn and rollouts begin.
+KEEP int an_feed_root(const float* belief156) {
+    for (int k = 0; k < 3; ++k) {
+        for (int c = 0; c < 52; ++c) {
+            float v = belief156[k * 52 + c];
+            E.belief[k][c] = 1.0f / (1.0f + std::exp(-v));   // sigmoid
+        }
+    }
+    E.root_pending = false;
+    E.SpawnSims();
+    return E.NextRolloutRequest();
+}
+
+// Feed rollout argmax actions for the current active set.
+KEEP int an_feed_acts() {
+    for (size_t j = 0; j < E.active.size(); ++j) {
+        Sim& s = E.sims[E.active[j]];
+        s.done = s.env.Step(E.act_buf[j]).done;
+    }
+    return E.NextRolloutRequest();
+}
+
+// Feed equity P(place 1) per pending row.
+KEEP int an_feed_equity() {
+    for (size_t j = 0; j < E.eq_rows.size(); ++j) {
+        E.sims[E.eq_rows[j]].result = E.f_in_buf[j];
+    }
+    return E.Finish();
+}
+
+// Debug/test: build a random-self-play match internally and load it
+// (lets the JS boundary be exercised without real match data).
+KEEP int an_debug_selfplay(unsigned seed) {
+    std::mt19937 rr(seed);
+    HeartsEnv env(seed, true);
+    std::vector<int> offsets = {0};
+    std::vector<int> actions;
+    std::array<double, 4> tot{};
+    int deals = 0;
+    while (deals < 60) {
+        env.Reset();
+        bool done = false;
+        while (!done) {
+            auto lr = env.GetLegalActions();
+            std::vector<int> lg;
+            for (int i = 0; i < 13; ++i) {
+                if (lr[i] != -1) lg.push_back(lr[i]);
+            }
+            int a = lg[rr() % lg.size()];
+            actions.push_back(a);
+            done = env.Step(a).done;
+        }
+        offsets.push_back((int)actions.size());
+        auto sc = env.GetRoundScores();
+        for (int i = 0; i < 4; ++i) tot[i] += sc[i];
+        deals++;
+        if (*std::max_element(tot.begin(), tot.end()) >= 100.0) break;
+    }
+    return an_load_match(seed, offsets.data(), deals, actions.data());
+}
+
+KEEP int an_result_n() { return (int)E.r_actions.size(); }
+KEEP int32_t* an_result_actions() { return E.r_actions.data(); }
+KEEP float* an_result_mean() { return E.r_mean.data(); }
+KEEP float* an_result_se() { return E.r_se.data(); }
+KEEP int32_t* an_result_counts() { return E.r_n.data(); }
+
+}  // extern "C"
+
+#ifdef ANALYSIS_NATIVE_TEST
+// Native smoke: random match self-play with a uniform-random "policy",
+// exercising the full pump loop without any net (feeds random legal acts,
+// equity 0.25). Validates state-machine plumbing, replay, sampling.
+#include <cstdio>
+int main() {
+    // Build a match by random self-play, recording actions.
+    std::mt19937 rr(7);
+    HeartsEnv env(424242, true);
+    std::vector<int> offsets = {0};
+    std::vector<int> actions;
+    std::array<double, 4> tot{};
+    int deals = 0;
+    while (deals < 60) {
+        env.Reset();
+        bool done = false;
+        while (!done) {
+            auto lr = env.GetLegalActions();
+            std::vector<int> legal;
+            for (int i = 0; i < 13; ++i) {
+                if (lr[i] != -1) legal.push_back(lr[i]);
+            }
+            int a = legal[rr() % legal.size()];
+            actions.push_back(a);
+            done = env.Step(a).done;
+        }
+        offsets.push_back((int)actions.size());
+        auto sc = env.GetRoundScores();
+        for (int i = 0; i < 4; ++i) tot[i] += sc[i];
+        deals++;
+        if (*std::max_element(tot.begin(), tot.end()) >= 100.0) break;
+    }
+    printf("built match: %d deals, %d actions\n", deals, (int)actions.size());
+
+    an_init(1);
+    an_load_match(424242, offsets.data(), deals, actions.data());
+    int analyzed = 0, rounds = 0, forced_free = 0;
+    std::mt19937 fr(9);
+    for (int d = 0; d < deals; d += 2) {
+        int n_act = offsets[d + 1] - offsets[d];
+        int idx = n_act > 30 ? 20 : n_act / 2;
+        int kind = an_analyze(d, idx, 8);
+        if (kind < 0) continue;
+        while (kind != 0) {
+            int rows = an_rows();
+            if (kind == 1) {
+                if (an_is_root()) {
+                    // root: feed zero belief (uniform weighting)
+                    static float bel[156] = {};
+                    kind = an_feed_root(bel);
+                } else {
+                    uint8_t* m = an_mask();
+                    int32_t* a = an_act_in();
+                    for (int r = 0; r < rows; ++r) {
+                        std::vector<int> lg;
+                        for (int c = 0; c < 52; ++c) {
+                            if (m[r * 52 + c]) lg.push_back(c);
+                        }
+                        a[r] = lg[fr() % lg.size()];
+                    }
+                    rounds++;
+                    kind = an_feed_acts();
+                }
+            } else {
+                float* p = an_f_in();
+                for (int r = 0; r < an_rows(); ++r) p[r] = 0.25f;
+                kind = an_feed_equity();
+            }
+        }
+        int n = an_result_n();
+        int32_t* cn = an_result_counts();
+        for (int i = 0; i < n; ++i) {
+            if (cn[i] != 8 && n > 1) { printf("BAD count\n"); return 1; }
+        }
+        analyzed++;
+    }
+    (void)forced_free;
+    printf("analyzed %d decisions, %d policy rounds - SMOKE OK\n",
+           analyzed, rounds);
+    return 0;
+}
+#endif

@@ -25,14 +25,18 @@ OPSET = 17
 
 
 class PolicyExport(nn.Module):
-    """forward_all surface: (obs556, mask52) -> (masked_logits, value, belief)."""
+    """forward_all surface plus an argmax head: rollout rounds fetch only
+    'act' (8 bytes/row instead of a 208-byte logits row - GPU->JS readback
+    is part of the WebGPU round cost)."""
 
     def __init__(self, net):
         super().__init__()
         self.net = net
 
     def forward(self, observation, legal_actions_mask):
-        return self.net.forward_all(observation, legal_actions_mask)
+        logits, value, belief = self.net.forward_all(observation,
+                                                     legal_actions_mask)
+        return logits, value, belief, logits.argmax(1)
 
 
 def md5(path):
@@ -55,12 +59,41 @@ def main():
     torch.onnx.export(
         policy, (obs, mask), ppath, opset_version=OPSET,
         input_names=['obs', 'mask'],
-        output_names=['logits', 'value', 'belief'],
+        output_names=['logits', 'value', 'belief', 'act'],
         dynamic_axes={'obs': {0: 'batch'}, 'mask': {0: 'batch'},
                       'logits': {0: 'batch'}, 'value': {0: 'batch'},
-                      'belief': {0: 'batch'}},
+                      'belief': {0: 'batch'}, 'act': {0: 'batch'}},
         dynamo=False)
     print(f"exported {ppath} ({os.path.getsize(ppath) / 1e6:.1f} MB)")
+
+    # fp16 variant for WebGPU (bandwidth-bound: ~2x; io kept fp32 so the
+    # JS side never handles half floats - casts live in the graph).
+    # Exported natively from a .half() model rather than post-converted:
+    # the converter mangles the SDPA-region Casts. bf16 CUDA precedent
+    # says the search tolerates reduced precision; the flip rate below
+    # quantifies it.
+    class PolicyExportFP16(nn.Module):
+        def __init__(self, net16):
+            super().__init__()
+            self.net = net16
+
+        def forward(self, observation, legal_actions_mask):
+            logits, value, belief = self.net.forward_all(
+                observation.half(), legal_actions_mask)
+            return (logits.float(), value.float(), belief.float(),
+                    logits.argmax(1))
+
+    net16 = net_from_checkpoint(CKPT).half().eval()
+    p16path = os.path.join(OUT_DIR, 'perilune_policy_fp16.onnx')
+    torch.onnx.export(
+        PolicyExportFP16(net16), (obs, mask), p16path, opset_version=OPSET,
+        input_names=['obs', 'mask'],
+        output_names=['logits', 'value', 'belief', 'act'],
+        dynamic_axes={'obs': {0: 'batch'}, 'mask': {0: 'batch'},
+                      'logits': {0: 'batch'}, 'value': {0: 'batch'},
+                      'belief': {0: 'batch'}, 'act': {0: 'batch'}},
+        dynamo=False)
+    print(f"exported {p16path} ({os.path.getsize(p16path) / 1e6:.1f} MB)")
 
     ck = torch.load('equity_v1.pth', weights_only=True)
     eq = EquityNet(ck['in_dim'])
@@ -81,9 +114,11 @@ def main():
     sp = ort.InferenceSession(ppath, providers=['CPUExecutionProvider'])
     se = ort.InferenceSession(epath, providers=['CPUExecutionProvider'])
 
+    s16 = ort.InferenceSession(p16path, providers=['CPUExecutionProvider'])
     rng = np.random.default_rng(0)
     worst = {'logits': 0.0, 'value': 0.0, 'belief': 0.0, 'equity': 0.0,
-             'argmax_mismatch': 0}
+             'argmax_mismatch': 0, 'act_vs_logits_mismatch': 0,
+             'fp16_argmax_flips': 0, 'fp16_rows': 0}
     for trial in range(20):
         b = int(rng.integers(1, 96))
         o = rng.random((b, 556), dtype=np.float32)
@@ -93,7 +128,12 @@ def main():
                             replace=False)] = True
         with torch.no_grad():
             tl, tv, tb = ts_policy(torch.from_numpy(o), torch.from_numpy(m))
-        ol, ov, ob = sp.run(None, {'obs': o, 'mask': m})
+        ol, ov, ob, oa = sp.run(None, {'obs': o, 'mask': m})
+        worst['act_vs_logits_mismatch'] += int(
+            (oa != np.where(m, ol, -np.inf).argmax(1)).sum())
+        oa16 = s16.run(['act'], {'obs': o, 'mask': m})[0]
+        worst['fp16_argmax_flips'] += int((oa16 != oa).sum())
+        worst['fp16_rows'] += b
         lm = np.abs(np.where(m, ol - tl.numpy(), 0.0)).max()
         worst['logits'] = max(worst['logits'], float(lm))
         worst['value'] = max(worst['value'], float(np.abs(ov - tv.numpy()).max()))
