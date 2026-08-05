@@ -16,8 +16,8 @@
 # SearchEval.exe by NAME (never by command-line pattern).
 cd "$(dirname "$0")/.."
 mkdir -p equity_data/exploiter_r1 logs
-SHARDS=${1:-6}
-PER=${2:-67}
+SHARDS=${1:-3}
+PER=${2:-134}
 EXE=build/Release/SearchEval
 BASE_DEF=hearts_ai_match.pt
 V4_DEF=hearts_ai_grandmaster_v4m10.pt
@@ -37,15 +37,25 @@ run_combo() {  # name mode defender seedbase
   local pids=()
   local i
   for i in $(seq 0 $((SHARDS - 1))); do
+    # shooter_v1 instrument spec: K=64 FLAT. No K-endgame boost - moon
+    # matches inflate totals past 85 within a few deals, so the >=85
+    # trigger fired on MOST decisions (design assumption ~16%), quadrupling
+    # cost in exactly the states that wedged the machine on 2026-08-05.
+    # K frozen here, pre-Phase-A-freeze, recorded in the Phase A report.
     "$EXE" --search-model "$SHOOT" --equity-model "$EQ" \
       --opponent-model "$def" --shooter "$mode" --pass-search \
-      --k 64 --k-endgame 256 --matches "$PER" --seed $((sbase + i * 1000000)) \
+      --k 64 --matches "$PER" --seed $((sbase + i * 1000000)) \
       --cuda \
       --out "equity_data/exploiter_r1/phaseA_${name}_${i}.csv" \
       --tricks-out "equity_data/exploiter_r1/phaseA_${name}_${i}.tricks.csv" \
       > "logs/phaseA_${name}_${i}.log" 2>&1 &
     pids+=($!)
   done
+  # Usability (rule #17): shard processes run BelowNormal in the daytime window
+  sleep 3
+  powershell -NoProfile -Command \
+    "Get-Process SearchEval -ErrorAction SilentlyContinue | ForEach-Object { \$_.PriorityClass = 'BelowNormal' }" \
+    > /dev/null 2>&1
   local rc=0 p
   for p in "${pids[@]}"; do
     wait "$p" || rc=1

@@ -800,7 +800,20 @@ private:
                     if (lr[i] != -1) mp[j * 52 + lr[i]] = true;
                 }
             }
-            torch::Tensor acts = backend_->Forward(o, m).logits.argmax(1);
+            // WDDM safety: bound any single forward. Unbounded row batches
+            // wedge WDDM under multi-process CUDA (the InferenceServer
+            // max_group_rows lesson, relearned 2026-08-05 when shooter
+            // matches at K_endgame=256 submitted 3,328-row forwards from 6
+            // processes and froze the desktop). Chunk boundaries are
+            // deterministic, so CRN reproducibility is preserved.
+            const long kRowCap = 2048;
+            torch::Tensor acts = torch::empty({(long)active.size()}, torch::kLong);
+            for (long off = 0; off < (long)active.size(); off += kRowCap) {
+                long n = std::min(kRowCap, (long)active.size() - off);
+                acts.slice(0, off, off + n) =
+                    backend_->Forward(o.slice(0, off, off + n),
+                                      m.slice(0, off, off + n)).logits.argmax(1);
+            }
             auto acc = acts.accessor<int64_t, 1>();
             for (size_t j = 0; j < active.size(); ++j) {
                 Sim& s = sims[active[j]];
