@@ -558,10 +558,15 @@ function renderEval(st, deal) {
     const tied = spread < 0.01;
     if (tied && dr.pts)
       order = [...dr.actions.keys()].sort((a, b) => dr.pts[a] - dr.pts[b]);
-    const shown = order.slice(0, 3);
-    if (!shown.some(ix => dr.actions[ix] === playedId)) {
-      const pix = dr.actions.indexOf(playedId);
-      if (pix >= 0) shown.push(pix);
+    let shown;
+    if (deepExpanded) {
+      shown = order;
+    } else {
+      shown = order.slice(0, 3);
+      if (!shown.some(ix => dr.actions[ix] === playedId)) {
+        const pix = dr.actions.indexOf(playedId);
+        if (pix >= 0) shown.push(pix);
+      }
     }
     html += `<div style="margin-top:8px"></div>`;
     // Per-move: POINTS (the deal-level axis players think in) plus the
@@ -583,6 +588,9 @@ function renderEval(st, deal) {
         <div class="fill" style="width:${w}%"></div>
         <span>${ct(idName(dr.actions[ix]))} &middot; ${ptsTxt}${dTxt}${isP ? ' &larr; played' : ''}</span></div>`;
     }
+    if (order.length > 3)
+      html += `<button class="xbtn" id="dev-x">${deepExpanded
+        ? 'show top 3' : `show all ${order.length} moves`}</button>`;
     html += `<div class="muted" style="font-size:.68rem; margin-top:3px">
       ${esc(seatLabel(s))} match win here: <span style="color:#4CC2FF">${(dr.mean[best] * 100).toFixed(1)}%</span></div>`;
     // One-sentence verdict tying the two panels together.
@@ -620,8 +628,11 @@ function renderEval(st, deal) {
   updateDeepBtn();
   const x = el('ev-x');
   if (x) x.onclick = () => { evalExpanded = !evalExpanded; render(); };
+  const dx = el('dev-x');
+  if (dx) dx.onclick = () => { deepExpanded = !deepExpanded; render(); };
 }
 let evalExpanded = false;
+let deepExpanded = false;
 
 function renderPos(st, deal) {
   const trick = st.type === 'play' ? Math.floor(st.i / 4) + 1 : '-';
