@@ -929,7 +929,7 @@ function idbOpen() {
 }
 // Bump DEEP_SCHEMA whenever the stored result shape changes (v2: added
 // per-action pts) - stale entries stop matching and re-analyze cleanly.
-const DEEP_SCHEMA = 'v4';   // v4: clean slate for the revived-fp16 run
+const DEEP_SCHEMA = 'v5';   // v5: CRN per-position seeding - reruns identical
 async function idbLoadCached() {
   const db = await idbOpen();
   const pre = `${DEEP_SCHEMA}|${matchIdent()}|${deepMd5}|`;
@@ -996,7 +996,7 @@ async function deepStart() {
     deepMd5 = (man.policy_onnx_md5 || '').slice(0, 8);
   } catch (e) { deepMd5 = 'nomd5'; }
   for (const v of await idbLoadCached()) deepAccept(v);
-  deepWorker = new Worker('/static/analysis_worker.js?v=10');
+  deepWorker = new Worker('/static/analysis_worker.js?v=11');
   // A crashed worker (e.g. a wasm abort) must be VISIBLE, never a frozen
   // counter.
   deepWorker.onerror = e => {

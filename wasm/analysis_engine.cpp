@@ -534,6 +534,7 @@ KEEP int an_playout(int deal_idx) {
     E.dets.clear();
     E.playout_mode = true;
     E.trace_mode = false;
+    E.rng.seed(0x7F4A7C15u ^ (unsigned)(deal_idx * 131071));
     int pass_actions =
         (deal_idx < (int)E.deal_actions.size()
          && E.deal_actions[deal_idx].size() == 64) ? 12 : 0;
@@ -557,6 +558,7 @@ KEEP int an_deal_trace(int deal_idx) {
     E.dets.clear();
     E.playout_mode = false;
     E.trace_mode = true;
+    E.rng.seed(0x2545F491u ^ (unsigned)(deal_idx * 131071));
     if (deal_idx >= (int)E.deal_actions.size()) return -1;
     const auto& acts = E.deal_actions[deal_idx];
     int pass_off = (int)acts.size() == 64 ? 12 : 0;
@@ -579,6 +581,10 @@ KEEP int an_analyze(int deal_idx, int action_idx, int k) {
     E.K = k;
     E.playout_mode = false;
     E.trace_mode = false;
+    // CRN: a position's determinization draws depend ONLY on its
+    // coordinates, never on what was analyzed before it - reruns are
+    // bit-identical and fp16/fp32 comparisons share worlds.
+    E.rng.seed(0x9E3779B9u ^ (unsigned)(deal_idx * 131071 + action_idx * 257 + k));
     E.sims.clear();
     E.dets.clear();
     if (!E.SeekTo(deal_idx, action_idx)) return -1;
