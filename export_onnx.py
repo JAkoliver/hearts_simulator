@@ -24,21 +24,18 @@ from train_equity import EquityNet
 def _tokens_tree(self, observation):
     """Graph-restructured _tokens for WebGPU: the original 10-way stack
     becomes ONE Concat needing 11 storage buffers, over the universal
-    per-stage default limit of 8 (fp16 graphs hit it un-fused; measured
-    2026-08-05 as 'Invalid ComputePipeline Concat' + NaN on the severed
-    branch). A tree of <=4-input concats (max 5 buffers) is numerically
-    IDENTICAL - concat of unsqueezed slices == stack."""
+    per-stage default limit of 8 ('Invalid ComputePipeline Concat' + NaN
+    on the severed branch, measured 2026-08-05). Concat TREES do not
+    survive export (the exporter re-fuses same-axis concats), so the
+    stack is replaced by a single constant-index GATHER (3 bindings):
+    chans[b,c,k] = obs[b, BLOCKS[k]+c] - numerically identical."""
     if observation.dim() == 1:
         observation = observation.unsqueeze(0)
     b = observation.shape[0]
-    cols = [observation[:, s:s + 52].unsqueeze(2) for s in self.CARD_BLOCKS]
-    while len(cols) > 1:
-        nxt = []
-        for i in range(0, len(cols), 4):
-            g = cols[i:i + 4]
-            nxt.append(torch.cat(g, dim=2) if len(g) > 1 else g[0])
-        cols = nxt
-    chans = cols[0]
+    idx = torch.tensor([s + c for s in self.CARD_BLOCKS for c in range(52)],
+                       dtype=torch.long, device=observation.device)
+    chans = observation[:, idx].reshape(b, len(self.CARD_BLOCKS), 52) \
+        .permute(0, 2, 1)
     cards = self.card_embed(self.card_ids).unsqueeze(0).expand(
         b, 52, self.d_model) + self.card_proj(chans)
     ctx = self.ctx_proj(observation[:, self.CTX_START:self.CTX_END])
