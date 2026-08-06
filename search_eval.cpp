@@ -290,7 +290,7 @@ int main(int argc, char** argv) {
     torch::set_num_threads(1);
     std::string search_path, opp_path, belief_path, match_path, probe_log,
         b_search_path, equity_path, behave_totals, shooter_flag, tricks_path,
-        out_path = "search_eval_results.csv";
+        record_path, out_path = "search_eval_results.csv";
     int behave_deals = 200;
     int deals = 300, k = 32, rollout_tricks = -1, matches = 200, probe_every = 5,
         k_endgame = 0;
@@ -318,6 +318,7 @@ int main(int argc, char** argv) {
         else if (a == "--behave-deals") behave_deals = std::stoi(next());
         else if (a == "--shooter") shooter_flag = next();
         else if (a == "--tricks-out") tricks_path = next();
+        else if (a == "--record-out") record_path = next();
         else if (a == "--deals") deals = std::stoi(next());
         else if (a == "--k") k = std::stoi(next());
         else if (a == "--seed") seed = static_cast<unsigned int>(std::stoul(next()));
@@ -488,6 +489,20 @@ int main(int argc, char** argv) {
         std::ofstream tcsv(tricks_path.empty() ? out_path + ".tricks.csv"
                                                : tricks_path);
         tcsv << "match,deal,trick,winner,points,shooter_seat\n";
+        // Shooter DECISION recorder (Phase B distillation,
+        // docs/exploiter_league_prereg.md): one fixed-size binary record
+        // per shooter-seat decision (play AND pass picks - moon-keeping
+        // passes are half the threat). Layout, little-endian:
+        //   float32 obs[556]  (engine 550 + match ctx, acting-seat view)
+        //   uint8   mask[52]  (legal actions)
+        //   int32   action    (the search-shooter's choice)
+        //   uint8   flags     (bit0 pass_phase, bit1 alive, bit2 shooting)
+        //   uint8   pad[3]
+        // = 2284 bytes/record. Flushed per deal.
+        std::ofstream rec;
+        if (!record_path.empty()) {
+            rec.open(record_path, std::ios::binary);
+        }
         int moons = 0, committed_deals = 0, total_deals = 0;
         auto pt0 = std::chrono::steady_clock::now();
 
@@ -512,8 +527,38 @@ int main(int argc, char** argv) {
                     bool was_passing = env.IsPassing();
                     int action;
                     if (p == seat) {
+                        float row[556] = {};
+                        uint8_t mk[52] = {};
+                        if (rec.is_open()) {
+                            auto obs = env.Observe();
+                            std::memcpy(row, obs.data(), 550 * sizeof(float));
+                            double mx = *std::max_element(totals.begin(),
+                                                          totals.end());
+                            for (int i2 = 0; i2 < 4; ++i2) {
+                                row[550 + i2] =
+                                    (float)(totals[(seat + i2) % 4] / 100.0);
+                            }
+                            row[554] = (float)(deals / 20.0);
+                            row[555] = (float)((100.0 - mx) / 100.0);
+                            auto lr = env.GetLegalActions();
+                            for (int i2 = 0; i2 < 13; ++i2) {
+                                if (lr[i2] != -1) mk[lr[i2]] = 1;
+                            }
+                        }
                         action = sp->ChooseAction(env);
                         const auto& ss = sp_flat->LastShooter();
+                        if (rec.is_open()) {
+                            uint8_t flags = (was_passing ? 1 : 0)
+                                | (ss.valid && ss.alive ? 2 : 0)
+                                | (ss.valid && ss.shooting ? 4 : 0);
+                            uint8_t pad[3] = {};
+                            int32_t act32 = action;
+                            rec.write((const char*)row, sizeof(row));
+                            rec.write((const char*)mk, sizeof(mk));
+                            rec.write((const char*)&act32, 4);
+                            rec.write((const char*)&flags, 1);
+                            rec.write((const char*)pad, 3);
+                        }
                         if (ss.valid) {
                             if (was_passing) {
                                 if (!pass_seen) {   // commit decided on pick 1
@@ -566,6 +611,7 @@ int main(int argc, char** argv) {
                 dcsv << '\n';
                 dcsv.flush();
                 tcsv.flush();
+                if (rec.is_open()) rec.flush();
                 moons += success;
                 committed_deals += (pass_committed == 1 || shoot_dec > 0);
                 total_deals++;
