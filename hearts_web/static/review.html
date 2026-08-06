@@ -997,7 +997,7 @@ async function deepStart() {
     deepMd5 = (man.policy_onnx_md5 || '').slice(0, 8);
   } catch (e) { deepMd5 = 'nomd5'; }
   for (const v of await idbLoadCached()) deepAccept(v);
-  deepWorker = new Worker('/static/analysis_worker.js?v=12');
+  deepWorker = new Worker('/static/analysis_worker.js?v=13');
   // A crashed worker (e.g. a wasm abort) must be VISIBLE, never a frozen
   // counter.
   deepWorker.onerror = e => {
@@ -1045,6 +1045,10 @@ async function deepStart() {
       const n = el('deep-note');
       n.textContent = '⚠ ' + m.message;
       n.style.display = 'block';
+      // Remember per-browser fp16 failures so future sessions skip the
+      // doomed attempt (cleared automatically by version bumps).
+      if (m.message.startsWith('fp16 failed'))
+        try { localStorage.setItem('perilune-fp16-bad', 'v13'); } catch (e) {}
     } else if (m.type === 'fatal') {
       dstatus('analysis failed: ' + m.message);
       const n = el('deep-note');
@@ -1053,7 +1057,10 @@ async function deepStart() {
       deepDone();
     }
   };
-  deepWorker.postMessage({type: 'init'});
+  let fp16Bad = false;
+  try { fp16Bad = localStorage.getItem('perilune-fp16-bad') === 'v13'; }
+  catch (e) {}
+  deepWorker.postMessage({type: 'init', skipFp16: fp16Bad});
 }
 
 // A forced play (single legal card) carries no decision - the ranked list

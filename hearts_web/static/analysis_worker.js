@@ -18,7 +18,7 @@
 
 // VER busts HTTP caches for the engine glue AND its .wasm (locateFile) -
 // without it, browsers happily run a stale engine forever.
-const VER = 12;
+const VER = 13;
 // Fixed batch buckets: WebGPU compiles a pipeline PER TENSOR SHAPE, and
 // rollout rounds shrink row counts continuously - hundreds of one-off
 // shapes means hundreds of shader compiles (stalls, device pressure).
@@ -36,6 +36,7 @@ let jobs = [], running = false, jobsDone = 0, jobsTotal = 0;
 // produces an illegal action (engine-validated), fall back permanently to
 // fetching logits and doing masked argmax in JS.
 let useAct = true;
+let skipFp16 = false;   // main thread remembers per-browser fp16 failures
 
 function anError() {
   // read NUL-terminated error string from the wasm heap
@@ -76,6 +77,7 @@ async function init() {
     console.warn('custom WebGPU device setup failed (ORT will use its own):', e);
   }
   try {
+    if (skipFp16) throw new Error('fp16 previously failed on this browser');
     if (!self.navigator || !navigator.gpu) throw new Error('no webgpu');
     // fp16 first: the net is MEASURED fp16-safe (peak activation 31 vs
     // the 65504 limit; zero NaN rows and 4/8536 near-tie argmax flips
@@ -164,6 +166,20 @@ async function runPolicy(rows, wantBelief) {
             bv = lg[i * 52 + c];
             best = c;
           }
+        }
+        if (best === -1 && !runPolicy.dumped) {
+          // First bad row: dump everything needed to reproduce it.
+          runPolicy.dumped = true;
+          let nan = 0;
+          for (let c = 0; c < 52; c++) if (Number.isNaN(lg[i * 52 + c])) nan++;
+          console.error(`[deep-analysis] bad logits row (ep=${ep}): ` +
+            `${nan}/52 NaN. obs row + logits follow for repro:`);
+          console.error('OBS', JSON.stringify(
+            Array.from(obsB.subarray(i * 556, (i + 1) * 556))));
+          console.error('LOGITS', JSON.stringify(
+            Array.from(lg.subarray(i * 52, (i + 1) * 52))));
+          postMessage({ type: 'note',
+                        message: `bad row: ${nan}/52 logits NaN (ep=${ep}) - dumped to console` });
         }
         acts[off + i] = best;
       }
@@ -297,8 +313,11 @@ async function pumpQueue() {
 
 onmessage = (ev) => {
   const m = ev.data;
-  if (m.type === 'init') init().catch(
-    e => postMessage({ type: 'fatal', message: String(e).slice(0, 300) }));
+  if (m.type === 'init') {
+    skipFp16 = !!m.skipFp16;
+    init().catch(
+      e => postMessage({ type: 'fatal', message: String(e).slice(0, 300) }));
+  }
   else if (m.type === 'load') loadMatch(m.seed, m.dealActions, m.startHands);
   else if (m.type === 'queue') {
     if (m.front) jobs.unshift(...m.jobs);
