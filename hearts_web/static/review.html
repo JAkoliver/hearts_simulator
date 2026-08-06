@@ -661,7 +661,10 @@ function deepVerdict(idx, playedName) {
             cls: 'dv'};
   if (diff < MATERIAL)
     return {kind: 'nocost', text: 'no cost', cls: 'dv ok'};
-  return {kind: 'unclear', text: '? try K=64', cls: 'dv unk'};
+  return {kind: 'unclear',
+          text: dr.K >= 256 ? '? unresolved at K=256'
+                            : `? try K=${Math.min(256, dr.K * 2)}`,
+          cls: 'dv unk'};
 }
 function deepBadge(idx, playedName) {
   const v = deepVerdict(idx, playedName);
