@@ -18,7 +18,7 @@
 
 // VER busts HTTP caches for the engine glue AND its .wasm (locateFile) -
 // without it, browsers happily run a stale engine forever.
-const VER = 13;
+const VER = 14;
 // Fixed batch buckets: WebGPU compiles a pipeline PER TENSOR SHAPE, and
 // rollout rounds shrink row counts continuously - hundreds of one-off
 // shapes means hundreds of shader compiles (stalls, device pressure).
@@ -51,59 +51,37 @@ async function init() {
   M = await AnalysisEngine({
     locateFile: f => '/static/' + f + '?v=' + VER });
   M._an_init(1);
-  // ORT's own device request omits maxStorageBuffersPerShaderStage (the
-  // fp16 graph's Concat needs 11 vs the default 8 - measured 2026-08-05
-  // via WebGPU validation errors) and the shader-f16 feature. Hand ORT a
-  // device with the adapter's full limits instead.
-  try {
-    if (navigator.gpu) {
-      const adapter = await navigator.gpu.requestAdapter();
-      if (adapter) {
-        const lim = adapter.limits;
-        ort.env.webgpu.device = await adapter.requestDevice({
-          requiredFeatures: [...adapter.features].filter(
-            f => f === 'shader-f16'),
-          requiredLimits: {
-            maxStorageBuffersPerShaderStage: lim.maxStorageBuffersPerShaderStage,
-            maxStorageBufferBindingSize: lim.maxStorageBufferBindingSize,
-            maxBufferSize: lim.maxBufferSize,
-            maxComputeWorkgroupStorageSize: lim.maxComputeWorkgroupStorageSize,
-            maxComputeInvocationsPerWorkgroup: lim.maxComputeInvocationsPerWorkgroup,
-          },
-        });
-      }
-    }
-  } catch (e) {
-    console.warn('custom WebGPU device setup failed (ORT will use its own):', e);
-  }
+  // (env.webgpu.device injection was tried for the Concat binding-limit
+  // problem and proved read-only in this ORT build; the fix lives in the
+  // MODEL now - the exported graph never needs >5 bindings per op.)
   try {
     if (skipFp16) throw new Error('fp16 previously failed on this browser');
     if (!self.navigator || !navigator.gpu) throw new Error('no webgpu');
     // fp16 first: the net is MEASURED fp16-safe (peak activation 31 vs
-    // the 65504 limit; zero NaN rows and 4/8536 near-tie argmax flips
-    // under true CUDA-half execution on real obs). The 2026-08-05 NaN
-    // failure predated batch bucketing - runtime shape-churn era, not
-    // the weights. If a browser's fp16 kernels misbehave anyway, the
-    // pump errors tier down to the fp32 model automatically.
+    // the 65504 limit; zero NaN rows under true CUDA-half on real obs),
+    // and the graph is binding-safe (<=5 buffers/op after the concat-tree
+    // export). If a browser's fp16 path misbehaves anyway, the pump
+    // errors tier down to the fp32 model automatically.
     policy = await ort.InferenceSession.create(
-      '/static/models/perilune_policy_fp16.onnx',
+      '/static/models/perilune_policy_fp16.onnx?v=' + VER,
       { executionProviders: ['webgpu'] });
     ep = 'webgpu-fp16';
   } catch (e) {
     try {
       policy = await ort.InferenceSession.create(
-        '/static/models/perilune_policy.onnx',
+        '/static/models/perilune_policy.onnx?v=' + VER,
         { executionProviders: ['webgpu'] });
       ep = 'webgpu';
     } catch (e2) {
       policy = await ort.InferenceSession.create(
-        '/static/models/perilune_policy.onnx',
+        '/static/models/perilune_policy.onnx?v=' + VER,
         { executionProviders: ['wasm'] });
       ep = 'wasm';
     }
   }
   equity = await ort.InferenceSession.create(
-    '/static/models/perilune_equity.onnx', { executionProviders: ['wasm'] });
+    '/static/models/perilune_equity.onnx?v=' + VER,
+    { executionProviders: ['wasm'] });
   postMessage({ type: 'ready', ep });
 }
 

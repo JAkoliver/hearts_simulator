@@ -11,6 +11,7 @@ Outputs (gitignored - the repo carries no weights):
 import hashlib
 import json
 import os
+import types
 
 import numpy as np
 import torch
@@ -18,6 +19,37 @@ import torch.nn as nn
 
 from hearts_net import net_from_checkpoint
 from train_equity import EquityNet
+
+
+def _tokens_tree(self, observation):
+    """Graph-restructured _tokens for WebGPU: the original 10-way stack
+    becomes ONE Concat needing 11 storage buffers, over the universal
+    per-stage default limit of 8 (fp16 graphs hit it un-fused; measured
+    2026-08-05 as 'Invalid ComputePipeline Concat' + NaN on the severed
+    branch). A tree of <=4-input concats (max 5 buffers) is numerically
+    IDENTICAL - concat of unsqueezed slices == stack."""
+    if observation.dim() == 1:
+        observation = observation.unsqueeze(0)
+    b = observation.shape[0]
+    cols = [observation[:, s:s + 52].unsqueeze(2) for s in self.CARD_BLOCKS]
+    while len(cols) > 1:
+        nxt = []
+        for i in range(0, len(cols), 4):
+            g = cols[i:i + 4]
+            nxt.append(torch.cat(g, dim=2) if len(g) > 1 else g[0])
+        cols = nxt
+    chans = cols[0]
+    cards = self.card_embed(self.card_ids).unsqueeze(0).expand(
+        b, 52, self.d_model) + self.card_proj(chans)
+    ctx = self.ctx_proj(observation[:, self.CTX_START:self.CTX_END])
+    if observation.shape[-1] >= self.MATCH_CTX_START + self.MATCH_CTX_DIM:
+        ctx = ctx + self.match_proj(
+            observation[:, self.MATCH_CTX_START:
+                        self.MATCH_CTX_START + self.MATCH_CTX_DIM])
+    x = torch.cat([ctx.unsqueeze(1), cards], dim=1)
+    for block in self.enc_blocks:
+        x = block(x)
+    return self.final_norm(x)
 
 OUT_DIR = os.path.join('hearts_web', 'static', 'models')
 CKPT = 'hearts_model_final.pth'
@@ -51,6 +83,17 @@ def main():
 
     net = net_from_checkpoint(CKPT)
     net.eval()
+    # Equivalence check, then swap in the binding-safe token builder.
+    obs_chk = torch.rand(4, 556)
+    mask_chk = torch.rand(4, 52) > 0.5
+    mask_chk[:, 0] = True
+    with torch.no_grad():
+        ref = net.forward_all(obs_chk, mask_chk)
+        net._tokens = types.MethodType(_tokens_tree, net)
+        got = net.forward_all(obs_chk, mask_chk)
+    for a, b in zip(ref, got):
+        assert torch.equal(a, b), "tree _tokens is not bit-identical"
+    print("tree _tokens: bit-identical to the original")
     policy = PolicyExport(net).eval()
 
     obs = torch.zeros(2, 556)
@@ -84,6 +127,7 @@ def main():
                     logits.argmax(1))
 
     net16 = net_from_checkpoint(CKPT).half().eval()
+    net16._tokens = types.MethodType(_tokens_tree, net16)
     p16path = os.path.join(OUT_DIR, 'perilune_policy_fp16.onnx')
     torch.onnx.export(
         PolicyExportFP16(net16), (obs, mask), p16path, opset_version=OPSET,
