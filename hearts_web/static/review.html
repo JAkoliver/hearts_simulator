@@ -224,7 +224,12 @@
     <div id="deepbar">
       <div>
         <button id="deep-btn" class="xbtn">Deep analysis</button>
-        <button id="deep64-btn" class="xbtn" style="display:none">K=64 here</button>
+        <select id="deep-k" class="xbtn" title="rollouts per move: higher = sharper values, slower">
+          <option value="16" selected>K=16</option>
+          <option value="32">K=32</option>
+          <option value="64">K=64</option>
+        </select>
+        <button id="deep64-btn" class="xbtn" style="display:none">K=32 here</button>
       </div>
       <div id="deep-status" class="muted" style="font-size:.68rem; margin-top:4px"></div>
       <div id="deep-note" style="font-size:.66rem; color:#C8A24A; display:none"></div>
@@ -586,16 +591,18 @@ function renderEval(st, deal) {
     }
   }
   el('evalbox').innerHTML = html;
-  // Deep-analysis button states for THIS position: K=64 visible once the
-  // worker exists, grayed when the position is already at K>=64; the line
-  // below the buttons says how deep this position has been analyzed.
+  // Per-position deepen button: steps K relative to what THIS position
+  // already has (16->32->64->128->256); unanalyzed positions offer double
+  // the selected pass K. Grayed at the 256 cap.
   const b64 = el('deep64-btn');
+  const nextK = Math.min(256, (dr ? dr.K : +el('deep-k').value) * 2);
+  b64.textContent = `K=${nextK} here`;
   b64.style.display = deepWorker && !forced ? 'inline-block' : 'none';
-  b64.disabled = !!(dr && dr.K >= 64);
+  b64.disabled = !!(dr && dr.K >= 256);
   el('deep-pos').innerHTML = forced
     ? (deepWorker ? 'this position: forced move (only one legal card)' : '')
     : dr
-    ? `this position: analyzed at K=${dr.K}${dr.K >= 64 ? ' (max)' : ''}`
+    ? `this position: analyzed at K=${dr.K}${dr.K >= 256 ? ' (max)' : ''}`
     : (deepWorker ? 'this position: not yet analyzed' : '');
   updateDeepBtn();
   const x = el('ev-x');
@@ -976,7 +983,8 @@ function deepJobs(K, skipDone) {
   steps.forEach((st, idx) => {
     if (st.type !== 'play') return;
     if (isForced(st)) return;   // one legal card: nothing to evaluate
-    if (skipDone && deepResults[deepKey(st.d, st.i)]) return;
+    const have = deepResults[deepKey(st.d, st.i)];
+    if (skipDone && have && have.K >= K) return;   // already this deep
     const [s, name] = R.deals[st.d].plays[st.i];
     const prio = (disIdx.has(idx) && s === R.viewer_seat) ? 0
                : disIdx.has(idx) ? 1 : (s === R.viewer_seat) ? 2 : 3;
@@ -988,9 +996,23 @@ function deepJobs(K, skipDone) {
   return jobs;
 }
 
+let deepReady = false;
 async function deepStart() {
   if (!R.replay) { dstatus('no replay data for this match'); return; }
+  if (deepWorker && deepReady) {
+    // Worker already live (e.g. re-running at a higher K): just queue
+    // what's below the selected depth - never spawn a second worker.
+    const jobs = deepJobs(+el('deep-k').value, true);
+    if (!jobs.length) { updateDeepBtn(); return; }
+    deepRunning = true;
+    el('deep-btn').textContent = 'Stop';
+    el('deep-k').disabled = true;
+    deepWorker.postMessage({type: 'queue', jobs});
+    dstatus(`analyzing 0/${jobs.length}…`);
+    return;
+  }
   el('deep-btn').disabled = true;
+  el('deep-k').disabled = true;
   dstatus('loading engine + model…');
   try {
     const man = await (await fetch('/static/models/manifest.json')).json();
@@ -1013,8 +1035,9 @@ async function deepStart() {
                               startHands: R.deals.map(d =>
                                 d.start_hands.map(h => h.map(cardId)))});
     } else if (m.type === 'loaded') {
-      const jobs = deepJobs(16, true);
-      if (!jobs.length) { dstatus('all positions analyzed'); deepDone(); return; }
+      deepReady = true;
+      const jobs = deepJobs(+el('deep-k').value, true);
+      if (!jobs.length) { updateDeepBtn(); deepDone(); return; }
       deepRunning = true;
       el('deep-btn').textContent = 'Stop';
       el('deep-btn').disabled = false;
@@ -1110,22 +1133,27 @@ function costlyPlays() {
 }
 
 function deepAllDone() {
-  return steps.every(st => st.type !== 'play' || isForced(st)
-                     || deepResults[deepKey(st.d, st.i)]);
+  const K = +el('deep-k').value;
+  return steps.every(st => {
+    if (st.type !== 'play' || isForced(st)) return true;
+    const dr = deepResults[deepKey(st.d, st.i)];
+    return dr && dr.K >= K;
+  });
 }
-// Gray out 'Deep analysis' once every play position has a result (the
-// whole-match pass has nothing left to do; K=64-here still works).
+// Gray out 'Deep analysis' once every play position is at or above the
+// SELECTED K (raising the dropdown re-arms the pass for the remainder).
 function updateDeepBtn() {
   if (deepRunning) return;
   const done = deepWorker && deepAllDone();
   el('deep-btn').disabled = !!done;
-  if (done) dstatus('all positions analyzed');
+  if (done) dstatus(`all positions analyzed at K≥${el('deep-k').value}`);
 }
 
 function deepDone() {
   deepRunning = false;
   el('deep-btn').textContent = 'Deep analysis';
   el('deep-btn').disabled = false;
+  el('deep-k').disabled = false;
   updateDeepBtn();
 }
 
@@ -1140,13 +1168,17 @@ el('deep-btn').onclick = () => {
 el('deep64-btn').onclick = () => {
   const st = steps[cur];
   if (!deepWorker || !st || st.type !== 'play') return;
+  const dr = deepResults[deepKey(st.d, st.i)];
+  const nextK = Math.min(256, (dr ? dr.K : +el('deep-k').value) * 2);
   const [, name] = R.deals[st.d].plays[st.i];
   deepWorker.postMessage({type: 'queue', front: true, jobs: [{
     key: deepKey(st.d, st.i), d: st.d, i: st.i, deal: st.d,
-    actionIdx: passOffset(R.deals[st.d]) + st.i, K: 64,
+    actionIdx: passOffset(R.deals[st.d]) + st.i, K: nextK,
     playedId: cardId(name)}]});
-  dstatus('deep-checking this position (K=64)…');
+  dstatus(`deep-checking this position (K=${nextK})…`);
 };
+
+el('deep-k').onchange = () => updateDeepBtn();
 </script>
 </body>
 </html>
