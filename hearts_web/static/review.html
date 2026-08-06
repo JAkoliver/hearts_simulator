@@ -699,18 +699,20 @@ function renderDis() {
   const sc = scorecard();
   let scHtml = '';
   if (sc) {
+    // Only the CONFIDENT subset is summed. A raw sum of (best - played)
+    // over all decisions is dominated by max-selection bias (the 'best'
+    // of ~13 noisy estimates sits systematically above truth) - it
+    // rendered -200%+ phantom totals and is not shown.
     scHtml = `<div class="deep-h" style="margin-bottom:2px">Decision costs
-      (whole match, deep search)</div>` + sc.map(r => {
-      const se = Math.sqrt(r.v);
-      return `<div style="font-size:.72rem; margin:2px 0">
-        ${esc(seatLabel(r.s))}: &minus;${(r.total * 100).toFixed(1)}%
-        &plusmn;${(se * 100).toFixed(1)} match win
-        <span class="muted">(${r.n} decisions${r.mat
-          ? `; ${r.mat} costly = &minus;${(r.matSum * 100).toFixed(1)}%`
-          : ''})</span></div>`;
-    }).join('') + `<div class="muted" style="font-size:.64rem; margin:3px 0 8px">
-      Totals within their &plusmn; are indistinguishable from noise; the
-      costly subset is the confident part.</div>`;
+      (whole match, deep search)</div>` + sc.map(r =>
+      `<div style="font-size:.72rem; margin:2px 0">
+        ${esc(seatLabel(r.s))}: ${r.mat
+          ? `${r.mat} costly play${r.mat > 1 ? 's' : ''}, &minus;${(r.matSum * 100).toFixed(1)}% match win`
+          : `<span class="muted">no clearly costly plays</span>`}
+        <span class="muted">(${r.n} analyzed)</span></div>`)
+      .join('') + `<div class="muted" style="font-size:.64rem; margin:3px 0 8px">
+      Cumulative chance given up in clearly-worse plays. Chances lost can
+      be regained when others err, so long matches can exceed 100%.</div>`;
   }
   let html = disagreements().map(d =>
     `<div class="dline" data-idx="${d.idx}">D${d.d} T${d.t} &middot;
