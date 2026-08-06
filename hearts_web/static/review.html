@@ -492,14 +492,20 @@ function renderEval(st, deal) {
   const dr = forced ? null : deepResults[deepKey(st.d, st.i)];
   if (dr && dr.actions.length) {
     const playedId = cardId(name);
-    const order = [...dr.actions.keys()].sort((a, b) => dr.mean[b] - dr.mean[a]);
+    let order = [...dr.actions.keys()].sort((a, b) => dr.mean[b] - dr.mean[a]);
+    const best = order[0];
+    const spread = dr.mean[best] - dr.mean[order[order.length - 1]];
+    // When every move is within the materiality bar the equity ordering is
+    // pure noise - sort by the VISIBLE number (points, ascending) instead,
+    // and render equal fills: tied means LOOKING tied.
+    const tied = spread < 0.01;
+    if (tied && dr.pts)
+      order = [...dr.actions.keys()].sort((a, b) => dr.pts[a] - dr.pts[b]);
     const shown = order.slice(0, 3);
     if (!shown.some(ix => dr.actions[ix] === playedId)) {
       const pix = dr.actions.indexOf(playedId);
       if (pix >= 0) shown.push(pix);
     }
-    const best = order[0];
-    const spread = dr.mean[best] - dr.mean[order[order.length - 1]];
     html += `<div style="margin-top:8px"></div>`;
     // Per-move: POINTS (the deal-level axis players think in) plus the
     // match-win DELTA vs the best move when material; the near-constant
@@ -511,9 +517,8 @@ function renderEval(st, deal) {
       const dTxt = dloss >= 0.01
         ? ` &middot; &minus;${(dloss * 100).toFixed(1)}% match` : '';
       const ptsTxt = dr.pts ? `${dr.pts[ix].toFixed(1)} pts` : '';
-      const w = spread > 0.001
-        ? 15 + 85 * Math.max(0, (dr.mean[ix] - dr.mean[order[order.length - 1]]) / spread)
-        : 15;
+      const w = tied ? 15
+        : 15 + 85 * Math.max(0, (dr.mean[ix] - dr.mean[order[order.length - 1]]) / spread);
       html += `<div class="dbar${isP ? ' played' : ''}"
         title="Played out ${dr.K} times on this device: average penalty points this deal; '&minus;x% match' = match-win chance given up vs the best move. Bar length shows relative value.">
         <div class="fill" style="width:${w}%"></div>
