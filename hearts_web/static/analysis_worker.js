@@ -18,7 +18,7 @@
 
 // VER busts HTTP caches for the engine glue AND its .wasm (locateFile) -
 // without it, browsers happily run a stale engine forever.
-const VER = 11;
+const VER = 12;
 // Fixed batch buckets: WebGPU compiles a pipeline PER TENSOR SHAPE, and
 // rollout rounds shrink row counts continuously - hundreds of one-off
 // shapes means hundreds of shader compiles (stalls, device pressure).
@@ -50,6 +50,31 @@ async function init() {
   M = await AnalysisEngine({
     locateFile: f => '/static/' + f + '?v=' + VER });
   M._an_init(1);
+  // ORT's own device request omits maxStorageBuffersPerShaderStage (the
+  // fp16 graph's Concat needs 11 vs the default 8 - measured 2026-08-05
+  // via WebGPU validation errors) and the shader-f16 feature. Hand ORT a
+  // device with the adapter's full limits instead.
+  try {
+    if (navigator.gpu) {
+      const adapter = await navigator.gpu.requestAdapter();
+      if (adapter) {
+        const lim = adapter.limits;
+        ort.env.webgpu.device = await adapter.requestDevice({
+          requiredFeatures: [...adapter.features].filter(
+            f => f === 'shader-f16'),
+          requiredLimits: {
+            maxStorageBuffersPerShaderStage: lim.maxStorageBuffersPerShaderStage,
+            maxStorageBufferBindingSize: lim.maxStorageBufferBindingSize,
+            maxBufferSize: lim.maxBufferSize,
+            maxComputeWorkgroupStorageSize: lim.maxComputeWorkgroupStorageSize,
+            maxComputeInvocationsPerWorkgroup: lim.maxComputeInvocationsPerWorkgroup,
+          },
+        });
+      }
+    }
+  } catch (e) {
+    console.warn('custom WebGPU device setup failed (ORT will use its own):', e);
+  }
   try {
     if (!self.navigator || !navigator.gpu) throw new Error('no webgpu');
     // fp16 first: the net is MEASURED fp16-safe (peak activation 31 vs
