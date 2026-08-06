@@ -227,6 +227,7 @@
         <button id="deep64-btn" class="xbtn" style="display:none">K=64 here</button>
       </div>
       <div id="deep-status" class="muted" style="font-size:.68rem; margin-top:4px"></div>
+      <div id="deep-note" style="font-size:.66rem; color:#C8A24A; display:none"></div>
       <div id="deep-pos" style="font-size:.68rem; color:#4CC2FF"></div>
     </div>
     <div id="ai-note">Perilune is a work in progress. Its pick is not
@@ -1039,9 +1040,16 @@ async function deepStart() {
       dstatus(`analyzing ${m.done}/${m.total}…`);
       if (m.done >= m.total) { dstatus(`done (${m.total} positions)`); deepDone(); }
     } else if (m.type === 'note') {
-      dstatus(m.message);
+      // Notes are STICKY: transient events (fp16 downgrade etc.) must
+      // stay readable, not flash by under the next progress update.
+      const n = el('deep-note');
+      n.textContent = '⚠ ' + m.message;
+      n.style.display = 'block';
     } else if (m.type === 'fatal') {
       dstatus('analysis failed: ' + m.message);
+      const n = el('deep-note');
+      n.textContent = '⚠ ' + m.message;
+      n.style.display = 'block';
       deepDone();
     }
   };
