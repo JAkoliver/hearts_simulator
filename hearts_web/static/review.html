@@ -505,9 +505,10 @@ function renderEval(st, deal) {
       const seTxt = dr.se[ix] >= 0.0005
         ? ` &plusmn;${(dr.se[ix] * 100).toFixed(1)}` : '';
       const ptsTxt = dr.pts ? ` &middot; ${dr.pts[ix].toFixed(1)} pts` : '';
-      html += `<div class="dbar${isP ? ' played' : ''}">
+      html += `<div class="dbar${isP ? ' played' : ''}"
+        title="Played out ${dr.K} times on this device: chance this seat WINS THE MATCH (not the deal), and average points taken this deal. &plusmn; is sampling uncertainty.">
         <div class="fill" style="width:${Math.max(2, dr.mean[ix] * 100)}%"></div>
-        <span>${ct(idName(dr.actions[ix]))} &middot; ${(dr.mean[ix] * 100).toFixed(1)}% win${seTxt}${ptsTxt}${isP ? ' &larr; played' : ''}</span></div>`;
+        <span>${ct(idName(dr.actions[ix]))} &middot; ${(dr.mean[ix] * 100).toFixed(1)}% match win${seTxt}${ptsTxt}${isP ? ' &larr; played' : ''}</span></div>`;
     }
     // One-sentence verdict tying the two panels together.
     if (spread < 0.01) {
@@ -520,7 +521,7 @@ function renderEval(st, deal) {
       const v = deepVerdict(cur, name);
       if (v && v.kind === 'cost')
         html += `<div class="muted" style="font-size:.68rem; margin-top:3px">
-          The search confirms this play cost real win chance.</div>`;
+          The search confirms this play cost real match-win chance.</div>`;
       else if (v && v.kind === 'nocost')
         html += `<div class="muted" style="font-size:.68rem; margin-top:3px">
           Played out, your card matches the best move's value &mdash; the
@@ -591,7 +592,8 @@ function deepVerdict(idx, playedName) {
   const sig = 2 * Math.sqrt(dr.se[best] ** 2 + dr.se[pix] ** 2);
   const MATERIAL = 0.01;   // 1 point of win chance
   if (diff >= MATERIAL && diff > sig)
-    return {kind: 'cost', text: `cost &minus;${(diff * 100).toFixed(1)}% win`,
+    return {kind: 'cost',
+            text: `cost &minus;${(diff * 100).toFixed(1)}% match win`,
             cls: 'dv'};
   if (diff < MATERIAL)
     return {kind: 'nocost', text: 'no cost', cls: 'dv ok'};
