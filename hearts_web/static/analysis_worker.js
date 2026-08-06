@@ -18,7 +18,7 @@
 
 // VER busts HTTP caches for the engine glue AND its .wasm (locateFile) -
 // without it, browsers happily run a stale engine forever.
-const VER = 8;
+const VER = 9;
 // Fixed batch buckets: WebGPU compiles a pipeline PER TENSOR SHAPE, and
 // rollout rounds shrink row counts continuously - hundreds of one-off
 // shapes means hundreds of shader compiles (stalls, device pressure).
@@ -143,8 +143,8 @@ async function runPolicy(rows, wantBelief) {
 }
 
 async function analyzeOne(job) {
-  let kind = job.kind === 'playout'
-    ? M._an_playout(job.deal)
+  let kind = job.kind === 'trace' ? M._an_deal_trace(job.deal)
+    : job.kind === 'playout' ? M._an_playout(job.deal)
     : M._an_analyze(job.deal, job.actionIdx, job.K);
   if (kind === -3) throw new Error('engine: ' + anError());
   if (kind < 0) return { ...job, actions: [], mean: [], se: [], desync: true };
@@ -188,6 +188,12 @@ async function analyzeOne(job) {
       }
       kind = M._an_feed_equity();
     }
+  }
+  if (job.kind === 'trace') {
+    const n = M._an_trace_n();
+    const trace = [...new Int32Array(M.HEAP32.buffer,
+                                     M._an_result_trace(), n * 4)];
+    return { ...job, trace, desync: false };
   }
   if (job.kind === 'playout') {
     const playout = [...new Int32Array(M.HEAP32.buffer,

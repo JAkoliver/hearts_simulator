@@ -99,7 +99,9 @@ struct Engine {
     std::vector<float> r_mean, r_se, r_pts;
     std::vector<int32_t> r_n;
     bool playout_mode = false;      // par playout: per-seat deal points
+    bool trace_mode = false;        // par TRACE: one playout per play state
     std::array<int32_t, 4> r_po{};
+    std::vector<int32_t> r_trace;   // n_states x 4 per-seat playout points
 
     // ---- helpers (ports) ---------------------------------------------------
     static std::vector<int> LegalVector(const HeartsEnv& e) {
@@ -371,9 +373,15 @@ struct Engine {
             if (!sims[i].done) active.push_back(i);
         }
         if (active.empty()) {
-            if (playout_mode) {
-                auto sc = sims[0].env.GetRoundScores();
-                for (int i = 0; i < 4; ++i) r_po[i] = sc[i];
+            if (playout_mode || trace_mode) {
+                r_trace.assign(sims.size() * 4, 0);
+                for (auto& s : sims) {
+                    auto sc = s.env.GetRoundScores();
+                    for (int k = 0; k < 4; ++k) r_trace[s.tag * 4 + k] = sc[k];
+                }
+                if (playout_mode) {
+                    for (int k = 0; k < 4; ++k) r_po[k] = r_trace[k];
+                }
                 sims.clear();
                 stage = PUMP_DONE;
                 return stage;
@@ -525,6 +533,7 @@ KEEP int an_playout(int deal_idx) {
     E.sims.clear();
     E.dets.clear();
     E.playout_mode = true;
+    E.trace_mode = false;
     int pass_actions =
         (deal_idx < (int)E.deal_actions.size()
          && E.deal_actions[deal_idx].size() == 64) ? 12 : 0;
@@ -537,10 +546,39 @@ KEEP int an_playout(int deal_idx) {
 
 KEEP int32_t* an_result_playout() { return E.r_po.data(); }
 
+// PAR TRACE: one all-AI playout from the state BEFORE EVERY PLAY of one
+// deal, batched into a single pump session (rows across sims share
+// forwards). Client-side telescoping over the results attributes every
+// point to the move that shifted it: own moves = unforced, others' =
+// forced. V[j] rows are per-seat points of the playout from state j.
+KEEP int an_deal_trace(int deal_idx) {
+  return Trap([&]() -> int {
+    E.sims.clear();
+    E.dets.clear();
+    E.playout_mode = false;
+    E.trace_mode = true;
+    if (deal_idx >= (int)E.deal_actions.size()) return -1;
+    const auto& acts = E.deal_actions[deal_idx];
+    int pass_off = (int)acts.size() == 64 ? 12 : 0;
+    if (!E.SeekTo(deal_idx, pass_off)) return -1;
+    int n_plays = (int)acts.size() - pass_off;
+    for (int j = 0; j < n_plays; ++j) {
+        E.sims.emplace_back(E.env.Clone(), j);
+        E.env.Step(acts[pass_off + j]);
+    }
+    E.root_pending = false;
+    return E.NextRolloutRequest();
+  });
+}
+
+KEEP int an_trace_n() { return (int)(E.r_trace.size() / 4); }
+KEEP int32_t* an_result_trace() { return E.r_trace.data(); }
+
 KEEP int an_analyze(int deal_idx, int action_idx, int k) {
   return Trap([&]() -> int {
     E.K = k;
     E.playout_mode = false;
+    E.trace_mode = false;
     E.sims.clear();
     E.dets.clear();
     if (!E.SeekTo(deal_idx, action_idx)) return -1;

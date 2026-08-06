@@ -443,39 +443,47 @@ function renderEval(st, deal) {
         Pass evals use the raw policy, judged pick by pick; the full
         engine evaluates passes with deeper search.</div>`;
     }
-    // PAR: one deterministic playout of this deal with Perilune playing
-    // ALL FOUR hands - what these cards "should" cost. Under par = the
-    // seat outplayed the AI's own line with the same cards.
-    const po = deepResults[deepKey(st.d, 'po')];
-    if (po && po.playout && deal.round_scores) {
+    // PAR + attribution: par is a deterministic playout with Perilune
+    // playing ALL FOUR hands; the trace re-runs it before every play, so
+    // each point is charged to the move that shifted it - own moves
+    // (unforced) vs others' (forced on you).
+    const trc = traceOf(st.d);
+    if (trc && deal.round_scores) {
       const rs = deal.round_scores;
+      const fmt = (v, inv) => v === 0 ? `<span class="muted">0</span>`
+        : `<span style="color:${(v > 0) !== !!inv ? '#E5484D' : '#7CBF8E'}">${v > 0 ? '+' : ''}${v}</span>`;
       html += `<div class="deep-h" style="margin-top:10px">Par for this deal
         (Perilune playing all four hands)</div>`;
       for (let s2 = 0; s2 < 4; s2++) {
-        const diff = rs[s2] - po.playout[s2];
-        const tag = diff < 0
-          ? `<span style="color:#7CBF8E">${diff} vs par</span>`
-          : diff > 0 ? `<span style="color:#E5484D">+${diff} vs par</span>`
-          : `<span class="muted">even par</span>`;
         html += `<div style="font-size:.72rem; margin:2px 0">
-          ${esc(seatLabel(s2))}: par ${po.playout[s2]} &middot;
-          took ${rs[s2]} &middot; ${tag}</div>`;
+          ${esc(seatLabel(s2))}: par ${trc.par[s2]}
+          &middot; own moves ${fmt(trc.own[s2])}
+          &middot; forced ${fmt(trc.forced[s2])}
+          &rarr; took ${rs[s2]}</div>`;
       }
-      const tot = [0, 0, 0, 0];
+      const totOwn = [0, 0, 0, 0], totPar = [0, 0, 0, 0];
       let nd = 0;
       R.deals.forEach((dl, di) => {
-        const p2 = deepResults[deepKey(di, 'po')];
-        if (p2 && p2.playout && dl.round_scores) {
+        const t2 = traceOf(di);
+        if (t2 && dl.round_scores) {
           nd++;
-          for (let s2 = 0; s2 < 4; s2++)
-            tot[s2] += dl.round_scores[s2] - p2.playout[s2];
+          for (let s2 = 0; s2 < 4; s2++) {
+            totOwn[s2] += t2.own[s2];
+            totPar[s2] += dl.round_scores[s2] - t2.par[s2];
+          }
         }
       });
-      if (nd > 1)
-        html += `<div class="muted" style="font-size:.68rem; margin-top:3px">
-          Whole match vs par (${nd} deals): ` + [0, 1, 2, 3].map(s2 =>
-            `${esc(seatLabel(s2))} ${tot[s2] > 0 ? '+' : ''}${tot[s2]}`)
-            .join(' &middot; ') + `</div>`;
+      if (nd > 1) {
+        html += `<div class="muted" style="font-size:.68rem; margin-top:4px">
+          Whole match (${nd} deals) &mdash; unforced: ` + [0, 1, 2, 3].map(s2 =>
+            `${esc(seatLabel(s2))} ${fmt(totOwn[s2])}`).join(' &middot; ')
+          + `<br>vs par: ` + [0, 1, 2, 3].map(s2 =>
+            `${esc(seatLabel(s2))} ${fmt(totPar[s2])}`).join(' &middot; ')
+          + `</div>`;
+      }
+      html += `<div class="muted" style="font-size:.64rem; margin-top:4px">
+        Par judges against Perilune's own line; where Perilune has blind
+        spots (e.g. moon defense), attribution inherits them.</div>`;
     }
     el('evalbox').innerHTML = html;
     if (deal.pass_direction !== 'hold') {
@@ -562,6 +570,17 @@ function renderEval(st, deal) {
     }
     html += `<div class="muted" style="font-size:.68rem; margin-top:3px">
       ${esc(seatLabel(s))} match win here: <span style="color:#4CC2FF">${(dr.mean[best] * 100).toFixed(1)}%</span></div>`;
+    // Par shift of THIS card: how the mover's expected points moved.
+    const trP = traceOf(st.d);
+    if (trP) {
+      const before = trP.V[st.i][s], after = trP.V[st.i + 1][s];
+      const dv = after - before;
+      const col = dv >= 2 ? '#E5484D' : dv <= -2 ? '#7CBF8E' : '';
+      html += `<div class="muted" style="font-size:.68rem; margin-top:2px">
+        Expected points this deal: ${before} &rarr; ${after}${dv !== 0
+          ? ` (<span${col ? ` style="color:${col}"` : ''}>${dv > 0 ? '+' : ''}${dv} from this card</span>)`
+          : ''}</div>`;
+    }
     // One-sentence verdict tying the two panels together.
     if (spread < 0.01) {
       html += `<div class="muted" style="font-size:.68rem; margin-top:3px">
@@ -657,11 +676,33 @@ function deepBadge(idx, playedName) {
 }
 
 function renderDis() {
-  el('dis').innerHTML = disagreements().map(d =>
+  let html = disagreements().map(d =>
     `<div class="dline" data-idx="${d.idx}">D${d.d} T${d.t} &middot;
       ${esc(seatLabel(d.s))}: ${ct(d.name)} &rarr; ${ctG(d.ai)}
       <span class="muted" title="raw-policy preference gap - habit strength, not value">(+${(d.gap * 100).toFixed(0)}%)</span>${deepBadge(d.idx, d.name)}</div>`).join('')
     || '<div class="muted" style="font-size:.75rem">No disagreements.</div>';
+  // Unforced points (par-trace): moves that shifted the MOVER's own
+  // expected points by >=3, independent of raw-policy opinion - catches
+  // blunders the raw net would have made too.
+  const un = [];
+  steps.forEach((st, idx) => {
+    if (st.type !== 'play') return;
+    const trD = traceOf(st.d);
+    if (!trD) return;
+    const [sv, name] = R.deals[st.d].plays[st.i];
+    if (disMode === 'you' && sv !== R.viewer_seat) return;
+    const dv = trD.V[st.i + 1][sv] - trD.V[st.i][sv];
+    if (dv >= 3) un.push({idx, d: R.deals[st.d].deal_no,
+                          t: Math.floor(st.i / 4) + 1, s: sv, name, dv});
+  });
+  if (un.length) {
+    html += `<div class="deep-h" style="margin-top:8px">Unforced points
+      (vs Perilune's line)</div>` + un.map(u =>
+      `<div class="dline" data-idx="${u.idx}">D${u.d} T${u.t} &middot;
+        ${esc(seatLabel(u.s))}: ${ct(u.name)}
+        <span class="dv">+${u.dv} pts</span></div>`).join('');
+  }
+  el('dis').innerHTML = html;
   document.querySelectorAll('.dline').forEach(n =>
     n.onclick = () => { cur = +n.dataset.idx; render(); });
 }
@@ -895,12 +936,12 @@ function deepJobs(K, skipDone) {
     if (merged.length && !merged[0][0].includes(name)) disIdx.add(idx);
   });
   const jobs = [];
-  // Par playouts first: one cheap all-AI playout per deal (the reference
-  // every seat's actual points are judged against).
+  // Par traces first: an all-AI playout from every play state of each
+  // deal, batched (the reference every point is attributed against).
   R.deals.forEach((deal, d) => {
-    if (skipDone && deepResults[deepKey(d, 'po')]) return;
-    jobs.push({prio: -1, kind: 'playout', key: deepKey(d, 'po'),
-               d, i: 'po', deal: d, actionIdx: 0, K: 0});
+    if (skipDone && deepResults[deepKey(d, 'tr')]) return;
+    jobs.push({prio: -1, kind: 'trace', key: deepKey(d, 'tr'),
+               d, i: 'tr', deal: d, actionIdx: 0, K: 0});
   });
   steps.forEach((st, idx) => {
     if (st.type !== 'play') return;
@@ -926,7 +967,7 @@ async function deepStart() {
     deepMd5 = (man.policy_onnx_md5 || '').slice(0, 8);
   } catch (e) { deepMd5 = 'nomd5'; }
   for (const v of await idbLoadCached()) deepAccept(v);
-  deepWorker = new Worker('/static/analysis_worker.js?v=8');
+  deepWorker = new Worker('/static/analysis_worker.js?v=9');
   // A crashed worker (e.g. a wasm abort) must be VISIBLE, never a frozen
   // counter.
   deepWorker.onerror = e => {
@@ -952,15 +993,18 @@ async function deepStart() {
       render();
     } else if (m.type === 'result') {
       if (m.desync) { dstatus('replay mismatch - analysis unavailable'); deepDone(); return; }
-      const v = m.playout
+      const v = m.trace
+        ? {d: m.d, i: 'tr', K: 0, trace: m.trace}
+        : m.playout
         ? {d: m.d, i: 'po', K: 0, playout: m.playout}
         : {d: m.d, i: m.i, K: m.K, actions: m.actions,
            mean: m.mean, se: m.se, pts: m.pts};
       deepAccept(v);
       idbSave(v);
       const st = steps[cur];
-      if (st && ((st.type === 'play' && st.d === v.d && st.i === v.i)
-                 || (st.type === 'start' && v.i === 'po'))) render();
+      if (st && ((st.type === 'play' && st.d === v.d)
+                 || (st.type === 'start' && (v.i === 'po' || v.i === 'tr'))))
+        render();
       renderDis();
     } else if (m.type === 'progress') {
       dstatus(`analyzing ${m.done}/${m.total}…`);
@@ -978,6 +1022,31 @@ async function deepStart() {
 // A forced play (single legal card) carries no decision - the ranked list
 // from the server has one entry.
 const isForced = st => R.deals[st.d].plays[st.i][3].length < 2;
+
+// Par-trace bookkeeping. V[j] = per-seat expected points from the state
+// BEFORE play j under Perilune's all-AI continuation; V[n] = the actual
+// scores. Telescoping: actual = par + sum of every move's shift, each
+// charged to its mover - own moves are UNFORCED, others' moves FORCED.
+function traceOf(d) {
+  const tr = deepResults[deepKey(d, 'tr')];
+  const deal = R.deals[d];
+  if (!tr || !tr.trace || !deal.round_scores) return null;
+  const n = deal.plays.length;
+  if (tr.trace.length !== n * 4) return null;
+  const V = [];
+  for (let j = 0; j < n; j++) V.push(tr.trace.slice(j * 4, j * 4 + 4));
+  V.push(deal.round_scores);
+  const own = [0, 0, 0, 0], forced = [0, 0, 0, 0];
+  for (let j = 0; j < n; j++) {
+    const mover = deal.plays[j][0];
+    for (let s = 0; s < 4; s++) {
+      const dv = V[j + 1][s] - V[j][s];
+      if (mover === s) own[s] += dv;
+      else forced[s] += dv;
+    }
+  }
+  return {V, own, forced, par: V[0]};
+}
 
 function deepAllDone() {
   return steps.every(st => st.type !== 'play' || isForced(st)
