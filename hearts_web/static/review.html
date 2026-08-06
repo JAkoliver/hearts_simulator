@@ -660,7 +660,58 @@ function deepBadge(idx, playedName) {
   return v ? ` <span class="${v.cls}">${v.text}</span>` : '';
 }
 
+// Decision-cost scorecard: every analyzed decision's (best - played)
+// match-win gap summed per seat - play quality for the whole match, in
+// the SAME estimator and currency as the bars and Costly plays. The
+// materially-costly subset is broken out; the rest of the total is
+// many sub-noise gaps, so the +- matters.
+function scorecard() {
+  const rows = [0, 1, 2, 3].map(s => ({s, total: 0, v: 0, n: 0,
+                                       mat: 0, matSum: 0}));
+  let any = false;
+  steps.forEach(st => {
+    if (st.type !== 'play' || isForced(st)) return;
+    const [sv, name] = R.deals[st.d].plays[st.i];
+    const dr = deepResults[deepKey(st.d, st.i)];
+    if (!dr || !dr.actions || dr.actions.length < 2) return;
+    const pix = dr.actions.indexOf(cardId(name));
+    if (pix < 0) return;
+    let best = 0;
+    for (let i = 1; i < dr.mean.length; i++) {
+      if (dr.mean[i] > dr.mean[best]) best = i;
+    }
+    const diff = dr.mean[best] - dr.mean[pix];
+    const r = rows[sv];
+    r.total += diff;
+    r.v += dr.se[best] ** 2 + dr.se[pix] ** 2;
+    r.n++;
+    any = true;
+    if (best !== pix && diff >= 0.01
+        && diff > 2 * Math.sqrt(dr.se[best] ** 2 + dr.se[pix] ** 2)) {
+      r.mat++;
+      r.matSum += diff;
+    }
+  });
+  return any ? rows : null;
+}
+
 function renderDis() {
+  const sc = scorecard();
+  let scHtml = '';
+  if (sc) {
+    scHtml = `<div class="deep-h" style="margin-bottom:2px">Decision costs
+      (whole match, deep search)</div>` + sc.map(r => {
+      const se = Math.sqrt(r.v);
+      return `<div style="font-size:.72rem; margin:2px 0">
+        ${esc(seatLabel(r.s))}: &minus;${(r.total * 100).toFixed(1)}%
+        &plusmn;${(se * 100).toFixed(1)} match win
+        <span class="muted">(${r.n} decisions${r.mat
+          ? `; ${r.mat} costly = &minus;${(r.matSum * 100).toFixed(1)}%`
+          : ''})</span></div>`;
+    }).join('') + `<div class="muted" style="font-size:.64rem; margin:3px 0 8px">
+      Totals within their &plusmn; are indistinguishable from noise; the
+      costly subset is the confident part.</div>`;
+  }
   let html = disagreements().map(d =>
     `<div class="dline" data-idx="${d.idx}">D${d.d} T${d.t} &middot;
       ${esc(seatLabel(d.s))}: ${ct(d.name)} &rarr; ${ctG(d.ai)}
@@ -677,7 +728,7 @@ function renderDis() {
           ? ` <span class="muted">(+${u.dpts.toFixed(1)} pts)</span>` : ''}</div>`)
       .join('');
   }
-  el('dis').innerHTML = html;
+  el('dis').innerHTML = scHtml + html;
   document.querySelectorAll('.dline').forEach(n =>
     n.onclick = () => { cur = +n.dataset.idx; render(); });
 }
