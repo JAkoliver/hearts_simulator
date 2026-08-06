@@ -443,47 +443,43 @@ function renderEval(st, deal) {
         Pass evals use the raw policy, judged pick by pick; the full
         engine evaluates passes with deeper search.</div>`;
     }
-    // PAR + attribution: par is a deterministic playout with Perilune
-    // playing ALL FOUR hands; the trace re-runs it before every play, so
-    // each point is charged to the move that shifted it - own moves
-    // (unforced) vs others' (forced on you).
-    const trc = traceOf(st.d);
-    if (trc && deal.round_scores) {
+    // PAR: whole-deal reference only. Per-move attribution from a
+    // deterministic playout is CHAOS (a correct duck once got charged
+    // +17 because the reference line played the equivalent 8S and the
+    // continuations diverged) - so par makes no per-card claims.
+    const parRow = parOf(st.d);
+    if (parRow && deal.round_scores) {
       const rs = deal.round_scores;
-      const fmt = (v, inv) => v === 0 ? `<span class="muted">0</span>`
-        : `<span style="color:${(v > 0) !== !!inv ? '#E5484D' : '#7CBF8E'}">${v > 0 ? '+' : ''}${v}</span>`;
       html += `<div class="deep-h" style="margin-top:10px">Par for this deal
         (Perilune playing all four hands)</div>`;
       for (let s2 = 0; s2 < 4; s2++) {
+        const diff = rs[s2] - parRow[s2];
+        const tag = diff < 0
+          ? `<span style="color:#7CBF8E">${diff} vs par</span>`
+          : diff > 0 ? `<span style="color:#E5484D">+${diff} vs par</span>`
+          : `<span class="muted">even par</span>`;
         html += `<div style="font-size:.72rem; margin:2px 0">
-          ${esc(seatLabel(s2))}: par ${trc.par[s2]}
-          &middot; own moves ${fmt(trc.own[s2])}
-          &middot; forced ${fmt(trc.forced[s2])}
-          &rarr; took ${rs[s2]}</div>`;
+          ${esc(seatLabel(s2))}: par ${parRow[s2]} &middot; took ${rs[s2]}
+          &middot; ${tag}</div>`;
       }
-      const totOwn = [0, 0, 0, 0], totPar = [0, 0, 0, 0];
+      const tot = [0, 0, 0, 0];
       let nd = 0;
       R.deals.forEach((dl, di) => {
-        const t2 = traceOf(di);
-        if (t2 && dl.round_scores) {
+        const p2 = parOf(di);
+        if (p2 && dl.round_scores) {
           nd++;
-          for (let s2 = 0; s2 < 4; s2++) {
-            totOwn[s2] += t2.own[s2];
-            totPar[s2] += dl.round_scores[s2] - t2.par[s2];
-          }
+          for (let s2 = 0; s2 < 4; s2++) tot[s2] += dl.round_scores[s2] - p2[s2];
         }
       });
-      if (nd > 1) {
+      if (nd > 1)
         html += `<div class="muted" style="font-size:.68rem; margin-top:4px">
-          Whole match (${nd} deals) &mdash; unforced: ` + [0, 1, 2, 3].map(s2 =>
-            `${esc(seatLabel(s2))} ${fmt(totOwn[s2])}`).join(' &middot; ')
-          + `<br>vs par: ` + [0, 1, 2, 3].map(s2 =>
-            `${esc(seatLabel(s2))} ${fmt(totPar[s2])}`).join(' &middot; ')
-          + `</div>`;
-      }
+          Whole match vs par (${nd} deals): ` + [0, 1, 2, 3].map(s2 =>
+            `${esc(seatLabel(s2))} ${tot[s2] > 0 ? '+' : ''}${tot[s2]}`)
+            .join(' &middot; ') + `</div>`;
       html += `<div class="muted" style="font-size:.64rem; margin-top:4px">
-        Par judges against Perilune's own line; where Perilune has blind
-        spots (e.g. moon defense), attribution inherits them.</div>`;
+        Par is what these cards cost with Perilune playing every hand -
+        a luck-inclusive reference, not a skill score. Good and bad PLAYS
+        are listed under Costly plays in the side panel.</div>`;
     }
     el('evalbox').innerHTML = html;
     if (deal.pass_direction !== 'hold') {
@@ -570,17 +566,6 @@ function renderEval(st, deal) {
     }
     html += `<div class="muted" style="font-size:.68rem; margin-top:3px">
       ${esc(seatLabel(s))} match win here: <span style="color:#4CC2FF">${(dr.mean[best] * 100).toFixed(1)}%</span></div>`;
-    // Par shift of THIS card: how the mover's expected points moved.
-    const trP = traceOf(st.d);
-    if (trP) {
-      const before = trP.V[st.i][s], after = trP.V[st.i + 1][s];
-      const dv = after - before;
-      const col = dv >= 2 ? '#E5484D' : dv <= -2 ? '#7CBF8E' : '';
-      html += `<div class="muted" style="font-size:.68rem; margin-top:2px">
-        Expected points this deal: ${before} &rarr; ${after}${dv !== 0
-          ? ` (<span${col ? ` style="color:${col}"` : ''}>${dv > 0 ? '+' : ''}${dv} from this card</span>)`
-          : ''}</div>`;
-    }
     // One-sentence verdict tying the two panels together.
     if (spread < 0.01) {
       html += `<div class="muted" style="font-size:.68rem; margin-top:3px">
@@ -681,26 +666,16 @@ function renderDis() {
       ${esc(seatLabel(d.s))}: ${ct(d.name)} &rarr; ${ctG(d.ai)}
       <span class="muted" title="raw-policy preference gap - habit strength, not value">(+${(d.gap * 100).toFixed(0)}%)</span>${deepBadge(d.idx, d.name)}</div>`).join('')
     || '<div class="muted" style="font-size:.75rem">No disagreements.</div>';
-  // Unforced points (par-trace): moves that shifted the MOVER's own
-  // expected points by >=3, independent of raw-policy opinion - catches
-  // blunders the raw net would have made too.
-  const un = [];
-  steps.forEach((st, idx) => {
-    if (st.type !== 'play') return;
-    const trD = traceOf(st.d);
-    if (!trD) return;
-    const [sv, name] = R.deals[st.d].plays[st.i];
-    if (disMode === 'you' && sv !== R.viewer_seat) return;
-    const dv = trD.V[st.i + 1][sv] - trD.V[st.i][sv];
-    if (dv >= 3) un.push({idx, d: R.deals[st.d].deal_no,
-                          t: Math.floor(st.i / 4) + 1, s: sv, name, dv});
-  });
-  if (un.length) {
-    html += `<div class="deep-h" style="margin-top:8px">Unforced points
-      (vs Perilune's line)</div>` + un.map(u =>
+  const cp = costlyPlays();
+  if (cp.length) {
+    html += `<div class="deep-h" style="margin-top:8px">Costly plays
+      (deep search)</div>` + cp.map(u =>
       `<div class="dline" data-idx="${u.idx}">D${u.d} T${u.t} &middot;
-        ${esc(seatLabel(u.s))}: ${ct(u.name)}
-        <span class="dv">+${u.dv} pts</span></div>`).join('');
+        ${esc(seatLabel(u.s))}: ${ct(u.name)} &rarr; ${ct(u.betterName)}
+        <span class="dv">&minus;${(u.diff * 100).toFixed(1)}% match</span>${
+        u.dpts != null && u.dpts > 0.05
+          ? ` <span class="muted">(+${u.dpts.toFixed(1)} pts)</span>` : ''}</div>`)
+      .join('');
   }
   el('dis').innerHTML = html;
   document.querySelectorAll('.dline').forEach(n =>
@@ -936,12 +911,13 @@ function deepJobs(K, skipDone) {
     if (merged.length && !merged[0][0].includes(name)) disIdx.add(idx);
   });
   const jobs = [];
-  // Par traces first: an all-AI playout from every play state of each
-  // deal, batched (the reference every point is attributed against).
+  // Par first: one all-AI playout per deal (whole-deal reference only -
+  // cached traces from the attribution experiment also satisfy this).
   R.deals.forEach((deal, d) => {
-    if (skipDone && deepResults[deepKey(d, 'tr')]) return;
-    jobs.push({prio: -1, kind: 'trace', key: deepKey(d, 'tr'),
-               d, i: 'tr', deal: d, actionIdx: 0, K: 0});
+    if (skipDone && (deepResults[deepKey(d, 'po')]
+                     || deepResults[deepKey(d, 'tr')])) return;
+    jobs.push({prio: -1, kind: 'playout', key: deepKey(d, 'po'),
+               d, i: 'po', deal: d, actionIdx: 0, K: 0});
   });
   steps.forEach((st, idx) => {
     if (st.type !== 'play') return;
@@ -1023,29 +999,46 @@ async function deepStart() {
 // from the server has one entry.
 const isForced = st => R.deals[st.d].plays[st.i][3].length < 2;
 
-// Par-trace bookkeeping. V[j] = per-seat expected points from the state
-// BEFORE play j under Perilune's all-AI continuation; V[n] = the actual
-// scores. Telescoping: actual = par + sum of every move's shift, each
-// charged to its mover - own moves are UNFORCED, others' moves FORCED.
-function traceOf(d) {
+// Par for a deal: per-seat points of the all-AI playout from the deal's
+// start. Reads either a cached trace (first row) or a single playout.
+// NOTE: per-move attribution from deterministic playouts was tried and
+// REMOVED - equivalent branches diverge chaotically (a correct duck got
+// charged +17), so par makes whole-deal claims only.
+function parOf(d) {
   const tr = deepResults[deepKey(d, 'tr')];
-  const deal = R.deals[d];
-  if (!tr || !tr.trace || !deal.round_scores) return null;
-  const n = deal.plays.length;
-  if (tr.trace.length !== n * 4) return null;
-  const V = [];
-  for (let j = 0; j < n; j++) V.push(tr.trace.slice(j * 4, j * 4 + 4));
-  V.push(deal.round_scores);
-  const own = [0, 0, 0, 0], forced = [0, 0, 0, 0];
-  for (let j = 0; j < n; j++) {
-    const mover = deal.plays[j][0];
-    for (let s = 0; s < 4; s++) {
-      const dv = V[j + 1][s] - V[j][s];
-      if (mover === s) own[s] += dv;
-      else forced[s] += dv;
+  if (tr && tr.trace && tr.trace.length >= 4) return tr.trace.slice(0, 4);
+  const po = deepResults[deepKey(d, 'po')];
+  return po && po.playout ? po.playout : null;
+}
+
+// Costly plays, from THE SEARCH ITSELF (same estimator as the bars, so
+// panels never disagree): positions where the played move trails the
+// search-best by material match-win beyond noise. Independent of the raw
+// policy's opinion - catches blunders the raw net would have made too.
+function costlyPlays() {
+  const out = [];
+  steps.forEach((st, idx) => {
+    if (st.type !== 'play') return;
+    const [sv, name] = R.deals[st.d].plays[st.i];
+    if (disMode === 'you' && sv !== R.viewer_seat) return;
+    const dr = deepResults[deepKey(st.d, st.i)];
+    if (!dr || !dr.actions || dr.actions.length < 2) return;
+    const pix = dr.actions.indexOf(cardId(name));
+    if (pix < 0) return;
+    let best = 0;
+    for (let i = 1; i < dr.mean.length; i++) {
+      if (dr.mean[i] > dr.mean[best]) best = i;
     }
-  }
-  return {V, own, forced, par: V[0]};
+    if (best === pix) return;
+    const diff = dr.mean[best] - dr.mean[pix];
+    const sig = 2 * Math.sqrt(dr.se[best] ** 2 + dr.se[pix] ** 2);
+    if (diff >= 0.01 && diff > sig)
+      out.push({idx, d: R.deals[st.d].deal_no, t: Math.floor(st.i / 4) + 1,
+                s: sv, name, betterName: idName(dr.actions[best]), diff,
+                dpts: dr.pts ? dr.pts[pix] - dr.pts[best] : null});
+  });
+  out.sort((a, b) => b.diff - a.diff);
+  return out;
 }
 
 function deepAllDone() {
