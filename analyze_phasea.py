@@ -186,10 +186,13 @@ def main():
         }
     if 'sel_base' in results:
         r = results['sel_base']
+        # Band widened [2%,60%] -> [2%,90%] by user-approved amendment
+        # 2026-08-06 (prereg): the ceiling presumed a punishing defender;
+        # at 51.5% success/attempt, high attempt rates are rational.
         checks['check3_sel_attempt_band'] = {
             'attempt_rate': r['attempt_rate'],
-            'bar': '[0.02, 0.60]',
-            'pass': 0.02 <= r['attempt_rate'] <= 0.60,
+            'bar': '[0.02, 0.90] (amended 2026-08-06)',
+            'pass': 0.02 <= r['attempt_rate'] <= 0.90,
         }
         checks['gate_power'] = {
             'moons_per_match_mean': r['moons_per_match_mean'],
