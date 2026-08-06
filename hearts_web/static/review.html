@@ -547,57 +547,56 @@ function renderEval(st, deal) {
   // measurement).
   const forced = top.length < 2;
   const dr = forced ? null : deepResults[deepKey(st.d, st.i)];
-  if (dr && dr.actions.length) {
+  const dm = forced ? null : deepMerged(st);
+  if (dm && dm.items.length) {
     const playedId = cardId(name);
-    let order = [...dr.actions.keys()].sort((a, b) => dr.mean[b] - dr.mean[a]);
-    const best = order[0];
-    const spread = dr.mean[best] - dr.mean[order[order.length - 1]];
+    const minMean = Math.min(...dm.items.map(it => it.mean));
+    const maxMean = Math.max(...dm.items.map(it => it.mean));
+    const spread = maxMean - minMean;
     // When every move is within the materiality bar the equity ordering is
     // pure noise - sort by the VISIBLE number (points, ascending) instead,
     // and render equal fills: tied means LOOKING tied.
     const tied = spread < 0.01;
-    if (tied && dr.pts)
-      order = [...dr.actions.keys()].sort((a, b) => dr.pts[a] - dr.pts[b]);
+    const items = [...dm.items].sort(tied && dm.items[0].pts != null
+      ? (a, b) => a.pts - b.pts : (a, b) => b.mean - a.mean);
     let shown;
     if (deepExpanded) {
-      shown = order;
+      shown = items;
     } else {
-      shown = order.slice(0, 3);
-      if (!shown.some(ix => dr.actions[ix] === playedId)) {
-        const pix = dr.actions.indexOf(playedId);
-        if (pix >= 0) shown.push(pix);
+      shown = items.slice(0, 3);
+      if (!shown.some(it => it.ids.includes(playedId))) {
+        const mine = items.find(it => it.ids.includes(playedId));
+        if (mine) shown.push(mine);
       }
     }
     html += `<div style="margin-top:8px"></div>`;
     // Per-move: POINTS (the deal-level axis players think in) plus the
-    // match-win DELTA vs the best move when material; the near-constant
-    // absolute match-win is stated ONCE below. Fills scale to the spread
-    // between moves so the decision's shape is visible.
-    for (const ix of shown) {
-      const isP = dr.actions[ix] === playedId;
-      // Every non-best bar shows its delta, however small - an ordering
-      // must never be justified by an invisible number.
-      const dloss = dr.mean[best] - dr.mean[ix];
+    // match-win DELTA vs the best move when material. Strictly-equivalent
+    // cards are POOLED (J/Q of a connected run share rollout samples -
+    // one estimate, tighter, never two conflicting numbers).
+    for (const it of shown) {
+      const isP = it.ids.includes(playedId);
+      const dloss = maxMean - it.mean;
       const dTxt = !tied && dloss >= 0.0005
         ? ` &middot; &minus;${(dloss * 100).toFixed(1)}% match` : '';
-      const ptsTxt = dr.pts ? `${dr.pts[ix].toFixed(1)} pts` : '';
+      const ptsTxt = it.pts != null ? `${it.pts.toFixed(1)} pts` : '';
       const w = tied ? 15
-        : 15 + 85 * Math.max(0, (dr.mean[ix] - dr.mean[order[order.length - 1]]) / spread);
+        : 15 + 85 * Math.max(0, (it.mean - minMean) / spread);
       html += `<div class="dbar${isP ? ' played' : ''}"
-        title="Played out ${dr.K} times on this device: average penalty points this deal; '&minus;x% match' = match-win chance given up vs the best move. Bar length shows relative value.">
+        title="Played out ${dm.K} times on this device (equivalent cards pooled): average penalty points this deal; '&minus;x% match' = match-win chance given up vs the best move. Bar length shows relative value.">
         <div class="fill" style="width:${w}%"></div>
-        <span>${ct(idName(dr.actions[ix]))} &middot; ${ptsTxt}${dTxt}${isP ? ' &larr; played' : ''}</span></div>`;
+        <span>${ctG(it.names)} &middot; ${ptsTxt}${dTxt}${isP ? ' &larr; played' : ''}</span></div>`;
     }
-    if (order.length > 3)
+    if (items.length > 3)
       html += `<button class="xbtn" id="dev-x">${deepExpanded
-        ? 'show top 3' : `show all ${order.length} moves`}</button>`;
+        ? 'show top 3' : `show all ${items.length} moves`}</button>`;
     html += `<div class="muted" style="font-size:.68rem; margin-top:3px">
-      ${esc(seatLabel(s))} match win here: <span style="color:#4CC2FF">${(dr.mean[best] * 100).toFixed(1)}%</span></div>`;
+      ${esc(seatLabel(s))} match win here: <span style="color:#4CC2FF">${(maxMean * 100).toFixed(1)}%</span></div>`;
     // One-sentence verdict tying the two panels together.
-    if (spread < 0.01) {
+    if (tied) {
       html += `<div class="muted" style="font-size:.68rem; margin-top:3px">
-        All moves are worth about the same here${dr.mean[best] < 0.03
-          ? ' (the match is effectively out of reach)' : dr.mean[best] > 0.97
+        All moves are worth about the same here${maxMean < 0.03
+          ? ' (the match is effectively out of reach)' : maxMean > 0.97
           ? ' (the match is effectively won)' : ''} &mdash; any raw-policy
         preference above is habit, not value.</div>`;
     } else {
@@ -668,16 +667,17 @@ function disagreements() {
 //   '? try K=64'      possibly real but not resolvable at this K
 function deepVerdict(idx, playedName) {
   const st = steps[idx];
-  const dr = deepResults[deepKey(st.d, st.i)];
-  if (!dr || dr.actions.length < 2) return null;
-  const pix = dr.actions.indexOf(cardId(playedName));
-  if (pix < 0) return null;
-  let best = 0;
-  for (let i = 1; i < dr.mean.length; i++) {
-    if (dr.mean[i] > dr.mean[best]) best = i;
+  const dm = deepMerged(st);
+  if (!dm || dm.items.length < 2) return null;
+  const pid = cardId(playedName);
+  const mine = dm.items.find(it => it.ids.includes(pid));
+  if (!mine) return null;
+  let best = dm.items[0];
+  for (const it of dm.items) {
+    if (it.mean > best.mean) best = it;
   }
-  const diff = dr.mean[best] - dr.mean[pix];
-  const sig = 2 * Math.sqrt(dr.se[best] ** 2 + dr.se[pix] ** 2);
+  const diff = best.mean - mine.mean;   // 0 when played is in the best class
+  const sig = 2 * Math.sqrt(best.se ** 2 + mine.se ** 2);
   const MATERIAL = 0.01;   // 1 point of win chance
   if (diff >= MATERIAL && diff > sig)
     return {kind: 'cost',
@@ -686,8 +686,8 @@ function deepVerdict(idx, playedName) {
   if (diff < MATERIAL)
     return {kind: 'nocost', text: 'no cost', cls: 'dv ok'};
   return {kind: 'unclear',
-          text: dr.K >= 256 ? '? unresolved at K=256'
-                            : `? try K=${Math.min(256, dr.K * 2)}`,
+          text: dm.K >= 256 ? '? unresolved at K=256'
+                            : `? try K=${Math.min(256, dm.K * 2)}`,
           cls: 'dv unk'};
 }
 function deepBadge(idx, playedName) {
@@ -707,22 +707,22 @@ function scorecard() {
   steps.forEach(st => {
     if (st.type !== 'play' || isForced(st)) return;
     const [sv, name] = R.deals[st.d].plays[st.i];
-    const dr = deepResults[deepKey(st.d, st.i)];
-    if (!dr || !dr.actions || dr.actions.length < 2) return;
-    const pix = dr.actions.indexOf(cardId(name));
-    if (pix < 0) return;
-    let best = 0;
-    for (let i = 1; i < dr.mean.length; i++) {
-      if (dr.mean[i] > dr.mean[best]) best = i;
+    const dm = deepMerged(st);
+    if (!dm || dm.items.length < 2) return;
+    const mine = dm.items.find(it => it.ids.includes(cardId(name)));
+    if (!mine) return;
+    let best = dm.items[0];
+    for (const it of dm.items) {
+      if (it.mean > best.mean) best = it;
     }
-    const diff = dr.mean[best] - dr.mean[pix];
+    const diff = best.mean - mine.mean;
     const r = rows[sv];
     r.total += diff;
-    r.v += dr.se[best] ** 2 + dr.se[pix] ** 2;
+    r.v += best.se ** 2 + mine.se ** 2;
     r.n++;
     any = true;
-    if (best !== pix && diff >= 0.01
-        && diff > 2 * Math.sqrt(dr.se[best] ** 2 + dr.se[pix] ** 2)) {
+    if (best !== mine && diff >= 0.01
+        && diff > 2 * Math.sqrt(best.se ** 2 + mine.se ** 2)) {
       r.mat++;
       r.matSum += diff;
     }
@@ -759,7 +759,7 @@ function renderDis() {
     html += `<div class="deep-h" style="margin-top:8px">Costly plays
       (deep search)</div>` + cp.map(u =>
       `<div class="dline" data-idx="${u.idx}">D${u.d} T${u.t} &middot;
-        ${esc(seatLabel(u.s))}: ${ct(u.name)} &rarr; ${ct(u.betterName)}
+        ${esc(seatLabel(u.s))}: ${ct(u.name)} &rarr; ${ctG(u.betterNames)}
         <span class="dv">&minus;${(u.diff * 100).toFixed(1)}% match</span>${
         u.dpts != null && u.dpts > 0.05
           ? ` <span class="muted">(+${u.dpts.toFixed(1)} pts)</span>` : ''}</div>`)
@@ -1118,6 +1118,45 @@ async function deepStart() {
 // from the server has one entry.
 const isForced = st => R.deals[st.d].plays[st.i][3].length < 2;
 
+// Deep results with strictly-equivalent moves POOLED: equivalent cards
+// estimate the same quantity, so merging their rollout samples is pure
+// variance reduction (2K samples, SE/sqrt2) - it also shrinks the
+// max-over-noisy-estimates bias feeding verdicts and the scorecard.
+// Classes come from the server's info-honest equivalence groups.
+function deepMerged(st) {
+  const dr = deepResults[deepKey(st.d, st.i)];
+  if (!dr || !dr.actions || !dr.actions.length) return null;
+  const eq = R.deals[st.d].plays[st.i][4] || [];
+  const gid = {};
+  eq.forEach((g, i) => g.forEach(nm => { gid[cardId(nm)] = i; }));
+  const items = [], byG = {};
+  dr.actions.forEach((a, i) => {
+    const g = gid[a];
+    if (g === undefined) {
+      items.push({ids: [a], mean: dr.mean[i], v: dr.se[i] ** 2,
+                  pts: dr.pts ? dr.pts[i] : null, m: 1});
+    } else if (byG[g]) {
+      const it = byG[g];
+      it.ids.push(a);
+      it.mean += dr.mean[i];
+      it.v += dr.se[i] ** 2;
+      if (it.pts != null && dr.pts) it.pts += dr.pts[i];
+      it.m++;
+    } else {
+      byG[g] = {ids: [a], mean: dr.mean[i], v: dr.se[i] ** 2,
+                pts: dr.pts ? dr.pts[i] : null, m: 1};
+      items.push(byG[g]);
+    }
+  });
+  for (const it of items) {
+    it.mean /= it.m;
+    it.se = Math.sqrt(it.v) / it.m;
+    if (it.pts != null) it.pts /= it.m;
+    it.names = it.ids.map(idName);
+  }
+  return {items, K: dr.K};
+}
+
 // Par for a deal: per-seat points of the all-AI playout from the deal's
 // start. Reads either a cached trace (first row) or a single playout.
 // NOTE: per-move attribution from deterministic playouts was tried and
@@ -1140,21 +1179,23 @@ function costlyPlays() {
     if (st.type !== 'play') return;
     const [sv, name] = R.deals[st.d].plays[st.i];
     if (disMode === 'you' && sv !== R.viewer_seat) return;
-    const dr = deepResults[deepKey(st.d, st.i)];
-    if (!dr || !dr.actions || dr.actions.length < 2) return;
-    const pix = dr.actions.indexOf(cardId(name));
-    if (pix < 0) return;
-    let best = 0;
-    for (let i = 1; i < dr.mean.length; i++) {
-      if (dr.mean[i] > dr.mean[best]) best = i;
+    const dm = deepMerged(st);
+    if (!dm || dm.items.length < 2) return;
+    const pid = cardId(name);
+    const mine = dm.items.find(it => it.ids.includes(pid));
+    if (!mine) return;
+    let best = dm.items[0];
+    for (const it of dm.items) {
+      if (it.mean > best.mean) best = it;
     }
-    if (best === pix) return;
-    const diff = dr.mean[best] - dr.mean[pix];
-    const sig = 2 * Math.sqrt(dr.se[best] ** 2 + dr.se[pix] ** 2);
+    if (best === mine) return;
+    const diff = best.mean - mine.mean;
+    const sig = 2 * Math.sqrt(best.se ** 2 + mine.se ** 2);
     if (diff >= 0.01 && diff > sig)
       out.push({idx, d: R.deals[st.d].deal_no, t: Math.floor(st.i / 4) + 1,
-                s: sv, name, betterName: idName(dr.actions[best]), diff,
-                dpts: dr.pts ? dr.pts[pix] - dr.pts[best] : null});
+                s: sv, name, betterNames: best.names, diff,
+                dpts: mine.pts != null && best.pts != null
+                  ? mine.pts - best.pts : null});
   });
   out.sort((a, b) => b.diff - a.diff);
   return out;
