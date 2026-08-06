@@ -443,6 +443,40 @@ function renderEval(st, deal) {
         Pass evals use the raw policy, judged pick by pick; the full
         engine evaluates passes with deeper search.</div>`;
     }
+    // PAR: one deterministic playout of this deal with Perilune playing
+    // ALL FOUR hands - what these cards "should" cost. Under par = the
+    // seat outplayed the AI's own line with the same cards.
+    const po = deepResults[deepKey(st.d, 'po')];
+    if (po && po.playout && deal.round_scores) {
+      const rs = deal.round_scores;
+      html += `<div class="deep-h" style="margin-top:10px">Par for this deal
+        (Perilune playing all four hands)</div>`;
+      for (let s2 = 0; s2 < 4; s2++) {
+        const diff = rs[s2] - po.playout[s2];
+        const tag = diff < 0
+          ? `<span style="color:#7CBF8E">${diff} vs par</span>`
+          : diff > 0 ? `<span style="color:#E5484D">+${diff} vs par</span>`
+          : `<span class="muted">even par</span>`;
+        html += `<div style="font-size:.72rem; margin:2px 0">
+          ${esc(seatLabel(s2))}: par ${po.playout[s2]} &middot;
+          took ${rs[s2]} &middot; ${tag}</div>`;
+      }
+      const tot = [0, 0, 0, 0];
+      let nd = 0;
+      R.deals.forEach((dl, di) => {
+        const p2 = deepResults[deepKey(di, 'po')];
+        if (p2 && p2.playout && dl.round_scores) {
+          nd++;
+          for (let s2 = 0; s2 < 4; s2++)
+            tot[s2] += dl.round_scores[s2] - p2.playout[s2];
+        }
+      });
+      if (nd > 1)
+        html += `<div class="muted" style="font-size:.68rem; margin-top:3px">
+          Whole match vs par (${nd} deals): ` + [0, 1, 2, 3].map(s2 =>
+            `${esc(seatLabel(s2))} ${tot[s2] > 0 ? '+' : ''}${tot[s2]}`)
+            .join(' &middot; ') + `</div>`;
+    }
     el('evalbox').innerHTML = html;
     if (deal.pass_direction !== 'hold') {
       // One row per giver: name -> cards -> receiver, with an agreement
@@ -513,8 +547,10 @@ function renderEval(st, deal) {
     // between moves so the decision's shape is visible.
     for (const ix of shown) {
       const isP = dr.actions[ix] === playedId;
+      // Every non-best bar shows its delta, however small - an ordering
+      // must never be justified by an invisible number.
       const dloss = dr.mean[best] - dr.mean[ix];
-      const dTxt = dloss >= 0.01
+      const dTxt = !tied && dloss >= 0.0005
         ? ` &middot; &minus;${(dloss * 100).toFixed(1)}% match` : '';
       const ptsTxt = dr.pts ? `${dr.pts[ix].toFixed(1)} pts` : '';
       const w = tied ? 15
@@ -859,6 +895,13 @@ function deepJobs(K, skipDone) {
     if (merged.length && !merged[0][0].includes(name)) disIdx.add(idx);
   });
   const jobs = [];
+  // Par playouts first: one cheap all-AI playout per deal (the reference
+  // every seat's actual points are judged against).
+  R.deals.forEach((deal, d) => {
+    if (skipDone && deepResults[deepKey(d, 'po')]) return;
+    jobs.push({prio: -1, kind: 'playout', key: deepKey(d, 'po'),
+               d, i: 'po', deal: d, actionIdx: 0, K: 0});
+  });
   steps.forEach((st, idx) => {
     if (st.type !== 'play') return;
     if (isForced(st)) return;   // one legal card: nothing to evaluate
@@ -883,7 +926,7 @@ async function deepStart() {
     deepMd5 = (man.policy_onnx_md5 || '').slice(0, 8);
   } catch (e) { deepMd5 = 'nomd5'; }
   for (const v of await idbLoadCached()) deepAccept(v);
-  deepWorker = new Worker('/static/analysis_worker.js?v=7');
+  deepWorker = new Worker('/static/analysis_worker.js?v=8');
   // A crashed worker (e.g. a wasm abort) must be VISIBLE, never a frozen
   // counter.
   deepWorker.onerror = e => {
@@ -909,12 +952,15 @@ async function deepStart() {
       render();
     } else if (m.type === 'result') {
       if (m.desync) { dstatus('replay mismatch - analysis unavailable'); deepDone(); return; }
-      const v = {d: m.d, i: m.i, K: m.K, actions: m.actions,
-                 mean: m.mean, se: m.se, pts: m.pts};
+      const v = m.playout
+        ? {d: m.d, i: 'po', K: 0, playout: m.playout}
+        : {d: m.d, i: m.i, K: m.K, actions: m.actions,
+           mean: m.mean, se: m.se, pts: m.pts};
       deepAccept(v);
       idbSave(v);
       const st = steps[cur];
-      if (st && st.type === 'play' && st.d === v.d && st.i === v.i) render();
+      if (st && ((st.type === 'play' && st.d === v.d && st.i === v.i)
+                 || (st.type === 'start' && v.i === 'po'))) render();
       renderDis();
     } else if (m.type === 'progress') {
       dstatus(`analyzing ${m.done}/${m.total}…`);

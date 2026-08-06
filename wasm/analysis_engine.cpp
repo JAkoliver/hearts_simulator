@@ -98,6 +98,8 @@ struct Engine {
     std::vector<int32_t> r_actions;
     std::vector<float> r_mean, r_se, r_pts;
     std::vector<int32_t> r_n;
+    bool playout_mode = false;      // par playout: per-seat deal points
+    std::array<int32_t, 4> r_po{};
 
     // ---- helpers (ports) ---------------------------------------------------
     static std::vector<int> LegalVector(const HeartsEnv& e) {
@@ -368,7 +370,16 @@ struct Engine {
         for (size_t i = 0; i < sims.size(); ++i) {
             if (!sims[i].done) active.push_back(i);
         }
-        if (active.empty()) return RequestEquity();
+        if (active.empty()) {
+            if (playout_mode) {
+                auto sc = sims[0].env.GetRoundScores();
+                for (int i = 0; i < 4; ++i) r_po[i] = sc[i];
+                sims.clear();
+                stage = PUMP_DONE;
+                return stage;
+            }
+            return RequestEquity();
+        }
         obs_buf.assign(active.size() * 556, 0.0f);
         mask_buf.assign(active.size() * 52, 0);
         for (size_t j = 0; j < active.size(); ++j) {
@@ -506,9 +517,30 @@ KEEP int an_load_match(unsigned seed, const int* offsets, int n_deals,
 
 // Begin analysis of one decision. Returns first pump kind (or -1 on bad
 // coordinates / passing decision - v1 analyzes PLAY decisions only).
+// PAR playout: from the deal's post-pass state, Perilune plays ALL FOUR
+// seats to the deal's end (deterministic - true hands, argmax policy).
+// The per-seat points are the deal's par: what these cards "should" cost.
+KEEP int an_playout(int deal_idx) {
+  return Trap([&]() -> int {
+    E.sims.clear();
+    E.dets.clear();
+    E.playout_mode = true;
+    int pass_actions =
+        (deal_idx < (int)E.deal_actions.size()
+         && E.deal_actions[deal_idx].size() == 64) ? 12 : 0;
+    if (!E.SeekTo(deal_idx, pass_actions)) return -1;
+    E.sims.emplace_back(E.env.Clone(), 0);
+    E.root_pending = false;
+    return E.NextRolloutRequest();
+  });
+}
+
+KEEP int32_t* an_result_playout() { return E.r_po.data(); }
+
 KEEP int an_analyze(int deal_idx, int action_idx, int k) {
   return Trap([&]() -> int {
     E.K = k;
+    E.playout_mode = false;
     E.sims.clear();
     E.dets.clear();
     if (!E.SeekTo(deal_idx, action_idx)) return -1;
