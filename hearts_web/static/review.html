@@ -108,6 +108,8 @@
   .dline { font-size:.75rem; padding:4px 6px; border-radius:6px; cursor:pointer;
            font-variant-numeric:tabular-nums; }
   .dline:hover { background:#26262A; }
+  .dline.on { background:#2C2C31; border-left:3px solid #E8B923;
+              padding-left:3px; }
   .dline b { color:#E5484D; }
   #dtoggle { font-size:.68rem; margin-bottom:6px; display:flex;
              flex-wrap:wrap; gap:4px; align-items:center; }
@@ -424,7 +426,18 @@ function render() {
 
   renderEval(st, deal);
   renderPos(st, deal);
+  updateDisHighlight();
   el('cursor').style.left = (cur / (steps.length - 1) * 100) + '%';
+}
+
+// Highlight the disagreement/costly-play line for the CURRENT step so the
+// side panel shows at a glance which entry you are on while scrubbing.
+function updateDisHighlight() {
+  document.querySelectorAll('.dline').forEach(n => {
+    const on = +n.dataset.idx === cur;
+    n.classList.toggle('on', on);
+    if (on) n.scrollIntoView({block: 'nearest'});
+  });
 }
 
 let passSeat = null, lastPassDeal = -1;
@@ -744,6 +757,7 @@ function renderDis() {
   el('dis').innerHTML = scHtml + html;
   document.querySelectorAll('.dline').forEach(n =>
     n.onclick = () => { cur = +n.dataset.idx; render(); });
+  updateDisHighlight();
 }
 
 // ---- win-prob strip + scrub ----------------------------------------------
