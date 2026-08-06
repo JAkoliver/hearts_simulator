@@ -18,7 +18,7 @@
 
 // VER busts HTTP caches for the engine glue AND its .wasm (locateFile) -
 // without it, browsers happily run a stale engine forever.
-const VER = 9;
+const VER = 10;
 // Fixed batch buckets: WebGPU compiles a pipeline PER TENSOR SHAPE, and
 // rollout rounds shrink row counts continuously - hundreds of one-off
 // shapes means hundreds of shader compiles (stalls, device pressure).
@@ -52,19 +52,28 @@ async function init() {
   M._an_init(1);
   try {
     if (!self.navigator || !navigator.gpu) throw new Error('no webgpu');
-    // fp32 on WebGPU. The fp16 variant OVERFLOWS on real observations
-    // (NaN logits -> illegal actions, 2026-08-05); the CPU parity check
-    // was blind to it because ORT's CPU EP upcasts fp16 to fp32. Parked
-    // until range-calibrated. The searchlab numbers were fp32 anyway.
+    // fp16 first: the net is MEASURED fp16-safe (peak activation 31 vs
+    // the 65504 limit; zero NaN rows and 4/8536 near-tie argmax flips
+    // under true CUDA-half execution on real obs). The 2026-08-05 NaN
+    // failure predated batch bucketing - runtime shape-churn era, not
+    // the weights. If a browser's fp16 kernels misbehave anyway, the
+    // pump errors tier down to the fp32 model automatically.
     policy = await ort.InferenceSession.create(
-      '/static/models/perilune_policy.onnx',
+      '/static/models/perilune_policy_fp16.onnx',
       { executionProviders: ['webgpu'] });
-    ep = 'webgpu';
+    ep = 'webgpu-fp16';
   } catch (e) {
-    policy = await ort.InferenceSession.create(
-      '/static/models/perilune_policy.onnx',
-      { executionProviders: ['wasm'] });
-    ep = 'wasm';
+    try {
+      policy = await ort.InferenceSession.create(
+        '/static/models/perilune_policy.onnx',
+        { executionProviders: ['webgpu'] });
+      ep = 'webgpu';
+    } catch (e2) {
+      policy = await ort.InferenceSession.create(
+        '/static/models/perilune_policy.onnx',
+        { executionProviders: ['wasm'] });
+      ep = 'wasm';
+    }
   }
   equity = await ort.InferenceSession.create(
     '/static/models/perilune_equity.onnx', { executionProviders: ['wasm'] });
@@ -222,12 +231,25 @@ async function pumpQueue() {
       postMessage({ type: 'progress', done: jobsDone, total: jobsTotal });
       if (r.desync) { jobs = []; break; }   // stop on replay divergence
     } catch (e) {
-      // NEVER retreat silently: report the cause, recreate the WebGPU
-      // session once (a lost device can recover), and only then give up
-      // with the ORIGINAL error - a single-threaded CPU fallback would
-      // burn hours pretending to work.
+      // NEVER retreat silently. Tiered: fp16-webgpu errors downgrade to
+      // the fp32 model on webgpu (reported); fp32-webgpu gets ONE
+      // session recreate; then fail with the ORIGINAL error - the
+      // single-threaded CPU fallback would burn hours pretending to work.
       console.warn('deep-analysis job failed:', e);
-      if (ep === 'webgpu' && !pumpQueue.retried) {
+      if (ep === 'webgpu-fp16') {
+        postMessage({ type: 'note',
+                      message: `fp16 failed (${String(e).slice(0, 100)}) - switching to fp32` });
+        try {
+          policy = await ort.InferenceSession.create(
+            '/static/models/perilune_policy.onnx',
+            { executionProviders: ['webgpu'] });
+          ep = 'webgpu';
+          useAct = true;
+          jobs.unshift(job);
+          postMessage({ type: 'ready', ep });
+          continue;
+        } catch (e2) { /* fall through */ }
+      } else if (ep === 'webgpu' && !pumpQueue.retried) {
         pumpQueue.retried = true;
         postMessage({ type: 'note',
                       message: `webgpu error (${String(e).slice(0, 120)}) - retrying once` });
@@ -235,6 +257,7 @@ async function pumpQueue() {
           policy = await ort.InferenceSession.create(
             '/static/models/perilune_policy.onnx',
             { executionProviders: ['webgpu'] });
+          useAct = true;
           jobs.unshift(job);
           continue;
         } catch (e2) { /* fall through to fatal with the original error */ }
