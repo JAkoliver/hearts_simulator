@@ -81,7 +81,14 @@
   .rslot.pos2 { top:20%; left:50%; transform:translateX(-50%); }
   .rslot.pos3 { right:20%; top:50%; transform:translateY(-50%); }
   .rcenter { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
-             color:#A6A6AF; font-size:.75rem; }
+             color:#A6A6AF; font-size:.75rem; text-align:center; }
+  /* deal-start exchange view: received cards + arrow into the hand */
+  .rslot.pin { display:flex; align-items:center; gap:4px; }
+  .rslot.pin.pos0, .rslot.pin.pos2 { flex-direction:column; }
+  .rslot.pin .pincards { display:flex; gap:2px; }
+  .rslot.pin .card { width:calc(var(--cw)*.86); height:calc(var(--cw)*1.22);
+                     font-size:calc(var(--cw)*.28); }
+  .pinarrow { color:#7CBF8E; font-size:calc(var(--cw)*.5); line-height:1; }
   /* ghost of the previous trick, swept to its winner's edge */
   .gslot { position:absolute; display:flex; opacity:.30; }
   .gslot .card { width:calc(var(--cw)*.9); height:calc(var(--cw)*1.28);
@@ -399,7 +406,12 @@ function ctOr(cards) {
 // One merged pick list rendered as bars; marks the item holding `name`.
 function evalBars(top, eq, name, p, verb, expanded, spellOut) {
   const merged = mergeTop(top, eq);
-  const shown = expanded ? merged : merged.slice(0, 3);
+  // expanded === 'toPick': every option the net rated AT OR ABOVE the card
+  // actually chosen - where your pick ranked, and what it passed over.
+  const shown = expanded === 'toPick'
+    ? merged.slice(0, Math.max(3, merged.findIndex(
+        ([cs]) => cs.includes(name)) + 1))
+    : expanded ? merged : merged.slice(0, 3);
   let html = '';
   const lbl = spellOut ? ctOr : ctG;
   for (const [cs, cp] of shown)
@@ -435,6 +447,12 @@ function prep() {
       const key = n => 'CDSH'.indexOf(n.slice(-1)) * 13 + cardVal(n);
       return kept.concat(deal.received[s]).sort((a, b) => key(a) - key(b));
     });
+    // Pre-pass hands in the same suit order (deal-start view).
+    {
+      const key = n => 'CDSH'.indexOf(n.slice(-1)) * 13 + cardVal(n);
+      deal._start_sorted = deal.start_hands.map(h =>
+        h.slice().sort((a, b) => key(a) - key(b)));
+    }
     deal._taken = [];   // points per seat AFTER play i
     const taken = [0, 0, 0, 0];
     let trick = [];
@@ -468,8 +486,14 @@ function render() {
       style="border-left:3px solid ${SEAT_COLORS[s]}${
         s === acting ? `;background:${SEAT_COLORS[s]}` : ''}">${esc(seatLabel(s))}
       &middot; ${deal._totals_before[s]} <small>(+${taken[s]})</small></span>`;
-  const cards = s => deal._hands[s].map(c =>
-      cardHTML(c, played.has(c) ? 'dim' : '')).join('');
+  // Deal-start step shows the PRE-pass hand with the outgoing three
+  // outlined; every later step shows the post-pass hand.
+  const preStart = st.type === 'start' && deal.pass_direction !== 'hold';
+  const cards = s => preStart
+    ? deal._start_sorted[s].map(c =>
+        cardHTML(c, deal.passed[s].includes(c) ? 'hot' : '')).join('')
+    : deal._hands[s].map(c =>
+        cardHTML(c, played.has(c) ? 'dim' : '')).join('');
   const hstack = s => `<div class="hstack">${tag(s)}
       <div class="hand-row">${cards(s)}</div></div>`;
   const vhand = s => `<div class="vhand">${tag(s)}
@@ -509,6 +533,24 @@ function render() {
       slots += `<div class="gslot pos${(gw - v + 4) % 4}">
         ${prev.map(p => cardHTML(p[1])).join('')}</div>`;
     }
+  } else if (preStart) {
+    // Incoming cards at each seat's edge, arrow pointing INTO that hand:
+    // the three cards that seat received, beside the outlined three it
+    // sent (the exchange, seen at a glance).
+    const ARROW = {0: '&darr;', 1: '&larr;', 2: '&uarr;', 3: '&rarr;'};
+    slots = [0, 1, 2, 3].map(s => {
+      const p = (s - v + 4) % 4;
+      const inc = (deal.received[s] || []);
+      if (!inc.length) return '';
+      const arrow = `<div class="pinarrow">${ARROW[p]}</div>`;
+      const cds = `<div class="pincards">${inc.map(c => cardHTML(c)).join('')}</div>`;
+      // arrow sits between the cards and the receiving hand
+      return `<div class="rslot pin pos${p}">${
+        p === 2 ? arrow + cds : cds + arrow}</div>`;
+    }).join('') +
+      `<div class="rcenter">deal ${deal.deal_no} &middot; passing
+        ${esc(deal.pass_direction)}<br>
+        <small style="opacity:.75">gold = sent &middot; centre cards = received</small></div>`;
   } else {
     slots = `<div class="rcenter">deal ${deal.deal_no} &middot; passing ${esc(deal.pass_direction)}</div>`;
   }
@@ -548,11 +590,18 @@ function renderEval(st, deal) {
     } else {
       html += `<div class="muted" style="font-size:.72rem; margin-bottom:4px">
         ${esc(seatLabel(passSeat))}'s picks (click a row below to switch seat):</div>`;
+      let anyBelow = false;
       picks.forEach((e, i) => {
         const [, name, p, top, eq] = e;
+        const mg = mergeTop(top, eq);
+        if (mg.findIndex(([cs]) => cs.includes(name)) > 2) anyBelow = true;
         html += `<div class="muted" style="font-size:.68rem; margin-top:5px">pick ${i + 1}</div>`;
-        html += evalBars(top, eq, name, p, 'picked', false, true).html;
+        html += evalBars(top, eq, name, p, 'picked',
+                         passExpanded ? 'toPick' : false, true).html;
       });
+      if (anyBelow || passExpanded)
+        html += `<button class="xbtn" id="pk-x">${passExpanded
+          ? 'show top 3' : 'show all down to your pick'}</button>`;
       html += `<div class="muted" style="font-size:.64rem; margin-top:6px">
         Pass evals use the raw policy, judged pick by pick; the deep
         search below judges the pass as a whole.</div>`;
@@ -663,6 +712,8 @@ function renderEval(st, deal) {
              <span class="muted">&middot; ${agree(s)}</span></span></div>`).join('');
       el('passinfo').querySelectorAll('.passrow').forEach(n =>
         n.onclick = () => { passSeat = +n.dataset.seat; render(); });
+      const pk = el('pk-x');
+      if (pk) pk.onclick = () => { passExpanded = !passExpanded; render(); };
     } else el('passinfo').innerHTML = 'Hold deal - no passing.';
     // Deal-start step: the deepen button targets the PASS analysis, so a
     // pass can be pushed to K=256 like any play position.
@@ -787,6 +838,7 @@ function renderEval(st, deal) {
   if (dx) dx.onclick = () => { deepExpanded = !deepExpanded; render(); };
 }
 let evalExpanded = false;
+let passExpanded = false;
 let deepExpanded = false;
 
 function renderPos(st, deal) {
