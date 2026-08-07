@@ -646,7 +646,9 @@ function renderEval(st, deal) {
             ` &middot; &minus;${(dloss * 100).toFixed(1)}% match`}${
             isMine ? ' &larr; you passed' : ''}</span></div>`;
       }
-      if (mineRank > 2 || passExpanded)
+      // The default view is already top-3 PLUS the pass made, so expanding
+      // only reveals something when that pass ranked 5th or lower.
+      if (mineRank > 3)
         html += `<button class="xbtn" id="pk-x">${passExpanded
           ? 'show top 3' : 'show all down to this pass'}</button>`;
       if (mineIdx != null) {
