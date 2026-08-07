@@ -250,6 +250,7 @@
   .legend { font-size:.68rem; color:#A6A6AF; }
   .legend i { display:inline-block; width:9px; height:9px; border-radius:2px;
               margin:0 3px 0 8px; }
+  .allmoves { font-size:.65rem; color:#8A8A93; margin:1px 0 3px; }
   /* ================= mobile pass =================
      Everything below is scoped under body.mobile (set once at load by a
      width probe) - the desktop layout above is untouched. Same DOM and
@@ -259,6 +260,13 @@
   body.mobile { overflow:auto; padding:8px 10px;
                 --cw:clamp(19px, 6.6vw, 30px); }
   body.mobile #grid { display:block; }
+  /* header on ONE line: match info shrinks with ellipsis so the ? stays
+     up top; the x-ray note gets its own row; desktop spacer hidden */
+  body.mobile #top { row-gap:2px; }
+  body.mobile #matchinfo { flex:1 1 0; min-width:0; white-space:nowrap;
+    overflow:hidden; text-overflow:ellipsis; font-size:.78rem; }
+  body.mobile #top > span:not(#matchinfo):not(#xray-note) { display:none; }
+  body.mobile #xray-note { flex-basis:100%; }
   body.mobile .mpanel { margin-bottom:8px; }
   body.mobile .mpanel > summary { list-style:none; background:#1E1E21;
     border-radius:10px; padding:11px 12px; font-size:.74rem; color:#A6A6AF;
@@ -892,6 +900,12 @@ function renderEval(st, deal) {
   if (bars.n > 3)
     html += `<button class="xbtn" id="ev-x">${evalExpanded
       ? 'show top 3' : `show all ${bars.n} legal moves`}</button>`;
+  else if (top.length > 1)
+    // No expander because nothing is hidden - SAY so, or its absence
+    // reads as a missing button (follow-suit positions merge most of
+    // the hand into 2-3 equivalence groups)
+    html += `<div class="allmoves">all ${top.length} legal moves shown${
+      bars.n < top.length ? ' (equivalent cards pooled)' : ''}</div>`;
   // Deep-search layer: a separate authority in VALUE units (win chance),
   // rendered only where the client-side search has produced a result.
   // Forced moves carry no decision - never render placeholder zeros as
