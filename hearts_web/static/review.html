@@ -117,9 +117,10 @@
                  height:calc(var(--cw)*1.8); margin:0 auto 6px;
                  overflow:visible; }
   /* full-opacity strokes: translucent lines composite darker where the
-     across cross overlaps itself */
+     across cross overlaps itself. Muted gray like the label under it -
+     the glyph is orientation, not an accent */
   .passdir svg > path, .passdir svg > line
-    { stroke:#E8B923; stroke-width:3; fill:none;
+    { stroke:#A6A6AF; stroke-width:3; fill:none;
       stroke-linecap:round; marker-end:url(#pahead); }
   .passdir svg > line { marker-start:url(#pahead); }
   .passdir > div { letter-spacing:.05em; }
@@ -594,7 +595,7 @@ function render() {
       const AH = `<defs><marker id="pahead" viewBox="0 0 10 10" refX="7"
         refY="5" markerWidth="4.2" markerHeight="4.2"
         orient="auto-start-reverse">
-        <path d="M0 0L10 5L0 10z" fill="#E8B923" stroke="none"/></marker></defs>`;
+        <path d="M0 0L10 5L0 10z" fill="#A6A6AF" stroke="none"/></marker></defs>`;
       const glyph = deal.pass_direction === 'across'
         ? `<line x1="50" y1="86" x2="50" y2="14"/>
            <line x1="14" y1="50" x2="86" y2="50"/>`
