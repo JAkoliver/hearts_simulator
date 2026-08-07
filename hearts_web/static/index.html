@@ -809,7 +809,17 @@ async function pollTable() {
 }
 let pollMisses = 0;
 
+let lastLobbySig = null;
 function renderLobby(ts) {
+  // Polls rebuild this overlay every 1.5s - an unchanged rebuild would
+  // close an OPEN timer dropdown under the mouse (the poll-rebuild
+  // artifact class). Skip the DOM write unless the content changed.
+  const sig = JSON.stringify([ts.players, ts.tier_label, ts.you_host]);
+  if (sig === lastLobbySig) {
+    el('overlay').style.display = 'flex';
+    return;
+  }
+  lastLobbySig = sig;
   el('o-title').textContent = `Table ${ts.code}`;
   el('o-body').innerHTML =
     '<p>Share this code with up to 3 friends.</p><div id="lobby-players">' +
@@ -849,6 +859,7 @@ function renderLobby(ts) {
 
 function handleTableState(ts) {
   if (ts.state === 'lobby') return renderLobby(ts);
+  lastLobbySig = null;   // next lobby (rematch etc.) re-renders fresh
   if (ts.match_no !== undefined && ts.match_no !== curMatchNo) {
     // Rematch (or first sight of this table): new event epoch - reset
     // local progress and animate the new match from its beginning.
