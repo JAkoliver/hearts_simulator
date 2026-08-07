@@ -22,10 +22,13 @@
   .muted { color:#A6A6AF; }
   #top { display:flex; align-items:center; gap:10px; flex-wrap:wrap;
          margin-bottom:10px; }
+  /* right column carries the scrollbar's width on top of its content
+     width (gutter reserved always, so content never reflows) */
   #grid { flex:1 1 auto; min-height:0; display:grid;
-          grid-template-columns:250px 1fr 265px; gap:12px; }
+          grid-template-columns:250px 1fr 282px; gap:12px; }
   /* the eval panel's content scrolls; buttons + disclosure stay pinned */
-  #evalscroll { flex:1 1 auto; min-height:0; overflow-y:auto; }
+  #evalscroll { flex:1 1 auto; min-height:0; overflow-y:auto;
+                scrollbar-gutter:stable; scrollbar-width:thin; }
   @media (max-width:980px) { #grid { grid-template-columns:1fr; }
     body { overflow:auto; } }
   .panel { background:#1E1E21; border-radius:10px; padding:10px;
@@ -196,8 +199,11 @@
      stats drop to a second line (never one card per line - the flex
      parent would otherwise shrink the label to min-content) */
   .dbar.pb { height:auto; min-height:18px; }
-  .dbar.pb span { flex:1 1 auto; min-width:0; display:flex; flex-wrap:wrap;
-                  gap:0 6px; padding:2px 6px; line-height:1.32; }
+  /* DIRECT child only: a descendant selector also hit the .ct card spans
+     inside, turning every card into a flex box (one card per line). */
+  .dbar.pb > span { flex:1 1 auto; min-width:0; display:flex;
+                    flex-wrap:wrap; gap:0 6px; padding:2px 6px;
+                    line-height:1.32; }
   .dbar.pb .pc, .dbar.pb .pm { white-space:nowrap; }
   .dbar.pb .pm { font-style:normal; }
   .deep-h { color:#4CC2FF; font-size:.7rem; margin:8px 0 2px; }
