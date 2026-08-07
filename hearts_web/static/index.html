@@ -548,7 +548,7 @@ async function submit(cards) {
 async function animate(events, preTrick = []) {
   let shown = preTrick.map(t => ({seat: t.seat, name: t.name}));
   const anyPlays = events.some(e => e.type === 'play');
-  if (anyPlays) setStatus('AI is thinking', true);
+  if (anyPlays) setStatus(mode === 'table' ? 'Playing&hellip;' : 'AI is thinking', true);
   const lastTE = events.map(e => e.type).lastIndexOf('trick_end');
   const playsAfterLastTE = events.some((e, i) => i > lastTE && e.type === 'play');
   const canDim = () => state.your_turn && !state.passing && !state.finished;
@@ -584,7 +584,7 @@ async function animate(events, preTrick = []) {
       shown = [];
       renderTrick([]);
       if (events.some((e, j) => j > i && e.type === 'play'))
-        setStatus('AI is thinking', true);
+        setStatus(mode === 'table' ? 'Playing&hellip;' : 'AI is thinking', true);
     } else if (ev.type === 'timeout') {
       el('banner').textContent = ev.what === 'pass'
         ? `${seatName(ev.seat)} ran out of time - lowest cards passed`
@@ -605,7 +605,8 @@ async function animate(events, preTrick = []) {
 function showDealEnd(ev) {
   return new Promise(resolve => {
     el('o-title').textContent = ev.moon_by !== null
-      ? (ev.moon_by === state.your_seat ? 'You shot the moon!' : 'The AI shot the moon!')
+      ? (ev.moon_by === state.your_seat ? 'You shot the moon!'
+                                        : `${seatName(ev.moon_by)} shot the moon!`)
       : `Deal ${state.deal_no - 1} complete`;
     el('o-body').innerHTML = '<table><tr><th>Player</th><th>This deal</th><th>Total</th></tr>' +
       [0,1,2,3].map(s => `<tr><td>${seatName(s)}</td>
