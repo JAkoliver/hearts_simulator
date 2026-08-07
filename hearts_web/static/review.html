@@ -413,12 +413,7 @@ function ctOr(cards) {
 // One merged pick list rendered as bars; marks the item holding `name`.
 function evalBars(top, eq, name, p, verb, expanded, spellOut) {
   const merged = mergeTop(top, eq);
-  // expanded === 'toPick': every option the net rated AT OR ABOVE the card
-  // actually chosen - where your pick ranked, and what it passed over.
-  const shown = expanded === 'toPick'
-    ? merged.slice(0, Math.max(3, merged.findIndex(
-        ([cs]) => cs.includes(name)) + 1))
-    : expanded ? merged : merged.slice(0, 3);
+  const shown = expanded ? merged : merged.slice(0, 3);
   let html = '';
   const lbl = spellOut ? ctOr : ctG;
   for (const [cs, cp] of shown)
@@ -605,26 +600,19 @@ function renderEval(st, deal) {
     } else {
       html += `<div class="muted" style="font-size:.72rem; margin-bottom:4px">
         ${esc(seatLabel(passSeat))}'s picks (click a row below to switch seat):</div>`;
-      let anyBelow = false;
       picks.forEach((e, i) => {
         const [, name, p, top, eq] = e;
-        const mg = mergeTop(top, eq);
-        if (mg.findIndex(([cs]) => cs.includes(name)) > 2) anyBelow = true;
         html += `<div class="muted" style="font-size:.68rem; margin-top:5px">pick ${i + 1}</div>`;
-        html += evalBars(top, eq, name, p, 'picked',
-                         passExpanded ? 'toPick' : false, true).html;
+        html += evalBars(top, eq, name, p, 'picked', false, true).html;
       });
-      if (anyBelow || passExpanded)
-        html += `<button class="xbtn" id="pk-x">${passExpanded
-          ? 'show top 3' : 'show all down to your pick'}</button>`;
       html += `<div class="muted" style="font-size:.64rem; margin-top:6px">
         Pass evals use the raw policy, judged pick by pick; the deep
         search below judges the pass as a whole.</div>`;
     }
-    // DEEP PASS ANALYSIS: candidate 3-card passes played out from the
-    // rewound pass state - the pass judged as one decision, in the same
-    // match-win currency as play decisions.
-    const dp = deepResults[deepKey(st.d, 'ps')];
+    // DEEP PASS ANALYSIS for the SELECTED seat: candidate 3-card passes
+    // played out from the rewound pass state - the pass judged as one
+    // decision, in the same match-win currency as play decisions.
+    const dp = deepResults[passKey(st.d, passSeat)];
     if (dp && dp.combos && dp.combos.length) {
       const n = dp.mean.length;
       const idx = [...Array(n).keys()].sort((a, b) => dp.mean[b] - dp.mean[a]);
@@ -634,9 +622,15 @@ function renderEval(st, deal) {
         .sort((a, b) => a - b).join(',');
       const mineIdx = idx.find(i => key3(i) === actual);
       const best = idx[0];
-      const shown = idx.slice(0, 3);
+      // default: top 3 + the pass made; expanded: everything ranked at or
+      // above it (what the search preferred, in order).
+      const mineRank = mineIdx == null ? -1 : idx.indexOf(mineIdx);
+      const shown = passExpanded
+        ? idx.slice(0, Math.max(3, mineRank + 1))
+        : idx.slice(0, 3);
       if (mineIdx != null && !shown.includes(mineIdx)) shown.push(mineIdx);
-      html += `<div class="deep-h" style="margin-top:10px">Your pass,
+      html += `<div class="deep-h" style="margin-top:10px">${
+        dp.seat === R.viewer_seat ? 'Your pass' : esc(seatLabel(dp.seat)) + "'s pass"},
         deep search &middot; K=${dp.K}</div>`;
       for (const i of shown) {
         const cards = dp.combos.slice(i * 3, i * 3 + 3).map(idName);
@@ -652,6 +646,9 @@ function renderEval(st, deal) {
             ` &middot; &minus;${(dloss * 100).toFixed(1)}% match`}${
             isMine ? ' &larr; you passed' : ''}</span></div>`;
       }
+      if (mineRank > 2 || passExpanded)
+        html += `<button class="xbtn" id="pk-x">${passExpanded
+          ? 'show top 3' : 'show all down to this pass'}</button>`;
       if (mineIdx != null) {
         const dloss = dp.mean[best] - dp.mean[mineIdx];
         const sig = 2 * Math.sqrt(dp.se[best] ** 2 + dp.se[mineIdx] ** 2);
@@ -663,8 +660,14 @@ function renderEval(st, deal) {
             : `<span class="dv unk">Too close to call at K=${dp.K}</span>`}</div>`;
       }
       html += `<div class="muted" style="font-size:.64rem; margin-top:3px">
-        Candidates come from the net's own pass instincts plus the pass you
-        made; each is played out from the deal's start.</div>`;
+        Candidates come from the net's own pass instincts plus the pass
+        actually made; each is played out from the deal's start.</div>`;
+    } else if (deal.pass_direction !== 'hold' && deepWorker) {
+      html += `<div class="muted" style="font-size:.68rem; margin-top:10px">
+        ${dp === undefined && passSeat !== R.viewer_seat
+          ? `${esc(seatLabel(passSeat))}'s pass is not analyzed &mdash;
+             use the button below.`
+          : 'Pass analysis pending&hellip;'}</div>`;
     }
     // PAR: whole-deal reference only. Per-move attribution from a
     // deterministic playout is CHAOS (a correct duck once got charged
@@ -739,16 +742,18 @@ function renderEval(st, deal) {
     // pass can be pushed to K=256 like any play position.
     const b64s = el('deep64-btn');
     if (deepWorker && deal.pass_direction !== 'hold') {
-      const cur2 = dp ? dp.K : 0;
+      const cur2 = dp ? dp.K : 0;   // dp = the SELECTED seat's analysis
       const nextP = Math.min(256, cur2 ? cur2 * 2
                                        : Math.max(8, +el('deep-k').value / 2));
       b64s.textContent = `K=${nextP} pass`;
       b64s.style.display = 'inline-block';
       b64s.disabled = cur2 >= 256;
       b64s.dataset.kind = 'pass';
+      const who = passSeat === R.viewer_seat ? 'your pass'
+        : `seat ${passSeat + 1}'s pass`;
       el('deep-pos').innerHTML = dp
-        ? `this pass: analyzed at K=${dp.K}${dp.K >= 256 ? ' (max)' : ''}`
-        : 'this pass: not yet analyzed';
+        ? `${who}: analyzed at K=${dp.K}${dp.K >= 256 ? ' (max)' : ''}`
+        : `${who}: not yet analyzed`;
     } else {
       b64s.style.display = 'none';
       el('deep-pos').innerHTML = '';
@@ -1213,6 +1218,9 @@ el('d-gap').onclick = () => { disSort = 'gap';
 // disagreements -> all disagreements -> your plays -> everything else.
 let deepWorker = null, deepResults = {}, deepMd5 = '', deepRunning = false;
 const deepKey = (d, i) => d + '|' + i;
+// Pass results are per (deal, seat): the panel's seat selector drives
+// the deep-search view too, not just the raw-policy picks.
+const passKey = (d, seat) => deepKey(d, 'ps' + seat);
 const cardId = n => 'CDSH'.indexOf(n.slice(-1)) * 13 + cardVal(n);
 const idName = c => RANK_ORDER[c % 13] + 'CDSH'[Math.floor(c / 13)];
 const matchIdent = () => q.get('code')
@@ -1281,10 +1289,10 @@ function deepJobs(K, skipDone) {
   R.deals.forEach((deal, d) => {
     if (deal.pass_direction === 'hold') return;
     const seat = R.viewer_seat ?? 0;
-    const have = deepResults[deepKey(d, 'ps')];
+    const have = deepResults[passKey(d, seat)];
     if (skipDone && have && have.K >= Math.max(8, K / 2)) return;
-    jobs.push({prio: 0.5, kind: 'pass', key: deepKey(d, 'ps'),
-               d, i: 'ps', deal: d, seat, actionIdx: 0,
+    jobs.push({prio: 0.5, kind: 'pass', key: passKey(d, seat),
+               d, i: 'ps' + seat, deal: d, seat, actionIdx: 0,
                K: Math.max(8, K / 2)});   // pass rollouts are whole deals
   });
   steps.forEach((st, idx) => {
@@ -1356,7 +1364,7 @@ async function deepStart() {
       const v = m.cards
         ? {d: 'M', i: 'cards', K: m.K, cards: m.cards}
         : m.combos
-        ? {d: m.d, i: 'ps', K: m.K, combos: m.combos, mean: m.mean,
+        ? {d: m.d, i: 'ps' + m.seat, K: m.K, combos: m.combos, mean: m.mean,
            se: m.se, pts: m.pts, seat: m.seat}
         : m.trace
         ? {d: m.d, i: 'tr', K: 0, trace: m.trace}
@@ -1523,13 +1531,14 @@ el('deep64-btn').onclick = () => {
   const st = steps[cur];
   if (!deepWorker || !st) return;
   if (el('deep64-btn').dataset.kind === 'pass') {
-    const dp = deepResults[deepKey(st.d, 'ps')];
+    const seat = passSeat ?? R.viewer_seat ?? 0;
+    const dp = deepResults[passKey(st.d, seat)];
     const nextP = Math.min(256, dp ? dp.K * 2
                                    : Math.max(8, +el('deep-k').value / 2));
     deepWorker.postMessage({type: 'queue', front: true, jobs: [{
-      kind: 'pass', key: deepKey(st.d, 'ps'), d: st.d, i: 'ps', deal: st.d,
-      seat: R.viewer_seat ?? 0, actionIdx: 0, K: nextP}]});
-    dstatus(`deep-checking this pass (K=${nextP})…`);
+      kind: 'pass', key: passKey(st.d, seat), d: st.d, i: 'ps' + seat,
+      deal: st.d, seat, actionIdx: 0, K: nextP}]});
+    dstatus(`deep-checking ${seat === R.viewer_seat ? 'your' : 'seat ' + (seat + 1) + "'s"} pass (K=${nextP})…`);
     return;
   }
   if (st.type !== 'play') return;
