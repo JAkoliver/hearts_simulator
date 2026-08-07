@@ -109,6 +109,48 @@ function withTimeout(promise, ms, what) {
     setTimeout(() => rej(new Error(`${what} timed out after ${ms}ms (ep=${ep})`)), ms))]);
 }
 
+// Cards-only replicas need SAMPLED actions (argmax would make every
+// replica identical); everything else uses argmax.
+async function runPolicySampled(rows) {
+  const obs = new Float32Array(M.HEAPF32.buffer, M._an_obs(), rows * 556);
+  const mask = new Uint8Array(M.HEAPU8.buffer, M._an_mask(), rows * 52);
+  const acts = new Int32Array(rows);
+  for (let off = 0; off < rows; off += CHUNK) {
+    const n = Math.min(CHUNK, rows - off);
+    const B = bucketOf(n);
+    const obsB = new Float32Array(B * 556);
+    obsB.set(obs.subarray(off * 556, (off + n) * 556));
+    const maskB = new Uint8Array(B * 52);
+    maskB.set(mask.subarray(off * 52, (off + n) * 52));
+    for (let r = n; r < B; r++) maskB.fill(1, r * 52, (r + 1) * 52);
+    const out = await withTimeout(policy.run(
+      { obs: new ort.Tensor('float32', obsB, [B, 556]),
+        mask: new ort.Tensor('bool', maskB, [B, 52]) }, ['logits']),
+      30000, 'policy forward');
+    const lg = out.logits.data;
+    for (let i = 0; i < n; i++) {
+      let mx = -Infinity;
+      for (let c = 0; c < 52; c++) {
+        if (maskB[i * 52 + c] && lg[i * 52 + c] > mx) mx = lg[i * 52 + c];
+      }
+      let tot = 0;
+      const w = new Float64Array(52);
+      for (let c = 0; c < 52; c++) {
+        if (maskB[i * 52 + c]) { w[c] = Math.exp(lg[i * 52 + c] - mx); tot += w[c]; }
+      }
+      let r = Math.random() * tot, pick = -1;
+      for (let c = 0; c < 52; c++) {
+        if (!maskB[i * 52 + c]) continue;
+        pick = c;
+        if (r < w[c]) break;
+        r -= w[c];
+      }
+      acts[off + i] = pick;
+    }
+  }
+  return acts;
+}
+
 async function runPolicy(rows, wantBelief) {
   // Chunked to <=CHUNK rows; returns {belief?, acts?} with concatenated data.
   const obs = new Float32Array(M.HEAPF32.buffer, M._an_obs(), rows * 556);
@@ -173,6 +215,8 @@ async function runPolicy(rows, wantBelief) {
 async function analyzeOne(job) {
   let kind = job.kind === 'trace' ? M._an_deal_trace(job.deal)
     : job.kind === 'playout' ? M._an_playout(job.deal)
+    : job.kind === 'pass' ? M._an_analyze_pass(job.deal, job.seat, job.K, 10)
+    : job.kind === 'cards' ? M._an_cards_match(job.K)
     : M._an_analyze(job.deal, job.actionIdx, job.K);
   if (kind === -3) throw new Error('engine: ' + anError());
   if (kind < 0) return { ...job, actions: [], mean: [], se: [], desync: true };
@@ -184,11 +228,36 @@ async function analyzeOne(job) {
     const rows = M._an_rows();
     if (kind === 1) {
       if (M._an_is_root()) {
-        const { belief } = await runPolicy(1, true);
-        const p = M._malloc(156 * 4);
-        M.HEAPF32.set(belief, p >> 2);
-        kind = M._an_feed_root(p);
-        M._free(p);
+        if (job.kind === 'pass') {
+          // Pass root needs logits (candidate proposals) AND belief.
+          const obs = new Float32Array(M.HEAPF32.buffer, M._an_obs(), 556);
+          const mask = new Uint8Array(M.HEAPU8.buffer, M._an_mask(), 52);
+          const B = bucketOf(1);
+          const obsB = new Float32Array(B * 556);
+          obsB.set(obs);
+          const maskB = new Uint8Array(B * 52);
+          maskB.set(mask);
+          for (let r = 1; r < B; r++) maskB.fill(1, r * 52, (r + 1) * 52);
+          const out = await withTimeout(policy.run(
+            { obs: new ort.Tensor('float32', obsB, [B, 556]),
+              mask: new ort.Tensor('bool', maskB, [B, 52]) },
+            ['logits', 'belief']), 30000, 'pass root forward');
+          const lp = M._malloc(52 * 4), bp = M._malloc(156 * 4);
+          M.HEAPF32.set(out.logits.data.subarray(0, 52), lp >> 2);
+          M.HEAPF32.set(out.belief.data.subarray(0, 156), bp >> 2);
+          kind = M._an_feed_root_pass(lp, bp);
+          M._free(lp); M._free(bp);
+        } else {
+          const { belief } = await runPolicy(1, true);
+          const p = M._malloc(156 * 4);
+          M.HEAPF32.set(belief, p >> 2);
+          kind = M._an_feed_root(p);
+          M._free(p);
+        }
+      } else if (job.kind === 'cards') {
+        const acts = await runPolicySampled(rows);
+        new Int32Array(M.HEAP32.buffer, M._an_act_in(), rows).set(acts);
+        kind = M._an_feed_acts();
       } else {
         const { acts } = await runPolicy(rows, false);
         new Int32Array(M.HEAP32.buffer, M._an_act_in(), rows).set(acts);
@@ -216,6 +285,21 @@ async function analyzeOne(job) {
       }
       kind = M._an_feed_equity();
     }
+  }
+  if (job.kind === 'cards') {
+    const n = M._an_cards_n();
+    const cards = [...new Int32Array(M.HEAP32.buffer,
+                                     M._an_result_cards(), n * 6)];
+    return { ...job, cards, desync: false };
+  }
+  if (job.kind === 'pass') {
+    const n = M._an_result_n();
+    const combos = [...new Int32Array(M.HEAP32.buffer,
+                                      M._an_result_combo(), n * 3)];
+    const mean = [...new Float32Array(M.HEAPF32.buffer, M._an_result_mean(), n)];
+    const se = [...new Float32Array(M.HEAPF32.buffer, M._an_result_se(), n)];
+    const pts = [...new Float32Array(M.HEAPF32.buffer, M._an_result_pts(), n)];
+    return { ...job, combos, mean, se, pts, desync: false };
   }
   if (job.kind === 'trace') {
     const n = M._an_trace_n();

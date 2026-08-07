@@ -122,6 +122,24 @@
   #dtoggle button.on { background:#E8B923; color:#222; }
   /* strip + scrub */
   #strip { width:100%; height:74px; margin-top:8px; }
+  /* help ("?") overlay */
+  #help-btn { background:#26262A; color:#ECECEC; border:1px solid #3A3A42;
+              border-radius:50%; width:20px; height:20px; font-size:.75rem;
+              cursor:pointer; line-height:1; padding:0; }
+  #help-btn:hover { background:#33333A; }
+  #help-overlay { display:none; position:fixed; inset:0; z-index:40;
+                  background:rgba(0,0,0,.6); align-items:center;
+                  justify-content:center; padding:20px; }
+  #help-overlay.on { display:flex; }
+  #help-card { background:#1E1E21; border-radius:12px; padding:20px 24px;
+               max-width:680px; max-height:85vh; overflow-y:auto;
+               position:relative; user-select:text; }
+  #help-card h2 { font-family:'Space Grotesk', system-ui, sans-serif;
+                  font-size:1.05rem; margin-bottom:10px; }
+  #help-card h4 { font-size:.82rem; color:#4CC2FF; margin:14px 0 4px; }
+  #help-card p { font-size:.78rem; line-height:1.5; color:#D2D2D8; }
+  #help-close { position:absolute; top:10px; right:12px; background:none;
+                border:0; color:#A6A6AF; font-size:1.3rem; cursor:pointer; }
   #wtip { position:fixed; z-index:20; background:#232327; border-radius:8px;
           padding:6px 10px; font-size:.72rem; pointer-events:none;
           display:none; box-shadow:0 3px 10px rgba(0,0,0,.5); min-width:130px; }
@@ -184,9 +202,66 @@
   <svg width="18" height="18" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#00000055"/><path d="M11 27 V7 H17.5 a6.5 6.5 0 0 1 0 13 H11" fill="none" stroke="#ECECEC" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="25.2" cy="7.6" r="3.1" fill="#E5484D"/></svg>
   <h1>Match review</h1>
   <span id="matchinfo" class="muted"></span>
+  <button id="help-btn" title="How this review works">?</button>
   <span style="flex:1"></span>
   <span class="muted" id="xray-note" style="font-size:.7rem"></span>
 </div>
+
+<div id="help-overlay"><div id="help-card">
+  <button id="help-close" title="close">&times;</button>
+  <h2>How this review works</h2>
+
+  <h4>Two different opinions, never mixed</h4>
+  <p><b>Perilune's view</b> (right panel) shows the raw network's
+  <i>habit</i>: how often it would play each card. Big percentages mean
+  strong instinct, not that a move is right.</p>
+  <p><b>Deep search</b> (the cyan bars) shows <i>value</i>: each move is
+  actually played out to the end of the deal, many times, with the hidden
+  cards guessed the way the acting seat would have to guess them. This is
+  the opinion worth trusting - and it runs on your own device.</p>
+
+  <h4>The numbers on a search bar</h4>
+  <p><b>7.4 pts</b> - average penalty points that seat takes this deal if
+  it plays that card.<br>
+  <b>&minus;2.0% match</b> - match-win chance given up versus the best
+  move. Match win, not deal win: winning a deal early in a long match is
+  worth only a few points of match equity.<br>
+  Equivalent cards (a connected run) are pooled into one entry - the net
+  has no real preference between them.</p>
+
+  <h4>Verdicts</h4>
+  <p><b>cost &minus;x%</b> - the search is confident this play gave up
+  real match-win chance. <b>no cost</b> - your card matched the best
+  move's value; any raw-policy complaint was habit. <b>? try K=N</b> -
+  the gap might be real but is inside the noise at this depth; deepen the
+  position to settle it.</p>
+
+  <h4>K, and the two buttons</h4>
+  <p>K is how many imagined deals each move is played out over. Higher K =
+  sharper numbers, slower. <b>Deep analysis</b> sweeps the whole match at
+  the K you pick; <b>K=N here</b> deepens just the position you are
+  looking at (16 &rarr; 32 &rarr; 64 &rarr; 128 &rarr; 256). Results are
+  cached per position, so raising K only re-analyzes what is below it.</p>
+
+  <h4>Par, cards-only, and decision costs</h4>
+  <p><b>Par</b> (deal start) is what a deal's cards cost with Perilune
+  playing all four hands - a luck-inclusive reference, not a skill score.
+  <b>Cards-only match</b> replays the whole match with Perilune in every
+  seat over the same dealt hands: above 25% means the cards favored that
+  seat. <b>Decision costs</b> adds up each seat's confident mistakes -
+  that is the skill side. Cumulative costs can exceed 100% because chances
+  lost can be won back when others err.</p>
+
+  <h4>Getting around</h4>
+  <p>Drag or click the strip to scrub; &larr;/&rarr; step, &uarr;/&darr;
+  jump deals, <b>D</b> next deal, <b>T</b> next trick. Click any entry in
+  the left panel to jump to it - the current one stays highlighted.</p>
+
+  <p class="muted" style="font-size:.7rem">Every judgment is made from
+  what the acting seat could see, even though the review shows all hands.
+  Perilune is strong but not perfect - where it has blind spots (moon
+  defense especially), its opinions inherit them.</p>
+</div></div>
 
 <div id="wtip"></div>
 <div id="grid">
@@ -466,8 +541,53 @@ function renderEval(st, deal) {
         html += evalBars(top, eq, name, p, 'picked', false).html;
       });
       html += `<div class="muted" style="font-size:.64rem; margin-top:6px">
-        Pass evals use the raw policy, judged pick by pick; the full
-        engine evaluates passes with deeper search.</div>`;
+        Pass evals use the raw policy, judged pick by pick; the deep
+        search below judges the pass as a whole.</div>`;
+    }
+    // DEEP PASS ANALYSIS: candidate 3-card passes played out from the
+    // rewound pass state - the pass judged as one decision, in the same
+    // match-win currency as play decisions.
+    const dp = deepResults[deepKey(st.d, 'ps')];
+    if (dp && dp.combos && dp.combos.length) {
+      const n = dp.mean.length;
+      const idx = [...Array(n).keys()].sort((a, b) => dp.mean[b] - dp.mean[a]);
+      const key3 = i => dp.combos.slice(i * 3, i * 3 + 3).slice().sort(
+        (a, b) => a - b).join(',');
+      const actual = (deal.passed[dp.seat] || []).map(cardId)
+        .sort((a, b) => a - b).join(',');
+      const mineIdx = idx.find(i => key3(i) === actual);
+      const best = idx[0];
+      const shown = idx.slice(0, 3);
+      if (mineIdx != null && !shown.includes(mineIdx)) shown.push(mineIdx);
+      html += `<div class="deep-h" style="margin-top:10px">Your pass,
+        deep search &middot; K=${dp.K}</div>`;
+      for (const i of shown) {
+        const cards = dp.combos.slice(i * 3, i * 3 + 3).map(idName);
+        const isMine = i === mineIdx;
+        const dloss = dp.mean[best] - dp.mean[i];
+        html += `<div class="dbar${isMine ? ' played' : ''}">
+          <div class="fill" style="width:${15 + 85 * (n > 1
+            ? Math.max(0, (dp.mean[i] - dp.mean[idx[n - 1]])
+              / Math.max(1e-6, dp.mean[best] - dp.mean[idx[n - 1]])) : 0)}%"></div>
+          <span>${cards.map(c => ct(c)).join(' ')} &middot;
+            ${dp.pts ? dp.pts[i].toFixed(1) + ' pts' : ''}${
+            !isMine || dloss < 0.0005 ? '' :
+            ` &middot; &minus;${(dloss * 100).toFixed(1)}% match`}${
+            isMine ? ' &larr; you passed' : ''}</span></div>`;
+      }
+      if (mineIdx != null) {
+        const dloss = dp.mean[best] - dp.mean[mineIdx];
+        const sig = 2 * Math.sqrt(dp.se[best] ** 2 + dp.se[mineIdx] ** 2);
+        html += `<div class="muted" style="font-size:.68rem; margin-top:3px">${
+          dloss >= 0.01 && dloss > sig
+            ? `<span class="dv">This pass cost &minus;${(dloss * 100).toFixed(1)}% match win</span>`
+            : dloss < 0.01
+            ? `<span class="dv ok">Your pass matches the best candidate's value</span>`
+            : `<span class="dv unk">Too close to call at K=${dp.K}</span>`}</div>`;
+      }
+      html += `<div class="muted" style="font-size:.64rem; margin-top:3px">
+        Candidates come from the net's own pass instincts plus the pass you
+        made; each is played out from the deal's start.</div>`;
     }
     // PAR: whole-deal reference only. Per-move attribution from a
     // deterministic playout is CHAOS (a correct duck once got charged
@@ -740,6 +860,34 @@ function scorecard() {
 function renderDis() {
   const sc = scorecard();
   let scHtml = '';
+  // Cards-only match: how the match would have gone with Perilune playing
+  // EVERY seat over the same dealt hands - the fate written in the cards,
+  // separate from how anyone played.
+  const cm = deepResults[deepKey('M', 'cards')];
+  if (cm && cm.cards) {
+    const n = cm.cards.length / 6;
+    const wins = [0, 0, 0, 0];
+    let finished = 0;
+    for (let r = 0; r < n; r++) {
+      const t = cm.cards.slice(r * 6, r * 6 + 4);
+      if (cm.cards[r * 6 + 4]) finished++;
+      const mn = Math.min(...t);
+      const tied = t.filter(v => v === mn).length;
+      t.forEach((v, s) => { if (v === mn) wins[s] += 1 / tied; });
+    }
+    const fin = R.deals[R.deals.length - 1].totals;
+    const actual = fin.indexOf(Math.min(...fin));
+    scHtml += `<div class="deep-h" style="white-space:nowrap">Cards-only match (x${n})</div>`
+      + [0, 1, 2, 3].map(s =>
+        `<div style="font-size:.72rem; margin:2px 0">${esc(seatLabel(s))}:
+          <span style="color:#4CC2FF">${(100 * wins[s] / n).toFixed(0)}%</span>${
+          s === actual ? ' <span class="muted">&larr; actually won</span>' : ''}</div>`)
+        .join('')
+      + `<div class="muted" style="font-size:.64rem; margin:3px 0 8px">
+        Perilune playing every seat over the same dealt hands${
+        finished < n ? ` (${n - finished} runs outlasted the hands)` : ''}.
+        Above 25% = the cards favored that seat.</div>`;
+  }
   if (sc) {
     // Only the CONFIDENT subset is summed. A raw sum of (best - played)
     // over all decisions is dominated by max-selection bias (the 'best'
@@ -981,7 +1129,7 @@ function idbOpen() {
 }
 // Bump DEEP_SCHEMA whenever the stored result shape changes (v2: added
 // per-action pts) - stale entries stop matching and re-analyze cleanly.
-const DEEP_SCHEMA = 'v5';   // v5: CRN per-position seeding - reruns identical
+const DEEP_SCHEMA = 'v6';   // v6: pass analysis + cards-only match
 async function idbLoadCached() {
   const db = await idbOpen();
   const pre = `${DEEP_SCHEMA}|${matchIdent()}|${deepMd5}|`;
@@ -1023,6 +1171,20 @@ function deepJobs(K, skipDone) {
                      || deepResults[deepKey(d, 'tr')])) return;
     jobs.push({prio: -1, kind: 'playout', key: deepKey(d, 'po'),
                d, i: 'po', deal: d, actionIdx: 0, K: 0});
+  });
+  // Pass decisions: the viewer's pass on every passing deal (the last
+  // unjudged decision class - rewound-pass search, same currency).
+  if (!skipDone || !deepResults[deepKey('M', 'cards')])
+    jobs.push({prio: -0.5, kind: 'cards', key: deepKey('M', 'cards'),
+               d: 'M', i: 'cards', deal: 0, actionIdx: 0, K: 24});
+  R.deals.forEach((deal, d) => {
+    if (deal.pass_direction === 'hold') return;
+    const seat = R.viewer_seat ?? 0;
+    const have = deepResults[deepKey(d, 'ps')];
+    if (skipDone && have && have.K >= Math.max(8, K / 2)) return;
+    jobs.push({prio: 0.5, kind: 'pass', key: deepKey(d, 'ps'),
+               d, i: 'ps', deal: d, seat, actionIdx: 0,
+               K: Math.max(8, K / 2)});   // pass rollouts are whole deals
   });
   steps.forEach((st, idx) => {
     if (st.type !== 'play') return;
@@ -1090,7 +1252,12 @@ async function deepStart() {
       render();
     } else if (m.type === 'result') {
       if (m.desync) { dstatus('replay mismatch - analysis unavailable'); deepDone(); return; }
-      const v = m.trace
+      const v = m.cards
+        ? {d: 'M', i: 'cards', K: m.K, cards: m.cards}
+        : m.combos
+        ? {d: m.d, i: 'ps', K: m.K, combos: m.combos, mean: m.mean,
+           se: m.se, pts: m.pts, seat: m.seat}
+        : m.trace
         ? {d: m.d, i: 'tr', K: 0, trace: m.trace}
         : m.playout
         ? {d: m.d, i: 'po', K: 0, playout: m.playout}
@@ -1100,7 +1267,8 @@ async function deepStart() {
       idbSave(v);
       const st = steps[cur];
       if (st && ((st.type === 'play' && st.d === v.d)
-                 || (st.type === 'start' && (v.i === 'po' || v.i === 'tr'))))
+                 || (st.type === 'start')
+                 || v.i === 'cards'))
         render();
       renderDis();
     } else if (m.type === 'progress') {
@@ -1264,6 +1432,20 @@ el('deep64-btn').onclick = () => {
 };
 
 el('deep-k').onchange = () => updateDeepBtn();
+
+// Help overlay: first visit opens it once, then it is on demand.
+function showHelp(on) {
+  el('help-overlay').classList.toggle('on', on);
+  if (on) try { localStorage.setItem('perilune-review-help', '1'); } catch (e) {}
+}
+el('help-btn').onclick = () => showHelp(true);
+el('help-close').onclick = () => showHelp(false);
+el('help-overlay').onclick = e => {
+  if (e.target === el('help-overlay')) showHelp(false);
+};
+try {
+  if (!localStorage.getItem('perilune-review-help')) showHelp(true);
+} catch (e) {}
 </script>
 </body>
 </html>

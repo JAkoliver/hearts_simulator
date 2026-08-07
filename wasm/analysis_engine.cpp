@@ -50,9 +50,14 @@ constexpr int PUMP_EQUITY = 2;   // rows of 10 floats in eq_in; feed P(place1)
 
 struct Sim {
     HeartsEnv env;
-    int tag;                 // candidate-action index
+    int tag;                 // candidate-action index / combo / replica
     bool done = false;
     double result = 0.0;
+    // Scripted pass picks (pass-combo analysis): while passing and it is
+    // script_seat's turn, play from the script instead of the policy.
+    std::vector<int> script;
+    int script_seat = -1;
+    size_t script_pos = 0;
     Sim(HeartsEnv e, int t) : env(std::move(e)), tag(t) {}
 };
 
@@ -100,8 +105,16 @@ struct Engine {
     std::vector<int32_t> r_n;
     bool playout_mode = false;      // par playout: per-seat deal points
     bool trace_mode = false;        // par TRACE: one playout per play state
+    bool pass_mode = false;         // pass-combo analysis
+    bool cards_mode = false;        // cards-only match replicas
     std::array<int32_t, 4> r_po{};
     std::vector<int32_t> r_trace;   // n_states x 4 per-seat playout points
+    std::vector<std::array<int, 3>> combos;   // pass candidates under eval
+    std::array<int, 3> actual_combo{};        // the pass actually made
+    int n_cand = 10;
+    std::vector<int32_t> r_combo;   // n x 3 pass-combo card ids
+    std::vector<int> cards_deal;    // per-replica current deal index
+    std::vector<int32_t> r_cards;   // K x 6: totals[4], finished, deals
 
     // ---- helpers (ports) ---------------------------------------------------
     static std::vector<int> LegalVector(const HeartsEnv& e) {
@@ -344,6 +357,20 @@ struct Engine {
     }
     std::vector<std::array<std::vector<int>, 4>> dets;
 
+    // Cards-only replicas play MULTIPLE deals: on deal end, roll into the
+    // next dealt hand unless the match ended or hands ran out.
+    void CardsAdvance(Sim& s) {
+        if (!cards_mode || !s.done) return;
+        const auto& tot = s.env.GetState().total_scores;
+        int mx = *std::max_element(tot.begin(), tot.end());
+        int next = cards_deal[s.tag] + 1;
+        if (mx >= 100 || next >= (int)deal_hands.size()) return;  // stays done
+        cards_deal[s.tag] = next;
+        s.env.Reset();
+        s.env.SetDeal(deal_hands[next]);
+        s.done = false;
+    }
+
     // Step every sim that needs no inference: forced single-legal moves.
     // Hearts rollouts are full of them (suit-following, late tricks) - each
     // one stepped here is a net call that never happens.
@@ -353,6 +380,12 @@ struct Engine {
             progressed = false;
             for (auto& s : sims) {
                 if (s.done) continue;
+                if (s.script_pos < s.script.size() && s.env.IsPassing()
+                    && s.env.GetCurrentPlayer() == s.script_seat) {
+                    s.done = s.env.Step(s.script[s.script_pos++]).done;
+                    progressed = true;
+                    continue;
+                }
                 auto lr = s.env.GetLegalActions();
                 int only = -1, n = 0;
                 for (int i = 0; i < 13 && n < 2; ++i) {
@@ -360,6 +393,7 @@ struct Engine {
                 }
                 if (n == 1) {
                     s.done = s.env.Step(only).done;
+                    CardsAdvance(s);
                     progressed = true;
                 }
             }
@@ -373,6 +407,21 @@ struct Engine {
             if (!sims[i].done) active.push_back(i);
         }
         if (active.empty()) {
+            if (cards_mode) {
+                r_cards.assign(sims.size() * 6, 0);
+                for (auto& s : sims) {
+                    const auto& tot = s.env.GetState().total_scores;
+                    int mx = *std::max_element(tot.begin(), tot.end());
+                    for (int k2 = 0; k2 < 4; ++k2) {
+                        r_cards[s.tag * 6 + k2] = tot[k2];
+                    }
+                    r_cards[s.tag * 6 + 4] = mx >= 100 ? 1 : 0;
+                    r_cards[s.tag * 6 + 5] = cards_deal[s.tag] + 1;
+                }
+                sims.clear();
+                stage = PUMP_DONE;
+                return stage;
+            }
             if (playout_mode || trace_mode) {
                 r_trace.assign(sims.size() * 4, 0);
                 for (auto& s : sims) {
@@ -433,7 +482,7 @@ struct Engine {
     }
 
     int Finish() {
-        size_t n = legal.size();
+        size_t n = pass_mode ? combos.size() : legal.size();
         std::vector<double> sum(n, 0.0), sumsq(n, 0.0), psum(n, 0.0);
         std::vector<int> cnt(n, 0);
         for (const auto& s : sims) {
@@ -444,7 +493,17 @@ struct Engine {
             psum[s.tag] += s.env.GetRoundScores()[me];
             cnt[s.tag] += 1;
         }
-        r_actions.assign(legal.begin(), legal.end());
+        if (pass_mode) {
+            r_actions.clear();
+            r_combo.clear();
+            for (const auto& c : combos) {
+                r_actions.push_back(c[0]);
+                for (int x : c) r_combo.push_back(x);
+            }
+        } else {
+            r_actions.assign(legal.begin(), legal.end());
+            r_combo.clear();
+        }
         r_mean.assign(n, 0.0f);
         r_se.assign(n, 0.0f);
         r_pts.assign(n, 0.0f);
@@ -533,7 +592,7 @@ KEEP int an_playout(int deal_idx) {
     E.sims.clear();
     E.dets.clear();
     E.playout_mode = true;
-    E.trace_mode = false;
+    E.trace_mode = E.pass_mode = E.cards_mode = false;
     E.rng.seed(0x7F4A7C15u ^ (unsigned)(deal_idx * 131071));
     int pass_actions =
         (deal_idx < (int)E.deal_actions.size()
@@ -556,7 +615,7 @@ KEEP int an_deal_trace(int deal_idx) {
   return Trap([&]() -> int {
     E.sims.clear();
     E.dets.clear();
-    E.playout_mode = false;
+    E.playout_mode = E.pass_mode = E.cards_mode = false;
     E.trace_mode = true;
     E.rng.seed(0x2545F491u ^ (unsigned)(deal_idx * 131071));
     if (deal_idx >= (int)E.deal_actions.size()) return -1;
@@ -576,11 +635,145 @@ KEEP int an_deal_trace(int deal_idx) {
 KEEP int an_trace_n() { return (int)(E.r_trace.size() / 4); }
 KEEP int32_t* an_result_trace() { return E.r_trace.data(); }
 
+// PASS-COMBO analysis: evaluate candidate 3-card passes for `seat` on a
+// passing deal, info-honestly from that seat's pre-pass view (own hand
+// known, everything else determinized; the same rewound-pass machinery
+// the native engine uses). Root wants logits+belief via
+// an_feed_root_pass: logits propose candidate combos, belief weights the
+// determinizations. The ACTUAL pass is always among the candidates.
+KEEP int an_analyze_pass(int deal_idx, int seat, int k, int n_cand) {
+  return Trap([&]() -> int {
+    E.K = k;
+    E.playout_mode = E.trace_mode = E.cards_mode = false;
+    E.pass_mode = true;
+    E.n_cand = n_cand < 4 ? 4 : (n_cand > 20 ? 20 : n_cand);
+    E.rng.seed(0x51ED270Fu
+               ^ (unsigned)(deal_idx * 131071 + seat * 257 + k));
+    E.sims.clear();
+    E.dets.clear();
+    E.combos.clear();
+    if (deal_idx >= (int)E.deal_actions.size()) return -1;
+    const auto& acts = E.deal_actions[deal_idx];
+    if ((int)acts.size() != 64) return -1;   // hold deal: no pass
+    if (!E.SeekTo(deal_idx, seat * 3)) return -1;
+    if (!E.env.IsPassing() || E.env.GetCurrentPlayer() != seat) return -1;
+    E.me = seat;
+    E.legal = Engine::LegalVector(E.env);
+    for (int j = 0; j < 3; ++j) E.actual_combo[j] = acts[seat * 3 + j];
+    std::sort(E.actual_combo.begin(), E.actual_combo.end());
+    E.BuildContext();
+    E.cap = {13, 13, 13};   // pass rewind: everyone back to full hands
+    return E.RequestRoot();
+  });
+}
+
+// Root feed for pass analysis: candidates from the policy's own pass
+// distribution (top-3 + samples, ports of the native TopThree/SampleCombo)
+// plus the actual pass; sims = combo x determinization, own picks
+// scripted, everyone else by policy, scored like any other decision.
+KEEP int an_feed_root_pass(const float* logits52, const float* belief156) {
+  return Trap([&]() -> int {
+    for (int k = 0; k < 3; ++k) {
+        for (int c = 0; c < 52; ++c) {
+            E.belief[k][c] = 1.0f / (1.0f + std::exp(-belief156[k * 52 + c]));
+        }
+    }
+    E.root_pending = false;
+    // softmax over the hand's logits -> pick probabilities
+    size_t nl = E.legal.size();
+    std::vector<double> p(nl);
+    double mx = -1e30, tot = 0.0;
+    for (size_t i = 0; i < nl; ++i) mx = std::max(mx, (double)logits52[E.legal[i]]);
+    for (size_t i = 0; i < nl; ++i) {
+        p[i] = std::exp((double)logits52[E.legal[i]] - mx);
+        tot += p[i];
+    }
+    for (size_t i = 0; i < nl; ++i) p[i] = std::max(p[i] / tot, 1e-6);
+
+    auto add_combo = [&](std::array<int, 3> c) {
+        std::sort(c.begin(), c.end());
+        if (std::find(E.combos.begin(), E.combos.end(), c) == E.combos.end())
+            E.combos.push_back(c);
+    };
+    // top-3 by probability
+    {
+        std::vector<size_t> idx(nl);
+        for (size_t i = 0; i < nl; ++i) idx[i] = i;
+        std::partial_sort(idx.begin(), idx.begin() + 3, idx.end(),
+                          [&](size_t a, size_t b) { return p[a] > p[b]; });
+        add_combo({E.legal[idx[0]], E.legal[idx[1]], E.legal[idx[2]]});
+    }
+    add_combo(E.actual_combo);
+    int tries = 0;
+    while ((int)E.combos.size() < E.n_cand && tries++ < E.n_cand * 8) {
+        std::array<int, 3> c{};
+        std::vector<bool> taken(nl, false);
+        for (int pick = 0; pick < 3; ++pick) {
+            double t2 = 0.0;
+            for (size_t i = 0; i < nl; ++i) if (!taken[i]) t2 += p[i];
+            std::uniform_real_distribution<double> u(0.0, t2);
+            double r = u(E.rng);
+            size_t chosen = 0;
+            for (size_t i = 0; i < nl; ++i) {
+                if (taken[i]) continue;
+                chosen = i;
+                if (r < p[i]) break;
+                r -= p[i];
+            }
+            taken[chosen] = true;
+            c[pick] = E.legal[chosen];
+        }
+        add_combo(c);
+    }
+    // determinizations + scripted sims
+    for (int d = 0; d < E.K; ++d) E.dets.push_back(E.SampleHands());
+    for (size_t ci = 0; ci < E.combos.size(); ++ci) {
+        for (const auto& det : E.dets) {
+            Sim s(E.env.Clone(), (int)ci);
+            s.env.ResetForPassSearch(det);
+            s.script.assign(E.combos[ci].begin(), E.combos[ci].end());
+            s.script_seat = E.me;
+            E.sims.push_back(std::move(s));
+        }
+    }
+    return E.NextRolloutRequest();
+  });
+}
+
+KEEP int32_t* an_result_combo() { return E.r_combo.data(); }
+
+// CARDS-ONLY MATCH: K replicas of the whole match over the SAME dealt
+// hands with the policy playing every seat (the worker SAMPLES actions,
+// which is where replicas diverge). Result per replica: final totals,
+// finished flag, deals played - the fate written in the cards.
+KEEP int an_cards_match(int k) {
+  return Trap([&]() -> int {
+    E.playout_mode = E.trace_mode = E.pass_mode = false;
+    E.cards_mode = true;
+    E.sims.clear();
+    E.dets.clear();
+    if (E.deal_hands.empty()) return -1;
+    E.rng.seed(0x00C0FFEEu);
+    E.cards_deal.assign(k, 0);
+    for (int r = 0; r < k; ++r) {
+        HeartsEnv e(E.match_seed, true);
+        e.Reset();
+        e.SetDeal(E.deal_hands[0]);
+        E.sims.emplace_back(std::move(e), r);
+    }
+    E.root_pending = false;
+    return E.NextRolloutRequest();
+  });
+}
+
+KEEP int an_cards_n() { return (int)(E.r_cards.size() / 6); }
+KEEP int32_t* an_result_cards() { return E.r_cards.data(); }
+
 KEEP int an_analyze(int deal_idx, int action_idx, int k) {
   return Trap([&]() -> int {
     E.K = k;
-    E.playout_mode = false;
-    E.trace_mode = false;
+    E.playout_mode = E.trace_mode = false;
+    E.pass_mode = E.cards_mode = false;
     // CRN: a position's determinization draws depend ONLY on its
     // coordinates, never on what was analyzed before it - reruns are
     // bit-identical and fp16/fp32 comparisons share worlds.
@@ -651,6 +844,7 @@ KEEP int an_feed_acts() {
         }
         if (!ok) return -2;
         s.done = s.env.Step(a).done;
+        E.CardsAdvance(s);
     }
     return E.NextRolloutRequest();
   });
