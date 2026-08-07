@@ -28,3 +28,17 @@ AWAY_S = 10                 # heartbeat silence before a seat shows 'away'
 # Dev controls (reset button, ?player= identity override):
 # 'localhost' = injected only for direct localhost requests; 'off' = never.
 DEV_MODE = 'localhost'
+
+# AI difficulty tiers offered to players: (key, label, trace path relative
+# to the repo root, trace input dim). 'full' (the live baseline checkpoint)
+# is always available and needs no entry here.
+# TIERS = [
+#     ('casual', 'Casual - v3',
+#      'legacy_v3_pass238/hearts_ai_grandmaster_v3_milestone7.pt', 238),
+#     ('standard', 'Standard - v4', 'hearts_ai_grandmaster_v4m10.pt', 550),
+# ]
+
+# Table AFK timer, seconds per turn (0 disables). On expiry the server
+# auto-plays the LOWEST legal card (or passes the 3 lowest) - deliberately
+# dumb so idling never recruits the strong AI to play for you.
+TURN_TIMER_S = 60

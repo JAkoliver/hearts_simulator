@@ -131,6 +131,10 @@
   /* Contextual text lives ON the felt, above your seat tag - it can't
      collide with cards rising out of the hand, and the hand needs no
      reserved headroom above it. */
+  #subline { position:absolute; bottom:22px; left:0; width:100%;
+             text-align:center; font-size:.72rem; pointer-events:none; }
+  #tierline { color:#8A8A93; margin-right:10px; }
+  #turnclock { color:#E8B923; font-variant-numeric:tabular-nums; }
   #status { position:absolute; bottom:38px; left:0; width:100%; text-align:center;
             font-size:.95rem; color:var(--text); text-shadow:0 1px 3px #000;
             pointer-events:none; }
@@ -223,6 +227,7 @@
     <div id="trick"></div>
     <div id="banner"></div>
     <div id="status"></div>
+    <div id="subline"><span id="tierline"></span><span id="turnclock"></span></div>
     <div id="hb-badge">&hearts; hearts broken</div>
   </div>
   <div id="side">
@@ -246,6 +251,13 @@
   <h2>Hearts</h2>
   <div class="hrow" id="home-resume" style="display:none">
     <button id="home-resume-btn">Return to current game</button></div>
+  <div class="hrow">
+    <select id="home-tier" title="AI difficulty - applies to Play vs AI and to the AI seats of a table you host">
+      <option value="casual">Casual &middot; v3</option>
+      <option value="standard">Standard &middot; v4</option>
+      <option value="full" selected>Perilune &middot; v5 (full strength)</option>
+    </select>
+  </div>
   <div class="hrow"><button id="home-solo">Play vs AI</button></div>
   <div class="hrow"><button id="home-host">Host a table</button></div>
   <div class="hrow"><input id="home-name" placeholder="Your name (optional)" maxlength="20"></div>
@@ -397,6 +409,7 @@ function render() {
   renderTrick(state.trick);
   renderSide();
   renderHand();
+  updateTierline();
   el('banner').textContent = '';
   if (state.finished) return showMatchEnd();
   // A card queued mid-animation: play it now if it's legal, drop it if not.
@@ -569,6 +582,12 @@ async function animate(events, preTrick = []) {
       renderTrick([]);
       if (events.some((e, j) => j > i && e.type === 'play'))
         setStatus('AI is thinking', true);
+    } else if (ev.type === 'timeout') {
+      el('banner').textContent = ev.what === 'pass'
+        ? `${seatName(ev.seat)} ran out of time - lowest cards passed`
+        : `${seatName(ev.seat)} ran out of time - ${ev.name} auto-played`;
+      await sleep(1400);
+      el('banner').textContent = '';
     } else if (ev.type === 'deal_end') {
       preselect = null;   // the hand is about to change entirely
       setHeartsBroken(false);
@@ -683,6 +702,7 @@ function setMode(m, code) {
   else localStorage.removeItem(K('hearts_table'));
 }
 function showHome(err) {
+  tableDeadline = null;
   el('home').style.display = 'flex';
   el('home-err').textContent = err || '';
   // Opening the menu never destroys a game: solo sessions park at your
@@ -732,7 +752,8 @@ async function hostTable() {
   try {
     abandonCurrent();
     const ts = await api('/api/table/new',
-      POSTJSON({pid, name: el('home-name').value}));
+      POSTJSON({pid, name: el('home-name').value,
+                tier: el('home-tier').value}));
     enterTable(ts);
   } catch (e) { el('home-err').textContent = e.message; }
 }
@@ -790,6 +811,8 @@ function renderLobby(ts) {
   el('o-body').innerHTML =
     '<p>Share this code with up to 3 friends.</p><div id="lobby-players">' +
     ts.players.map(n => `<div>${esc(n)}</div>`).join('') + '</div>' +
+    (ts.tier_label
+      ? `<p style="opacity:.7">AI difficulty: ${esc(ts.tier_label)}</p>` : '') +
     (ts.you_host ? '<p style="opacity:.7">AI fills any empty seats.</p>'
                  : '<p style="opacity:.7">Waiting for the host to start&hellip;</p>');
   const b = el('o-btn');
@@ -826,6 +849,10 @@ function handleTableState(ts) {
   // rematch propagation); live play polls at 1.5s.
   const want = ts.finished ? 5000 : 1500;
   if (want !== pollMs && pollTimer) startPolling(want);
+  // AFK countdown: anchor the server's remaining seconds to a local clock
+  // so the display ticks smoothly between 1.5s polls.
+  tableDeadline = (!ts.finished && ts.turn_seconds_left != null)
+    ? Date.now() + ts.turn_seconds_left * 1000 : null;
   if (fresh.length) { evq.push(...fresh); pumpEvents(); }
   else if (!pumping) render();
 }
@@ -838,7 +865,8 @@ async function pumpEvents() {
   try {
     while (evq.length) {
       const batch = evq.splice(0, evq.length)
-        .filter(e => ['play', 'trick_end', 'deal_end'].includes(e.type));
+        .filter(e => ['play', 'trick_end', 'deal_end', 'timeout']
+          .includes(e.type));
       if (batch.length) await animate(batch, shownTrick);
       shownTrick = state.trick ? state.trick.slice() : [];
     }
@@ -899,13 +927,33 @@ const esc = s => String(s).replace(/[&<>"']/g,
 let pid = localStorage.getItem(K('hearts_pid'));
 if (!pid) { pid = crypto.randomUUID(); localStorage.setItem(K('hearts_pid'), pid); }
 
+// Difficulty tier: persisted choice + smooth AFK countdown ticker.
+let tableDeadline = null;
+el('home-tier').value = localStorage.getItem('hearts_tier') || 'full';
+el('home-tier').onchange = () =>
+  localStorage.setItem('hearts_tier', el('home-tier').value);
+setInterval(() => {
+  const n = el('turnclock');
+  if (!n) return;
+  if (tableDeadline == null) { n.textContent = ''; return; }
+  const s = Math.ceil((tableDeadline - Date.now()) / 1000);
+  n.textContent = s >= 0 && s <= 20 ? `⏱ ${s}s` : '';
+}, 500);
+function updateTierline() {
+  el('tierline').textContent =
+    state && state.tier_label && state.tier !== 'full'
+      ? `vs ${state.tier_label}` : '';
+}
+
 async function newMatch() {
   abandonCurrent();
   passSelection = [];
   preselect = null;
   setMode('solo');
   hideHome();
-  state = await api('/api/new', POSTJSON({pid}));
+  tableDeadline = null;
+  state = await api('/api/new',
+    POSTJSON({pid, tier: el('home-tier').value}));
   sid = state.sid;
   localStorage.setItem(K('hearts_sid'), sid);
   render();

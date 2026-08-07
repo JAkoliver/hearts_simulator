@@ -73,6 +73,55 @@ _log_lock = threading.Lock()
 
 
 # ---------------------------------------------------------------------------
+# Difficulty tiers: which net plays the AI seats. Easier tiers are the
+# frozen earlier-generation anchors the research gates measure against
+# (v3-m7, v4-m10 traces); 'full' is the current baseline. Labels carry the
+# model generation so the opponent is never mystery-branded. Review and
+# insight evals ALWAYS use the full-strength net regardless of play tier.
+# ---------------------------------------------------------------------------
+class _TierNet:
+    def __init__(self, module, in_dim):
+        self.module, self.in_dim = module, in_dim
+
+    def act(self, obs, mask):
+        with _net_lock, torch.no_grad():
+            out = self.module(obs[:, :self.in_dim], mask)
+        logits = out[0] if isinstance(out, (tuple, list)) else out
+        return int(torch.argmax(logits, dim=1).item())
+
+
+def _load_tiers():
+    tiers = {'full': {'label': 'Perilune · v5 (full strength)',
+                      'net': _TierNet(_net, 556), 'md5': MODEL_MD5}}
+    root = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
+    for key, label, rel, dim in getattr(cfg, 'TIERS', [
+            ('casual', 'Casual · v3',
+             os.path.join('legacy_v3_pass238',
+                          'hearts_ai_grandmaster_v3_milestone7.pt'), 238),
+            ('standard', 'Standard · v4',
+             'hearts_ai_grandmaster_v4m10.pt', 550)]):
+        path = rel if os.path.isabs(rel) else os.path.join(root, rel)
+        try:
+            m = torch.jit.load(path)
+            m.eval()
+            with open(path, 'rb') as f:
+                md5 = hashlib.md5(f.read()).hexdigest()[:12]
+            tiers[key] = {'label': label, 'net': _TierNet(m, dim), 'md5': md5}
+        except Exception as e:   # tier nets are optional; 'full' always works
+            print(f'[tiers] {key} unavailable: {e}')
+    return tiers
+
+
+TIERS = _load_tiers()
+TIER_ORDER = [k for k in ('casual', 'standard', 'full') if k in TIERS]
+TURN_TIMER_S = getattr(cfg, 'TURN_TIMER_S', 60)   # table AFK timer; 0 = off
+
+
+def _norm_tier(t):
+    return t if t in TIERS else 'full'
+
+
+# ---------------------------------------------------------------------------
 # Log index (in-memory, exact): this process is the log's only writer, so a
 # one-pass build at startup plus an update on every append keeps review /
 # insight / history from rescanning the whole JSONL per request.
@@ -191,16 +240,14 @@ def card_name(idx):
     return RANKS[idx % 13] + SUITS[idx // 13]
 
 
-def ai_action(menv):
-    """Argmax raw-net action for the current player of any MatchEnv."""
+def ai_action(menv, tier='full'):
+    """Argmax action for the current player, from the tier's net."""
     obs = torch.from_numpy(menv.observe()).unsqueeze(0)
     mask = torch.zeros((1, 52), dtype=torch.bool)
     for a in menv.get_legal_actions():
         if a != -1:
             mask[0, a] = True
-    with _net_lock, torch.no_grad():
-        logits, _ = _net(obs, mask)
-    return int(torch.argmax(logits, dim=1).item())
+    return TIERS[_norm_tier(tier)]['net'].act(obs, mask)
 
 
 def hand_of(menv, seat):
@@ -217,12 +264,13 @@ def hand_of(menv, seat):
 
 
 class Session:
-    def __init__(self, pid=None, ua=''):
+    def __init__(self, pid=None, ua='', tier='full'):
         self.sid = secrets.token_urlsafe(12)
         self.seed = secrets.randbits(31)
         self.menv = MatchEnv(seed=self.seed)
         self.human_seat = secrets.randbelow(4)
         self.pid = pid            # anonymous persistent player id (client)
+        self.tier = _norm_tier(tier)
         self.ua = (ua or '')[:120]
         self.trick = []           # [(seat, card)] of the current trick
         self.last_trick = None    # {'cards': [(seat, card)], 'winner': seat}
@@ -239,14 +287,15 @@ class Session:
     def _stamp(self, kind):
         return {'v': LOG_V, 'kind': kind, 'sid': self.sid, 'pid': self.pid,
                 'seed': self.seed, 'human_seat': self.human_seat,
-                'model': MODEL_MD5, 'ts': round(time.time(), 3)}
+                'model': TIERS[self.tier]['md5'], 'tier': self.tier,
+                'ts': round(time.time(), 3)}
 
     # -- engine helpers -----------------------------------------------------
     def _legal(self):
         return [a for a in self.menv.get_legal_actions() if a != -1]
 
     def _ai_action(self):
-        return ai_action(self.menv)
+        return ai_action(self.menv, self.tier)
 
     def _apply(self, seat, action):
         in_play = not self.menv.is_passing()
@@ -342,6 +391,8 @@ class Session:
             'last_deal': self.last_deal,
             'placements': list(self.menv.placements()) if self.finished else None,
             'target': TARGET,
+            'tier': self.tier,
+            'tier_label': TIERS[self.tier]['label'],
         }
 
 
@@ -356,9 +407,12 @@ _tables_lock = threading.Lock()
 
 
 class Table:
-    def __init__(self, host_pid, host_name):
+    def __init__(self, host_pid, host_name, tier='full'):
         self.code = ''.join(secrets.choice(CODE_ALPHABET)
                             for _ in range(cfg.CODE_LEN))
+        self.tier = _norm_tier(tier)
+        self.turn_deadline = None   # AFK timer for the blocking human seat
+        self.timeouts = []          # indices into deal_actions auto-played
         self.state = 'lobby'
         self.lobby = [{'pid': host_pid, 'name': host_name}]  # join order
         self.host_pid = host_pid
@@ -436,6 +490,7 @@ class Table:
     def _snapshot_deal(self):
         self.deal_start_hands = {s: set(hand_of(self.menv, s)) for s in range(4)}
         self.passed_by, self.received, self.pending_pass = {}, {}, {}
+        self.timeouts = []
 
     # -- engine pump --------------------------------------------------------
     def humans(self):
@@ -452,13 +507,45 @@ class Table:
                         break
                     card = q.pop(0)
                 else:
-                    card = ai_action(self.menv)
+                    card = ai_action(self.menv, self.tier)
                 self.passed_by.setdefault(s, []).append(card)
                 self._apply(s, card)
             else:
                 if s in self.humans():
                     break
-                self._apply(s, ai_action(self.menv))
+                self._apply(s, ai_action(self.menv, self.tier))
+        # Arm the AFK timer for whichever human we stopped on.
+        if (TURN_TIMER_S and self.state == 'playing' and not self.finished
+                and self.menv.get_current_player() in self.humans()):
+            self.turn_deadline = time.time() + TURN_TIMER_S
+        else:
+            self.turn_deadline = None
+
+    def check_timeout(self):
+        """AFK enforcement, called from every state poll. The auto-play is a
+        deliberately DUMB heuristic (lowest card of the current suit /
+        lowest 3 for a pass) so waiting the timer out is never a way to
+        make the strong AI play for you."""
+        if (not TURN_TIMER_S or self.state != 'playing' or self.finished
+                or self.turn_deadline is None
+                or time.time() < self.turn_deadline):
+            return
+        s = self.menv.get_current_player()
+        if s not in self.humans():
+            self.turn_deadline = None
+            return
+        legal = [a for a in self.menv.get_legal_actions() if a != -1]
+        low = sorted(legal, key=lambda a: (a % 13, a // 13))
+        if self.menv.is_passing():
+            self.pending_pass[s] = low[:3]
+            self.emit('timeout', seat=s, what='pass')
+        else:
+            self.timeouts.append(len(self.deal_actions))
+            self.emit('timeout', seat=s, what='play',
+                      name=card_name(low[0]))
+            self._apply(s, low[0])
+        self.turn_deadline = None
+        self.advance()
 
     def _apply(self, seat, action):
         was_passing = self.menv.is_passing()
@@ -498,7 +585,9 @@ class Table:
                       'seats': {str(s): ('human' if s in self.humans() else 'ai')
                                 for s in range(4)},
                       'seat_pids': {str(s): p for p, s in self.seat_of.items()},
-                      'model': MODEL_MD5, 'ts': round(time.time(), 3),
+                      'model': TIERS[self.tier]['md5'], 'tier': self.tier,
+                      'timeouts': list(self.timeouts),
+                      'ts': round(time.time(), 3),
                       'deal_no': self.deal_no, 'actions': self.deal_actions,
                       'round_scores': list(map(int, round_scores)),
                       'totals': list(map(int, self.menv.match_scores))})
@@ -516,7 +605,8 @@ class Table:
                       'seat_pids': {str(s): p for p, s in self.seat_of.items()},
                       'seats': {str(s): ('human' if s in self.humans() else 'ai')
                                 for s in range(4)},
-                      'model': MODEL_MD5, 'ts': round(time.time(), 3),
+                      'model': TIERS[self.tier]['md5'], 'tier': self.tier,
+                      'ts': round(time.time(), 3),
                       'deals': self.deal_no - 1, 'n_actions': self.n_actions,
                       'final': list(map(int, self.menv.match_scores)),
                       'placements': list(self.menv.placements()),
@@ -528,7 +618,12 @@ class Table:
         # (e.g. an accidental leave followed by a rejoin).
         self.last_seen[pid] = time.time()
         self.departed.discard(pid)
-        base = {'code': self.code, 'state': self.state, 'target': TARGET}
+        base = {'code': self.code, 'state': self.state, 'target': TARGET,
+                'tier': self.tier, 'tier_label': TIERS[self.tier]['label']}
+        if self.state == 'playing' and self.turn_deadline is not None:
+            base['turn_seconds_left'] = max(
+                0, int(self.turn_deadline - time.time()))
+            base['turn_timer_s'] = TURN_TIMER_S
         if self.state == 'lobby':
             if pid not in (p['pid'] for p in self.lobby):
                 raise HTTPException(403, 'not seated at this table')
@@ -598,6 +693,7 @@ class PlayBody(BaseModel):
 
 class NewBody(BaseModel):
     pid: str | None = None
+    tier: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -1000,7 +1096,7 @@ def index(request: Request):
 def new_session(body: NewBody | None = None, request: Request = None):
     pid = (body.pid[:64] if body and body.pid else None)
     ua = request.headers.get('user-agent', '') if request else ''
-    s = Session(pid=pid, ua=ua)
+    s = Session(pid=pid, ua=ua, tier=(body.tier if body else None) or 'full')
     with _sessions_lock:
         _sessions[s.sid] = s
         # Drop oldest sessions past a sane cap
@@ -1029,6 +1125,7 @@ def get_state(sid: str):
 class TableNewBody(BaseModel):
     pid: str
     name: str | None = None
+    tier: str | None = None
 
 
 class TableJoinBody(BaseModel):
@@ -1053,7 +1150,8 @@ def _clean_name(name, fallback):
 
 @app.post('/api/table/new')
 def table_new(body: TableNewBody):
-    t = Table(body.pid[:64], _clean_name(body.name, 'Host'))
+    t = Table(body.pid[:64], _clean_name(body.name, 'Host'),
+              tier=body.tier or 'full')
     with _tables_lock:
         while t.code in _tables:
             t.code = ''.join(secrets.choice(CODE_ALPHABET)
@@ -1097,6 +1195,7 @@ def table_start(body: TableJoinBody):
 def table_state(code: str, pid: str, cursor: int = 0):
     t = _get_table(code)
     with t.lock:
+        t.check_timeout()
         return t.view(pid, cursor)
 
 
