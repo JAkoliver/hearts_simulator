@@ -22,13 +22,21 @@
   .muted { color:#A6A6AF; }
   #top { display:flex; align-items:center; gap:10px; flex-wrap:wrap;
          margin-bottom:10px; }
-  /* right column carries the scrollbar's width on top of its content
+  /* side columns carry the scrollbar's width on top of their content
      width (gutter reserved always, so content never reflows) */
   #grid { flex:1 1 auto; min-height:0; display:grid;
-          grid-template-columns:250px 1fr 282px; gap:12px; }
+          grid-template-columns:262px 1fr 282px; gap:12px; }
   /* the eval panel's content scrolls; buttons + disclosure stay pinned */
-  #evalscroll { flex:1 1 auto; min-height:0; overflow-y:auto;
-                scrollbar-gutter:stable; scrollbar-width:thin; }
+  #evalscroll { flex:1 1 auto; min-height:0; overflow-y:auto; }
+  /* inner scrollers: gutter always reserved, scrollbar slim + dark so the
+     reserved strip reads as margin, not chrome */
+  #dis, #evalscroll { scrollbar-gutter:stable; scrollbar-width:thin;
+                      scrollbar-color:#3A3A40 transparent; }
+  #dis::-webkit-scrollbar, #evalscroll::-webkit-scrollbar { width:9px; }
+  #dis::-webkit-scrollbar-track, #evalscroll::-webkit-scrollbar-track
+    { background:transparent; }
+  #dis::-webkit-scrollbar-thumb, #evalscroll::-webkit-scrollbar-thumb
+    { background:#3A3A40; border-radius:5px; }
   @media (max-width:980px) { #grid { grid-template-columns:1fr; }
     body { overflow:auto; } }
   .panel { background:#1E1E21; border-radius:10px; padding:10px;
