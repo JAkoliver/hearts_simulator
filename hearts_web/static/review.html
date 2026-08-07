@@ -141,8 +141,12 @@
          margin:3px 0; overflow:hidden; display:flex; align-items:center; }
   .bar .fill { position:absolute; inset:0 auto 0 0; background:#3E3E46; }
   .bar.played .fill { background:#7A5A17; }
-  .bar span { position:relative; font-size:.72rem; padding-left:6px;
-              font-variant-numeric:tabular-nums; }
+  /* DIRECT child only: this is the bar's label. A bare descendant
+     selector also pads every nested span (card glyphs, the tail row's
+     per-card wrappers), compounding with the flex gap into crooked
+     spacing. */
+  .bar > span { position:relative; font-size:.72rem; padding-left:6px;
+                font-variant-numeric:tabular-nums; }
   /* zero-tail row: the cards the net would (essentially) never play,
      one wrapping row instead of a stack of identical 0.0% bars */
   .bar.tail { height:auto; min-height:21px; }
