@@ -411,6 +411,7 @@ class Table:
         self.code = ''.join(secrets.choice(CODE_ALPHABET)
                             for _ in range(cfg.CODE_LEN))
         self.tier = _norm_tier(tier)
+        self.timer_s = TURN_TIMER_S   # host-set at start (0 = no timer)
         self.turn_deadline = None   # AFK timer for the blocking human seat
         self.timeouts = []          # indices into deal_actions auto-played
         self.state = 'lobby'
@@ -515,9 +516,9 @@ class Table:
                     break
                 self._apply(s, ai_action(self.menv, self.tier))
         # Arm the AFK timer for whichever human we stopped on.
-        if (TURN_TIMER_S and self.state == 'playing' and not self.finished
+        if (self.timer_s and self.state == 'playing' and not self.finished
                 and self.menv.get_current_player() in self.humans()):
-            self.turn_deadline = time.time() + TURN_TIMER_S
+            self.turn_deadline = time.time() + self.timer_s
         else:
             self.turn_deadline = None
 
@@ -526,7 +527,7 @@ class Table:
         deliberately DUMB heuristic (lowest card of the current suit /
         lowest 3 for a pass) so waiting the timer out is never a way to
         make the strong AI play for you."""
-        if (not TURN_TIMER_S or self.state != 'playing' or self.finished
+        if (not self.timer_s or self.state != 'playing' or self.finished
                 or self.turn_deadline is None
                 or time.time() < self.turn_deadline):
             return
@@ -623,7 +624,7 @@ class Table:
         if self.state == 'playing' and self.turn_deadline is not None:
             base['turn_seconds_left'] = max(
                 0, int(self.turn_deadline - time.time()))
-            base['turn_timer_s'] = TURN_TIMER_S
+            base['turn_timer_s'] = self.timer_s
         if self.state == 'lobby':
             if pid not in (p['pid'] for p in self.lobby):
                 raise HTTPException(403, 'not seated at this table')
@@ -1132,6 +1133,7 @@ class TableJoinBody(BaseModel):
     code: str
     pid: str
     name: str | None = None
+    timer_s: int | None = None   # host's turn-timer choice, sent with start
 
 
 class TableActBody(BaseModel):
@@ -1187,6 +1189,8 @@ def table_start(body: TableJoinBody):
         if body.pid != t.host_pid:
             raise HTTPException(403, 'only the host can start')
         if t.state == 'lobby':
+            if body.timer_s in (0, 30, 60, 90, 120):
+                t.timer_s = body.timer_s
             t.start()
         return t.view(body.pid)
 

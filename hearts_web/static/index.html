@@ -131,8 +131,11 @@
   /* Contextual text lives ON the felt, above your seat tag - it can't
      collide with cards rising out of the hand, and the hand needs no
      reserved headroom above it. */
-  #subline { position:absolute; bottom:22px; left:0; width:100%;
-             text-align:center; font-size:.72rem; pointer-events:none; }
+  /* tier + AFK clock live in the felt's empty top-left corner: nothing
+     else occupies it (trick slots are at 20% insets, hands are outside
+     the felt), so no collisions at any viewport */
+  #subline { position:absolute; top:6px; left:10px; text-align:left;
+             font-size:.72rem; pointer-events:none; z-index:2; }
   #tierline { color:#8A8A93; margin-right:10px; }
   #turnclock { color:#E8B923; font-variant-numeric:tabular-nums; }
   #status { position:absolute; bottom:38px; left:0; width:100%; text-align:center;
@@ -813,15 +816,32 @@ function renderLobby(ts) {
     ts.players.map(n => `<div>${esc(n)}</div>`).join('') + '</div>' +
     (ts.tier_label
       ? `<p style="opacity:.7">AI difficulty: ${esc(ts.tier_label)}</p>` : '') +
-    (ts.you_host ? '<p style="opacity:.7">AI fills any empty seats.</p>'
-                 : '<p style="opacity:.7">Waiting for the host to start&hellip;</p>');
+    (ts.you_host
+      ? `<p style="opacity:.7">Turn timer:
+           <select id="lobby-timer">
+             <option value="0">No timer</option>
+             <option value="30">30s</option>
+             <option value="60">60s</option>
+             <option value="90">90s</option>
+             <option value="120">2 min</option>
+           </select></p>
+         <p style="opacity:.7">AI fills any empty seats.</p>`
+      : '<p style="opacity:.7">Waiting for the host to start&hellip;</p>');
+  if (ts.you_host) {
+    const lt = el('lobby-timer');
+    lt.value = localStorage.getItem('hearts_timer') || '60';
+    lt.onchange = () => localStorage.setItem('hearts_timer', lt.value);
+  }
   const b = el('o-btn');
   if (ts.you_host) {
     b.style.display = '';
     b.textContent = `Start (${ts.players.length} human${ts.players.length > 1 ? 's' : ''})`;
     b.onclick = async () => {
-      try { handleTableState(await api('/api/table/start', POSTJSON({code: tcode, pid}))); }
-      catch (e) { setStatus('Error: ' + e.message); }
+      try {
+        handleTableState(await api('/api/table/start',
+          POSTJSON({code: tcode, pid,
+                    timer_s: +el('lobby-timer').value})));
+      } catch (e) { setStatus('Error: ' + e.message); }
     };
   } else b.style.display = 'none';
   el('overlay').style.display = 'flex';
