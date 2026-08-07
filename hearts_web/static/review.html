@@ -23,7 +23,7 @@
   #top { display:flex; align-items:center; gap:10px; flex-wrap:wrap;
          margin-bottom:10px; }
   #grid { flex:1 1 auto; min-height:0; display:grid;
-          grid-template-columns:220px 1fr 240px; gap:12px; }
+          grid-template-columns:250px 1fr 240px; gap:12px; }
   @media (max-width:980px) { #grid { grid-template-columns:1fr; }
     body { overflow:auto; } }
   .panel { background:#1E1E21; border-radius:10px; padding:10px;
@@ -111,6 +111,9 @@
   .dline.on { background:#2C2C31; border-left:3px solid #E8B923;
               padding-left:3px; }
   .dline b { color:#E5484D; }
+  /* two fixed lines per entry: position+cards+% / verdict */
+  .dline .l1 { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .dline .l2 { padding-left:10px; margin-top:1px; }
   #dtoggle { font-size:.68rem; margin-bottom:6px; display:flex;
              flex-wrap:wrap; gap:4px; align-items:center; }
   #dtoggle button { background:#26262A; color:#ECECEC; border:0;
@@ -738,33 +741,42 @@ function renderDis() {
     // over all decisions is dominated by max-selection bias (the 'best'
     // of ~13 noisy estimates sits systematically above truth) - it
     // rendered -200%+ phantom totals and is not shown.
-    scHtml = `<div class="deep-h" style="margin-bottom:2px">Decision costs
-      (whole match, deep search)</div>` + sc.map(r =>
-      `<div style="font-size:.72rem; margin:2px 0">
-        ${esc(seatLabel(r.s))}: ${r.mat
-          ? `${r.mat} costly play${r.mat > 1 ? 's' : ''}, &minus;${(r.matSum * 100).toFixed(1)}% match win`
-          : `<span class="muted">no clearly costly plays</span>`}
-        <span class="muted">(${r.n} analyzed)</span></div>`)
+    scHtml = `<div class="deep-h" style="margin-bottom:2px; white-space:nowrap">Decision costs (deep search)</div>`
+      + sc.map(r =>
+      `<div style="font-size:.72rem; margin:3px 0">
+        <div style="white-space:nowrap">${esc(seatLabel(r.s))}: ${r.mat
+          ? `${r.mat} costly &middot; &minus;${(r.matSum * 100).toFixed(1)}% match`
+          : `<span class="muted">no costly plays</span>`}</div>
+        <div class="muted" style="padding-left:10px">${r.n} decisions analyzed</div></div>`)
       .join('') + `<div class="muted" style="font-size:.64rem; margin:3px 0 8px">
       Cumulative chance given up in clearly-worse plays. Chances lost can
       be regained when others err, so long matches can exceed 100%.</div>`;
   }
-  let html = disagreements().map(d =>
-    `<div class="dline" data-idx="${d.idx}">D${d.d} T${d.t} &middot;
-      ${esc(seatLabel(d.s))}: ${ct(d.name)} &rarr; ${ctG(d.ai)}
-      <span class="muted" title="raw-policy preference gap - habit strength, not value">(+${(d.gap * 100).toFixed(0)}%)</span>${deepBadge(d.idx, d.name)}</div>`).join('')
-    || '<div class="muted" style="font-size:.75rem">No disagreements.</div>';
+  // Costly plays (search verdicts) sit ABOVE the raw disagreements: the
+  // confident mistakes first, the policy's opinions below.
+  let html = '';
   const cp = costlyPlays();
   if (cp.length) {
-    html += `<div class="deep-h" style="margin-top:8px">Costly plays
-      (deep search)</div>` + cp.map(u =>
-      `<div class="dline" data-idx="${u.idx}">D${u.d} T${u.t} &middot;
-        ${esc(seatLabel(u.s))}: ${ct(u.name)} &rarr; ${ctG(u.betterNames)}
-        <span class="dv">&minus;${(u.diff * 100).toFixed(1)}% match</span>${
+    html += `<div class="deep-h" style="white-space:nowrap">Costly plays (deep search)</div>`
+      + cp.map(u =>
+      `<div class="dline" data-idx="${u.idx}">
+        <div class="l1">D${u.d} T${u.t} &middot; ${esc(seatLabel(u.s))}:
+          ${ct(u.name)} &rarr; ${ctG(u.betterNames)}</div>
+        <div class="l2"><span class="dv">&minus;${(u.diff * 100).toFixed(1)}% match</span>${
         u.dpts != null && u.dpts > 0.05
-          ? ` <span class="muted">(+${u.dpts.toFixed(1)} pts)</span>` : ''}</div>`)
+          ? ` <span class="muted">(+${u.dpts.toFixed(1)} pts)</span>` : ''}</div></div>`)
       .join('');
+    html += `<div class="deep-h" style="margin-top:8px">Raw-policy disagreements</div>`;
   }
+  html += disagreements().map(d => {
+    const badge = deepBadge(d.idx, d.name);
+    return `<div class="dline" data-idx="${d.idx}">
+      <div class="l1">D${d.d} T${d.t} &middot; ${esc(seatLabel(d.s))}:
+        ${ct(d.name)} &rarr; ${ctG(d.ai)}
+        <span class="muted" title="raw-policy preference gap - habit strength, not value">(+${(d.gap * 100).toFixed(0)}%)</span></div>${
+      badge ? `<div class="l2">${badge}</div>` : ''}</div>`;
+  }).join('')
+    || '<div class="muted" style="font-size:.75rem">No disagreements.</div>';
   el('dis').innerHTML = scHtml + html;
   document.querySelectorAll('.dline').forEach(n =>
     n.onclick = () => { cur = +n.dataset.idx; render(); });
