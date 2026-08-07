@@ -18,7 +18,7 @@
 
 // VER busts HTTP caches for the engine glue AND its .wasm (locateFile) -
 // without it, browsers happily run a stale engine forever.
-const VER = 15;
+const VER = 16;
 // Fixed batch buckets: WebGPU compiles a pipeline PER TENSOR SHAPE, and
 // rollout rounds shrink row counts continuously - hundreds of one-off
 // shapes means hundreds of shader compiles (stalls, device pressure).
@@ -29,7 +29,12 @@ importScripts('/static/ort/ort.all.min.js');
 importScripts('/static/analysis_engine.js?v=' + VER);
 
 const CHUNK = 416;
-const MAX_ROUNDS = 400;   // stall guard: no decision needs this many forwards
+// Stall guard, per job kind. A single decision needs ~45 rounds and a
+// pass ~56, but a cards-only replica plays a WHOLE MATCH sequentially
+// (measured 415 rounds for 8 deals) - one guard for all of them false-
+// alarmed at K=64. Bound = generous multiple of the measured need.
+const MAX_ROUNDS = {cards: 4000, pass: 400, trace: 400, playout: 400,
+                    play: 400};
 let M = null, policy = null, equity = null, ep = null;
 let jobs = [], running = false, jobsDone = 0, jobsTotal = 0;
 // Fast path fetches the in-graph argmax ('act'); if the backend ever
@@ -223,8 +228,9 @@ async function analyzeOne(job) {
   let rounds = 0;
   while (kind !== 0) {
     if (kind === -3) throw new Error('engine: ' + anError());
-    if (++rounds > MAX_ROUNDS)
-      throw new Error(`stalled after ${MAX_ROUNDS} rounds (ep=${ep})`);
+    const cap = MAX_ROUNDS[job.kind] || MAX_ROUNDS.play;
+    if (++rounds > cap)
+      throw new Error(`stalled after ${cap} rounds in ${job.kind || 'play'} (ep=${ep})`);
     const rows = M._an_rows();
     if (kind === 1) {
       if (M._an_is_root()) {
