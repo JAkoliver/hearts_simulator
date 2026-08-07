@@ -115,7 +115,8 @@
   .dline .l1 { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .dline .l2 { padding-left:10px; margin-top:1px; }
   #dtoggle { font-size:.68rem; margin-bottom:6px; display:flex;
-             flex-wrap:wrap; gap:4px; align-items:center; }
+             flex-direction:column; gap:4px; }
+  #dtoggle .trow { display:flex; gap:4px; align-items:center; }
   #dtoggle button { background:#26262A; color:#ECECEC; border:0;
                     border-radius:6px; padding:3px 8px; cursor:pointer; }
   #dtoggle button.on { background:#E8B923; color:#222; }
@@ -192,11 +193,14 @@
   <div class="panel">
     <h3>Disagreements</h3>
     <div id="dtoggle">
-      <button id="d-you" class="on">Your plays</button>
-      <button id="d-all">All seats</button>
-      &nbsp;
-      <button id="d-time" class="on">Time</button>
-      <button id="d-gap">%</button>
+      <div class="trow">
+        <button id="d-you" class="on">Your plays</button>
+        <button id="d-all">All seats</button>
+      </div>
+      <div class="trow">
+        <button id="d-time" class="on">Time</button>
+        <button id="d-gap">%</button>
+      </div>
     </div>
     <div id="dis"></div>
   </div>
