@@ -113,13 +113,16 @@
      DEAL, so it lives once at the table's center - a rotation ring for
      left/right, a four-headed cross for across - instead of per-seat
      arrows that read as the received cards moving on */
-  .passdir svg { display:block; width:calc(var(--cw)*2.8);
-                 height:calc(var(--cw)*2.8); margin:0 auto 6px;
+  .passdir svg { display:block; width:calc(var(--cw)*1.8);
+                 height:calc(var(--cw)*1.8); margin:0 auto 6px;
                  overflow:visible; }
+  /* full-opacity strokes: translucent lines composite darker where the
+     across cross overlaps itself */
   .passdir svg > path, .passdir svg > line
-    { stroke:#E8B923; stroke-width:6; fill:none; opacity:.85;
+    { stroke:#E8B923; stroke-width:3; fill:none;
       stroke-linecap:round; marker-end:url(#pahead); }
   .passdir svg > line { marker-start:url(#pahead); }
+  .passdir > div { letter-spacing:.05em; }
   /* ghost of the previous trick, swept to its winner's edge */
   .gslot { position:absolute; display:flex; opacity:.30; }
   .gslot .card { width:calc(var(--cw)*.9); height:calc(var(--cw)*1.28);
