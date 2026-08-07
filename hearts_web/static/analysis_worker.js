@@ -22,8 +22,11 @@ const VER = 16;
 // Fixed batch buckets: WebGPU compiles a pipeline PER TENSOR SHAPE, and
 // rollout rounds shrink row counts continuously - hundreds of one-off
 // shapes means hundreds of shader compiles (stalls, device pressure).
-// Padding every forward to one of four shapes compiles each kernel once.
-const BUCKETS = [16, 64, 208, 416];
+// Padding every forward to one of a few shapes compiles each kernel once.
+// Mobile GPUs are compute-bound where desktop lanes are nearly free, so
+// padding waste is real cost there - init{mobile} adds two intermediate
+// shapes (two extra one-time compiles) to halve typical waste.
+let BUCKETS = [16, 64, 208, 416];
 const bucketOf = n => BUCKETS.find(b => b >= n) || 416;
 importScripts('/static/ort/ort.all.min.js');
 importScripts('/static/analysis_engine.js?v=' + VER);
@@ -383,6 +386,7 @@ onmessage = (ev) => {
   const m = ev.data;
   if (m.type === 'init') {
     skipFp16 = !!m.skipFp16;
+    if (m.mobile) BUCKETS = [16, 32, 64, 128, 208, 416];
     init().catch(
       e => postMessage({ type: 'fatal', message: String(e).slice(0, 300) }));
   }

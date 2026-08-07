@@ -1347,7 +1347,12 @@ const idName = c => RANK_ORDER[c % 13] + 'CDSH'[Math.floor(c / 13)];
 const matchIdent = () => q.get('code')
   ? `T${q.get('code')}#${q.get('match_no') || ''}` : (q.get('sid') || '');
 const passOffset = deal => deal.pass_direction === 'hold' ? 0 : 12;
-const dstatus = s => { el('deep-status').textContent = s; };
+// Backend tag rides on every status line - "done (3) · webgpu-fp16" -
+// so which tier the engine landed on is always visible, not a one-flash
+// message at boot (on a phone this is the whole performance story).
+let engineEp = '';
+const dstatus = s => { el('deep-status').textContent =
+  s + (engineEp ? ` · ${engineEp}` : ''); };
 
 function idbOpen() {
   return new Promise((res, rej) => {
@@ -1469,7 +1474,7 @@ async function bootEngine() {
     deepMd5 = (man.policy_onnx_md5 || '').slice(0, 8);
   } catch (e) { deepMd5 = 'nomd5'; }
   for (const v of await idbLoadCached()) deepAccept(v);
-  deepWorker = new Worker('/static/analysis_worker.js?v=16');
+  deepWorker = new Worker('/static/analysis_worker.js?v=17');
   // A crashed worker (e.g. a wasm abort) must be VISIBLE, never a frozen
   // counter.
   deepWorker.onerror = e => {
@@ -1479,7 +1484,8 @@ async function bootEngine() {
   deepWorker.onmessage = ev => {
     const m = ev.data;
     if (m.type === 'ready') {
-      dstatus(`engine ready (${m.ep})`);
+      engineEp = m.ep;
+      dstatus('engine ready');
       deepWorker.postMessage({type: 'load', seed: R.replay.seed,
                               dealActions: R.replay.deal_actions,
                               startHands: R.deals.map(d =>
@@ -1520,9 +1526,11 @@ async function bootEngine() {
       n.textContent = '⚠ ' + m.message;
       n.style.display = 'block';
       // Remember per-browser fp16 failures so future sessions skip the
-      // doomed attempt (cleared automatically by version bumps).
+      // doomed attempt. VERSIONED: verdicts recorded before the concat->
+      // Gather export fix are stale - bumping the key makes every device
+      // retry fp16 once, and genuine failures simply re-flag.
       if (m.message.startsWith('fp16 failed'))
-        try { localStorage.setItem('perilune-fp16-bad', 'v15'); } catch (e) {}
+        try { localStorage.setItem('perilune-fp16-bad', 'v16'); } catch (e) {}
     } else if (m.type === 'fatal') {
       dstatus('analysis failed: ' + m.message);
       const n = el('deep-note');
@@ -1532,9 +1540,9 @@ async function bootEngine() {
     }
   };
   let fp16Bad = false;
-  try { fp16Bad = localStorage.getItem('perilune-fp16-bad') === 'v15'; }
+  try { fp16Bad = localStorage.getItem('perilune-fp16-bad') === 'v16'; }
   catch (e) {}
-  deepWorker.postMessage({type: 'init', skipFp16: fp16Bad});
+  deepWorker.postMessage({type: 'init', skipFp16: fp16Bad, mobile: MOBILE});
 }
 
 // A forced play (single legal card) carries no decision - the ranked list
