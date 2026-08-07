@@ -23,7 +23,9 @@
   #top { display:flex; align-items:center; gap:10px; flex-wrap:wrap;
          margin-bottom:10px; }
   #grid { flex:1 1 auto; min-height:0; display:grid;
-          grid-template-columns:250px 1fr 240px; gap:12px; }
+          grid-template-columns:250px 1fr 265px; gap:12px; }
+  /* the eval panel's content scrolls; buttons + disclosure stay pinned */
+  #evalscroll { flex:1 1 auto; min-height:0; overflow-y:auto; }
   @media (max-width:980px) { #grid { grid-template-columns:1fr; }
     body { overflow:auto; } }
   .panel { background:#1E1E21; border-radius:10px; padding:10px;
@@ -303,8 +305,10 @@
 
   <div class="panel">
     <h3>Perilune's view</h3>
-    <div id="evalbox"></div>
-    <div id="passinfo"></div>
+    <div id="evalscroll">
+      <div id="evalbox"></div>
+      <div id="passinfo"></div>
+    </div>
     <div id="deepbar">
       <div>
         <button id="deep-btn" class="xbtn">Deep analysis</button>
@@ -384,21 +388,30 @@ function mergeTop(top, eq) {   // ranked [[card,p],...] -> [[cards[],p],...]
   items.sort((a, b) => b[1] - a[1]);
   return items;
 }
+// Merged group spelled out card by card ("10♥ or J♥"). The compact
+// ctG form ("10/J♥") reads as ONE card, which is wrong where each pick
+// is a single card - i.e. the pass picks.
+function ctOr(cards) {
+  return cards.slice().sort((a, b) => cardVal(a) - cardVal(b))
+    .map(c => ct(c)).join(' <span class="muted">or</span> ');
+}
+
 // One merged pick list rendered as bars; marks the item holding `name`.
-function evalBars(top, eq, name, p, verb, expanded) {
+function evalBars(top, eq, name, p, verb, expanded, spellOut) {
   const merged = mergeTop(top, eq);
   const shown = expanded ? merged : merged.slice(0, 3);
   let html = '';
+  const lbl = spellOut ? ctOr : ctG;
   for (const [cs, cp] of shown)
     html += `<div class="bar${cs.includes(name) ? ' played' : ''}">
       <div class="fill" style="width:${cp * 100}%"></div>
-      <span>${ctG(cs)} &middot; ${(cp * 100).toFixed(1)}%${
+      <span>${lbl(cs)} &middot; ${(cp * 100).toFixed(1)}%${
         cs.includes(name) ? ` &larr; ${verb}` : ''}</span></div>`;
   if (!shown.some(([cs]) => cs.includes(name))) {
     const mine = merged.find(([cs]) => cs.includes(name));
     const [cs, cp] = mine || [[name], p];
     html += `<div class="bar played"><div class="fill" style="width:${cp * 100}%"></div>
-      <span>${ctG(cs)} &middot; ${(cp * 100).toFixed(1)}% &larr; ${verb}</span></div>`;
+      <span>${lbl(cs)} &middot; ${(cp * 100).toFixed(1)}% &larr; ${verb}</span></div>`;
   }
   return {html, n: merged.length};
 }
@@ -538,7 +551,7 @@ function renderEval(st, deal) {
       picks.forEach((e, i) => {
         const [, name, p, top, eq] = e;
         html += `<div class="muted" style="font-size:.68rem; margin-top:5px">pick ${i + 1}</div>`;
-        html += evalBars(top, eq, name, p, 'picked', false).html;
+        html += evalBars(top, eq, name, p, 'picked', false, true).html;
       });
       html += `<div class="muted" style="font-size:.64rem; margin-top:6px">
         Pass evals use the raw policy, judged pick by pick; the deep
@@ -596,8 +609,7 @@ function renderEval(st, deal) {
     const parRow = parOf(st.d);
     if (parRow && deal.round_scores) {
       const rs = deal.round_scores;
-      html += `<div class="deep-h" style="margin-top:10px">Par for this deal
-        (Perilune playing all four hands)</div>`;
+      html += `<div class="deep-h" style="margin-top:10px; white-space:nowrap">Par for this deal</div>`;
       for (let s2 = 0; s2 < 4; s2++) {
         const diff = rs[s2] - parRow[s2];
         const tag = diff < 0
