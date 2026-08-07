@@ -143,6 +143,12 @@
   .bar.played .fill { background:#7A5A17; }
   .bar span { position:relative; font-size:.72rem; padding-left:6px;
               font-variant-numeric:tabular-nums; }
+  /* zero-tail row: the cards the net would (essentially) never play,
+     one wrapping row instead of a stack of identical 0.0% bars */
+  .bar.tail { height:auto; min-height:21px; }
+  .bar.tail > span { display:flex; flex-wrap:wrap; gap:0 6px;
+                     padding:2px 6px; line-height:1.4; }
+  .bar.tail .zc { white-space:nowrap; }
   /* inline card text: rank + suit glyph, red suits tinted */
   .ct { font-weight:700; }
   .ct.cr { color:#FF7A7A; }
@@ -523,24 +529,43 @@ function ctOr(cards) {
     .map(c => ct(c)).join(' <span class="muted">or</span> ');
 }
 
+// Percentages never display as a bare 0: softmax mass is never exactly
+// zero, and "0.0%" claims a certainty the net doesn't have.
+function pctTxt(cp) {
+  const v = cp * 100;
+  return v < 0.05 ? '&lt;0.1%' : v.toFixed(1) + '%';
+}
 // One merged pick list rendered as bars; marks the item holding `name`.
+// Entries whose percentage would display as 0.0% collapse into a single
+// tail row ("... · <0.1% combined") - the acted card excepted: it always
+// keeps its own highlighted bar, 0% habit or not.
 function evalBars(top, eq, name, p, verb, expanded, spellOut) {
   const merged = mergeTop(top, eq);
-  const shown = expanded ? merged : merged.slice(0, 3);
-  let html = '';
   const lbl = spellOut ? ctOr : ctG;
+  const main = [], tail = [];
+  for (const it of merged)
+    (it[1] * 100 >= 0.05 || it[0].includes(name) ? main : tail).push(it);
+  const shown = expanded ? main : main.slice(0, 3);
+  let html = '';
   for (const [cs, cp] of shown)
     html += `<div class="bar${cs.includes(name) ? ' played' : ''}">
       <div class="fill" style="width:${cp * 100}%"></div>
-      <span>${lbl(cs)} &middot; ${(cp * 100).toFixed(1)}%${
+      <span>${lbl(cs)} &middot; ${pctTxt(cp)}${
         cs.includes(name) ? ` &larr; ${verb}` : ''}</span></div>`;
   if (!shown.some(([cs]) => cs.includes(name))) {
-    const mine = merged.find(([cs]) => cs.includes(name));
+    const mine = main.find(([cs]) => cs.includes(name));
     const [cs, cp] = mine || [[name], p];
     html += `<div class="bar played"><div class="fill" style="width:${cp * 100}%"></div>
-      <span>${lbl(cs)} &middot; ${(cp * 100).toFixed(1)}% &larr; ${verb}</span></div>`;
+      <span>${lbl(cs)} &middot; ${pctTxt(cp)} &larr; ${verb}</span></div>`;
   }
-  return {html, n: merged.length};
+  if (tail.length) {
+    const sum = tail.reduce((a, [, cp]) => a + cp, 0);
+    html += `<div class="bar tail"><div class="fill" style="width:${sum * 100}%"></div>
+      <span>${tail.map(([cs]) => `<span class="zc">${lbl(cs)}</span>`).join('')}
+      <span class="zc muted">&middot; ${pctTxt(sum)}${
+        tail.length > 1 ? ' combined' : ''}</span></span></div>`;
+  }
+  return {html, n: main.length, total: merged.length};
 }
 function seatLabel(s) {
   if (s === R.viewer_seat) return 'You';
@@ -894,7 +919,7 @@ function renderEval(st, deal) {
   const [s, name, p, top, eq] = deal.plays[st.i];
   let html = `<div style="font-size:.85rem; margin-bottom:6px">
     ${esc(seatLabel(s))} played ${ct(name)}
-    <span class="muted">(${(p * 100).toFixed(0)}%)</span></div>`;
+    <span class="muted">(${p * 100 < 0.5 ? '&lt;1' : (p * 100).toFixed(0)}%)</span></div>`;
   const bars = evalBars(top, eq, name, p, 'played', evalExpanded);
   html += bars.html;
   if (bars.n > 3)
@@ -905,7 +930,7 @@ function renderEval(st, deal) {
     // reads as a missing button (follow-suit positions merge most of
     // the hand into 2-3 equivalence groups)
     html += `<div class="allmoves">all ${top.length} legal moves shown${
-      bars.n < top.length ? ' (equivalent cards pooled)' : ''}</div>`;
+      bars.total < top.length ? ' (equivalent cards pooled)' : ''}</div>`;
   // Deep-search layer: a separate authority in VALUE units (win chance),
   // rendered only where the client-side search has produced a result.
   // Forced moves carry no decision - never render placeholder zeros as
