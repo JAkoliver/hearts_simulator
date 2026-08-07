@@ -109,8 +109,14 @@
   .rslot.pin.pos2 { top:4%; left:50%; transform:translateX(-50%); }
   .rslot.pin.pos3 { right:4%; top:50%; transform:translateY(-50%); }
   .pinarrow { color:#7CBF8E; font-size:calc(var(--cw)*.62); line-height:1; }
-  .travel { position:absolute; color:#5E8F6E; font-size:calc(var(--cw)*.7);
-            line-height:1; pointer-events:none; }
+  /* giver->receiver travel lines: gold like the outlined outgoing cards,
+     so "gold leaves, gold arrives" reads as one story; green stays the
+     into-the-hand color */
+  #passlines { position:absolute; inset:0; width:100%; height:100%;
+               pointer-events:none; }
+  #passlines line { stroke:#E8B923; stroke-width:2.5; opacity:.75;
+                    marker-end:url(#pahead); }
+  #pahead path { fill:#E8B923; }
   /* ghost of the previous trick, swept to its winner's edge */
   .gslot { position:absolute; display:flex; opacity:.30; }
   .gslot .card { width:calc(var(--cw)*.9); height:calc(var(--cw)*1.28);
@@ -563,30 +569,37 @@ function render() {
     }
   } else if (preStart) {
     // The exchange, drawn on the felt: each seat's INCOMING three at its
-    // own edge with an arrow into the hand, plus a travel arrow along the
-    // giver -> receiver path so the rotation is visible.
+    // own edge with a green arrow into the hand (always on the hand side
+    // of the cards), plus a long gold giver -> receiver line so the
+    // rotation reads at a glance.
     const ARROW = {0: '&darr;', 1: '&larr;', 2: '&uarr;', 3: '&rarr;'};
     const EDGE = {0: [50, 84], 1: [16, 50], 2: [50, 16], 3: [84, 50]};
     const off = {left: 1, right: 3, across: 2}[deal.pass_direction];
+    let lines = '';
     slots = [0, 1, 2, 3].map(s => {
       const p = (s - v + 4) % 4;
       const inc = (deal.received[s] || []);
       if (!inc.length) return '';
       const arrow = `<div class="pinarrow">${ARROW[p]}</div>`;
       const cds = `<div class="pincards">${inc.map(c => cardHTML(c)).join('')}</div>`;
-      let out = `<div class="rslot pin pos${p}">${
-        p === 2 ? arrow + cds : cds + arrow}</div>`;
-      // travel arrow: from the giver's edge toward this seat's edge,
-      // parked 68% along so it reads as "arriving from there"
+      // travel line: giver's edge toward this seat's incoming cards,
+      // nudged right of its own direction so the two across-pass lines
+      // (which share a path in opposite directions) run side by side
       const giver = (s - off + 4) % 4;
       const gp = (giver - v + 4) % 4;
       const [gx, gy] = EDGE[gp], [rx, ry] = EDGE[p];
-      const x = gx + (rx - gx) * 0.68, y = gy + (ry - gy) * 0.68;
-      const ang = Math.atan2(ry - gy, rx - gx) * 180 / Math.PI;
-      out += `<div class="travel" style="left:${x}%; top:${y}%;
-        transform:translate(-50%,-50%) rotate(${ang}deg)">&#10142;</div>`;
-      return out;
+      const dx = rx - gx, dy = ry - gy, len = Math.hypot(dx, dy);
+      const px = -dy / len * 3, py = dx / len * 3;
+      const seg = t => [(gx + dx * t + px).toFixed(1), (gy + dy * t + py).toFixed(1)];
+      const [x1, y1] = seg(0.06), [x2, y2] = seg(0.82);
+      lines += `<line x1="${x1}%" y1="${y1}%" x2="${x2}%" y2="${y2}%"/>`;
+      return `<div class="rslot pin pos${p}">${
+        p === 1 || p === 2 ? arrow + cds : cds + arrow}</div>`;
     }).join('');
+    if (lines) slots += `<svg id="passlines">
+      <defs><marker id="pahead" viewBox="0 0 10 10" refX="7" refY="5"
+        markerWidth="5.5" markerHeight="5.5" orient="auto">
+        <path d="M0 0L10 5L0 10z"/></marker></defs>${lines}</svg>`;
   } else {
     slots = `<div class="rcenter">deal ${deal.deal_no} &middot; passing ${esc(deal.pass_direction)}</div>`;
   }
