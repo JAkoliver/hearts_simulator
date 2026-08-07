@@ -477,6 +477,10 @@ function onCardClick(card) {
   markPreselect();
 }
 function playCard(card) {
+  // Instant acknowledgment: outline the card until it animates onto the
+  // board (or until a rejected play re-renders the hand)
+  const n = document.querySelector(`#hand .card[data-name="${cardName(card)}"]`);
+  if (n) n.classList.add('selected');
   if (mode === 'table') tablePlay(card);
   else submit([card]);
 }
@@ -560,6 +564,15 @@ async function animate(events, preTrick = []) {
       shown.push({seat: ev.seat, name: ev.name});
       renderTrick(shown);
       renderSeats(ev.seat);
+      // Table mode renders the hand only AFTER the whole batch animates,
+      // so pull your card out the moment it lands on the felt. Solo is
+      // excluded: it re-renders the hand from the new state before
+      // animating, and if that state crossed into the next deal a
+      // same-named card could be wrongly deleted from the fresh hand.
+      if (mode === 'table' && ev.seat === state.your_seat) {
+        const n = document.querySelector(`#hand .card[data-name="${ev.name}"]`);
+        if (n) n.remove();
+      }
       if (!dimmed && i > lastTE && canDim()) { dimmed = true; applyLegality(); }
       await sleep(ev.seat === state.your_seat ? 120 : AI_DELAY);
     } else if (ev.type === 'trick_end') {
@@ -910,7 +923,10 @@ async function tablePlay(card) {
   try {
     handleTableState(await api(`/api/table/play/${tcode}`,
       POSTJSON({pid, card, cursor: tcursor})));
-  } catch (e) { setStatus('Error: ' + e.message); }
+  } catch (e) {
+    setStatus('Error: ' + e.message);
+    renderHand();   // clear the acknowledgment outline on a rejected play
+  }
 }
 async function tablePass(cards) {
   passSelection = [];
