@@ -664,8 +664,24 @@ function renderEval(st, deal) {
       el('passinfo').querySelectorAll('.passrow').forEach(n =>
         n.onclick = () => { passSeat = +n.dataset.seat; render(); });
     } else el('passinfo').innerHTML = 'Hold deal - no passing.';
-    el('deep64-btn').style.display = 'none';
-    el('deep-pos').innerHTML = '';
+    // Deal-start step: the deepen button targets the PASS analysis, so a
+    // pass can be pushed to K=256 like any play position.
+    const b64s = el('deep64-btn');
+    if (deepWorker && deal.pass_direction !== 'hold') {
+      const cur2 = dp ? dp.K : 0;
+      const nextP = Math.min(256, cur2 ? cur2 * 2
+                                       : Math.max(8, +el('deep-k').value / 2));
+      b64s.textContent = `K=${nextP} pass`;
+      b64s.style.display = 'inline-block';
+      b64s.disabled = cur2 >= 256;
+      b64s.dataset.kind = 'pass';
+      el('deep-pos').innerHTML = dp
+        ? `this pass: analyzed at K=${dp.K}${dp.K >= 256 ? ' (max)' : ''}`
+        : 'this pass: not yet analyzed';
+    } else {
+      b64s.style.display = 'none';
+      el('deep-pos').innerHTML = '';
+    }
     updateDeepBtn();
     return;
   }
@@ -758,6 +774,7 @@ function renderEval(st, deal) {
   b64.textContent = `K=${nextK} here`;
   b64.style.display = deepWorker && !forced ? 'inline-block' : 'none';
   b64.disabled = !!(dr && dr.K >= 256);
+  b64.dataset.kind = 'play';
   el('deep-pos').innerHTML = forced
     ? (deepWorker ? 'this position: forced move (only one legal card)' : '')
     : dr
@@ -1432,7 +1449,18 @@ el('deep-btn').onclick = () => {
 
 el('deep64-btn').onclick = () => {
   const st = steps[cur];
-  if (!deepWorker || !st || st.type !== 'play') return;
+  if (!deepWorker || !st) return;
+  if (el('deep64-btn').dataset.kind === 'pass') {
+    const dp = deepResults[deepKey(st.d, 'ps')];
+    const nextP = Math.min(256, dp ? dp.K * 2
+                                   : Math.max(8, +el('deep-k').value / 2));
+    deepWorker.postMessage({type: 'queue', front: true, jobs: [{
+      kind: 'pass', key: deepKey(st.d, 'ps'), d: st.d, i: 'ps', deal: st.d,
+      seat: R.viewer_seat ?? 0, actionIdx: 0, K: nextP}]});
+    dstatus(`deep-checking this pass (K=${nextP})…`);
+    return;
+  }
+  if (st.type !== 'play') return;
   const dr = deepResults[deepKey(st.d, st.i)];
   const nextK = Math.min(256, (dr ? dr.K : +el('deep-k').value) * 2);
   const [, name] = R.deals[st.d].plays[st.i];
