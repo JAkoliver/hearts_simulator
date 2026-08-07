@@ -862,7 +862,7 @@ function renderEval(st, deal) {
     // Deal-start step: the deepen button targets the PASS analysis, so a
     // pass can be pushed to K=256 like any play position.
     const b64s = el('deep64-btn');
-    if (deepWorker && deal.pass_direction !== 'hold') {
+    if ((deepWorker || MOBILE) && deal.pass_direction !== 'hold') {
       const cur2 = dp ? dp.K : 0;   // dp = the SELECTED seat's analysis
       const nextP = Math.min(256, cur2 ? cur2 * 2
                                        : Math.max(8, +el('deep-k').value / 2));
@@ -967,16 +967,16 @@ function renderEval(st, deal) {
   // already has (16->32->64->128->256); unanalyzed positions offer double
   // the selected pass K. Grayed at the 256 cap.
   const b64 = el('deep64-btn');
-  const nextK = Math.min(256, (dr ? dr.K : +el('deep-k').value) * 2);
+  const nextK = Math.min(256, dr ? dr.K * 2 : +el('deep-k').value);
   b64.textContent = `K=${nextK} here`;
-  b64.style.display = deepWorker && !forced ? 'inline-block' : 'none';
+  b64.style.display = (deepWorker || MOBILE) && !forced ? 'inline-block' : 'none';
   b64.disabled = !!(dr && dr.K >= 256);
   b64.dataset.kind = 'play';
   el('deep-pos').innerHTML = forced
-    ? (deepWorker ? 'this position: forced move (only one legal card)' : '')
+    ? (deepWorker || MOBILE ? 'this position: forced move (only one legal card)' : '')
     : dr
     ? `this position: analyzed at K=${dr.K}${dr.K >= 256 ? ' (max)' : ''}`
-    : (deepWorker ? 'this position: not yet analyzed' : '');
+    : (deepWorker || MOBILE ? 'this position: not yet analyzed' : '');
   updateDeepBtn();
   const x = el('ev-x');
   if (x) x.onclick = () => { evalExpanded = !evalExpanded; render(); };
@@ -1438,22 +1438,31 @@ function deepJobs(K, skipDone) {
 }
 
 let deepReady = false;
+let engineWaiters = [];   // callbacks to run once engine + replay are live
+// Boot the engine on demand and run cb when it's ready - the full sweep
+// and the single-position deepen both come through here, so on mobile a
+// position can be analyzed without ever paying for a whole-match pass.
+function ensureEngine(cb) {
+  if (deepWorker && deepReady) return cb();
+  engineWaiters.push(cb);
+  if (!deepWorker) bootEngine();
+}
 async function deepStart() {
   if (!R.replay) { dstatus('no replay data for this match'); return; }
-  if (deepWorker && deepReady) {
-    // Worker already live (e.g. re-running at a higher K): just queue
-    // what's below the selected depth - never spawn a second worker.
+  el('deep-k').disabled = true;
+  ensureEngine(() => {
+    // Queue what's below the selected depth - never spawn a second worker.
     const jobs = deepJobs(+el('deep-k').value, true);
-    if (!jobs.length) { updateDeepBtn(); return; }
+    if (!jobs.length) { updateDeepBtn(); deepDone(); return; }
     deepRunning = true;
     el('deep-btn').textContent = 'Stop';
-    el('deep-k').disabled = true;
+    el('deep-btn').disabled = false;
     deepWorker.postMessage({type: 'queue', jobs});
     dstatus(`analyzing 0/${jobs.length}…`);
-    return;
-  }
+  });
+}
+async function bootEngine() {
   el('deep-btn').disabled = true;
-  el('deep-k').disabled = true;
   dstatus('loading engine + model…');
   try {
     const man = await (await fetch('/static/models/manifest.json')).json();
@@ -1477,13 +1486,8 @@ async function deepStart() {
                                 d.start_hands.map(h => h.map(cardId)))});
     } else if (m.type === 'loaded') {
       deepReady = true;
-      const jobs = deepJobs(+el('deep-k').value, true);
-      if (!jobs.length) { updateDeepBtn(); deepDone(); return; }
-      deepRunning = true;
-      el('deep-btn').textContent = 'Stop';
       el('deep-btn').disabled = false;
-      deepWorker.postMessage({type: 'queue', jobs});
-      dstatus(`analyzing 0/${jobs.length}…`);
+      engineWaiters.splice(0).forEach(f => f());
       render();
     } else if (m.type === 'result') {
       if (m.desync) { dstatus('replay mismatch - analysis unavailable'); deepDone(); return; }
@@ -1659,7 +1663,7 @@ el('deep-btn').onclick = () => {
   } else deepStart();
 };
 
-el('deep64-btn').onclick = () => {
+function deepenHere() {
   const st = steps[cur];
   if (!deepWorker || !st) return;
   if (el('deep64-btn').dataset.kind === 'pass') {
@@ -1675,14 +1679,19 @@ el('deep64-btn').onclick = () => {
   }
   if (st.type !== 'play') return;
   const dr = deepResults[deepKey(st.d, st.i)];
-  const nextK = Math.min(256, (dr ? dr.K : +el('deep-k').value) * 2);
+  // first analysis of a position runs at the selected K; repeats double
+  const nextK = Math.min(256, dr ? dr.K * 2 : +el('deep-k').value);
   const [, name] = R.deals[st.d].plays[st.i];
   deepWorker.postMessage({type: 'queue', front: true, jobs: [{
     key: deepKey(st.d, st.i), d: st.d, i: st.i, deal: st.d,
     actionIdx: passOffset(R.deals[st.d]) + st.i, K: nextK,
     playedId: cardId(name)}]});
   dstatus(`deep-checking this position (K=${nextK})…`);
-};
+}
+// Boot-on-demand: on mobile (where a whole-match sweep is impractical)
+// this is the primary way in - the first tap loads the engine, then
+// analyzes just the current position.
+el('deep64-btn').onclick = () => ensureEngine(deepenHere);
 
 el('deep-k').onchange = () => updateDeepBtn();
 
