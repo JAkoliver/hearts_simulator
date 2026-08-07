@@ -29,9 +29,13 @@
   /* the eval panel's content scrolls; buttons + disclosure stay pinned */
   #evalscroll { flex:1 1 auto; min-height:0; overflow-y:auto; }
   /* inner scrollers: gutter always reserved, scrollbar slim + dark so the
-     reserved strip reads as margin, not chrome */
+     reserved strip reads as margin, not chrome. The bar draws at the
+     scroller's right edge, which sits a full panel-padding from the panel
+     edge - shift the box halfway into that padding (and pad the content
+     back) so the bar centers in the content-to-panel-edge strip. */
   #dis, #evalscroll { scrollbar-gutter:stable; scrollbar-width:thin;
-                      scrollbar-color:#3A3A40 transparent; }
+                      scrollbar-color:#3A3A40 transparent;
+                      margin-right:-5px; padding-right:5px; }
   #dis::-webkit-scrollbar, #evalscroll::-webkit-scrollbar { width:9px; }
   #dis::-webkit-scrollbar-track, #evalscroll::-webkit-scrollbar-track
     { background:transparent; }
