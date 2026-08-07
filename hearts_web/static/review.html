@@ -109,14 +109,17 @@
   .rslot.pin.pos2 { top:4%; left:50%; transform:translateX(-50%); }
   .rslot.pin.pos3 { right:4%; top:50%; transform:translateY(-50%); }
   .pinarrow { color:#7CBF8E; font-size:calc(var(--cw)*.62); line-height:1; }
-  /* giver->receiver travel lines: gold like the outlined outgoing cards,
-     so "gold leaves, gold arrives" reads as one story; green stays the
-     into-the-hand color */
-  #passlines { position:absolute; inset:0; width:100%; height:100%;
-               pointer-events:none; }
-  #passlines line { stroke:#E8B923; stroke-width:2.5; opacity:.75;
-                    marker-end:url(#pahead); }
-  #pahead path { fill:#E8B923; }
+  /* center pass-direction glyph: the direction is a property of the
+     DEAL, so it lives once at the table's center - a rotation ring for
+     left/right, a four-headed cross for across - instead of per-seat
+     arrows that read as the received cards moving on */
+  .passdir svg { display:block; width:calc(var(--cw)*2.8);
+                 height:calc(var(--cw)*2.8); margin:0 auto 6px;
+                 overflow:visible; }
+  .passdir svg > path, .passdir svg > line
+    { stroke:#E8B923; stroke-width:6; fill:none; opacity:.85;
+      stroke-linecap:round; marker-end:url(#pahead); }
+  .passdir svg > line { marker-start:url(#pahead); }
   /* ghost of the previous trick, swept to its winner's edge */
   .gslot { position:absolute; display:flex; opacity:.30; }
   .gslot .card { width:calc(var(--cw)*.9); height:calc(var(--cw)*1.28);
@@ -570,44 +573,35 @@ function render() {
   } else if (preStart) {
     // The exchange, drawn on the felt: each seat's INCOMING three at its
     // own edge with a green arrow into the hand (always on the hand side
-    // of the cards), plus gold giver -> receiver lines. Lines anchor to
-    // the inner FACE of each card cluster (not a fixed edge point, which
-    // lands under the wide side clusters) so every line starts and ends
-    // with the same clear gap to its cards.
+    // of the cards). The pass DIRECTION is a property of the deal, not
+    // of any one transfer - shown once at center: a rotation ring
+    // (clockwise = left with this seat layout), a four-headed cross for
+    // across, labeled in words.
     const ARROW = {0: '&darr;', 1: '&larr;', 2: '&uarr;', 3: '&rarr;'};
-    const ANCH = {0: [50, 74], 1: [34, 50], 2: [50, 26], 3: [66, 50]};
-    const off = {left: 1, right: 3, across: 2}[deal.pass_direction];
-    // a->b with margins trimmed off each end (arrowhead never touches cards)
-    const gline = (a, b, m0, m1, cls) => {
-      const ux = (b[0] - a[0]) / Math.hypot(b[0] - a[0], b[1] - a[1]),
-            uy = (b[1] - a[1]) / Math.hypot(b[0] - a[0], b[1] - a[1]);
-      return `<line${cls ? ` class="${cls}"` : ''}
-        x1="${(a[0] + ux * m0).toFixed(1)}%" y1="${(a[1] + uy * m0).toFixed(1)}%"
-        x2="${(b[0] - ux * m1).toFixed(1)}%" y2="${(b[1] - uy * m1).toFixed(1)}%"/>`;
-    };
-    let lines = '';
     slots = [0, 1, 2, 3].map(s => {
       const p = (s - v + 4) % 4;
       const inc = (deal.received[s] || []);
       if (!inc.length) return '';
       const arrow = `<div class="pinarrow">${ARROW[p]}</div>`;
       const cds = `<div class="pincards">${inc.map(c => cardHTML(c)).join('')}</div>`;
-      // cycle deals: one arrow per transfer, a clean pinwheel of diagonals
-      if (off !== 2) lines += gline(ANCH[(p - off + 4) % 4], ANCH[p], 2, 3);
       return `<div class="rslot pin pos${p}">${
         p === 1 || p === 2 ? arrow + cds : cds + arrow}</div>`;
     }).join('');
-    // across = mutual swaps: one double-headed line per opposite pair
-    // (two lines, not four), the horizontal one gapped at center so the
-    // pair reads as a hop, not a crossing
-    if (off === 2 && slots)
-      lines = gline(ANCH[0], ANCH[2], 3, 3, 'x2') +
-              gline(ANCH[1], [46, 50], 3, 0, 'xs') +
-              gline([54, 50], ANCH[3], 0, 3, 'xe');
-    if (lines) slots += `<svg id="passlines">
-      <defs><marker id="pahead" viewBox="0 0 10 10" refX="7" refY="5"
-        markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse">
-        <path d="M0 0L10 5L0 10z"/></marker></defs>${lines}</svg>`;
+    if (slots) {
+      const AH = `<defs><marker id="pahead" viewBox="0 0 10 10" refX="7"
+        refY="5" markerWidth="4.2" markerHeight="4.2"
+        orient="auto-start-reverse">
+        <path d="M0 0L10 5L0 10z" fill="#E8B923" stroke="none"/></marker></defs>`;
+      const glyph = deal.pass_direction === 'across'
+        ? `<line x1="50" y1="86" x2="50" y2="14"/>
+           <line x1="14" y1="50" x2="86" y2="50"/>`
+        : deal.pass_direction === 'left'
+          ? `<path d="M65.2 17.4 A36 36 0 1 1 34.8 17.4"/>`
+          : `<path d="M34.8 17.4 A36 36 0 1 0 65.2 17.4"/>`;
+      slots += `<div class="rcenter passdir">
+        <svg viewBox="0 0 100 100">${AH}${glyph}</svg>
+        <div>passing ${esc(deal.pass_direction)}</div></div>`;
+    }
   } else {
     slots = `<div class="rcenter">deal ${deal.deal_no} &middot; passing ${esc(deal.pass_direction)}</div>`;
   }
