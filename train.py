@@ -63,14 +63,19 @@ class RolloutBuffer:
 # ---------------------------------------------------------
 # 2. Batched Action Selection
 # ---------------------------------------------------------
-def select_actions_batch(network, obs_np, masks_np, device):
+def select_actions_batch(network, obs_np, masks_np, device, deterministic=False):
     """Sample actions for a batch of observations in one forward pass.
 
     Rollouts never backprop, so autograd is skipped entirely and the forward
     runs in bf16 (sampling from logits is insensitive to that precision; the
     log_probs recorded here are the SAME ones the PPO ratio uses, so there is
     no old/new precision mismatch). Returns numpy (actions int64,
-    log_probs f32, values f32)."""
+    log_probs f32, values f32).
+
+    deterministic=True plays the argmax instead of sampling - used for the
+    distilled shooter clones, whose quality bar was VERIFIED under argmax
+    (sampling an imitation net's softmax dilutes the threat it was
+    certified to carry)."""
     obs = torch.from_numpy(obs_np).to(device)
     mask = torch.from_numpy(masks_np).to(device)
     with torch.no_grad():
@@ -83,7 +88,7 @@ def select_actions_batch(network, obs_np, masks_np, device):
             masked_logits, state_values = network(obs, mask)
         # -inf logits on illegal actions give them exactly 0 probability
         dist = Categorical(logits=masked_logits)
-        actions = dist.sample()
+        actions = masked_logits.argmax(1) if deterministic else dist.sample()
         log_probs = dist.log_prob(actions)
     return (actions.cpu().numpy(),
             log_probs.cpu().numpy(),
@@ -395,8 +400,24 @@ def run_cycle_vec(vec, registry, active_ids, seat_net, steps_this_game,
     return games_done, p0_reward_sum, p0_raw_sum
 
 
+# Exploiter-league seat assignment (docs/exploiter_league_prereg.md Phase C,
+# REGISTERED): every non-learner seat draws 50% pool / 50% learner as always;
+# then with p=0.15 ONE seat (uniform over the three) is overridden by the
+# AGG shooter clone, with p=0.15 by the SEL clone - mutually exclusive
+# draws, so 30% of matches contain exactly one shooter.
+def assign_match_opponents(seat_net, e, ids, shooter_ids, shooter_p):
+    for seat in range(1, 4):
+        seat_net[e, seat] = (random.choice(ids)
+                             if ids and random.random() < 0.5 else 0)
+    if shooter_ids:
+        u = random.random()
+        if u < 2 * shooter_p:
+            sid = shooter_ids[0] if u < shooter_p else shooter_ids[1]
+            seat_net[e, random.randrange(1, 4)] = sid
+
 def run_cycle_vec_match(vec, registry, active_ids, seat_net, steps_this_match,
-                        buffers, deals_target, device, match_reward_scale):
+                        buffers, deals_target, device, match_reward_scale,
+                        shooter_ids=(), shooter_p=0.0):
     """Match-to-100 variant of run_cycle_vec (docs/ROADMAP.md phase 1).
 
     Differences: seats are FIXED for a whole match (reassigned only at match
@@ -432,7 +453,8 @@ def run_cycle_vec_match(vec, registry, active_ids, seat_net, steps_this_match,
             obs = vec.observe_batch(g)
             mask = vec.legal_mask_batch(g)
             actions, log_probs, values = select_actions_batch(
-                registry[k], obs, mask, device)
+                registry[k], obs, mask, device,
+                deterministic=(k in shooter_ids))
             is_learner = (k == 0)
             if is_learner:
                 labels = vec.labels_batch(g)
@@ -467,9 +489,8 @@ def run_cycle_vec_match(vec, registry, active_ids, seat_net, steps_this_match,
                         win_sum += int(pl[seat] == 1.0)
                         seats_counted += 1
                 steps_this_match[e] = 0
-                for seat in range(1, 4):
-                    seat_net[e, seat] = (random.choice(active_ids)
-                                         if active_ids and random.random() < 0.5 else 0)
+                assign_match_opponents(seat_net, e, active_ids,
+                                       shooter_ids, shooter_p)
 
     return deals_done, matches_done, placement_sum, win_sum, seats_counted
 
@@ -579,6 +600,8 @@ def main():
         # per-cycle active-subset change and pool trimming.
         registry = [network] + list(historical_pool)
         pool_ids = list(range(1, len(registry)))
+        shooter_ids = ()
+        shooter_p = 0.0
         if match_mode:
             # Legacy 550-dim opponents get the appended ctx sliced off; v5
             # pool nets consume it natively (zero-proj checkpoints stay
@@ -588,6 +611,26 @@ def main():
                     registry[i] = Slice550(registry[i]).to(device).eval()
             vec = MatchVecEnv(num_envs, 1000)
             print(f"MATCH MODE: matches to 100, placement reward x{match_reward_scale}")
+            # Exploiter league (prereg Phase C): the distilled shooter
+            # clones join the registry with FIXED ids outside pool_ids -
+            # never sampled as pool, never trimmed, never snapshotted over,
+            # frozen and deterministic. (agg, sel) order matters:
+            # assign_match_opponents maps the first id to the agg draw.
+            sp = config.get('shooter_agg_path'), config.get('shooter_sel_path')
+            if sp[0] and sp[1]:
+                shooter_p = float(config.get('shooter_share', 0.15))
+                ids = []
+                for path in sp:
+                    ck = torch.load(path, weights_only=True, map_location='cpu')
+                    sn = HeartsNetV5(obs_dim=556, d_model=ck['d_model'],
+                                     num_layers=ck['num_layers'],
+                                     num_heads=ck.get('num_heads', 6))
+                    sn.load_state_dict(ck['state_dict'])
+                    registry.append(sn.to(device).eval())
+                    ids.append(len(registry) - 1)
+                shooter_ids = tuple(ids)
+                print(f"EXPLOITER LEAGUE: shooters {sp[0]} + {sp[1]} at "
+                      f"p={shooter_p:.2f} each (registry ids {shooter_ids})")
         else:
             vec = hearts_env.HeartsVecEnv(num_envs, 1000)
         seat_net = np.zeros((num_envs, 4), dtype=np.int64)
@@ -595,9 +638,7 @@ def main():
         vec_buffers = [[RolloutBuffer() for _ in range(4)] for _ in range(num_envs)]
         init_ids = random.sample(pool_ids, min(active_pool_size, len(pool_ids)))
         for e in range(num_envs):
-            for seat in range(1, 4):
-                seat_net[e, seat] = (random.choice(init_ids)
-                                     if init_ids and random.random() < 0.5 else 0)
+            assign_match_opponents(seat_net, e, init_ids, shooter_ids, shooter_p)
         print(f"Vectorized rollouts: HeartsVecEnv({num_envs})")
     else:
         slots = [EnvSlot(seed=1000 + i) for i in range(num_envs)]
@@ -619,7 +660,7 @@ def main():
                      seats_counted) = run_cycle_vec_match(
                         vec, registry, active_ids, seat_net, steps_this_game,
                         vec_buffers, update_timestep, device,
-                        match_reward_scale)
+                        match_reward_scale, shooter_ids, shooter_p)
                     p0_reward_sum, p0_raw_sum = 0.0, 0.0
                 else:
                     done_games, p0_reward_sum, p0_raw_sum = run_cycle_vec(
