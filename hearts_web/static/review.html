@@ -250,6 +250,45 @@
   .legend { font-size:.68rem; color:#A6A6AF; }
   .legend i { display:inline-block; width:9px; height:9px; border-radius:2px;
               margin:0 3px 0 8px; }
+  /* ================= mobile pass =================
+     Everything below is scoped under body.mobile (set once at load by a
+     width probe) - the desktop layout above is untouched. Same DOM and
+     analysis stack; the side panels wrap into collapsible sections above
+     the board, hands stack as full-width rows around a short felt, and
+     the transport grows to thumb size. */
+  body.mobile { overflow:auto; padding:8px 10px;
+                --cw:clamp(19px, 6.6vw, 30px); }
+  body.mobile #grid { display:block; }
+  body.mobile .mpanel { margin-bottom:8px; }
+  body.mobile .mpanel > summary { list-style:none; background:#1E1E21;
+    border-radius:10px; padding:11px 12px; font-size:.74rem; color:#A6A6AF;
+    text-transform:uppercase; letter-spacing:.03em; cursor:pointer;
+    display:flex; align-items:center; }
+  body.mobile .mpanel > summary::-webkit-details-marker { display:none; }
+  body.mobile .mpanel > summary::after { content:'\25B8'; margin-left:auto;
+    transition:transform .15s; }
+  body.mobile .mpanel[open] > summary::after { transform:rotate(90deg); }
+  body.mobile .mpanel[open] > summary { border-radius:10px 10px 0 0; }
+  body.mobile .mpanel .panel { border-radius:0 0 10px 10px; }
+  body.mobile .mpanel .panel > h3 { display:none; }
+  /* panels cap at half the screen and scroll inside themselves */
+  body.mobile #dis, body.mobile #evalscroll { max-height:46vh; }
+  /* board: hands stack as full-width rows (across / left / FELT / right /
+     you); the felt is a short band, trick positions keep their % geometry */
+  body.mobile #board { gap:4px; }
+  body.mobile #mid { flex-direction:column; gap:5px; }
+  body.mobile .vhand .cards { max-width:none; }
+  body.mobile #rtable { flex:none; width:100%; max-width:none;
+                        height:calc(var(--cw)*8); min-height:0; }
+  /* pass view: top/bottom pin clusters eat ~2.4cw each of the 8cw felt -
+     the center glyph shrinks to fit between them */
+  body.mobile .passdir svg { width:calc(var(--cw)*1.4);
+                             height:calc(var(--cw)*1.4); }
+  /* thumb-sized transport; keyboard hints are meaningless on touch */
+  body.mobile #controls button { flex:1 1 0; padding:10px 0; }
+  body.mobile #scrub { height:36px; }
+  body.mobile #maincol > .legend { display:none; }
+  body.mobile .dline { padding:8px 6px; }
 </style>
 </head>
 <body>
@@ -396,6 +435,25 @@ let disMode = 'you';
 let disSort = 'time';  // 'time' (chronological) | 'gap' (severity)
 
 const q = new URLSearchParams(location.search);
+
+// ---- mobile pass: same data, logic, and analysis stack - only the
+// presentation changes. body.mobile scopes the mobile stylesheet; the
+// two side panels wrap into native <details> sections (collapsed by
+// default) placed above the board.
+const MOBILE = matchMedia('(max-width:760px)').matches;
+if (MOBILE) {
+  document.body.classList.add('mobile');
+  const grid = el('grid'), main = el('maincol');
+  for (const p of grid.querySelectorAll(':scope > .panel')) {
+    const d = document.createElement('details');
+    d.className = 'mpanel';
+    const s = document.createElement('summary');
+    s.textContent = p.querySelector('h3').textContent;
+    d.appendChild(s);
+    grid.insertBefore(d, main);
+    d.appendChild(p);
+  }
+}
 
 function cardHTML(name, cls='') {
   const suit = name.slice(-1), rank = name.slice(0, -1);
@@ -628,7 +686,15 @@ function updateDisHighlight() {
   document.querySelectorAll('.dline').forEach(n => {
     const on = +n.dataset.idx === cur;
     n.classList.toggle('on', on);
-    if (on) n.scrollIntoView({block: 'nearest'});
+    if (!on) return;
+    if (MOBILE) {
+      // scroll only the list, never the page: scrollIntoView would yank
+      // the viewport up to the panel on every scrub step (and does
+      // nothing useful while the section is collapsed, height 0)
+      const dis = el('dis'), r = n.getBoundingClientRect(),
+            dr = dis.getBoundingClientRect();
+      if (r.height) dis.scrollTop += r.top - dr.top - (dr.height - r.height) / 2;
+    } else n.scrollIntoView({block: 'nearest'});
   });
 }
 
