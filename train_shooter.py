@@ -57,6 +57,7 @@ def main():
     ap.add_argument('--lr', type=float, default=3e-4)
     ap.add_argument('--d-model', type=int, default=192)
     ap.add_argument('--layers', type=int, default=4)
+    ap.add_argument('--heads', type=int, default=6)
     ap.add_argument('--seed', type=int, default=707)
     args = ap.parse_args()
     out = args.out or f'shooter_{args.mode}_v1.pth'
@@ -83,7 +84,7 @@ def main():
 
     dev = 'cuda' if torch.cuda.is_available() else 'cpu'
     net = HeartsNetV5(obs_dim=556, d_model=args.d_model,
-                      num_layers=args.layers).to(dev)
+                      num_layers=args.layers, num_heads=args.heads).to(dev)
     n_par = sum(p.numel() for p in net.parameters())
     print(f'  net d={args.d_model} L={args.layers} ({n_par/1e6:.2f}M params) on {dev}')
     opt = torch.optim.AdamW(net.parameters(), lr=args.lr, weight_decay=1e-2)
@@ -122,7 +123,8 @@ def main():
         if acc > best:
             best = acc
             torch.save({'state_dict': net.state_dict(), 'd_model': args.d_model,
-                        'num_layers': args.layers, 'mode': args.mode,
+                        'num_layers': args.layers, 'num_heads': args.heads,
+                        'mode': args.mode,
                         'holdout_match': acc, 'n_train': int(len(act)),
                         'shards': [os.path.basename(p) for p in train_paths]},
                        out)

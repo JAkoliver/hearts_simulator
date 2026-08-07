@@ -32,7 +32,8 @@ BAR_FRACTION = 0.5
 def load_clone(path):
     ck = torch.load(path, weights_only=True, map_location='cpu')
     net = HeartsNetV5(obs_dim=556, d_model=ck['d_model'],
-                      num_layers=ck['num_layers'])
+                      num_layers=ck['num_layers'],
+                      num_heads=ck.get('num_heads', 6))
     net.load_state_dict(ck['state_dict'])
     net.eval()
     return net, ck
