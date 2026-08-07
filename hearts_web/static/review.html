@@ -284,8 +284,16 @@
      the center glyph shrinks to fit between them */
   body.mobile .passdir svg { width:calc(var(--cw)*1.4);
                              height:calc(var(--cw)*1.4); }
-  /* thumb-sized transport; keyboard hints are meaningless on touch */
-  body.mobile #controls button { flex:1 1 0; padding:10px 0; }
+  /* transport, stacked: markers legend / one row of large skip buttons /
+     position readout - reordered from the desktop's single-line flow */
+  body.mobile #controls { row-gap:7px; }
+  body.mobile #controls .legend { order:-1; flex-basis:100%;
+                                  text-align:center; }
+  body.mobile #controls button { flex:1 1 0; padding:13px 0;
+                                 font-size:.9rem; white-space:nowrap; }
+  body.mobile #posinfo { order:2; flex-basis:100%; text-align:center;
+                         margin:0; }
+  body.mobile #controls > span:not(#posinfo):not(.legend) { display:none; }
   body.mobile #scrub { height:36px; }
   body.mobile #maincol > .legend { display:none; }
   body.mobile .dline { padding:8px 6px; }
