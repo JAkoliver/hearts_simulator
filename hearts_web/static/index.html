@@ -525,14 +525,16 @@ async function submit(cards) {
     // Immediate feedback: the server has already fast-forwarded to your
     // next turn, so the final hand (passed cards gone, received cards
     // in) and the side panels can render NOW, before the AI animation.
-    // Exception: if the final state is the NEXT deal's passing phase,
-    // just remove the submitted cards - the full refresh would show
-    // next-deal pass controls while this deal's last trick still plays.
-    if (!state.passing) {
+    // Exception: if the fast-forward crossed a deal boundary, the final
+    // state is the NEXT deal (its passing phase, or straight into a
+    // hold deal) - a full refresh would show the new hand while this
+    // deal's last trick still plays, so just remove the submitted cards.
+    const crossed = events.some(e => e.type === 'deal_end');
+    if (!crossed && !state.passing) {
       renderHand(false);   // no legality dimming until the turn arrives
       renderSide();
     } else {
-      el('pass-controls').style.display = 'none';
+      if (state.passing) el('pass-controls').style.display = 'none';
       for (const c of cards) {
         const node = document.querySelector(`#hand .card[data-name="${cardName(c)}"]`);
         if (node) node.remove();
