@@ -82,13 +82,20 @@
   .rslot.pos3 { right:20%; top:50%; transform:translateY(-50%); }
   .rcenter { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
              color:#A6A6AF; font-size:.75rem; text-align:center; }
-  /* deal-start exchange view: received cards + arrow into the hand */
-  .rslot.pin { display:flex; align-items:center; gap:4px; }
+  /* deal-start exchange view: received cards hug the receiving seat's
+     edge, sized above hand cards so the exchange reads first */
+  .rslot.pin { display:flex; align-items:center; gap:5px; }
   .rslot.pin.pos0, .rslot.pin.pos2 { flex-direction:column; }
-  .rslot.pin .pincards { display:flex; gap:2px; }
-  .rslot.pin .card { width:calc(var(--cw)*.86); height:calc(var(--cw)*1.22);
-                     font-size:calc(var(--cw)*.28); }
-  .pinarrow { color:#7CBF8E; font-size:calc(var(--cw)*.5); line-height:1; }
+  .rslot.pin .pincards { display:flex; gap:3px; }
+  .rslot.pin .card { width:calc(var(--cw)*1.25); height:calc(var(--cw)*1.78);
+                     font-size:calc(var(--cw)*.4); }
+  .rslot.pin.pos0 { bottom:4%; left:50%; transform:translateX(-50%); }
+  .rslot.pin.pos1 { left:4%; top:50%; transform:translateY(-50%); }
+  .rslot.pin.pos2 { top:4%; left:50%; transform:translateX(-50%); }
+  .rslot.pin.pos3 { right:4%; top:50%; transform:translateY(-50%); }
+  .pinarrow { color:#7CBF8E; font-size:calc(var(--cw)*.62); line-height:1; }
+  .travel { position:absolute; color:#5E8F6E; font-size:calc(var(--cw)*.7);
+            line-height:1; pointer-events:none; }
   /* ghost of the previous trick, swept to its winner's edge */
   .gslot { position:absolute; display:flex; opacity:.30; }
   .gslot .card { width:calc(var(--cw)*.9); height:calc(var(--cw)*1.28);
@@ -534,23 +541,31 @@ function render() {
         ${prev.map(p => cardHTML(p[1])).join('')}</div>`;
     }
   } else if (preStart) {
-    // Incoming cards at each seat's edge, arrow pointing INTO that hand:
-    // the three cards that seat received, beside the outlined three it
-    // sent (the exchange, seen at a glance).
+    // The exchange, drawn on the felt: each seat's INCOMING three at its
+    // own edge with an arrow into the hand, plus a travel arrow along the
+    // giver -> receiver path so the rotation is visible.
     const ARROW = {0: '&darr;', 1: '&larr;', 2: '&uarr;', 3: '&rarr;'};
+    const EDGE = {0: [50, 84], 1: [16, 50], 2: [50, 16], 3: [84, 50]};
+    const off = {left: 1, right: 3, across: 2}[deal.pass_direction];
     slots = [0, 1, 2, 3].map(s => {
       const p = (s - v + 4) % 4;
       const inc = (deal.received[s] || []);
       if (!inc.length) return '';
       const arrow = `<div class="pinarrow">${ARROW[p]}</div>`;
       const cds = `<div class="pincards">${inc.map(c => cardHTML(c)).join('')}</div>`;
-      // arrow sits between the cards and the receiving hand
-      return `<div class="rslot pin pos${p}">${
+      let out = `<div class="rslot pin pos${p}">${
         p === 2 ? arrow + cds : cds + arrow}</div>`;
-    }).join('') +
-      `<div class="rcenter">deal ${deal.deal_no} &middot; passing
-        ${esc(deal.pass_direction)}<br>
-        <small style="opacity:.75">gold = sent &middot; centre cards = received</small></div>`;
+      // travel arrow: from the giver's edge toward this seat's edge,
+      // parked 68% along so it reads as "arriving from there"
+      const giver = (s - off + 4) % 4;
+      const gp = (giver - v + 4) % 4;
+      const [gx, gy] = EDGE[gp], [rx, ry] = EDGE[p];
+      const x = gx + (rx - gx) * 0.68, y = gy + (ry - gy) * 0.68;
+      const ang = Math.atan2(ry - gy, rx - gx) * 180 / Math.PI;
+      out += `<div class="travel" style="left:${x}%; top:${y}%;
+        transform:translate(-50%,-50%) rotate(${ang}deg)">&#10142;</div>`;
+      return out;
+    }).join('');
   } else {
     slots = `<div class="rcenter">deal ${deal.deal_no} &middot; passing ${esc(deal.pass_direction)}</div>`;
   }
@@ -702,14 +717,19 @@ function renderEval(st, deal) {
         }).length;
         return `${m}/${rows.length}`;
       };
+      // The cards themselves are on the felt now (sent = gold in hand,
+      // received = at each seat's edge), so these rows are just the seat
+      // selector + agreement badge.
       el('passinfo').innerHTML =
-        `<div class="muted" style="margin-bottom:2px">who passed what to whom:</div>` +
+        `<div class="muted" style="margin-bottom:3px; font-size:.66rem">
+           gold in hand = sent &middot; cards on the felt = received.
+           Pick a seat to see its picks:</div>` +
         [0,1,2,3].map(s => `<div class="passrow" data-seat="${s}"
-           style="cursor:pointer${s === passSeat ? ';background:#26262A;border-radius:6px' : ''}">
+           style="cursor:pointer;padding:2px 4px${
+             s === passSeat ? ';background:#26262A;border-radius:6px' : ''}">
            <span class="pname">${esc(short(s))}</span>
-           <span class="pcards">${deal.passed[s].map(c => cardHTML(c)).join('')}</span>
            <span class="pto">&rarr; ${esc(short((s + off) % 4))}
-             <span class="muted">&middot; ${agree(s)}</span></span></div>`).join('');
+             <span class="muted">&middot; ${agree(s)} match</span></span></div>`).join('');
       el('passinfo').querySelectorAll('.passrow').forEach(n =>
         n.onclick = () => { passSeat = +n.dataset.seat; render(); });
       const pk = el('pk-x');
