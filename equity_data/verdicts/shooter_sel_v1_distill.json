@@ -1,0 +1,8 @@
+{
+ "mode": "sel",
+ "out": "shooter_sel_v1.pth",
+ "md5": "f57074960658",
+ "holdout_match": 0.4847809120303267,
+ "n_train": 36283,
+ "params_m": 1.867
+}

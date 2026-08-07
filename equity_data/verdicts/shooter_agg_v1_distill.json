@@ -1,0 +1,8 @@
+{
+ "mode": "agg",
+ "out": "shooter_agg_v1b.pth",
+ "md5": "83788e4cc40b",
+ "holdout_match": 0.5659747077069912,
+ "n_train": 33091,
+ "params_m": 3.293
+}

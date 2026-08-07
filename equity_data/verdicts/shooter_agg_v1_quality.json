@@ -1,0 +1,14 @@
+{
+ "mode": "agg",
+ "clone": "shooter_agg_v1b.pth",
+ "holdout_match": 0.5659747077069912,
+ "matches": 500,
+ "deals": 3524,
+ "moons": 1024,
+ "rate": 0.2905788876276958,
+ "ci95_lower": 0.27558817756824916,
+ "bar": 0.257396449704142,
+ "pass": true,
+ "phase_a_rate": 0.514792899408284,
+ "seed": 142000000
+}

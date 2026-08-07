@@ -1,0 +1,14 @@
+{
+ "mode": "sel",
+ "clone": "shooter_sel_v1.pth",
+ "holdout_match": 0.4847809120303267,
+ "matches": 120,
+ "deals": 861,
+ "moons": 193,
+ "rate": 0.22415795586527293,
+ "ci95_lower": 0.1963019894657755,
+ "bar": 0.18328498912255256,
+ "pass": true,
+ "phase_a_rate": 0.3665699782451051,
+ "seed": 130000000
+}
