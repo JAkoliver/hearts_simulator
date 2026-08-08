@@ -286,6 +286,16 @@
                font-size:.66rem; margin-left:4px; }
   .lens-chip:hover { background:#33333A; }
   .lens-chip.on { background:#8B5CF6; color:#fff; }
+  /* segmented group = exclusive choice (one observer); freestanding
+     chips after the divider = independent toggles */
+  .lens-seg { display:inline-flex; background:#1E1E21;
+              border:1px solid #2E2E33; border-radius:7px; padding:2px;
+              gap:2px; vertical-align:middle; }
+  .lens-seg .lens-chip { margin-left:0; background:transparent; }
+  .lens-seg .lens-chip:hover { background:#33333A; }
+  .lens-seg .lens-chip.on { background:#8B5CF6; }
+  .lens-div { display:inline-block; width:1px; height:14px;
+              background:#3A3A42; margin:0 8px; vertical-align:middle; }
   .seat-tag.believer { outline:2px solid #8B5CF6; }
   .seat-tag.lensable { cursor:pointer; }
   /* ================= mobile pass =================
@@ -343,7 +353,8 @@
   body.mobile #maincol > .legend { display:none; }
   body.mobile .dline { padding:8px 6px; }
   /* belief lens is a desktop feature for now (hover-driven) */
-  body.mobile #belief-btn, body.mobile #belief-lens { display:none; }
+  body.mobile #belief-btn, body.mobile #belief-lens,
+  body.mobile #readpanel { display:none; }
 </style>
 </head>
 <body>
@@ -447,6 +458,7 @@
         <i style="background:#3A2328"></i>moon threat</span>
     </div>
     <div class="legend" id="belief-lens" style="margin-top:3px"></div>
+    <div class="legend" id="readpanel" style="margin-top:3px"></div>
     <div class="legend" style="margin-top:3px">
       &#9000; &larr;/&rarr; play &middot; Shift+&larr;/&rarr; trick &middot;
       &uarr;/&darr; deal &middot; Home/End &middot; drag the bar to scrub</div>
@@ -1813,6 +1825,68 @@ let beliefFocus = false;
 try { beliefFocus = localStorage.getItem('perilune-belief-focus') === '1'; }
 catch (e) {}
 const FOCUS_CARDS = new Set(['QS', 'AS', 'KS', 'AH', 'KH', 'QH', 'JH', '10H']);
+// Readability: how mapped each hand is. Two surfaces - a live believer-
+// scoped badge in the seat tags, and a per-deal all-observers score.
+let beliefRead = false;
+try { beliefRead = localStorage.getItem('perilune-belief-read') === '1'; }
+catch (e) {}
+const _readCache = {};
+// Per-deal readability: for every play step, each seat's remaining hand
+// scored by the OTHER THREE observers' normalized located-confidence,
+// averaged. Returns per seat {t6: mapped at end of trick 6, avg: deal
+// mean}. The table is the par: all four seats scored identically, AI
+// seats anchor the reference when present.
+function readabilityOf(d) {
+  if (_readCache[d]) return _readCache[d];
+  const deal = R.deals[d];
+  const hands = deal.start_hands.map((h, s2) => {
+    const set = new Set(h.map(cardId));
+    (deal.passed[s2] || []).forEach(c => set.delete(cardId(c)));
+    (deal.received[s2] || []).forEach(c => set.add(cardId(c)));
+    return set;
+  });
+  const per = [0, 1, 2, 3].map(() => ({sum: 0, n: 0, t6: null}));
+  const t6i = Math.min(23, deal.plays.length - 1);   // end of trick 6
+  for (let i = 0; i < deal.plays.length; i++) {
+    for (let t = 0; t < 4; t++) {
+      if (!hands[t].size) continue;
+      let cSum = 0, cN = 0;
+      for (let o = 0; o < 4; o++) {
+        if (o === t) continue;
+        const bel = beliefOf({d, i}, o);
+        if (!bel) continue;
+        const k = (t - o + 4) % 4 - 1;
+        for (const c of hands[t]) {
+          const ps = [0, 1, 2].map(r => bel[r * 52 + c] / 255);
+          const tot = (ps[0] + ps[1] + ps[2]) || 1;
+          cSum += ps[k] / tot; cN++;
+        }
+      }
+      if (cN) {
+        per[t].sum += cSum / cN; per[t].n++;
+        if (i === t6i) per[t].t6 = cSum / cN;
+      }
+    }
+    hands[deal.plays[i][0]].delete(cardId(deal.plays[i][1]));
+  }
+  return _readCache[d] = per.map(p =>
+    ({t6: p.t6, avg: p.n ? p.sum / p.n : null}));
+}
+function renderReadPanel(st) {
+  const rp = el('readpanel');
+  if (!rp) return;
+  if (!beliefOn || !beliefRead || MOBILE || !st) { rp.textContent = ''; return; }
+  const rows = readabilityOf(st.d);
+  if (!rows.some(r => r.avg != null)) { rp.textContent = ''; return; }
+  rp.innerHTML = `<span class="muted">readability &middot; deal ${
+      R.deals[st.d].deal_no} &middot; mapped by T6 / deal avg
+      (all three observers, raw net &middot; higher = more readable):</span>` +
+    rows.map((r, s2) => `<span style="margin-left:10px; white-space:nowrap">
+      <i style="display:inline-block; width:8px; height:8px; border-radius:2px;
+        background:${SEAT_COLORS[s2]}; margin-right:3px"></i>${esc(seatLabel(s2))}
+      <b>${r.t6 != null ? Math.round(r.t6 * 100) + '%' : '&ndash;'}</b> /
+      ${r.avg != null ? Math.round(r.avg * 100) + '%' : '&ndash;'}</span>`).join('');
+}
 // Pre-pass belief: a seat's own view at its first pass pick.
 function beliefOfPass(d, seat) {
   const pe = R.deals[d].pass_evals || [];
@@ -1833,6 +1907,7 @@ function paintBelief(st) {
   const lens = el('belief-lens');
   const prevKey = _lastBelKey;
   _lastBelKey = null;
+  renderReadPanel(st);   // self-guarding (clears when lens/read is off)
   if (!beliefOn || MOBILE || !st) { if (lens) lens.textContent = ''; return; }
   const deal = R.deals[st.d];
   const isStart = st.type !== 'play';
@@ -1872,10 +1947,17 @@ function paintBelief(st) {
   _lastBelKey = key;                             // only, not re-renders
   const chip = (val, on, txt) => `<button class="lens-chip${
     on ? ' on' : ''}" data-lens="${val}">${txt}</button>`;
-  lens.innerHTML = `belief lens: ${chip('actor', lensSeat === 'actor', 'follow actor')}${
-    [0, 1, 2, 3].map(s2 => chip(s2, lensSeat === s2, esc(seatLabel(s2)))).join('')}
+  // Grammar of the control row: the SEGMENTED GROUP is exclusive (one
+  // observer), freestanding chips after the divider are independent
+  // toggles - structure carries the semantics, not punctuation.
+  lens.innerHTML = `belief lens:
+    <span class="lens-seg">${chip('actor', lensSeat === 'actor', 'follow actor')}${
+      [0, 1, 2, 3].map(s2 => chip(s2, lensSeat === s2, esc(seatLabel(s2)))).join('')}</span>
+    <span class="lens-div"></span>
     ${chip('focus', beliefFocus, 'point cards')}
-    <span class="muted">&middot; viewing <b style="color:#A78BFA">${
+    ${chip('read', beliefRead, 'readability')}
+    <span class="lens-div"></span>
+    <span class="muted">viewing <b style="color:#A78BFA">${
       esc(seatLabel(believer))}</b>${isStart ? ' (pre-pass)'
         : lensSeat === 'actor' ? ' (acting)' : ' (locked)'}
     &middot; bar = located &middot; <span style="color:#E8A33D">&#9679;</span> =
@@ -1886,6 +1968,10 @@ function paintBelief(st) {
     if (v === 'focus') {
       beliefFocus = !beliefFocus;
       try { localStorage.setItem('perilune-belief-focus', beliefFocus ? '1' : '0'); }
+      catch (e) {}
+    } else if (v === 'read') {
+      beliefRead = !beliefRead;
+      try { localStorage.setItem('perilune-belief-read', beliefRead ? '1' : '0'); }
       catch (e) {}
     } else {
       lensSeat = v === 'actor' ? 'actor' : +v;
@@ -1924,15 +2010,17 @@ function paintBelief(st) {
     const t = +h.dataset.seat;
     if (t === believer) return;
     const k = (t - believer + 4) % 4 - 1;   // engine belief row: relative opp
+    let rSum = 0, rN = 0;   // live mapped% accumulates over ALL cards
     h.querySelectorAll('.card').forEach(cd => {
       if (cd.classList.contains('dim')) return;   // played = public fact
       const name = cd.dataset.c;
       if (!name) return;
-      if (beliefFocus && !FOCUS_CARDS.has(name)) return;  // point-card focus
       const cid = cardId(name);
       const ps = [0, 1, 2].map(r => bel[r * 52 + cid] / 255);
       const tot = (ps[0] + ps[1] + ps[2]) || 1;
       const conf = ps[k] / tot;
+      rSum += conf; rN++;
+      if (beliefFocus && !FOCUS_CARDS.has(name)) return;  // point-card focus
       // Confident misread: truth nearly ruled out while another seat is
       // confidently credited - the moments that poison the search's
       // determinizations. An empty bar alone can't tell "lost" from
@@ -1955,6 +2043,16 @@ function paintBelief(st) {
       cd.dataset.holder = t;
       cd.dataset.believer = believer;
     });
+    // Live readability badge: how much of THIS hand the current believer
+    // has located right now (believer-scoped like everything painted on
+    // the board; the panel's per-deal score aggregates all observers).
+    if (beliefRead && rN) {
+      const tag = h.querySelector('.seat-tag');
+      if (tag) tag.insertAdjacentHTML('beforeend',
+        `<span class="voidb" title="${esc(seatLabel(believer))} has located ${
+          Math.round(rSum / rN * 100)}% of ${esc(seatLabel(t))}'s remaining hand">${
+          Math.round(rSum / rN * 100)}% read</span>`);
+    }
     // Void badge: the believer credits this seat with (essentially) none
     // of a suit's outstanding cards. Raw per-card holding probability,
     // not the normalized split - "holds none of these" is a statement
