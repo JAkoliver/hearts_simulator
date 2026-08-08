@@ -997,6 +997,7 @@ def _share_parse(token):
 def api_share(pid: str, sid: str = None, code: str = None,
               match_no: int = None):
     """Mint a read-only share token; ownership rules mirror /api/review."""
+    pid = resolve_pid(pid)
     if code:
         lines = _log_lines_for(f'table:{code.upper()}')
         if not lines:
@@ -1021,6 +1022,7 @@ def api_share(pid: str, sid: str = None, code: str = None,
 @app.get('/api/review')
 def api_review(pid: str = None, sid: str = None, code: str = None,
                match_no: int = None, share: str = None):
+    pid = resolve_pid(pid)
     if share:
         p = _share_parse(share)
         if p is None:
@@ -1281,12 +1283,81 @@ def identity_new():
     return {'key': key, 'name': codename_of(key)}
 
 
+# Key rotation (compromised-key remedy): the ORIGINAL key stays the
+# canonical id everywhere internally (logs, names, history never
+# rewrite); rotation mints a replacement key that RESOLVES to the
+# canonical id and permanently revokes the presented one. Append-only
+# player_keys.jsonl replays into the maps at startup.
+KEYS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                         'player_keys.jsonl')
+_key2canon = {}    # current replacement key -> canonical id
+_canon2key = {}    # canonical id -> current key
+_revoked = set()   # every key ever rotated away
+try:
+    with open(KEYS_PATH, encoding='utf-8') as _f:
+        for _line in _f:
+            try:
+                _d = json.loads(_line)
+                _prev = _canon2key.get(_d['canon'], _d['canon'])
+                _revoked.add(_prev)
+                _key2canon.pop(_prev, None)
+                _key2canon[_d['key']] = _d['canon']
+                _canon2key[_d['canon']] = _d['key']
+                _revoked.discard(_d['key'])
+            except (ValueError, KeyError):
+                continue
+except FileNotFoundError:
+    pass
+
+
+def resolve_pid(key):
+    """Canonical id for a presented key. Revoked keys fail loudly so a
+    stale device explains itself instead of acting as a ghost."""
+    k = (key or '')[:64]
+    if not k:
+        return k
+    with _names_lock:
+        if k in _revoked:
+            raise HTTPException(
+                404, 'this key was rotated - use your replacement key')
+        return _key2canon.get(k, k)
+
+
+class RotateBody(BaseModel):
+    key: str
+
+
+@app.post('/api/identity/rotate')
+def identity_rotate(body: RotateBody):
+    with _names_lock:
+        k = (body.key or '')[:64]
+        if k in _revoked:
+            raise HTTPException(404, 'this key was already rotated')
+        canon = _key2canon.get(k, k)
+        if canon not in _names:
+            raise HTTPException(404, 'unknown key')
+        for _ in range(100):
+            nk = secrets.token_hex(16)
+            if nk not in _names and nk not in _key2canon \
+                    and nk not in _revoked:
+                break
+        prev = _canon2key.get(canon, canon)
+        _revoked.add(prev)
+        _key2canon.pop(prev, None)
+        _key2canon[nk] = canon
+        _canon2key[canon] = nk
+        with open(KEYS_PATH, 'a', encoding='utf-8') as f:
+            f.write(json.dumps({'canon': canon, 'key': nk,
+                                'ts': int(time.time())}) + '\n')
+        return {'key': nk, 'name': _names[canon]}
+
+
 @app.get('/api/identity/check')
 def identity_check(key: str):
     """Non-minting lookup: does this key name an existing identity?"""
-    k = (key or '')[:64]
+    canon = resolve_pid(key)
     with _names_lock:
-        name = _names.get(k)
+        name = _names.get(canon)
     if name is None:
         raise HTTPException(404, 'unknown key')
     return {'ok': True, 'name': name}
@@ -1295,8 +1366,9 @@ def identity_check(key: str):
 @app.get('/api/name')
 def api_name(pid: str):
     """Non-minting (identity creation is /api/identity/new only)."""
+    canon = resolve_pid(pid)
     with _names_lock:
-        name = _names.get((pid or '')[:64])
+        name = _names.get(canon)
     if name is None:
         raise HTTPException(404, 'unknown player')
     return {'name': name}
@@ -1449,6 +1521,7 @@ def compute_match_stats(deal_lines, seat):
 
 @app.get('/api/progress')
 def api_progress(pid: str, limit: int = 60):
+    pid = resolve_pid(pid)
     hist = list(_idx_history.get(pid, ()))[-max(1, min(100, limit)):]
     out = []
     for h in hist:
@@ -1499,6 +1572,7 @@ def _log_lines_for(sid):
 
 @app.get('/api/insight/{sid}')
 def solo_insight(sid: str, pid: str):
+    pid = resolve_pid(pid)
     lines = [l for l in _log_lines_for(sid) if l.get('pid') == pid]
     if not lines:
         raise HTTPException(404, 'no recorded deals for this match')
@@ -1507,6 +1581,7 @@ def solo_insight(sid: str, pid: str):
 
 @app.get('/api/table/insight/{code}')
 def table_insight(code: str, pid: str):
+    pid = resolve_pid(pid)
     lines = _log_lines_for(f'table:{code.upper()}')
     if not lines:
         raise HTTPException(404, 'no recorded deals for this table')
@@ -1521,6 +1596,7 @@ def table_insight(code: str, pid: str):
 
 @app.get('/api/history')
 def api_history(pid: str, limit: int = 12):
+    pid = resolve_pid(pid)
     """The pid's completed matches, newest first (menu 'Recent matches').
     Served straight from the in-memory index - no log scan."""
     with _log_lock:
@@ -1557,7 +1633,7 @@ def index(request: Request):
 
 @app.post('/api/new')
 def new_session(body: NewBody | None = None, request: Request = None):
-    pid = (body.pid[:64] if body and body.pid else None)
+    pid = (resolve_pid(body.pid) if body and body.pid else None)
     ua = request.headers.get('user-agent', '') if request else ''
     s = Session(pid=pid, ua=ua, tier=(body.tier if body else None) or 'full')
     with _sessions_lock:
@@ -1609,7 +1685,8 @@ class TableActBody(BaseModel):
 # display names are server-assigned codenames, immutable by construction.)
 @app.post('/api/table/new')
 def table_new(body: TableNewBody):
-    t = Table(body.pid[:64], codename_of(body.pid),
+    canon = resolve_pid(body.pid)
+    t = Table(canon, codename_of(canon),
               tier=body.tier or 'full')
     with _tables_lock:
         while t.code in _tables:
@@ -1619,14 +1696,14 @@ def table_new(body: TableNewBody):
         while len(_tables) > cfg.TABLE_CAP:
             _tables.pop(next(iter(_tables)))
         _tables[t.code] = t
-    return t.view(body.pid)
+    return t.view(canon)
 
 
 @app.post('/api/table/join')
 def table_join(body: TableJoinBody):
     t = _get_table(body.code)
     with t.lock:
-        pid = body.pid[:64]
+        pid = resolve_pid(body.pid)
         if any(p['pid'] == pid for p in t.lobby) or pid in t.seat_of:
             return t.view(pid)          # idempotent rejoin
         if t.state != 'lobby':
@@ -1641,6 +1718,7 @@ def table_join(body: TableJoinBody):
 @app.post('/api/table/start')
 def table_start(body: TableJoinBody):
     t = _get_table(body.code)
+    body.pid = resolve_pid(body.pid)
     with t.lock:
         if body.pid != t.host_pid:
             raise HTTPException(403, 'only the host can start')
@@ -1654,6 +1732,7 @@ def table_start(body: TableJoinBody):
 @app.get('/api/table/state/{code}')
 def table_state(code: str, pid: str, cursor: int = 0):
     t = _get_table(code)
+    pid = resolve_pid(pid)
     with t.lock:
         t.check_timeout()
         return t.view(pid, cursor)
@@ -1663,6 +1742,7 @@ def table_state(code: str, pid: str, cursor: int = 0):
 def table_rematch(body: TableJoinBody):
     """Host-only, finished matches only: new match, same table and seats."""
     t = _get_table(body.code)
+    body.pid = resolve_pid(body.pid)
     with t.lock:
         if body.pid != t.host_pid:
             raise HTTPException(403, 'only the host can start a rematch')
@@ -1677,6 +1757,7 @@ def table_close(body: TableJoinBody):
     """Host-only: delete the table for everyone (end-game screen button).
     Other players' next poll gets 404 and returns to the menu cleanly."""
     t = _get_table(body.code)
+    body.pid = resolve_pid(body.pid)
     with t.lock:
         if body.pid != t.host_pid:
             raise HTTPException(403, 'only the host can close the table')
@@ -1692,7 +1773,7 @@ def table_leave(body: TableJoinBody):
     dead links) are reaped by staleness instead."""
     t = _get_table(body.code)
     with t.lock:
-        pid = body.pid[:64]
+        pid = resolve_pid(body.pid)
         t.departed.add(pid)
         if t.state == 'lobby':
             if pid == t.host_pid:
@@ -1735,6 +1816,7 @@ threading.Thread(target=_reaper, daemon=True).start()
 @app.post('/api/table/pass/{code}')
 def table_pass(code: str, body: TableActBody):
     t = _get_table(code)
+    body.pid = resolve_pid(body.pid)
     with t.lock:
         seat = t.seat_of.get(body.pid)
         if seat is None:
@@ -1755,6 +1837,7 @@ def table_pass(code: str, body: TableActBody):
 @app.post('/api/table/play/{code}')
 def table_play(code: str, body: TableActBody):
     t = _get_table(code)
+    body.pid = resolve_pid(body.pid)
     with t.lock:
         seat = t.seat_of.get(body.pid)
         if seat is None:
