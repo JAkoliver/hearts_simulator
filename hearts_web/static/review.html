@@ -285,6 +285,8 @@
           padding:1px 7px; font-size:.68rem; color:#A78BFA;
           white-space:nowrap; letter-spacing:.04em; }
   .bcap .cr { color:#FF7A7A; }
+  .bcap.prof { color:#A6A6AF; text-decoration:none; padding:1px 6px; }
+  .bcap.prof:hover { color:#E8B923; border-color:#E8B923; }
   /* seat-lock lens: chips in the lens line; the believer's tag is ringed
      so you always know whose eyes you're looking through */
   .lens-chip { background:#26262A; border:0; border-radius:5px;
@@ -699,11 +701,19 @@ function render() {
         cardHTML(c, deal.passed[s].includes(c) ? 'hot' : '')).join('')
     : deal._hands[s].map(c =>
         cardHTML(c, played.has(c) ? 'dim' : '')).join('');
+  // Human seats get a separate profile glyph in the tag row - the tag
+  // itself stays the belief-lens lock, two gestures never share a target.
+  const prof = s => {
+    const sl = R.seat_players && R.seat_players[String(s)];
+    return sl ? `<a class="bcap prof" target="_blank"
+      href="/player/${encodeURIComponent(sl)}"
+      title="view player profile">&#8599;</a>` : '';
+  };
   const hstack = s => `<div class="hstack" data-seat="${s}">
-      <span class="tagrow">${tag(s)}</span>
+      <span class="tagrow">${tag(s)}${prof(s)}</span>
       <div class="hand-row">${cards(s)}</div></div>`;
   const vhand = s => `<div class="vhand" data-seat="${s}">
-      <span class="tagrow">${tag(s)}</span>
+      <span class="tagrow">${tag(s)}${prof(s)}</span>
       <div class="cards">${cards(s)}</div></div>`;
   // Current trick on the mini table: card at the PLAYER'S position.
   const v = R.viewer_seat ?? 0;

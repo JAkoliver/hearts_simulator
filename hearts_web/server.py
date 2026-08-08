@@ -1081,6 +1081,10 @@ def api_review(pid: str = None, sid: str = None, code: str = None,
             and lines[0].get('human_seat') is not None:
         seat_names[str(lines[0]['human_seat'])] = codename_of(lines[0]['pid'])
     out['seat_names'] = seat_names
+    # public profile handles per human seat (codename slugs - no
+    # credentials anywhere in the public path)
+    out['seat_players'] = {s2: _name_slug(n2)
+                           for s2, n2 in seat_names.items()}
     return out
 
 
@@ -1223,6 +1227,15 @@ try:
 except FileNotFoundError:
     pass
 
+# Public handles: the codename itself, slugified - unique by construction,
+# permanent, human-readable. /player/<slug> is the profile URL; the key
+# never appears anywhere in the public path.
+def _name_slug(n):
+    return n.lower().replace(' ', '-')
+
+
+_slug2pid = {_name_slug(_n): _p for _p, _n in _names.items()}
+
 
 def codename_of(pid):
     pid = (pid or '')[:64]
@@ -1253,6 +1266,7 @@ def codename_of(pid):
             name = f'Wanderer {secrets.token_hex(3)}'
         _names[pid] = name
         _names_used.add(name)
+        _slug2pid[_name_slug(name)] = pid
         with open(NAMES_PATH, 'a', encoding='utf-8') as f:
             f.write(json.dumps({'pid': pid, 'name': name,
                                 'ts': int(time.time())}) + '\n')
@@ -1520,8 +1534,23 @@ def compute_match_stats(deal_lines, seat):
 
 
 @app.get('/api/progress')
-def api_progress(pid: str, limit: int = 60):
-    pid = resolve_pid(pid)
+def api_progress(pid: str = None, player: str = None, limit: int = 60):
+    """Own view (pid = the key) or PUBLIC view (player = codename slug).
+    Public rows drop the sid and carry a minted share token per match -
+    profile visitors open reviews through the exact read-only path share
+    links use; no new access model exists."""
+    public = False
+    pub_name = None
+    if player:
+        with _names_lock:
+            canon = _slug2pid.get((player or '').strip().lower())
+            pub_name = _names.get(canon) if canon else None
+        if canon is None or pub_name is None:
+            raise HTTPException(404, 'unknown player')
+        pid = canon
+        public = True
+    else:
+        pid = resolve_pid(pid)
     hist = list(_idx_history.get(pid, ()))[-max(1, min(100, limit)):]
     out = []
     for h in hist:
@@ -1541,8 +1570,15 @@ def api_progress(pid: str, limit: int = 60):
             _progress_cache[key] = st
             while len(_progress_cache) > 200:
                 _progress_cache.pop(next(iter(_progress_cache)))
-        out.append({**h, **st})
-    return {'matches': out}
+        row = {**h, **st}
+        if public:
+            row.pop('sid', None)
+            row['share'] = (_share_make('t', h['code'].upper(),
+                                        h['match_no'], h['seat'])
+                            if h['mode'] == 'table'
+                            else _share_make('s', h['sid'], 1, h['seat']))
+        out.append(row)
+    return {'matches': out, 'public': public, 'name': pub_name}
 
 
 @app.get('/progress')
@@ -1555,6 +1591,12 @@ def progress_page():
 def account_page():
     return FileResponse(os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                      'static', 'account.html'))
+
+
+@app.get('/player/{slug}')
+def player_page(slug: str):
+    return FileResponse(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                     'static', 'progress.html'))
 
 
 def _log_lines_for(sid):

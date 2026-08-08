@@ -101,9 +101,14 @@ deep-search verdicts live in each match review.</p>
 
 <script>
 const q = new URLSearchParams(location.search);
-// The key never rides in the page URL; storage is the normal path
+// PUBLIC profile mode: /player/<slug> (or ?player=slug) shows any
+// player's server-side stats + history; review links use minted share
+// tokens. Own mode reads the key from storage - never from the URL
 // (?pid= honored for the dev multi-player flow).
-const pid = q.get('pid') || localStorage.getItem('hearts_pid') || '';
+const PLAYER = location.pathname.startsWith('/player/')
+  ? decodeURIComponent(location.pathname.split('/')[2] || '')
+  : (q.get('player') || '');
+const pid = PLAYER ? '' : (q.get('pid') || localStorage.getItem('hearts_pid') || '');
 const el = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g,
   c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -165,24 +170,34 @@ const roll = (vals, w) => vals.map((_, i) => {
 });
 
 (async () => {
-  let M;
+  let M, pubName = null;
   try {
-    const r = await fetch(`/api/progress?pid=${encodeURIComponent(pid)}`);
-    if (!r.ok) throw new Error(`error ${r.status}`);
-    M = (await r.json()).matches;   // oldest -> newest
+    const r = await fetch(PLAYER
+      ? `/api/progress?player=${encodeURIComponent(PLAYER)}`
+      : `/api/progress?pid=${encodeURIComponent(pid)}`);
+    if (!r.ok) throw new Error(PLAYER && r.status === 404
+      ? 'unknown player' : `error ${r.status}`);
+    const d = await r.json();
+    M = d.matches;   // oldest -> newest
+    pubName = d.name;
   } catch (e) {
     el('sub').textContent = 'could not load progress: ' + e.message;
     return;
   }
+  if (PLAYER && pubName)
+    document.querySelector('h1').textContent = `${pubName} — progress`;
   if (!M.length) {
-    el('sub').textContent = 'no finished matches yet - play a match and come back.';
+    el('sub').textContent = PLAYER
+      ? 'no finished matches yet.'
+      : 'no finished matches yet - play a match and come back.';
     return;
   }
   el('sub').textContent = `${M.length} finished match${M.length > 1 ? 'es' : ''}`
-    + (M.length < 5 ? ' · play more to see trends' : '');
-  fetch(`/api/name?pid=${encodeURIComponent(pid)}`).then(r => r.json())
-    .then(d => { document.querySelector('h1').textContent =
-      `${d.name} — your progress`; }).catch(() => {});
+    + (!PLAYER && M.length < 5 ? ' · play more to see trends' : '');
+  if (!PLAYER)
+    fetch(`/api/name?pid=${encodeURIComponent(pid)}`).then(r => r.json())
+      .then(d => { document.querySelector('h1').textContent =
+        `${d.name} — your progress`; }).catch(() => {});
 
   // band 1: identity numbers
   const wins = M.filter(m => m.place === 1).length;
@@ -244,69 +259,76 @@ const roll = (vals, w) => vals.map((_, i) => {
     `total: ${mc.reduce((a, b) => a + (b || 0), 0)} conceded · `
     + `${M.reduce((a, m) => a + (m.moons_shot || 0), 0)} shot by you`;
 
-  // band 3.5: search verdicts - joined from the LOCAL harvest store
-  // (written by match reviews when a whole game is searched). Costs are
-  // per-(K, model) strata: mixed floors are labeled, never blended away.
-  const pdb = await new Promise(res => {
-    const rq = indexedDB.open('perilune-progress', 1);
-    rq.onupgradeneeded = () => rq.result.createObjectStore('search');
-    rq.onsuccess = () => {
-      const g = rq.result.transaction('search').objectStore('search').getAll();
-      g.onsuccess = () => res(g.result || []);
-      g.onerror = () => res([]);
-    };
-    rq.onerror = () => res([]);
-  });
-  const byIdent = {};
-  for (const e of pdb) byIdent[e.ident] = e;
-  const ident = m => m.mode === 'table' ? `T${m.code}#${m.match_no}` : m.sid;
-  const searched = M.map(m => ({m, e: byIdent[ident(m)]})).filter(x => x.e);
-  if (!searched.length) {
-    el('sv-cover').textContent = 'no searched matches on this device yet - '
-      + 'run Deep analysis to completion in a match review and its costs '
-      + 'land here automatically.';
+  // band 3.5: search verdicts (OWN view only: the data lives in
+  // each viewer's browser - on a public profile it would show the
+  // VISITOR's local data under the profile owner's name)
+  if (PLAYER) {
+    el('sv-cover').parentElement.style.display = 'none';
   } else {
-    el('sv-cover').textContent =
-      `${searched.length} of ${M.length} matches fully searched on this device`;
-    const costV = searched.map(x => x.e.costSum * 100);
-    const sv = el('sp-cost');
-    sv.style.display = 'block';
-    spark(sv, [{vals: costV, color: '#4CC2FF', width: 1.4, dots: true}],
-      0, Math.max(5, ...costV),
-      i => `${fmtDate(searched[i].m.ts)} &middot; ${what(searched[i].m)} &middot;
-        <b>&minus;${costV[i].toFixed(1)}% match</b> given up
-        &middot; ${searched[i].e.costly} costly
-        <span class="muted">&middot; K=${searched[i].e.k}</span>`);
-    const cats = ['pass', 'lead', 'follow', 'discard'];
-    const agg = {};
-    for (const c of cats) agg[c] = [0, 0, 0];
-    for (const {e} of searched) if (e.cats)
-      for (const c of cats) {
-        agg[c][0] += e.cats[c][0]; agg[c][1] += e.cats[c][1];
-        agg[c][2] += e.cats[c][2];
-      }
-    const maxCost = Math.max(0.001, ...cats.map(c => agg[c][2]));
-    el('sv-cats').innerHTML =
-      '<tr><th>decision</th><th style="width:45%"></th><th>cost</th><th>costly / n</th></tr>'
-      + cats.map(c => {
-        const [h, n, cost] = agg[c];
-        return `<tr><td>${c}</td>
-          <td><div class="bar-h"><i style="width:${(100 * cost / maxCost).toFixed(0)}%;
-            background:#4CC2FF"></i></div></td>
-          <td>${n ? '&minus;' + (100 * cost).toFixed(1) + '%' : '-'}</td>
-          <td class="muted">${h} / ${n}</td></tr>`;
-      }).join('');
-    const ks = [...new Set(searched.map(x => x.e.k))].sort((a, b) => a - b);
-    const md5s = [...new Set(searched.map(x => x.e.md5))];
-    el('sv-note').textContent =
-      'costs = match-win chance given up in confidently-worse plays '
-      + '(the review scorecard rule). '
-      + (ks.length > 1
-         ? `MIXED search depths (K=${ks.join(', ')}) - deeper searches count `
-           + 'more mistakes as confident, so cross-K points are not directly '
-           + 'comparable. '
-         : `all at K=${ks[0]}. `)
-      + (md5s.length > 1 ? 'Spans more than one model version.' : '');
+    // (written by match reviews when a whole game is searched). Costs are
+    // per-(K, model) strata: mixed floors are labeled, never blended away.
+    const pdb = await new Promise(res => {
+      const rq = indexedDB.open('perilune-progress', 1);
+      rq.onupgradeneeded = () => rq.result.createObjectStore('search');
+      rq.onsuccess = () => {
+        const g = rq.result.transaction('search').objectStore('search').getAll();
+        g.onsuccess = () => res(g.result || []);
+        g.onerror = () => res([]);
+      };
+      rq.onerror = () => res([]);
+    });
+    const byIdent = {};
+    for (const e of pdb) byIdent[e.ident] = e;
+    const ident = m => m.mode === 'table' ? `T${m.code}#${m.match_no}` : m.sid;
+    const searched = M.map(m => ({m, e: byIdent[ident(m)]})).filter(x => x.e);
+    if (!searched.length) {
+      el('sv-cover').textContent = 'no searched matches on this device yet - '
+        + 'run Deep analysis to completion in a match review and its costs '
+        + 'land here automatically.';
+    } else {
+      el('sv-cover').textContent =
+        `${searched.length} of ${M.length} matches fully searched on this device`;
+      const costV = searched.map(x => x.e.costSum * 100);
+      const sv = el('sp-cost');
+      sv.style.display = 'block';
+      spark(sv, [{vals: costV, color: '#4CC2FF', width: 1.4, dots: true}],
+        0, Math.max(5, ...costV),
+        i => `${fmtDate(searched[i].m.ts)} &middot; ${what(searched[i].m)} &middot;
+          <b>&minus;${costV[i].toFixed(1)}% match</b> given up
+          &middot; ${searched[i].e.costly} costly
+          <span class="muted">&middot; K=${searched[i].e.k}</span>`);
+      const cats = ['pass', 'lead', 'follow', 'discard'];
+      const agg = {};
+      for (const c of cats) agg[c] = [0, 0, 0];
+      for (const {e} of searched) if (e.cats)
+        for (const c of cats) {
+          agg[c][0] += e.cats[c][0]; agg[c][1] += e.cats[c][1];
+          agg[c][2] += e.cats[c][2];
+        }
+      const maxCost = Math.max(0.001, ...cats.map(c => agg[c][2]));
+      el('sv-cats').innerHTML =
+        '<tr><th>decision</th><th style="width:45%"></th><th>cost</th><th>costly / n</th></tr>'
+        + cats.map(c => {
+          const [h, n, cost] = agg[c];
+          return `<tr><td>${c}</td>
+            <td><div class="bar-h"><i style="width:${(100 * cost / maxCost).toFixed(0)}%;
+              background:#4CC2FF"></i></div></td>
+            <td>${n ? '&minus;' + (100 * cost).toFixed(1) + '%' : '-'}</td>
+            <td class="muted">${h} / ${n}</td></tr>`;
+        }).join('');
+      const ks = [...new Set(searched.map(x => x.e.k))].sort((a, b) => a - b);
+      const md5s = [...new Set(searched.map(x => x.e.md5))];
+      el('sv-note').textContent =
+        'costs = match-win chance given up in confidently-worse plays '
+        + '(the review scorecard rule). '
+        + (ks.length > 1
+           ? `MIXED search depths (K=${ks.join(', ')}) - deeper searches count `
+             + 'more mistakes as confident, so cross-K points are not directly '
+             + 'comparable. '
+           : `all at K=${ks[0]}. `)
+        + (md5s.length > 1 ? 'Spans more than one model version.' : '');
+    }
+
   }
 
   // band 4: habits
@@ -331,7 +353,9 @@ const roll = (vals, w) => vals.map((_, i) => {
   // above always use the FULL history; only the list collapses)
   const newest = [...M].reverse();
   const mrow = m => {
-    const href = m.mode === 'table'
+    const href = PLAYER
+      ? `/review?share=${encodeURIComponent(m.share || '')}`
+      : m.mode === 'table'
       ? `/review?code=${encodeURIComponent(m.code)}&match_no=${m.match_no}`
       : `/review?sid=${encodeURIComponent(m.sid)}`;
     return `<tr><td class="muted">${fmtDate(m.ts)}</td><td>${what(m)}</td>
