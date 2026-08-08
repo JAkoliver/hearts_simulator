@@ -15,8 +15,10 @@
 #include <fstream>
 #include <functional>
 #include <iostream>
+#include <map>
 #include <random>
 #include <set>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -27,6 +29,96 @@
 #include "HeartsEnv.hpp"
 #include "SearchPlayer.hpp"
 #include "TreeSearchPlayer.hpp"
+
+// Lossless pause/resume for --shooter generation (round-2 prereg
+// amendment): every CSV row and v2 .sdrec record carries its match index,
+// and matches are generated sequentially - so after a kill, at most the
+// LAST match is partial. Trim everything from the first incomplete match
+// onward and return that index as the restart point. A match is complete
+// when someone reached 100 or it hit the deal cap.
+static int ShooterResumeTrim(const std::string& csv_path,
+                             const std::string& tricks_path,
+                             const std::string& rec_path, int deal_cap) {
+    const char* DHDR = "match,seed,seat,deal,pass_dir,play_dec,alive_dec,"
+                       "shoot_dec,pass_committed,pass_moonp,pass_eq_shoot,"
+                       "pass_eq_norm,first_dead_trick,moon_success,"
+                       "defender_moon,s0,s1,s2,s3,t0,t1,t2,t3\n";
+    const char* THDR = "match,deal,trick,winner,points,shooter_seat\n";
+    std::map<int, int> deal_rows;
+    std::map<int, double> max_total;
+    std::vector<std::string> rows;
+    {
+        std::ifstream in(csv_path);
+        std::string line;
+        bool first = true;
+        while (in && std::getline(in, line)) {
+            if (first) { first = false; continue; }   // header
+            if (line.empty()) continue;
+            std::vector<std::string> f;
+            std::stringstream ss(line);
+            std::string tok;
+            while (std::getline(ss, tok, ',')) f.push_back(tok);
+            if (f.size() < 23) continue;
+            int m = std::atoi(f[0].c_str());
+            double mx = 0;
+            for (size_t j = f.size() - 4; j < f.size(); ++j)
+                mx = std::max(mx, std::atof(f[j].c_str()));
+            deal_rows[m]++;
+            max_total[m] = std::max(max_total[m], mx);
+            rows.emplace_back(line);
+        }
+    }
+    int mi0 = 0;
+    while (true) {
+        auto it = deal_rows.find(mi0);
+        if (it == deal_rows.end()) break;
+        if (!(max_total[mi0] >= 100.0 - 1e-9 || it->second >= deal_cap)) break;
+        ++mi0;
+    }
+    {   // rewrite deal CSV: header + rows of complete matches only
+        std::ofstream out(csv_path);
+        out << DHDR;
+        for (const auto& r : rows)
+            if (std::atoi(r.c_str()) < mi0) out << r << '\n';
+    }
+    {   // tricks CSV: same trim (creates with header if absent)
+        std::vector<std::string> trows;
+        {
+            std::ifstream in(tricks_path);
+            std::string line;
+            bool first = true;
+            while (in && std::getline(in, line)) {
+                if (first) { first = false; continue; }
+                if (!line.empty() && std::atoi(line.c_str()) < mi0)
+                    trows.emplace_back(line);
+            }
+        }
+        std::ofstream out(tricks_path);
+        out << THDR;
+        for (const auto& r : trows) out << r << '\n';
+    }
+    if (!rec_path.empty()) {   // v2 records: keep prefix with match < mi0
+        std::ifstream in(rec_path, std::ios::binary);
+        std::string buf;
+        if (in) {
+            std::stringstream ss;
+            ss << in.rdbuf();
+            buf = ss.str();
+        }
+        in.close();
+        const size_t REC = 2284, MOFF = 2224 + 52 + 4 + 1 + 1;
+        size_t keep = 0;
+        while (keep + REC <= buf.size()) {
+            uint16_t m;
+            std::memcpy(&m, buf.data() + keep + MOFF, 2);
+            if ((int)m >= mi0) break;
+            keep += REC;
+        }
+        std::ofstream out(rec_path, std::ios::binary);
+        out.write(buf.data(), (std::streamsize)keep);
+    }
+    return mi0;
+}
 
 // ---------------------------------------------------------------------------
 // Match-to-100 bridge (docs/ROADMAP.md "Queued: match-aware search", step 1)
@@ -300,6 +392,8 @@ int main(int argc, char** argv) {
     bool uniform = false, selftest = false, pass_search = false, use_cuda = false;
     bool oracle_leaves = false, use_tree = false, use_bf16 = false;
     bool search_defenders = false;
+    bool resume_flag = false;
+    std::string attacker_path;
 
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
@@ -319,6 +413,8 @@ int main(int argc, char** argv) {
         else if (a == "--behave-deals") behave_deals = std::stoi(next());
         else if (a == "--shooter") shooter_flag = next();
         else if (a == "--search-defenders") search_defenders = true;
+        else if (a == "--resume") resume_flag = true;
+        else if (a == "--attacker-model") attacker_path = next();
         else if (a == "--tricks-out") tricks_path = next();
         else if (a == "--record-out") record_path = next();
         else if (a == "--deals") deals = std::stoi(next());
@@ -494,32 +590,71 @@ int main(int argc, char** argv) {
             defcfg.shooter_mode.clear();
             def_sp = std::make_unique<SearchPlayer>(search_model, sdim, defcfg);
         }
-        std::ofstream dcsv(out_path);
-        dcsv << "match,seed,seat,deal,pass_dir,play_dec,alive_dec,shoot_dec,"
-                "pass_committed,pass_moonp,pass_eq_shoot,pass_eq_norm,"
-                "first_dead_trick,moon_success,defender_moon,"
-                "s0,s1,s2,s3,t0,t1,t2,t3\n";
-        std::ofstream tcsv(tricks_path.empty() ? out_path + ".tricks.csv"
-                                               : tricks_path);
-        tcsv << "match,deal,trick,winner,points,shooter_seat\n";
-        // Shooter DECISION recorder (Phase B distillation,
-        // docs/exploiter_league_prereg.md): one fixed-size binary record
-        // per shooter-seat decision (play AND pass picks - moon-keeping
-        // passes are half the threat). Layout, little-endian:
+        // Round-2 corpus mode (--attacker-model): a distilled shooter CLONE
+        // (556 match trace, argmax - its certified behavior) plays the
+        // shooter seat instead of the search-shooter. Threat-alive then has
+        // no shooter internals to read - the harness tracks it directly:
+        // the moon is alive while no NON-attacker seat has taken a point.
+        std::unique_ptr<MatchRawPolicy> matt;
+        if (!attacker_path.empty()) {
+            try {
+                auto am = torch::jit::load(attacker_path);
+                am.eval();
+                matt = std::make_unique<MatchRawPolicy>(std::move(am));
+            } catch (const c10::Error& e) {
+                std::cerr << "Failed to load attacker model: " << e.what()
+                          << "\n";
+                return 1;
+            }
+        }
+        // DECISION recorder v2 (round 2, docs/exploiter_league_r2_prereg.md):
+        // one fixed-size record per recorded decision - shooter-seat
+        // decisions always; with --search-defenders the three defender
+        // chairs too (play AND pass picks). Layout, little-endian:
         //   float32 obs[556]  (engine 550 + match ctx, acting-seat view)
         //   uint8   mask[52]  (legal actions)
-        //   int32   action    (the search-shooter's choice)
-        //   uint8   flags     (bit0 pass_phase, bit1 alive, bit2 shooting)
-        //   uint8   pad[3]
-        // = 2284 bytes/record. Flushed per deal.
+        //   int32   action    (the search player's choice)
+        //   uint8   flags     (bit0 pass, bit1 threat-alive, bit2 shooting,
+        //                      bit3 defender; alive/shooting are harness
+        //                      labels for sample SELECTION - the obs stays
+        //                      info-honest)
+        //   uint8   seat      (acting seat)
+        //   uint16  match     (match index - the lossless-resume key)
+        // = 2284 bytes/record (same size as v1; pad became seat+match).
+        // Flushed per deal.
+        const std::string tpath = tricks_path.empty() ? out_path + ".tricks.csv"
+                                                      : tricks_path;
+        const char* DHDR = "match,seed,seat,deal,pass_dir,play_dec,alive_dec,"
+                           "shoot_dec,pass_committed,pass_moonp,pass_eq_shoot,"
+                           "pass_eq_norm,first_dead_trick,moon_success,"
+                           "defender_moon,s0,s1,s2,s3,t0,t1,t2,t3\n";
+        const char* THDR = "match,deal,trick,winner,points,shooter_seat\n";
+        int mi0 = 0;
+        if (resume_flag) {
+            mi0 = ShooterResumeTrim(out_path, tpath, record_path, 60);
+            std::cerr << "resume: trimmed to " << mi0
+                      << " complete matches; continuing from match " << mi0
+                      << "\n";
+        }
+        const bool fresh = (mi0 == 0 && !resume_flag);
+        std::ofstream dcsv(out_path, fresh ? std::ios::out
+                                           : (std::ios::out | std::ios::app));
+        std::ofstream tcsv(tpath, fresh ? std::ios::out
+                                        : (std::ios::out | std::ios::app));
+        if (fresh) {
+            dcsv << DHDR;
+            tcsv << THDR;
+        }
         std::ofstream rec;
         if (!record_path.empty()) {
-            rec.open(record_path, std::ios::binary);
+            rec.open(record_path, fresh
+                ? std::ios::binary
+                : (std::ios::binary | std::ios::out | std::ios::app));
         }
         int moons = 0, committed_deals = 0, total_deals = 0;
         auto pt0 = std::chrono::steady_clock::now();
 
-        for (int mi = 0; mi < matches; ++mi) {
+        for (int mi = mi0; mi < matches; ++mi) {
             int seat = mi % 4;
             unsigned mseed = seed + (unsigned)mi * 1000u;
             HeartsEnv env(mseed, true);
@@ -533,44 +668,54 @@ int main(int argc, char** argv) {
                 int pass_committed = -1;   // -1 = hold deal (no pass decision)
                 float pass_moonp = 0.0f, pass_eqs = 0.0f, pass_eqn = 0.0f;
                 int first_dead = -1;
+                int other_pts = 0;   // points taken by non-attacker seats
                 bool pass_seen = false;
                 bool done = false;
                 while (!done) {
                     int p = env.GetCurrentPlayer();
                     bool was_passing = env.IsPassing();
                     int action;
-                    if (p == seat) {
+                    // v2 record writer: obs/mask read from the CURRENT state
+                    // (ChooseAction never mutates the env), ctx rotated by
+                    // the acting seat, match id = the resume key.
+                    auto write_rec = [&](int actor, int act, uint8_t flags) {
                         float row[556] = {};
                         uint8_t mk[52] = {};
-                        if (rec.is_open()) {
-                            auto obs = env.Observe();
-                            std::memcpy(row, obs.data(), 550 * sizeof(float));
-                            double mx = *std::max_element(totals.begin(),
-                                                          totals.end());
-                            for (int i2 = 0; i2 < 4; ++i2) {
-                                row[550 + i2] =
-                                    (float)(totals[(seat + i2) % 4] / 100.0);
-                            }
-                            row[554] = (float)(deals / 20.0);
-                            row[555] = (float)((100.0 - mx) / 100.0);
-                            auto lr = env.GetLegalActions();
-                            for (int i2 = 0; i2 < 13; ++i2) {
-                                if (lr[i2] != -1) mk[lr[i2]] = 1;
-                            }
+                        auto obs = env.Observe();
+                        std::memcpy(row, obs.data(), 550 * sizeof(float));
+                        double mx = *std::max_element(totals.begin(),
+                                                      totals.end());
+                        for (int i2 = 0; i2 < 4; ++i2) {
+                            row[550 + i2] =
+                                (float)(totals[(actor + i2) % 4] / 100.0);
                         }
+                        row[554] = (float)(deals / 20.0);
+                        row[555] = (float)((100.0 - mx) / 100.0);
+                        auto lr = env.GetLegalActions();
+                        for (int i2 = 0; i2 < 13; ++i2) {
+                            if (lr[i2] != -1) mk[lr[i2]] = 1;
+                        }
+                        int32_t act32 = act;
+                        uint8_t seat8 = (uint8_t)actor;
+                        uint16_t m16 = (uint16_t)mi;
+                        rec.write((const char*)row, sizeof(row));
+                        rec.write((const char*)mk, sizeof(mk));
+                        rec.write((const char*)&act32, 4);
+                        rec.write((const char*)&flags, 1);
+                        rec.write((const char*)&seat8, 1);
+                        rec.write((const char*)&m16, 2);
+                    };
+                    if (p == seat) {
+                        if (matt) {   // clone attacker: no search, no stats
+                            action = matt->ChooseAction(env, totals, deals);
+                        } else {
                         action = sp->ChooseAction(env);
                         const auto& ss = sp_flat->LastShooter();
                         if (rec.is_open()) {
                             uint8_t flags = (was_passing ? 1 : 0)
                                 | (ss.valid && ss.alive ? 2 : 0)
                                 | (ss.valid && ss.shooting ? 4 : 0);
-                            uint8_t pad[3] = {};
-                            int32_t act32 = action;
-                            rec.write((const char*)row, sizeof(row));
-                            rec.write((const char*)mk, sizeof(mk));
-                            rec.write((const char*)&act32, 4);
-                            rec.write((const char*)&flags, 1);
-                            rec.write((const char*)pad, 3);
+                            write_rec(p, action, flags);
                         }
                         if (ss.valid) {
                             if (was_passing) {
@@ -587,9 +732,25 @@ int main(int argc, char** argv) {
                                 if (ss.shooting) shoot_dec++;
                             }
                         }
+                        }   // end search-shooter path
                     } else if (def_sp) {
                         def_sp->SetMatchContext(totals, deals);
                         action = def_sp->ChooseAction(env);
+                        // Defender curriculum (round 2): record every
+                        // defender decision. alive is a harness LABEL for
+                        // sample selection (the obs itself stays info-honest
+                        // - defenders never see the shooter's internals).
+                        // Clone attackers expose no internals: alive then
+                        // means "no non-attacker seat has taken a point".
+                        if (rec.is_open()) {
+                            const auto& ss2 = sp_flat->LastShooter();
+                            bool alive_lab = matt ? (other_pts == 0)
+                                : (ss2.valid && ss2.alive);
+                            uint8_t flags = (was_passing ? 1 : 0)
+                                | (alive_lab ? 2 : 0)
+                                | 8;
+                            write_rec(p, action, flags);
+                        }
                     } else if (mdef) {
                         action = mdef->ChooseAction(env, totals, deals);
                     } else {
@@ -608,6 +769,7 @@ int main(int argc, char** argv) {
                         int w = st.last_trick_winner;
                         tcsv << mi << ',' << deals << ',' << (tp + 1) << ','
                              << w << ',' << pts << ',' << seat << '\n';
+                        if (w != seat) other_pts += pts;
                         if (first_dead < 0 && pts > 0 && w != seat)
                             first_dead = tp + 1;
                     }
