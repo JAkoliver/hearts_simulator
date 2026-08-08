@@ -95,7 +95,9 @@ deep-search verdicts live in each match review.</p>
 
 <script>
 const q = new URLSearchParams(location.search);
-const pid = q.get('pid') || '';
+// The key never rides in the page URL; storage is the normal path
+// (?pid= honored for the dev multi-player flow).
+const pid = q.get('pid') || localStorage.getItem('hearts_pid') || '';
 const el = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g,
   c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -324,8 +326,8 @@ const roll = (vals, w) => vals.map((_, i) => {
   const newest = [...M].reverse();
   const mrow = m => {
     const href = m.mode === 'table'
-      ? `/review?code=${encodeURIComponent(m.code)}&match_no=${m.match_no}&pid=${encodeURIComponent(pid)}`
-      : `/review?sid=${encodeURIComponent(m.sid)}&pid=${encodeURIComponent(pid)}`;
+      ? `/review?code=${encodeURIComponent(m.code)}&match_no=${m.match_no}`
+      : `/review?sid=${encodeURIComponent(m.sid)}`;
     return `<tr><td class="muted">${fmtDate(m.ts)}</td><td>${what(m)}</td>
       <td><b>${ORD[m.place] || m.place}</b></td><td class="muted">${m.deals}</td>
       <td>${m.agree_pct != null ? m.agree_pct + '%' : '-'}</td>

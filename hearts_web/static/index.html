@@ -274,6 +274,8 @@
   <div class="hrow"><button id="home-solo">Play vs AI</button></div>
   <div class="hrow"><button id="home-host">Host a table</button></div>
   <div class="hrow"><span id="home-codename" class="muted2" style="font-size:.78rem"></span></div>
+  <div id="key-panel" style="display:none; text-align:left; background:#1E1E21;
+    border-radius:8px; padding:10px; margin:6px 0; font-size:.78rem"></div>
   <div class="hrow"><input id="home-code" placeholder="CODE" maxlength="4">
     <button id="home-join">Join table</button></div>
   <div id="home-err"></div>
@@ -663,7 +665,9 @@ function showMatchEnd() {
   // rematch or table close cannot disturb it, and this tab stays free to
   // follow the rematch.
   el('analyze-btn').onclick = () => {
-    const p = new URLSearchParams({pid});
+    // no key in the address bar - the review page reads it from storage
+    // (dev multi-player tabs still pass it explicitly)
+    const p = new URLSearchParams(devPlayer ? {pid} : {});
     if (mode === 'table') { p.set('code', tcode); p.set('match_no', state.match_no); }
     else p.set('sid', sid);
     window.open(`/review?${p}`, '_blank');
@@ -775,7 +779,7 @@ async function loadHistory() {
         if (n.id === 'hist-more') { n.onclick = () => renderList(true); return; }
         n.onclick = () => {
           const m = h.matches[+n.dataset.i];
-          const p = new URLSearchParams({pid});
+          const p = new URLSearchParams(devPlayer ? {pid} : {});
           if (m.mode === 'table') { p.set('code', m.code); p.set('match_no', m.match_no); }
           else p.set('sid', m.sid);
           window.open(`/review?${p}`, '_blank');
@@ -790,6 +794,7 @@ function hideHome() { el('home').style.display = 'none'; }
 
 async function hostTable() {
   try {
+    await ensureIdentity();
     abandonCurrent();
     const ts = await api('/api/table/new',
       POSTJSON({pid, tier: el('home-tier').value}));
@@ -800,6 +805,7 @@ async function joinTable() {
   const code = el('home-code').value.trim().toUpperCase();
   if (code.length !== 4) { el('home-err').textContent = 'code is 4 characters'; return; }
   try {
+    await ensureIdentity();
     abandonCurrent();
     const ts = await api('/api/table/join', POSTJSON({code, pid}));
     enterTable(ts);
@@ -991,16 +997,102 @@ const K = k => devPlayer ? `${k}_${devPlayer}` : k;
 const esc = s => String(s).replace(/[&<>"']/g,
   c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-// Anonymous persistent player id: lets the server group matches by
-// player (skill estimation, dedup) without any account or personal data.
-let pid = localStorage.getItem(K('hearts_pid'));
-if (!pid) { pid = crypto.randomUUID(); localStorage.setItem(K('hearts_pid'), pid); }
-el('home-progress').href = `/progress?pid=${encodeURIComponent(pid)}`;
-// Server-assigned codename: permanent, shown wherever you appear.
-fetch(`/api/name?pid=${encodeURIComponent(pid)}`).then(r => r.json())
-  .then(d => { el('home-codename').innerHTML =
-    `you play as <b style="color:var(--gold)">${esc(d.name)}</b>`; })
-  .catch(() => {});
+// Identity: the stored value IS the bearer key - never shown in URLs or
+// on screen unless explicitly revealed. Minted LAZILY by the server at
+// the first action that needs an identity (never on page load, so a
+// visit can't create a dead account a returning player's key would
+// orphan). Legacy client-generated pids remain valid keys.
+let pid = localStorage.getItem(K('hearts_pid')) || null;
+el('home-progress').href = '/progress';   // page reads the key itself
+async function ensureIdentity() {
+  if (pid) return pid;
+  const d = await api('/api/identity/new', {method: 'POST'});
+  pid = d.key;
+  localStorage.setItem(K('hearts_pid'), pid);
+  renderIdentity(d.name);
+  return pid;
+}
+function renderIdentity(name) {
+  el('home-codename').innerHTML = name
+    ? `you play as <b style="color:var(--gold)">${esc(name)}</b>
+       <a href="#" id="key-reveal">your key</a>`
+    : `new player &middot; a codename is assigned when you first play
+       &middot; <a href="#" id="key-restore">returning? restore your key</a>`;
+  const rv = el('key-reveal');
+  if (rv) rv.onclick = e => { e.preventDefault(); showKeyPanel('reveal'); };
+  const rs = el('key-restore');
+  if (rs) rs.onclick = e => { e.preventDefault(); showKeyPanel('restore'); };
+}
+function showKeyPanel(mode) {
+  const p = el('key-panel');
+  p.style.display = 'block';
+  if (mode === 'reveal') {
+    p.innerHTML = `<div class="muted2" style="margin-bottom:4px">This key
+      <b>is</b> your identity - anyone holding it can play as you. Keep it
+      private; save it to move your identity to another device.</div>
+      <code style="user-select:all">${esc(pid)}</code>
+      <div style="margin-top:6px">
+        <button id="key-copy">copy</button>
+        <button id="key-dl">download key file</button>
+        <button id="key-close">close</button></div>`;
+    el('key-copy').onclick = async () => {
+      try { await navigator.clipboard.writeText(pid); el('key-copy').textContent = 'copied!'; }
+      catch (e) {}
+    };
+    el('key-dl').onclick = () => {
+      const blob = new Blob(
+        [`Perilune identity key - keep this file private.\nkey: ${pid}\n`],
+        {type: 'text/plain'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'perilune-key.txt';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    };
+    el('key-close').onclick = () => { p.style.display = 'none'; };
+  } else {
+    p.innerHTML = `<div class="muted2" style="margin-bottom:4px">Paste your
+      key, or drop your key file here.</div>
+      <input id="key-in" placeholder="key" style="width:100%" maxlength="64">
+      <div style="margin-top:6px">
+        <button id="key-go">restore</button>
+        <button id="key-file">use key file</button>
+        <input type="file" id="key-fpick" accept=".txt" style="display:none">
+        <button id="key-close">close</button></div>
+      <div id="key-err" class="muted2"></div>`;
+    const tryKey = async raw => {
+      const m = String(raw || '').match(/[0-9a-f-]{32,36}/i);
+      if (!m) { el('key-err').textContent = 'no key found'; return; }
+      try {
+        const d = await api(`/api/identity/check?key=${encodeURIComponent(m[0])}`);
+        pid = m[0];
+        localStorage.setItem(K('hearts_pid'), pid);
+        p.style.display = 'none';
+        renderIdentity(d.name);
+        loadHistory();
+      } catch (e) { el('key-err').textContent = 'unknown key'; }
+    };
+    el('key-go').onclick = () => tryKey(el('key-in').value);
+    el('key-file').onclick = () => el('key-fpick').click();
+    el('key-fpick').onchange = async () => {
+      const f = el('key-fpick').files[0];
+      if (f) tryKey(await f.text());
+    };
+    p.ondragover = e => e.preventDefault();
+    p.ondrop = async e => {
+      e.preventDefault();
+      const f = e.dataTransfer.files[0];
+      if (f) tryKey(await f.text());
+    };
+    el('key-close').onclick = () => { p.style.display = 'none'; };
+  }
+}
+if (pid) {
+  fetch(`/api/name?pid=${encodeURIComponent(pid)}`)
+    .then(r => r.ok ? r.json() : null)
+    .then(d => renderIdentity(d && d.name))
+    .catch(() => renderIdentity(null));
+} else renderIdentity(null);
 
 // Difficulty tier: persisted choice + smooth AFK countdown ticker.
 let tableDeadline = null;
@@ -1021,6 +1113,7 @@ function updateTierline() {
 }
 
 async function newMatch() {
+  await ensureIdentity();
   abandonCurrent();
   passSelection = [];
   preselect = null;

@@ -1417,7 +1417,11 @@ el('d-gap').onclick = () => { disSort = 'gap';
   const params = new URLSearchParams();
   if (q.get('share')) params.set('share', q.get('share'));
   else {
-    params.set('pid', q.get('pid') || '');
+    // The key never rides in the page URL (address bars are visible on
+    // streams); it comes from local storage. ?pid= still honored for the
+    // dev multi-player flow.
+    params.set('pid', q.get('pid')
+      || (localStorage.getItem('hearts_pid') || ''));
     if (q.get('code')) { params.set('code', q.get('code'));
       if (q.get('match_no')) params.set('match_no', q.get('match_no')); }
     else params.set('sid', q.get('sid') || '');
@@ -1466,7 +1470,8 @@ async function shareLink(btn, withPos) {
   const orig = btn.textContent;
   try {
     if (!_shareTok) {
-      const p = new URLSearchParams({pid: q.get('pid') || ''});
+      const p = new URLSearchParams({pid: q.get('pid')
+        || (localStorage.getItem('hearts_pid') || '')});
       if (q.get('code')) { p.set('code', q.get('code'));
         if (q.get('match_no')) p.set('match_no', q.get('match_no')); }
       else p.set('sid', q.get('sid') || '');

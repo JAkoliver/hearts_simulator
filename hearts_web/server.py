@@ -1257,9 +1257,49 @@ def codename_of(pid):
         return name
 
 
+# ---------------------------------------------------------------------------
+# Identity keys (2026-08-08): the pid IS the bearer key - never displayed,
+# never in page URLs, stored only in the player's browser (and their own
+# key-file backup). Identities are minted LAZILY: only /api/identity/new
+# creates one (the client calls it at the first action that needs an
+# identity), so visiting the site never creates a dead account. Restore =
+# presenting an existing key; /api/identity/check never mints. Legacy
+# client-generated pids remain valid keys (they are the identity in every
+# log), so existing players migrate transparently.
+# ---------------------------------------------------------------------------
+@app.post('/api/identity/new')
+def identity_new():
+    for _ in range(100):
+        key = secrets.token_hex(16)
+        with _names_lock:
+            taken = key in _names
+        if not taken:
+            break
+    # codename_of registers the key in the names store (assign-once);
+    # a 128-bit collision between the check and here is not a real event,
+    # and even then codename_of just returns the existing identity.
+    return {'key': key, 'name': codename_of(key)}
+
+
+@app.get('/api/identity/check')
+def identity_check(key: str):
+    """Non-minting lookup: does this key name an existing identity?"""
+    k = (key or '')[:64]
+    with _names_lock:
+        name = _names.get(k)
+    if name is None:
+        raise HTTPException(404, 'unknown key')
+    return {'ok': True, 'name': name}
+
+
 @app.get('/api/name')
 def api_name(pid: str):
-    return {'name': codename_of(pid)}
+    """Non-minting (identity creation is /api/identity/new only)."""
+    with _names_lock:
+        name = _names.get((pid or '')[:64])
+    if name is None:
+        raise HTTPException(404, 'unknown player')
+    return {'name': name}
 
 
 # ---------------------------------------------------------------------------
