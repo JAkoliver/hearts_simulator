@@ -172,6 +172,9 @@ const roll = (vals, w) => vals.map((_, i) => {
   }
   el('sub').textContent = `${M.length} finished match${M.length > 1 ? 'es' : ''}`
     + (M.length < 5 ? ' · play more to see trends' : '');
+  fetch(`/api/name?pid=${encodeURIComponent(pid)}`).then(r => r.json())
+    .then(d => { document.querySelector('h1').textContent =
+      `${d.name} — your progress`; }).catch(() => {});
 
   // band 1: identity numbers
   const wins = M.filter(m => m.place === 1).length;

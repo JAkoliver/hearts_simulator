@@ -273,7 +273,7 @@
   </div>
   <div class="hrow"><button id="home-solo">Play vs AI</button></div>
   <div class="hrow"><button id="home-host">Host a table</button></div>
-  <div class="hrow"><input id="home-name" placeholder="Your name (optional)" maxlength="20"></div>
+  <div class="hrow"><span id="home-codename" class="muted2" style="font-size:.78rem"></span></div>
   <div class="hrow"><input id="home-code" placeholder="CODE" maxlength="4">
     <button id="home-join">Join table</button></div>
   <div id="home-err"></div>
@@ -792,8 +792,7 @@ async function hostTable() {
   try {
     abandonCurrent();
     const ts = await api('/api/table/new',
-      POSTJSON({pid, name: el('home-name').value,
-                tier: el('home-tier').value}));
+      POSTJSON({pid, tier: el('home-tier').value}));
     enterTable(ts);
   } catch (e) { el('home-err').textContent = e.message; }
 }
@@ -802,8 +801,7 @@ async function joinTable() {
   if (code.length !== 4) { el('home-err').textContent = 'code is 4 characters'; return; }
   try {
     abandonCurrent();
-    const ts = await api('/api/table/join',
-      POSTJSON({code, pid, name: el('home-name').value}));
+    const ts = await api('/api/table/join', POSTJSON({code, pid}));
     enterTable(ts);
   } catch (e) { el('home-err').textContent = e.message; }
 }
@@ -998,6 +996,11 @@ const esc = s => String(s).replace(/[&<>"']/g,
 let pid = localStorage.getItem(K('hearts_pid'));
 if (!pid) { pid = crypto.randomUUID(); localStorage.setItem(K('hearts_pid'), pid); }
 el('home-progress').href = `/progress?pid=${encodeURIComponent(pid)}`;
+// Server-assigned codename: permanent, shown wherever you appear.
+fetch(`/api/name?pid=${encodeURIComponent(pid)}`).then(r => r.json())
+  .then(d => { el('home-codename').innerHTML =
+    `you play as <b style="color:var(--gold)">${esc(d.name)}</b>`; })
+  .catch(() => {});
 
 // Difficulty tier: persisted choice + smooth AFK countdown ticker.
 let tableDeadline = null;

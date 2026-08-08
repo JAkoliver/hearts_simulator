@@ -629,8 +629,12 @@ function evalBars(top, eq, name, p, verb, expanded, spellOut) {
   return {html, n: main.length, total: merged.length};
 }
 function seatLabel(s) {
-  if (s === R.viewer_seat) return 'You';
+  const nm = R.seat_names && R.seat_names[String(s)];
+  // Your own seat reads 'You' - except through a share link, where the
+  // recipient sees the sharer's codename instead.
+  if (s === R.viewer_seat) return (SHARED && nm) ? nm : 'You';
   const t = R.seat_types ? R.seat_types[String(s)] : 'ai';
+  if (t === 'human' && nm) return nm;
   return `Seat ${s + 1} (${t === 'human' ? 'Human' : 'AI'})`;
 }
 

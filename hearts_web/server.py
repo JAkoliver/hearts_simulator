@@ -1069,6 +1069,16 @@ def api_review(pid: str = None, sid: str = None, code: str = None,
             _review_cache.pop(next(iter(_review_cache)))
     out = dict(cached['payload'])
     out['viewer_seat'] = seat
+    # Codenames for human seats (per-request: pid-derived, retroactive -
+    # matches logged before the codename system still resolve).
+    seat_names = {}
+    sp = lines[0].get('seat_pids') or {}
+    for s2, p2 in sp.items():
+        seat_names[str(s2)] = codename_of(p2)
+    if not seat_names and lines[0].get('pid') is not None \
+            and lines[0].get('human_seat') is not None:
+        seat_names[str(lines[0]['human_seat'])] = codename_of(lines[0]['pid'])
+    out['seat_names'] = seat_names
     return out
 
 
@@ -1138,6 +1148,118 @@ def compute_insight(deal_lines, seat):
             'disagreements': dis[:8],
             'note': ("Perilune's preference, not ground truth - the AI has "
                      "measured blind spots of its own.")}
+
+
+# ---------------------------------------------------------------------------
+# Server-assigned codenames (2026-08-08): every pid gets a permanent
+# adjective-animal name, assigned ONCE on first contact and immutable by
+# construction (no edit endpoint exists). Users never enter display text
+# anywhere, so every public surface - tables, reviews, the eventual
+# leaderboard - is moderation-free. Both lists are hand-curated with the
+# cross-product in mind; the blocklist is cheap insurance on top.
+# ---------------------------------------------------------------------------
+CODENAME_ADJ = (
+    'Laughing', 'Silent', 'Wandering', 'Iron', 'Lucky', 'Midnight', 'Sly',
+    'Bold', 'Velvet', 'Thundering', 'Crescent', 'Waxing', 'Solar', 'Drifting',
+    'Gilded', 'Umbral', 'Amber', 'Cobalt', 'Crimson', 'Ivory', 'Jade',
+    'Quiet', 'Rambling', 'Dancing', 'Whistling', 'Humming', 'Gliding',
+    'Soaring', 'Diving', 'Leaping', 'Prowling', 'Dozing', 'Dreaming',
+    'Wistful', 'Merry', 'Dapper', 'Nimble', 'Stalwart', 'Gentle', 'Fearless',
+    'Curious', 'Patient', 'Radiant', 'Dusky', 'Frosted', 'Blazing', 'Misty',
+    'Starlit', 'Moonlit', 'Sunlit', 'Twilight', 'Auroral', 'Comet',
+    'Meteoric', 'Orbital', 'Lunar', 'Stellar', 'Nebular', 'Zenith', 'Apogee',
+    'Roaming', 'Marching', 'Sailing', 'Rowing', 'Trekking', 'Striding',
+    'Galloping', 'Trotting', 'Pouncing', 'Perched', 'Burrowing', 'Nesting',
+    'Clever', 'Wily', 'Canny', 'Shrewd', 'Stoic', 'Jolly', 'Sprightly',
+    'Plucky', 'Daring', 'Vivid', 'Pale', 'Golden', 'Silver', 'Copper',
+    'Bronze', 'Marble', 'Onyx', 'Opal', 'Coral', 'Indigo', 'Scarlet',
+    'Emerald', 'Sapphire', 'Thoughtful', 'Whimsical', 'Serene', 'Spirited',
+    'Steadfast', 'Vigilant', 'Wakeful', 'Winking', 'Grinning', 'Chuckling',
+    'Humble', 'Noble', 'Regal', 'Rustic', 'Cosmic', 'Polar', 'Boreal',
+    'Austral', 'Zephyr', 'Tidal', 'Rolling', 'Tumbling', 'Skipping',
+)
+CODENAME_ANIMAL = (
+    'Turtle', 'Fox', 'Heron', 'Otter', 'Lynx', 'Sparrow', 'Badger', 'Orca',
+    'Falcon', 'Owl', 'Crane', 'Ibis', 'Puffin', 'Petrel', 'Tern', 'Plover',
+    'Marmot', 'Beaver', 'Hare', 'Ermine', 'Sable', 'Marten', 'Vole',
+    'Hedgehog', 'Mole', 'Shrew', 'Dormouse', 'Squirrel', 'Chipmunk',
+    'Raccoon', 'Panda', 'Koala', 'Wombat', 'Quokka', 'Kestrel', 'Osprey',
+    'Condor', 'Albatross', 'Pelican', 'Cormorant', 'Kingfisher', 'Magpie',
+    'Jackdaw', 'Raven', 'Rook', 'Starling', 'Swift', 'Swallow', 'Lark',
+    'Finch', 'Wren', 'Robin', 'Thrush', 'Nightingale', 'Curlew', 'Sandpiper',
+    'Gannet', 'Gull', 'Skua', 'Eider', 'Teal', 'Wigeon', 'Gadwall',
+    'Pintail', 'Goldeneye', 'Merganser', 'Loon', 'Grebe', 'Bittern',
+    'Egret', 'Stork', 'Spoonbill', 'Flamingo', 'Avocet', 'Stilt', 'Godwit',
+    'Whimbrel', 'Turnstone', 'Dunlin', 'Knot', 'Sanderling', 'Dotterel',
+    'Lapwing', 'Seal', 'Walrus', 'Narwhal', 'Beluga', 'Dolphin', 'Porpoise',
+    'Manatee', 'Dugong', 'Gazelle', 'Ibex', 'Chamois', 'Reindeer', 'Caribou',
+    'Elk', 'Moose', 'Tapir', 'Okapi', 'Oryx', 'Kudu', 'Eland', 'Impala',
+    'Springbok', 'Meerkat', 'Mongoose', 'Genet', 'Civet', 'Serval',
+    'Caracal', 'Ocelot', 'Margay', 'Pangolin', 'Armadillo', 'Sloth',
+    'Tamarin', 'Marmoset', 'Capybara', 'Agouti', 'Chinchilla', 'Degu',
+    'Jerboa', 'Pika', 'Lemming', 'Muskrat', 'Nutria', 'Coypu', 'Axolotl',
+    'Newt', 'Gecko', 'Skink', 'Tortoise', 'Terrapin',
+)
+# Stems precise enough not to false-positive on curated words (a bare
+# 'nig' would ban Midnight and Nightingale; the audit in the commit
+# checks the full cross-product on every list change).
+_NAME_BLOCK = ('ass', 'sex', 'tit', 'cum', 'fag', 'nigg', 'rape', 'nazi')
+NAMES_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                          'player_names.jsonl')
+_names = {}
+_names_used = set()
+_names_lock = threading.Lock()
+try:
+    with open(NAMES_PATH, encoding='utf-8') as _f:
+        for _line in _f:
+            try:
+                _d = json.loads(_line)
+                _names[_d['pid']] = _d['name']
+                _names_used.add(_d['name'])
+            except (ValueError, KeyError):
+                continue
+except FileNotFoundError:
+    pass
+
+
+def codename_of(pid):
+    pid = (pid or '')[:64]
+    if not pid:
+        return 'Nameless Drifter'
+    with _names_lock:
+        if pid in _names:
+            return _names[pid]
+        rng = secrets.SystemRandom()
+        name = None
+        for _ in range(500):
+            cand = f'{rng.choice(CODENAME_ADJ)} {rng.choice(CODENAME_ANIMAL)}'
+            if cand in _names_used:
+                continue
+            low = cand.replace(' ', '').lower()
+            if any(b in low for b in _NAME_BLOCK):
+                continue
+            name = cand
+            break
+        if name is None:   # pool thin: numbered combo keeps the flavor
+            for _ in range(500):
+                cand = (f'{rng.choice(CODENAME_ADJ)} '
+                        f'{rng.choice(CODENAME_ANIMAL)} {rng.randrange(10, 100)}')
+                if cand not in _names_used:
+                    name = cand
+                    break
+        if name is None:   # unreachable at this scale; never fail
+            name = f'Wanderer {secrets.token_hex(3)}'
+        _names[pid] = name
+        _names_used.add(name)
+        with open(NAMES_PATH, 'a', encoding='utf-8') as f:
+            f.write(json.dumps({'pid': pid, 'name': name,
+                                'ts': int(time.time())}) + '\n')
+        return name
+
+
+@app.get('/api/name')
+def api_name(pid: str):
+    return {'name': codename_of(pid)}
 
 
 # ---------------------------------------------------------------------------
@@ -1443,16 +1565,11 @@ class TableActBody(BaseModel):
     cursor: int = 0
 
 
-def _clean_name(name, fallback):
-    # Strip HTML-significant chars server-side (client escapes too -
-    # belt and braces; names are the only user strings ever displayed).
-    n = ''.join(c for c in (name or '') if c not in '<>&"\'').strip()[:20]
-    return n if n else fallback
-
-
+# (body.name is still accepted for old clients but IGNORED everywhere:
+# display names are server-assigned codenames, immutable by construction.)
 @app.post('/api/table/new')
 def table_new(body: TableNewBody):
-    t = Table(body.pid[:64], _clean_name(body.name, 'Host'),
+    t = Table(body.pid[:64], codename_of(body.pid),
               tier=body.tier or 'full')
     with _tables_lock:
         while t.code in _tables:
@@ -1477,8 +1594,7 @@ def table_join(body: TableJoinBody):
                                      'host to close and start a new table')
         if len(t.lobby) >= 4:
             raise HTTPException(409, 'table is full (4 players max)')
-        n = _clean_name(body.name, f'Guest {len(t.lobby) + 1}')
-        t.lobby.append({'pid': pid, 'name': n})
+        t.lobby.append({'pid': pid, 'name': codename_of(pid)})
         return t.view(pid)
 
 
