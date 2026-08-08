@@ -267,6 +267,18 @@
   .card .bb { position:absolute; left:8%; right:8%; bottom:2px; height:4px;
               background:rgba(0,0,0,.28); border-radius:2px; overflow:hidden; }
   .card .bb i { display:block; height:100%; background:#A78BFA; }
+  /* confident misread: truth ruled out, another seat confidently credited */
+  .card.misread::after { content:''; position:absolute; top:2px; right:2px;
+    width:7px; height:7px; border-radius:50%; background:#E8A33D;
+    box-shadow:0 0 3px #E8A33D; }
+  .card.misread .bb { background:rgba(232,163,61,.30); }
+  /* delta flash: this card's read shifted since the believer's last turn */
+  .card.bflash { animation:bflash 1.2s ease-out; }
+  @keyframes bflash {
+    0%   { box-shadow:0 0 0 3px #A78BFA, 0 0 14px #A78BFA; }
+    100% { box-shadow:0 1px 3px rgba(0,0,0,.4); } }
+  .voidb { margin-left:5px; font-size:.68rem; color:#A78BFA;
+           letter-spacing:.06em; }
   /* ================= mobile pass =================
      Everything below is scoped under body.mobile (set once at load by a
      width probe) - the desktop layout above is untouched. Same DOM and
@@ -1780,8 +1792,11 @@ function beliefOf(st) {
   }
   return _belCache[key];
 }
+let _lastBelKey = null;
 function paintBelief(st) {
   const lens = el('belief-lens');
+  const prevKey = _lastBelKey;
+  _lastBelKey = null;
   if (!beliefOn || MOBILE || !st) { if (lens) lens.textContent = ''; return; }
   if (st.type !== 'play') {
     lens.textContent = 'belief lens: play steps only';
@@ -1792,10 +1807,35 @@ function paintBelief(st) {
     lens.textContent = 'belief lens: no belief data in this match (logged before the feature)';
     return;
   }
-  const believer = R.deals[st.d].plays[st.i][0];
+  const plays = R.deals[st.d].plays;
+  const believer = plays[st.i][0];
+  // Flash baseline: the SAME believer's previous decision this deal.
+  // Beliefs of different seats are different information sets - never
+  // compared; the flash means "what this seat learned since its last
+  // turn," which is info-honest by construction.
+  let prevBel = null;
+  for (let j = st.i - 1; j >= 0; j--)
+    if (plays[j][0] === believer) {
+      prevBel = beliefOf({type: 'play', d: st.d, i: j});
+      break;
+    }
+  const key = st.d + ':' + st.i;
+  const doFlash = !!prevBel && prevKey !== key;  // new position only, not
+  _lastBelKey = key;                             // deep-result re-renders
   lens.innerHTML = `belief lens: <b style="color:#A78BFA">${esc(seatLabel(believer))}</b>'s
-    view (raw net) &middot; bar under a hidden card = how surely Perilune places it
-    there &middot; hover a card for the full split`;
+    view (raw net) &middot; bar = located-card confidence &middot;
+    <span style="color:#E8A33D">&#9679;</span> = confident misread &middot;
+    flash = shifted since their last turn &middot; &#10005;suit by a name =
+    read as void &middot; hover a card for the split`;
+  // Outstanding cards: everything still held by a hand the believer
+  // cannot see (played cards and the believer's own hand are facts).
+  const unseen = {C: [], D: [], S: [], H: []};
+  document.querySelectorAll('#board [data-seat]').forEach(h => {
+    if (+h.dataset.seat === believer) return;
+    h.querySelectorAll('.card:not(.dim)').forEach(cd => {
+      if (cd.dataset.c) unseen[cd.dataset.c.slice(-1)].push(cardId(cd.dataset.c));
+    });
+  });
   document.querySelectorAll('#board [data-seat]').forEach(h => {
     const t = +h.dataset.seat;
     if (t === believer) return;
@@ -1806,8 +1846,22 @@ function paintBelief(st) {
       if (!name) return;
       const cid = cardId(name);
       const ps = [0, 1, 2].map(r => bel[r * 52 + cid] / 255);
-      const tot = ps[0] + ps[1] + ps[2];
-      const conf = tot > 0 ? ps[k] / tot : 1 / 3;
+      const tot = (ps[0] + ps[1] + ps[2]) || 1;
+      const conf = ps[k] / tot;
+      // Confident misread: truth nearly ruled out while another seat is
+      // confidently credited - the moments that poison the search's
+      // determinizations. An empty bar alone can't tell "lost" from
+      // "wrong"; the amber dot can.
+      const wrongMax = Math.max(ps[(k + 1) % 3], ps[(k + 2) % 3]) / tot;
+      if (conf < 0.15 && wrongMax >= 0.60) cd.classList.add('misread');
+      if (doFlash) {
+        const qs = [0, 1, 2].map(r => prevBel[r * 52 + cid] / 255);
+        const qt = (qs[0] + qs[1] + qs[2]) || 1;
+        const tv = 0.5 * (Math.abs(ps[0] / tot - qs[0] / qt)
+                        + Math.abs(ps[1] / tot - qs[1] / qt)
+                        + Math.abs(ps[2] / tot - qs[2] / qt));
+        if (tv >= 0.25) cd.classList.add('bflash');
+      }
       const bb = document.createElement('div');
       bb.className = 'bb';
       bb.innerHTML = `<i style="width:${Math.round(conf * 100)}%"></i>`;
@@ -1816,6 +1870,20 @@ function paintBelief(st) {
       cd.dataset.holder = t;
       cd.dataset.believer = believer;
     });
+    // Void badge: the believer credits this seat with (essentially) none
+    // of a suit's outstanding cards. Raw per-card holding probability,
+    // not the normalized split - "holds none of these" is a statement
+    // about this seat alone.
+    const voids = ['C', 'D', 'S', 'H'].filter(s =>
+      unseen[s].length >= 2 &&
+      unseen[s].every(c => bel[k * 52 + c] / 255 < 0.10));
+    if (voids.length) {
+      const tag = h.querySelector('.seat-tag');
+      if (tag) tag.insertAdjacentHTML('beforeend',
+        `<span class="voidb" title="${esc(seatLabel(believer))} reads ${
+          esc(seatLabel(t))} as void here">&#10005;${
+          voids.map(s => SUIT_CHAR[s]).join('')}</span>`);
+    }
   });
 }
 el('belief-btn').classList.toggle('on', beliefOn);
