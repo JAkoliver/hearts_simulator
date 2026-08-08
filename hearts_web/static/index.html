@@ -276,7 +276,8 @@
     <button id="home-join">Join table</button></div>
   <div id="home-err"></div>
   <div id="home-history" style="display:none">
-    <h4>Recent matches</h4>
+    <h4>Recent matches <a id="home-progress" href="#"
+      style="float:right; font-size:.72rem; font-weight:400">your progress &rarr;</a></h4>
     <div id="hist-list"></div>
   </div>
 </div></div>
@@ -984,6 +985,7 @@ const esc = s => String(s).replace(/[&<>"']/g,
 // player (skill estimation, dedup) without any account or personal data.
 let pid = localStorage.getItem(K('hearts_pid'));
 if (!pid) { pid = crypto.randomUUID(); localStorage.setItem(K('hearts_pid'), pid); }
+el('home-progress').href = `/progress?pid=${encodeURIComponent(pid)}`;
 
 // Difficulty tier: persisted choice + smooth AFK countdown ticker.
 let tableDeadline = null;

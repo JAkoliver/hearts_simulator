@@ -1140,6 +1140,182 @@ def compute_insight(deal_lines, seat):
                      "measured blind spots of its own.")}
 
 
+# ---------------------------------------------------------------------------
+# Progress page: per-match skill stats for one player, computed lazily by
+# replay + one batched forward, cached per match (matches never change
+# once finished). Agreement is habit-authority (the net's own preference,
+# not ground truth); readability is belief-authority - both labeled so on
+# the page.
+# ---------------------------------------------------------------------------
+_progress_cache = {}
+
+
+def compute_match_stats(deal_lines, seat):
+    deal_lines = sorted(deal_lines, key=lambda d: d['deal_no'])
+    seat_types = deal_lines[0].get('seats') or {}
+    ai_seats = [s for s in range(4)
+                if seat_types.get(str(s), 'ai') != 'human' and s != seat]
+    menv = MatchEnv(seed=deal_lines[0]['seed'])
+    obs_l, mask_l = [], []
+    agree_meta = []   # (row, category, card, n_legal, eq) for the seat's picks
+    bel_meta = []     # (row, observer, play_idx) belief rows, all seats
+    play_hands = []   # per play state: {seat: frozenset(cards)} for tracked
+    play_deal = []    # per play state: (deal_idx, play_in_deal)
+    tracked = sorted({seat, *ai_seats})
+    moons_shot = moons_conceded = 0
+    for di, d in enumerate(deal_lines):
+        plays = 0
+        played_deal = set()
+        trick = []
+        for s, card, ms in d['actions']:
+            if menv.get_current_player() != s:
+                raise ValueError('replay desync in progress stats')
+            passing = menv.is_passing()
+            if passing:
+                if s == seat:
+                    mask = np.zeros(52, dtype=bool)
+                    legal = [a for a in menv.get_legal_actions() if a != -1]
+                    for a in legal:
+                        mask[a] = True
+                    obs = np.array(menv.observe(), dtype=np.float32)
+                    hand = set(np.flatnonzero(obs[:52] > 0).tolist())
+                    agree_meta.append((len(obs_l), 'pass', card, len(legal),
+                                       _equiv_groups(hand, set(), legal)))
+                    obs_l.append(obs)
+                    mask_l.append(mask)
+            else:
+                mask = np.zeros(52, dtype=bool)
+                legal = [a for a in menv.get_legal_actions() if a != -1]
+                for a in legal:
+                    mask[a] = True
+                # belief observers for readability: every tracked seat's view
+                pi = len(play_hands)
+                hands_now = {}
+                for o in range(4):
+                    ob = np.array(menv.observe_for(o), dtype=np.float32)
+                    if o in tracked:
+                        hands_now[o] = frozenset(
+                            np.flatnonzero(ob[:52] > 0).tolist())
+                    bel_meta.append((len(obs_l), o, pi))
+                    obs_l.append(ob)
+                    mask_l.append(mask)
+                play_hands.append(hands_now)
+                play_deal.append((di, plays))
+                if s == seat:
+                    cat = ('lead' if not trick
+                           else 'follow' if card // 13 == trick[0] // 13
+                           else 'discard')
+                    obs = np.array(menv.observe(), dtype=np.float32)
+                    hand = set(np.flatnonzero(obs[:52] > 0).tolist())
+                    agree_meta.append((len(obs_l), cat, card, len(legal),
+                                       _equiv_groups(hand, played_deal, legal)))
+                    obs_l.append(obs)
+                    mask_l.append(mask)
+                trick.append(card)
+                if len(trick) == 4:
+                    trick = []
+                played_deal.add(card)
+                plays += 1
+            menv.step(card)
+        rs = d['round_scores']
+        if sum(rs) == 78:
+            shooter = int(np.argmin(rs))
+            if shooter == seat:
+                moons_shot += 1
+            else:
+                moons_conceded += 1
+    # one batched forward for everything
+    agree = {c: [0, 0] for c in ('pass', 'lead', 'follow', 'discard')}
+    read_t6 = {t: [] for t in tracked}
+    if obs_l:
+        obs_t = torch.from_numpy(np.stack(obs_l))
+        mask_t = torch.from_numpy(np.stack(mask_l))
+        lg_l, bel_l = [], []
+        with _net_lock, torch.no_grad():
+            for i in range(0, len(obs_l), 512):
+                lg, _, bl = _net.forward_all(obs_t[i:i + 512],
+                                             mask_t[i:i + 512])
+                lg_l.append(lg)
+                bel_l.append(torch.sigmoid(bl))
+        logits = torch.cat(lg_l)
+        beliefs = torch.cat(bel_l)
+        ais = torch.argmax(logits, dim=1)
+        for row, cat, card, n_legal, eq in agree_meta:
+            if n_legal < 2:
+                continue
+            ai = int(ais[row])
+            agree[cat][1] += 1
+            if ai == card or any(ai in g and card in g for g in eq):
+                agree[cat][0] += 1
+        # readability: per play, each tracked target's remaining hand scored
+        # by its three observers' normalized located-confidence; snapshot the
+        # value at the last play of trick 6 per deal, averaged over deals
+        obs_rows = {}   # (play_idx, observer) -> forward row
+        for row, o, pi in bel_meta:
+            obs_rows[(pi, o)] = row
+        for pi, hands_now in enumerate(play_hands):
+            di, plays = play_deal[pi]
+            if plays != 23:
+                continue
+            for t, hand in hands_now.items():
+                if not hand:
+                    continue
+                tot_conf = n_conf = 0
+                for o in range(4):
+                    if o == t:
+                        continue
+                    b = beliefs[obs_rows[(pi, o)]]
+                    k = (t - o) % 4 - 1
+                    for c in hand:
+                        ps = [float(b[r * 52 + c]) for r in range(3)]
+                        z = sum(ps) or 1.0
+                        tot_conf += ps[k] / z
+                        n_conf += 1
+                if n_conf:
+                    read_t6[t].append(tot_conf / n_conf)
+    ai_vals = [v for t in ai_seats for v in read_t6.get(t, ())]
+    my_vals = read_t6.get(seat, ())
+    return {
+        'agree': agree,
+        'agree_pct': round(100 * sum(v[0] for v in agree.values())
+                           / max(1, sum(v[1] for v in agree.values())), 1),
+        'read_t6': round(100 * sum(my_vals) / len(my_vals), 1) if my_vals else None,
+        'read_t6_ai': round(100 * sum(ai_vals) / len(ai_vals), 1) if ai_vals else None,
+        'moons_shot': moons_shot, 'moons_conceded': moons_conceded,
+    }
+
+
+@app.get('/api/progress')
+def api_progress(pid: str, limit: int = 60):
+    hist = list(_idx_history.get(pid, ()))[-max(1, min(100, limit)):]
+    out = []
+    for h in hist:
+        if h['mode'] == 'table':
+            key = (f"table:{h['code']}", h['match_no'])
+            lines = [l for l in _log_lines_for(key[0])
+                     if l.get('match_no', 1) == h['match_no']]
+        else:
+            key = (h['sid'], 1)
+            lines = _log_lines_for(h['sid'])
+        st = _progress_cache.get(key)
+        if st is None:
+            try:
+                st = compute_match_stats(lines, h['seat']) if lines else {}
+            except Exception:
+                st = {}
+            _progress_cache[key] = st
+            while len(_progress_cache) > 200:
+                _progress_cache.pop(next(iter(_progress_cache)))
+        out.append({**h, **st})
+    return {'matches': out}
+
+
+@app.get('/progress')
+def progress_page():
+    return FileResponse(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                     'static', 'progress.html'))
+
+
 def _log_lines_for(sid):
     """Deal lines for one sid via the index: seek straight to its lines
     instead of scanning the whole log."""

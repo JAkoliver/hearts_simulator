@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Perilune &mdash; Your progress</title>
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<style>
+  @font-face { font-family:'Space Grotesk';
+    src:url('/static/fonts/space-grotesk.woff2') format('woff2');
+    font-weight:300 700; font-display:swap; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:system-ui, sans-serif; background:#121212; color:#ECECEC;
+         padding:18px 16px 40px; max-width:860px; margin:0 auto; }
+  h1 { font-family:'Space Grotesk', system-ui, sans-serif; font-size:1.1rem;
+       margin-bottom:2px; }
+  a { color:#E8B923; }
+  .muted { color:#A6A6AF; }
+  .small { font-size:.72rem; }
+  .panel { background:#1E1E21; border-radius:10px; padding:14px 16px;
+           margin-top:12px; }
+  .panel h3 { font-size:.72rem; color:#A6A6AF; text-transform:uppercase;
+              letter-spacing:.05em; margin-bottom:8px; }
+  /* band 1: identity numbers */
+  #hdr { display:flex; gap:26px; flex-wrap:wrap; align-items:baseline; }
+  #hdr .big { font-size:1.5rem; font-weight:700;
+              font-variant-numeric:tabular-nums; }
+  #hdr .lbl { font-size:.68rem; color:#A6A6AF; text-transform:uppercase; }
+  svg { display:block; width:100%; }
+  .cards3 { display:grid; grid-template-columns:repeat(3, 1fr); gap:12px;
+            margin-top:12px; }
+  @media (max-width:700px) { .cards3 { grid-template-columns:1fr; } }
+  table { border-collapse:collapse; width:100%; font-size:.8rem;
+          font-variant-numeric:tabular-nums; }
+  th { text-align:left; color:#A6A6AF; font-weight:400; font-size:.7rem;
+       text-transform:uppercase; padding:3px 8px 3px 0; }
+  td { padding:4px 8px 4px 0; border-top:1px solid #29292E; }
+  .bar-h { height:8px; background:#26262A; border-radius:4px; overflow:hidden; }
+  .bar-h i { display:block; height:100%; background:#E8B923; }
+</style>
+</head>
+<body>
+<h1>Your progress</h1>
+<div class="muted small" id="sub">loading&hellip;</div>
+
+<div class="panel"><div id="hdr"></div></div>
+
+<div class="panel">
+  <h3>Placement per match <span class="muted">&middot; line = rolling
+    average of 5 &middot; oldest &rarr; newest</span></h3>
+  <svg id="placechart" height="130"></svg>
+</div>
+
+<div class="cards3">
+  <div class="panel"><h3>Perilune agreement
+    <span class="muted">&middot; habit, not ground truth</span></h3>
+    <svg id="sp-agree" height="60"></svg><div class="small muted" id="t-agree"></div></div>
+  <div class="panel"><h3>Readability
+    <span class="muted">&middot; you vs AI seats (raw-net belief)</span></h3>
+    <svg id="sp-read" height="60"></svg><div class="small muted" id="t-read"></div></div>
+  <div class="panel"><h3>Moons
+    <span class="muted">&middot; conceded per match / your shots</span></h3>
+    <svg id="sp-moon" height="60"></svg><div class="small muted" id="t-moon"></div></div>
+</div>
+
+<div class="panel">
+  <h3>Habits &middot; agreement by decision type</h3>
+  <table id="habits"></table>
+  <div class="small muted" style="margin-top:6px">Where you and Perilune
+    part ways most often - the practice list, not a verdict.</div>
+</div>
+
+<div class="panel">
+  <h3>Matches</h3>
+  <table id="mlist"></table>
+</div>
+
+<p class="small muted" style="margin-top:14px"><a href="/">&larr; back to the
+menu</a> &middot; agreement and readability are the raw net's opinions;
+deep-search verdicts live in each match review.</p>
+
+<script>
+const q = new URLSearchParams(location.search);
+const pid = q.get('pid') || '';
+const el = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g,
+  c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtDate = ts => new Date(ts * 1000).toLocaleDateString(
+  undefined, {month: 'short', day: 'numeric'});
+const ORD = ['', '1st', '2nd', '3rd', '4th'];
+
+// Tiny chart helpers: series drawn into a fixed 100x40 viewBox.
+function spark(svg, seriesList, yMin, yMax) {
+  const W = 100, H = 40;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.setAttribute('preserveAspectRatio', 'none');
+  let out = '';
+  for (const {vals, color, width, dots} of seriesList) {
+    const pts = [];
+    vals.forEach((v, i) => {
+      if (v == null) return;
+      const x = vals.length < 2 ? W / 2 : i / (vals.length - 1) * (W - 4) + 2;
+      const y = H - 3 - (v - yMin) / (yMax - yMin || 1) * (H - 8);
+      pts.push([x, y]);
+    });
+    if (pts.length > 1)
+      out += `<polyline points="${pts.map(p => p.map(n => n.toFixed(1)).join(','))
+        .join(' ')}" fill="none" stroke="${color}" stroke-width="${width}"
+        vector-effect="non-scaling-stroke"/>`;
+    if (dots) out += pts.map(p => `<circle cx="${p[0].toFixed(1)}"
+      cy="${p[1].toFixed(1)}" r="1.6" fill="${color}"/>`).join('');
+  }
+  svg.innerHTML = out;
+}
+const roll = (vals, w) => vals.map((_, i) => {
+  const s = vals.slice(Math.max(0, i - w + 1), i + 1).filter(v => v != null);
+  return s.length ? s.reduce((a, b) => a + b, 0) / s.length : null;
+});
+
+(async () => {
+  let M;
+  try {
+    const r = await fetch(`/api/progress?pid=${encodeURIComponent(pid)}`);
+    if (!r.ok) throw new Error(`error ${r.status}`);
+    M = (await r.json()).matches;   // oldest -> newest
+  } catch (e) {
+    el('sub').textContent = 'could not load progress: ' + e.message;
+    return;
+  }
+  if (!M.length) {
+    el('sub').textContent = 'no finished matches yet - play a match and come back.';
+    return;
+  }
+  el('sub').textContent = `${M.length} finished match${M.length > 1 ? 'es' : ''}`
+    + (M.length < 5 ? ' · play more to see trends' : '');
+
+  // band 1: identity numbers
+  const wins = M.filter(m => m.place === 1).length;
+  const avgPlace = M.reduce((a, m) => a + m.place, 0) / M.length;
+  let streak = 0;
+  for (let i = M.length - 1; i >= 0 && M[i].place === 1; i--) streak++;
+  el('hdr').innerHTML = [
+    [M.length, 'matches'],
+    [`${(100 * wins / M.length).toFixed(0)}%`, 'win rate'],
+    [avgPlace.toFixed(2), 'avg placement'],
+    [streak, 'win streak'],
+  ].map(([v, l]) => `<span><div class="big">${v}</div>
+    <div class="lbl">${l}</div></span>`).join('');
+
+  // band 2: placement trend (y inverted: 1st on top)
+  const places = M.map(m => m.place);
+  spark(el('placechart'),
+    [{vals: places.map(p => 5 - p), color: '#5B9BD5', width: 0, dots: true},
+     {vals: roll(places, 5).map(p => 5 - p), color: '#E8B923', width: 1.6}],
+    1, 4);
+
+  // band 3: skill sparklines
+  const agreeV = M.map(m => m.agree_pct ?? null);
+  spark(el('sp-agree'), [{vals: agreeV, color: '#E8B923', width: 1.4, dots: true}], 30, 100);
+  const la = agreeV.filter(v => v != null).slice(-5);
+  el('t-agree').textContent = la.length
+    ? `last 5: ${(la.reduce((a, b) => a + b, 0) / la.length).toFixed(1)}%` : 'no data';
+
+  const readV = M.map(m => m.read_t6 ?? null);
+  const readAI = M.map(m => m.read_t6_ai ?? null);
+  spark(el('sp-read'), [
+    {vals: readAI, color: '#5B9BD5', width: 1.2},
+    {vals: readV, color: '#A78BFA', width: 1.4, dots: true}], 25, 90);
+  const lr = readV.filter(v => v != null).slice(-5),
+        lra = readAI.filter(v => v != null).slice(-5);
+  el('t-read').textContent = lr.length
+    ? `mapped by trick 6, last 5: you ${(lr.reduce((a,b)=>a+b,0)/lr.length).toFixed(0)}%`
+      + (lra.length ? ` · AI seats ${(lra.reduce((a,b)=>a+b,0)/lra.length).toFixed(0)}%` : '')
+    : 'no data (all-human tables have no AI reference)';
+
+  const mc = M.map(m => m.moons_conceded ?? null);
+  spark(el('sp-moon'), [{vals: mc, color: '#E5484D', width: 1.4, dots: true}],
+    0, Math.max(3, ...mc.filter(v => v != null)));
+  el('t-moon').textContent =
+    `total: ${mc.reduce((a, b) => a + (b || 0), 0)} conceded · `
+    + `${M.reduce((a, m) => a + (m.moons_shot || 0), 0)} shot by you`;
+
+  // band 4: habits
+  const cats = ['pass', 'lead', 'follow', 'discard'];
+  const agg = {};
+  for (const c of cats) agg[c] = [0, 0];
+  for (const m of M) if (m.agree)
+    for (const c of cats) {
+      agg[c][0] += m.agree[c][0]; agg[c][1] += m.agree[c][1];
+    }
+  el('habits').innerHTML =
+    '<tr><th>decision</th><th style="width:45%"></th><th>agree</th><th>n</th></tr>'
+    + cats.map(c => {
+      const [h, n] = agg[c];
+      const pct = n ? 100 * h / n : 0;
+      return `<tr><td>${c}</td>
+        <td><div class="bar-h"><i style="width:${pct.toFixed(0)}%"></i></div></td>
+        <td>${n ? pct.toFixed(1) + '%' : '-'}</td><td class="muted">${n}</td></tr>`;
+    }).join('');
+
+  // band 5: match list (newest first)
+  el('mlist').innerHTML =
+    '<tr><th>date</th><th>match</th><th>place</th><th>deals</th><th>agree</th><th></th></tr>'
+    + [...M].reverse().map(m => {
+      const what = m.mode === 'table' ? `Table ${esc(m.code)}` : 'vs AI';
+      const href = m.mode === 'table'
+        ? `/review?code=${encodeURIComponent(m.code)}&match_no=${m.match_no}&pid=${encodeURIComponent(pid)}`
+        : `/review?sid=${encodeURIComponent(m.sid)}&pid=${encodeURIComponent(pid)}`;
+      return `<tr><td class="muted">${fmtDate(m.ts)}</td><td>${what}</td>
+        <td><b>${ORD[m.place] || m.place}</b></td><td class="muted">${m.deals}</td>
+        <td>${m.agree_pct != null ? m.agree_pct + '%' : '-'}</td>
+        <td><a href="${href}">review</a></td></tr>`;
+    }).join('');
+})();
+</script>
+</body>
+</html>
