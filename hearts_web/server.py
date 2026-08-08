@@ -1551,6 +1551,12 @@ def progress_page():
                                      'static', 'progress.html'))
 
 
+@app.get('/account')
+def account_page():
+    return FileResponse(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                     'static', 'account.html'))
+
+
 def _log_lines_for(sid):
     """Deal lines for one sid via the index: seek straight to its lines
     instead of scanning the whole log."""

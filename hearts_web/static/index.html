@@ -46,8 +46,8 @@
   .seat .tag, #overlay td, #overlay th { font-variant-numeric:tabular-nums; }
   #overlay h2, #home h2 { font-family:'Space Grotesk', system-ui, sans-serif; }
   footer a { color:var(--muted); }
-  #home-progress { color:var(--muted); text-decoration:none; }
-  #home-progress:hover { color:var(--gold); }
+  #home-progress, .qlink { color:var(--muted); text-decoration:none; }
+  #home-progress:hover, .qlink:hover { color:var(--gold); }
   #theme-toggle { position:absolute; top:8px; left:10px; z-index:5; }
   #theme-toggle button { font-size:.75rem; padding:4px 12px;
     background:var(--tag-bg); color:var(--text); }
@@ -1016,7 +1016,8 @@ function renderIdentity(name) {
   // The key REVEAL lives on the progress page (behind a warning click);
   // the menu only offers restore, which pre-identity visitors need.
   el('home-codename').innerHTML = name
-    ? `you play as <b style="color:var(--gold)">${esc(name)}</b>`
+    ? `you play as <b style="color:var(--gold)">${esc(name)}</b>
+       &middot; <a href="/account" class="qlink">manage account</a>`
     : `new player &middot; a codename is assigned when you first play
        &middot; <a href="#" id="key-restore">returning? restore your key</a>`;
   const rs = el('key-restore');

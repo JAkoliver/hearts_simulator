@@ -95,17 +95,6 @@
   <table id="mlist"></table>
 </div>
 
-<div class="panel" id="key-sec" style="display:none">
-  <h3>Identity key</h3>
-  <div id="key-body"><button id="key-btn">your key</button>
-    <span class="small muted">&middot; moves your identity to another
-    device</span>
-    <div style="margin-top:8px"><button id="rot-btn">compromised key?
-      generate a replacement</button>
-    <span class="small muted">&middot; if someone else may have seen your
-    key</span></div></div>
-</div>
-
 <p class="small muted" style="margin-top:14px"><a href="/">&larr; back to the
 menu</a> &middot; agreement and readability are the raw net's opinions;
 deep-search verdicts live in each match review.</p>
@@ -194,77 +183,6 @@ const roll = (vals, w) => vals.map((_, i) => {
   fetch(`/api/name?pid=${encodeURIComponent(pid)}`).then(r => r.json())
     .then(d => { document.querySelector('h1').textContent =
       `${d.name} — your progress`; }).catch(() => {});
-
-  // Identity key: two-step reveal. First click arms a warning; only the
-  // second click shows the key.
-  if (pid && !q.get('pid')) {   // own storage only - never a dev override
-    el('key-sec').style.display = 'block';
-    const showKey = k => {
-      el('key-body').innerHTML = `<code style="user-select:all">${k}</code>
-        <div style="margin-top:6px">
-          <button id="key-copy">copy</button>
-          <button id="key-dl">download key file</button>
-          <button id="key-hide">hide</button></div>
-        <div class="small muted" style="margin-top:4px">Keep it private.
-        Restore it on another device from the home menu.</div>`;
-      el('key-copy').onclick = async () => {
-        try { await navigator.clipboard.writeText(k);
-              el('key-copy').textContent = 'copied!'; } catch (e) {}
-      };
-      el('key-dl').onclick = () => {
-        const blob = new Blob(
-          [`Perilune identity key - keep this file private.\nkey: ${k}\n`],
-          {type: 'text/plain'});
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = 'perilune-key.txt';
-        a.click();
-        URL.revokeObjectURL(a.href);
-      };
-      el('key-hide').onclick = () => location.reload();
-    };
-    el('key-btn').onclick = () => {
-      el('key-body').innerHTML = `<div class="small" style="color:#E8A33D;
-          margin-bottom:6px">Clicking again will SHOW your identity key.
-        Anyone who sees this key can play as you - do not share it with
-        anyone.</div>
-        <button id="key-show">show my key</button>
-        <button id="key-cancel">cancel</button>`;
-      el('key-show').onclick = () => showKey(pid);
-      el('key-cancel').onclick = () => location.reload();
-    };
-    // Rotation: the compromised-key remedy. The old key stops working
-    // everywhere the moment the new one is minted.
-    el('rot-btn').onclick = () => {
-      el('key-body').innerHTML = `<div class="small" style="color:#E8A33D;
-          margin-bottom:6px">This generates a NEW key and permanently
-        disables your current one everywhere - any other device still
-        using the old key will stop working until you restore the new
-        one there. Your codename and history are unchanged. Save the new
-        key immediately after.</div>
-        <button id="rot-go">generate replacement key</button>
-        <button id="key-cancel">cancel</button>`;
-      el('rot-go').onclick = async () => {
-        try {
-          const r = await fetch('/api/identity/rotate', {
-            method: 'POST', headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({key: pid})});
-          if (!r.ok) throw new Error((await r.json()).detail || r.status);
-          const d = await r.json();
-          localStorage.setItem('hearts_pid', d.key);
-          showKey(d.key);
-          el('key-body').insertAdjacentHTML('afterbegin',
-            `<div class="small" style="color:#7CBF8E; margin-bottom:6px">
-             Key rotated - the old key no longer works. This is your NEW
-             key; save it now.</div>`);
-        } catch (e) {
-          el('key-body').innerHTML = `<span class="small" style="color:#E5484D">
-            rotation failed: ${e.message}</span>`;
-        }
-      };
-      el('key-cancel').onclick = () => location.reload();
-    };
-  }
 
   // band 1: identity numbers
   const wins = M.filter(m => m.place === 1).length;
