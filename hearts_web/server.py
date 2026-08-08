@@ -925,6 +925,10 @@ def compute_review(deal_lines, viewer_seat):
                        for j in range(k)]
             if kind == 'play':
                 bel_rows.setdefault((di, pi), {})[play[0]] = row
+            elif kind == 'pass':
+                # Pass-phase belief: the passer's own pre-pick view,
+                # single b64 at row[5] (plays get the 4-seat list form)
+                play.append(enc_belief(row))
         # Belief heatmap (client board layer, seat-lockable): play[5] =
         # per-SEAT belief heads (3 relative opponents x 52 cards each,
         # sigmoid, uint8, base64), absolute seat order 0..3.

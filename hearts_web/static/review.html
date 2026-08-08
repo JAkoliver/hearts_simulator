@@ -1808,51 +1808,90 @@ function beliefOf(st, seat) {
   }
   return _belCache[key];
 }
+// Point-card focus: paint only the cards that steer decisions.
+let beliefFocus = false;
+try { beliefFocus = localStorage.getItem('perilune-belief-focus') === '1'; }
+catch (e) {}
+const FOCUS_CARDS = new Set(['QS', 'AS', 'KS', 'AH', 'KH', 'QH', 'JH', '10H']);
+// Pre-pass belief: a seat's own view at its first pass pick.
+function beliefOfPass(d, seat) {
+  const pe = R.deals[d].pass_evals || [];
+  for (let i = 0; i < pe.length; i++)
+    if (pe[i][0] === seat && pe[i][5]) {
+      const key = 'p' + d + ':' + seat;
+      if (!_belCache[key]) {
+        const s = atob(pe[i][5]), a = new Uint8Array(s.length);
+        for (let j = 0; j < s.length; j++) a[j] = s.charCodeAt(j);
+        _belCache[key] = a;
+      }
+      return _belCache[key];
+    }
+  return null;
+}
 let _lastBelKey = null;
 function paintBelief(st) {
   const lens = el('belief-lens');
   const prevKey = _lastBelKey;
   _lastBelKey = null;
   if (!beliefOn || MOBILE || !st) { if (lens) lens.textContent = ''; return; }
-  if (st.type !== 'play') {
-    lens.textContent = 'belief lens: play steps only';
-    return;
+  const deal = R.deals[st.d];
+  const isStart = st.type !== 'play';
+  let believer, bel, prevBel = null;
+  if (isStart) {
+    // Deal start: pre-pass beliefs - each passer's own view before its
+    // first pick. Hold deals have no pass rows, nothing to show.
+    believer = lensSeat === 'actor' ? (passSeat ?? R.viewer_seat ?? 0) : lensSeat;
+    bel = beliefOfPass(st.d, believer);
+    if (!bel) {
+      lens.textContent = deal.pass_direction === 'hold'
+        ? 'belief lens: hold deal - no pass beliefs'
+        : 'belief lens: no belief data (reload - the server ships it now)';
+      return;
+    }
+  } else {
+    const plays = deal.plays;
+    believer = lensSeat === 'actor' ? plays[st.i][0] : lensSeat;
+    bel = beliefOf(st, believer);
+    if (!bel) {
+      lens.textContent = 'belief lens: no belief data (reload - the server ships it now)';
+      return;
+    }
+    // Flash baseline: the SAME believer's belief at the previous position
+    // where it exists. Beliefs of different seats are different
+    // information sets - never compared. Locked lens: every prior play
+    // qualifies (one observer throughout); follow-actor: the believer's
+    // own previous decision.
+    for (let j = st.i - 1; j >= 0; j--) {
+      if (lensSeat === 'actor' && plays[j][0] !== believer) continue;
+      prevBel = beliefOf({type: 'play', d: st.d, i: j}, believer);
+      break;
+    }
   }
-  const plays = R.deals[st.d].plays;
-  const believer = lensSeat === 'actor' ? plays[st.i][0] : lensSeat;
-  const bel = beliefOf(st, believer);
-  if (!bel) {
-    lens.textContent = 'belief lens: no belief data (reload - the server now ships per-seat beliefs)';
-    return;
-  }
-  // Flash baseline: the SAME believer's belief at the previous position
-  // where it exists. Beliefs of different seats are different
-  // information sets - never compared. Locked lens: every prior play
-  // qualifies (one observer throughout); follow-actor: the believer's
-  // own previous decision.
-  let prevBel = null;
-  for (let j = st.i - 1; j >= 0; j--) {
-    if (lensSeat === 'actor' && plays[j][0] !== believer) continue;
-    prevBel = beliefOf({type: 'play', d: st.d, i: j}, believer);
-    break;
-  }
-  const key = st.d + ':' + st.i + ':' + believer;
-  const doFlash = !!prevBel && prevKey !== key;  // new position only, not
-  _lastBelKey = key;                             // deep-result re-renders
-  const chip = (val, txt) => `<button class="lens-chip${
-    (lensSeat === val ? ' on' : '')}" data-lens="${val}">${txt}</button>`;
-  lens.innerHTML = `belief lens: ${chip('actor', 'follow actor')}${
-    [0, 1, 2, 3].map(s2 => chip(s2, esc(seatLabel(s2)))).join('')}
+  const key = (isStart ? 's' : '') + st.d + ':' + (isStart ? '' : st.i) + ':' + believer;
+  const doFlash = !isStart && !!prevBel && prevKey !== key;  // new position
+  _lastBelKey = key;                             // only, not re-renders
+  const chip = (val, on, txt) => `<button class="lens-chip${
+    on ? ' on' : ''}" data-lens="${val}">${txt}</button>`;
+  lens.innerHTML = `belief lens: ${chip('actor', lensSeat === 'actor', 'follow actor')}${
+    [0, 1, 2, 3].map(s2 => chip(s2, lensSeat === s2, esc(seatLabel(s2)))).join('')}
+    ${chip('focus', beliefFocus, 'point cards')}
     <span class="muted">&middot; viewing <b style="color:#A78BFA">${
-      esc(seatLabel(believer))}</b>${lensSeat === 'actor' ? ' (acting)' : ' (locked)'}
+      esc(seatLabel(believer))}</b>${isStart ? ' (pre-pass)'
+        : lensSeat === 'actor' ? ' (acting)' : ' (locked)'}
     &middot; bar = located &middot; <span style="color:#E8A33D">&#9679;</span> =
     misread &middot; flash = shifted &middot; &#10005; = read void &middot;
     hover for split</span>`;
   lens.querySelectorAll('.lens-chip').forEach(b => b.onclick = () => {
     const v = b.dataset.lens;
-    lensSeat = v === 'actor' ? 'actor' : +v;
-    try { localStorage.setItem('perilune-belief-lock', String(lensSeat)); }
-    catch (e) {}
+    if (v === 'focus') {
+      beliefFocus = !beliefFocus;
+      try { localStorage.setItem('perilune-belief-focus', beliefFocus ? '1' : '0'); }
+      catch (e) {}
+    } else {
+      lensSeat = v === 'actor' ? 'actor' : +v;
+      try { localStorage.setItem('perilune-belief-lock', String(lensSeat)); }
+      catch (e) {}
+    }
     render();
   });
   // Seat tags: ring the believer (whose eyes you're looking through),
@@ -1889,6 +1928,7 @@ function paintBelief(st) {
       if (cd.classList.contains('dim')) return;   // played = public fact
       const name = cd.dataset.c;
       if (!name) return;
+      if (beliefFocus && !FOCUS_CARDS.has(name)) return;  // point-card focus
       const cid = cardId(name);
       const ps = [0, 1, 2].map(r => bel[r * 52 + cid] / 255);
       const tot = (ps[0] + ps[1] + ps[2]) || 1;
