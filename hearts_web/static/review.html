@@ -277,8 +277,14 @@
   @keyframes bflash {
     0%   { box-shadow:0 0 0 3px #A78BFA, 0 0 14px #A78BFA; }
     100% { box-shadow:0 1px 3px rgba(0,0,0,.4); } }
-  .voidb { margin-left:5px; font-size:.68rem; color:#A78BFA;
-           letter-spacing:.06em; }
+  /* belief badges: OWN capsules beside the seat tag, fixed dark
+     background - never inherit the tag's seat color (violet on gold or
+     pink was unreadable) */
+  .tagrow { display:inline-flex; align-items:center; gap:4px; }
+  .bcap { background:#1E1E21; border:1px solid #2E2E33; border-radius:8px;
+          padding:1px 7px; font-size:.68rem; color:#A78BFA;
+          white-space:nowrap; letter-spacing:.04em; }
+  .bcap .cr { color:#FF7A7A; }
   /* seat-lock lens: chips in the lens line; the believer's tag is ringed
      so you always know whose eyes you're looking through */
   .lens-chip { background:#26262A; border:0; border-radius:5px;
@@ -683,9 +689,11 @@ function render() {
         cardHTML(c, deal.passed[s].includes(c) ? 'hot' : '')).join('')
     : deal._hands[s].map(c =>
         cardHTML(c, played.has(c) ? 'dim' : '')).join('');
-  const hstack = s => `<div class="hstack" data-seat="${s}">${tag(s)}
+  const hstack = s => `<div class="hstack" data-seat="${s}">
+      <span class="tagrow">${tag(s)}</span>
       <div class="hand-row">${cards(s)}</div></div>`;
-  const vhand = s => `<div class="vhand" data-seat="${s}">${tag(s)}
+  const vhand = s => `<div class="vhand" data-seat="${s}">
+      <span class="tagrow">${tag(s)}</span>
       <div class="cards">${cards(s)}</div></div>`;
   // Current trick on the mini table: card at the PLAYER'S position.
   const v = R.viewer_seat ?? 0;
@@ -2047,9 +2055,9 @@ function paintBelief(st) {
     // has located right now (believer-scoped like everything painted on
     // the board; the panel's per-deal score aggregates all observers).
     if (beliefRead && rN) {
-      const tag = h.querySelector('.seat-tag');
-      if (tag) tag.insertAdjacentHTML('beforeend',
-        `<span class="voidb" title="${esc(seatLabel(believer))} has located ${
+      const row = h.querySelector('.tagrow');
+      if (row) row.insertAdjacentHTML('beforeend',
+        `<span class="bcap" title="${esc(seatLabel(believer))} has located ${
           Math.round(rSum / rN * 100)}% of ${esc(seatLabel(t))}'s remaining hand">${
           Math.round(rSum / rN * 100)}% read</span>`);
     }
@@ -2061,11 +2069,12 @@ function paintBelief(st) {
       unseen[s].length >= 2 &&
       unseen[s].every(c => bel[k * 52 + c] / 255 < 0.10));
     if (voids.length) {
-      const tag = h.querySelector('.seat-tag');
-      if (tag) tag.insertAdjacentHTML('beforeend',
-        `<span class="voidb" title="${esc(seatLabel(believer))} reads ${
+      const row = h.querySelector('.tagrow');
+      if (row) row.insertAdjacentHTML('beforeend',
+        `<span class="bcap" title="${esc(seatLabel(believer))} reads ${
           esc(seatLabel(t))} as void here">&#10005;${
-          voids.map(s => SUIT_CHAR[s]).join('')}</span>`);
+          voids.map(s => `<span${s === 'D' || s === 'H' ? ' class="cr"' : ''}>${
+            SUIT_CHAR[s]}</span>`).join('')}</span>`);
     }
   });
 }
