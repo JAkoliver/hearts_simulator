@@ -279,6 +279,15 @@
     100% { box-shadow:0 1px 3px rgba(0,0,0,.4); } }
   .voidb { margin-left:5px; font-size:.68rem; color:#A78BFA;
            letter-spacing:.06em; }
+  /* seat-lock lens: chips in the lens line; the believer's tag is ringed
+     so you always know whose eyes you're looking through */
+  .lens-chip { background:#26262A; border:0; border-radius:5px;
+               color:#ECECEC; padding:1px 8px; cursor:pointer;
+               font-size:.66rem; margin-left:4px; }
+  .lens-chip:hover { background:#33333A; }
+  .lens-chip.on { background:#8B5CF6; color:#fff; }
+  .seat-tag.believer { outline:2px solid #8B5CF6; }
+  .seat-tag.lensable { cursor:pointer; }
   /* ================= mobile pass =================
      Everything below is scoped under body.mobile (set once at load by a
      width probe) - the desktop layout above is untouched. Same DOM and
@@ -1780,13 +1789,20 @@ el('deep-k').onchange = () => updateDeepBtn();
 // Data: play[5] from the server - sigmoid belief, uint8, base64.
 let beliefOn = false;
 try { beliefOn = localStorage.getItem('perilune-belief') === '1'; } catch (e) {}
+// Lens mode: 'actor' follows the deciding seat; 0-3 locks one observer
+// so scrubbing shows a single information state evolving.
+let lensSeat = 'actor';
+try {
+  const v = localStorage.getItem('perilune-belief-lock');
+  if (v !== null && v !== 'actor' && v !== '') lensSeat = +v;
+} catch (e) {}
 const _belCache = {};
-function beliefOf(st) {
-  const b64 = (R.deals[st.d].plays[st.i] || [])[5];
-  if (!b64) return null;
-  const key = st.d + ':' + st.i;
+function beliefOf(st, seat) {
+  const b64s = (R.deals[st.d].plays[st.i] || [])[5];
+  if (!b64s || !b64s[seat]) return null;
+  const key = st.d + ':' + st.i + ':' + seat;
   if (!_belCache[key]) {
-    const s = atob(b64), a = new Uint8Array(s.length);
+    const s = atob(b64s[seat]), a = new Uint8Array(s.length);
     for (let i = 0; i < s.length; i++) a[i] = s.charCodeAt(i);
     _belCache[key] = a;
   }
@@ -1802,31 +1818,60 @@ function paintBelief(st) {
     lens.textContent = 'belief lens: play steps only';
     return;
   }
-  const bel = beliefOf(st);
+  const plays = R.deals[st.d].plays;
+  const believer = lensSeat === 'actor' ? plays[st.i][0] : lensSeat;
+  const bel = beliefOf(st, believer);
   if (!bel) {
-    lens.textContent = 'belief lens: no belief data in this match (logged before the feature)';
+    lens.textContent = 'belief lens: no belief data (reload - the server now ships per-seat beliefs)';
     return;
   }
-  const plays = R.deals[st.d].plays;
-  const believer = plays[st.i][0];
-  // Flash baseline: the SAME believer's previous decision this deal.
-  // Beliefs of different seats are different information sets - never
-  // compared; the flash means "what this seat learned since its last
-  // turn," which is info-honest by construction.
+  // Flash baseline: the SAME believer's belief at the previous position
+  // where it exists. Beliefs of different seats are different
+  // information sets - never compared. Locked lens: every prior play
+  // qualifies (one observer throughout); follow-actor: the believer's
+  // own previous decision.
   let prevBel = null;
-  for (let j = st.i - 1; j >= 0; j--)
-    if (plays[j][0] === believer) {
-      prevBel = beliefOf({type: 'play', d: st.d, i: j});
-      break;
-    }
-  const key = st.d + ':' + st.i;
+  for (let j = st.i - 1; j >= 0; j--) {
+    if (lensSeat === 'actor' && plays[j][0] !== believer) continue;
+    prevBel = beliefOf({type: 'play', d: st.d, i: j}, believer);
+    break;
+  }
+  const key = st.d + ':' + st.i + ':' + believer;
   const doFlash = !!prevBel && prevKey !== key;  // new position only, not
   _lastBelKey = key;                             // deep-result re-renders
-  lens.innerHTML = `belief lens: <b style="color:#A78BFA">${esc(seatLabel(believer))}</b>'s
-    view (raw net) &middot; bar = located-card confidence &middot;
-    <span style="color:#E8A33D">&#9679;</span> = confident misread &middot;
-    flash = shifted since their last turn &middot; &#10005;suit by a name =
-    read as void &middot; hover a card for the split`;
+  const chip = (val, txt) => `<button class="lens-chip${
+    (lensSeat === val ? ' on' : '')}" data-lens="${val}">${txt}</button>`;
+  lens.innerHTML = `belief lens: ${chip('actor', 'follow actor')}${
+    [0, 1, 2, 3].map(s2 => chip(s2, esc(seatLabel(s2)))).join('')}
+    <span class="muted">&middot; viewing <b style="color:#A78BFA">${
+      esc(seatLabel(believer))}</b>${lensSeat === 'actor' ? ' (acting)' : ' (locked)'}
+    &middot; bar = located &middot; <span style="color:#E8A33D">&#9679;</span> =
+    misread &middot; flash = shifted &middot; &#10005; = read void &middot;
+    hover for split</span>`;
+  lens.querySelectorAll('.lens-chip').forEach(b => b.onclick = () => {
+    const v = b.dataset.lens;
+    lensSeat = v === 'actor' ? 'actor' : +v;
+    try { localStorage.setItem('perilune-belief-lock', String(lensSeat)); }
+    catch (e) {}
+    render();
+  });
+  // Seat tags: ring the believer (whose eyes you're looking through),
+  // and make every tag a lock shortcut - click a seat to lock its view,
+  // click the locked seat again to go back to follow-actor.
+  document.querySelectorAll('#board [data-seat]').forEach(h => {
+    const tag = h.querySelector('.seat-tag');
+    if (!tag) return;
+    if (+h.dataset.seat === believer) tag.classList.add('believer');
+    tag.classList.add('lensable');
+    tag.title = 'click: lock the belief lens to this seat';
+    tag.onclick = () => {
+      const t2 = +h.dataset.seat;
+      lensSeat = (lensSeat === t2) ? 'actor' : t2;
+      try { localStorage.setItem('perilune-belief-lock', String(lensSeat)); }
+      catch (e) {}
+      render();
+    };
+  });
   // Outstanding cards: everything still held by a hand the believer
   // cannot see (played cards and the believer's own hand are facts).
   const unseen = {C: [], D: [], S: [], H: []};

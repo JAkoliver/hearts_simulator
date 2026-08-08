@@ -79,6 +79,12 @@ class MatchEnv:
         obs = np.asarray(self.env.observe(), dtype=np.float32)
         return np.concatenate([obs, self.match_ctx(self.get_current_player())])
 
+    def observe_for(self, seat):
+        """Any seat's info-honest observation at the current state (what
+        that seat could see right now), with its own match context."""
+        obs = np.asarray(self.env.observe_for(seat), dtype=np.float32)
+        return np.concatenate([obs, self.match_ctx(seat)])
+
     # --- stepping ----------------------------------------------------------
     def step(self, action):
         """Returns (deal_done, match_done, round_scores_or_None)."""

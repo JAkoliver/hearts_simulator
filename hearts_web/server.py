@@ -841,6 +841,15 @@ def compute_review(deal_lines, viewer_seat):
             all_obs.append(obs)
             all_mask.append(mask)
             all_ref.append(('play', di, len(plays)))
+            # Seat-locked belief lens: the other seats' info-honest views
+            # of this same position (belief rows only - the mask is the
+            # actor's and the policy outputs of these rows are unused).
+            for os_ in range(4):
+                if os_ != s:
+                    all_obs.append(np.array(menv.observe_for(os_),
+                                            dtype=np.float32))
+                    all_mask.append(mask)
+                    all_ref.append(('bel', di, len(plays), os_))
             hand = set(np.flatnonzero(obs[:52] > 0).tolist())
             eq = [[card_name(c) for c in g]
                   for g in _equiv_groups(hand, played_deal, legal)]
@@ -892,7 +901,18 @@ def compute_review(deal_lines, viewer_seat):
                 bchunks.append(torch.sigmoid(bel))
         probs = torch.cat(chunks)
         beliefs = torch.cat(bchunks)
-        for row, (kind, di, pi) in enumerate(all_ref):
+
+        def enc_belief(row):
+            return base64.b64encode(
+                (beliefs[row] * 255).round().clamp(0, 255)
+                .to(torch.uint8).numpy().tobytes()).decode()
+
+        bel_rows = {}   # (di, pi) -> {seat: forward row}
+        for row, ref in enumerate(all_ref):
+            kind, di, pi = ref[0], ref[1], ref[2]
+            if kind == 'bel':
+                bel_rows.setdefault((di, pi), {})[ref[3]] = row
+                continue
             play = out_deals[di]['plays' if kind == 'play' else 'pass_evals'][pi]
             card = play[1]
             pr = probs[row]
@@ -904,12 +924,13 @@ def compute_review(deal_lines, viewer_seat):
             play[3] = [[card_name(int(topi[j])), round(float(topv[j]), 3)]
                        for j in range(k)]
             if kind == 'play':
-                # Belief heatmap (client board layer): the acting seat's
-                # belief head - 3 relative opponents x 52 cards, sigmoid
-                # quantized to uint8, base64. play[5] on play states only.
-                play.append(base64.b64encode(
-                    (beliefs[row] * 255).round().clamp(0, 255)
-                    .to(torch.uint8).numpy().tobytes()).decode())
+                bel_rows.setdefault((di, pi), {})[play[0]] = row
+        # Belief heatmap (client board layer, seat-lockable): play[5] =
+        # per-SEAT belief heads (3 relative opponents x 52 cards each,
+        # sigmoid, uint8, base64), absolute seat order 0..3.
+        for (di, pi), rows in bel_rows.items():
+            out_deals[di]['plays'][pi].append(
+                [enc_belief(rows[s_]) for s_ in range(4)])
     return {'viewer_seat': viewer_seat,
             'seat_types': deal_lines[0].get('seats'),
             'win_prob_start': win0, 'deals': out_deals,

@@ -131,6 +131,7 @@ PYBIND11_MODULE(hearts_env, m) {
         .def("step", &HeartsEnv::Step, py::arg("action_id"))
         .def("get_legal_actions", &HeartsEnv::GetLegalActions)
         .def("observe", &HeartsEnv::Observe)
+        .def("observe_for", &HeartsEnv::ObserveFor)
         .def("get_round_scores", &HeartsEnv::GetRoundScores)
         .def("get_current_player", &HeartsEnv::GetCurrentPlayer)
         .def("is_passing", &HeartsEnv::IsPassing)
