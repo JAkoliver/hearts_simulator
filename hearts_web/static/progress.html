@@ -316,19 +316,29 @@ const roll = (vals, w) => vals.map((_, i) => {
         <td>${n ? pct.toFixed(1) + '%' : '-'}</td><td class="muted">${n}</td></tr>`;
     }).join('');
 
-  // band 5: match list (newest first)
-  el('mlist').innerHTML =
-    '<tr><th>date</th><th>match</th><th>place</th><th>deals</th><th>agree</th><th></th></tr>'
-    + [...M].reverse().map(m => {
-      const what = m.mode === 'table' ? `Table ${esc(m.code)}` : 'vs AI';
-      const href = m.mode === 'table'
-        ? `/review?code=${encodeURIComponent(m.code)}&match_no=${m.match_no}&pid=${encodeURIComponent(pid)}`
-        : `/review?sid=${encodeURIComponent(m.sid)}&pid=${encodeURIComponent(pid)}`;
-      return `<tr><td class="muted">${fmtDate(m.ts)}</td><td>${what}</td>
-        <td><b>${ORD[m.place] || m.place}</b></td><td class="muted">${m.deals}</td>
-        <td>${m.agree_pct != null ? m.agree_pct + '%' : '-'}</td>
-        <td><a href="${href}">review</a></td></tr>`;
-    }).join('');
+  // band 5: match list - 5 newest, the rest behind one click (the charts
+  // above always use the FULL history; only the list collapses)
+  const newest = [...M].reverse();
+  const mrow = m => {
+    const href = m.mode === 'table'
+      ? `/review?code=${encodeURIComponent(m.code)}&match_no=${m.match_no}&pid=${encodeURIComponent(pid)}`
+      : `/review?sid=${encodeURIComponent(m.sid)}&pid=${encodeURIComponent(pid)}`;
+    return `<tr><td class="muted">${fmtDate(m.ts)}</td><td>${what(m)}</td>
+      <td><b>${ORD[m.place] || m.place}</b></td><td class="muted">${m.deals}</td>
+      <td>${m.agree_pct != null ? m.agree_pct + '%' : '-'}</td>
+      <td><a href="${href}">review</a></td></tr>`;
+  };
+  const renderList = all => {
+    el('mlist').innerHTML =
+      '<tr><th>date</th><th>match</th><th>place</th><th>deals</th><th>agree</th><th></th></tr>'
+      + (all ? newest : newest.slice(0, 5)).map(mrow).join('')
+      + (!all && newest.length > 5
+         ? `<tr><td colspan="6"><a href="#" id="mlist-more">show all ${
+             newest.length} matches</a></td></tr>` : '');
+    const mm = el('mlist-more');
+    if (mm) mm.onclick = e => { e.preventDefault(); renderList(true); };
+  };
+  renderList(false);
 })();
 </script>
 </body>
