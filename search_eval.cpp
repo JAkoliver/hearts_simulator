@@ -299,6 +299,7 @@ int main(int argc, char** argv) {
     unsigned int seed = 42;
     bool uniform = false, selftest = false, pass_search = false, use_cuda = false;
     bool oracle_leaves = false, use_tree = false, use_bf16 = false;
+    bool search_defenders = false;
 
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
@@ -317,6 +318,7 @@ int main(int argc, char** argv) {
         else if (a == "--behave-totals") behave_totals = next();
         else if (a == "--behave-deals") behave_deals = std::stoi(next());
         else if (a == "--shooter") shooter_flag = next();
+        else if (a == "--search-defenders") search_defenders = true;
         else if (a == "--tricks-out") tricks_path = next();
         else if (a == "--record-out") record_path = next();
         else if (a == "--deals") deals = std::stoi(next());
@@ -481,6 +483,17 @@ int main(int argc, char** argv) {
         SearchPlayer* sp_flat = static_cast<SearchPlayer*>(sp.get());
         std::unique_ptr<MatchRawPolicy> mdef;
         if (odim == 556) mdef = std::make_unique<MatchRawPolicy>(opp_model);
+        // Round-2 teacher measurement (--search-defenders): the SAME search
+        // program, standard match-equity scoring (shooter mode OFF), seated
+        // in all three defender chairs. One instance serves all three: the
+        // search context is rebuilt per decision from the acting seat, and
+        // the 556 match ctx rotates by acting seat inside the row builder.
+        std::unique_ptr<SearchPlayer> def_sp;
+        if (search_defenders) {
+            SearchPlayer::Config defcfg = cfg;
+            defcfg.shooter_mode.clear();
+            def_sp = std::make_unique<SearchPlayer>(search_model, sdim, defcfg);
+        }
         std::ofstream dcsv(out_path);
         dcsv << "match,seed,seat,deal,pass_dir,play_dec,alive_dec,shoot_dec,"
                 "pass_committed,pass_moonp,pass_eq_shoot,pass_eq_norm,"
@@ -574,6 +587,9 @@ int main(int argc, char** argv) {
                                 if (ss.shooting) shoot_dec++;
                             }
                         }
+                    } else if (def_sp) {
+                        def_sp->SetMatchContext(totals, deals);
+                        action = def_sp->ChooseAction(env);
                     } else if (mdef) {
                         action = mdef->ChooseAction(env, totals, deals);
                     } else {
