@@ -210,6 +210,14 @@
   #dev-controls { position:absolute; right:100%; top:0; margin-right:12px; width:170px;
                   text-align:right; }
   #dev-controls button { font-size:.75rem; padding:4px 12px; background:#7a2f2f; color:#eee; }
+  /* dropdowns: integrated dark look - the system default rendered as a
+     bare white box in the middle of the menu */
+  select { background:#26262A; color:#ECECEC; border:1px solid #3A3A42;
+           border-radius:8px; padding:6px 10px; font-size:.9rem;
+           font-family:inherit; cursor:pointer; }
+  select:hover { background:#33333A; }
+  select:focus { outline:2px solid var(--gold); outline-offset:1px; }
+  select option { background:#26262A; color:#ECECEC; }
 </style>
 </head>
 <body>
