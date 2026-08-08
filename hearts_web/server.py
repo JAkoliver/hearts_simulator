@@ -15,6 +15,7 @@ one JSON line of full telemetry to match_logs.jsonl.
 
 Run:  python -m uvicorn hearts_web.server:app --host 0.0.0.0 --port 8642
 """
+import base64
 import hashlib
 import json
 import os
@@ -882,11 +883,15 @@ def compute_review(deal_lines, viewer_seat):
         obs_t = torch.from_numpy(np.stack(all_obs))
         mask_t = torch.from_numpy(np.stack(all_mask))
         chunks = []
+        bchunks = []
         with _net_lock, torch.no_grad():
             for i in range(0, len(all_obs), 512):
-                logits, _ = _net(obs_t[i:i + 512], mask_t[i:i + 512])
+                logits, _, bel = _net.forward_all(obs_t[i:i + 512],
+                                                  mask_t[i:i + 512])
                 chunks.append(torch.softmax(logits, dim=1))
+                bchunks.append(torch.sigmoid(bel))
         probs = torch.cat(chunks)
+        beliefs = torch.cat(bchunks)
         for row, (kind, di, pi) in enumerate(all_ref):
             play = out_deals[di]['plays' if kind == 'play' else 'pass_evals'][pi]
             card = play[1]
@@ -898,6 +903,13 @@ def compute_review(deal_lines, viewer_seat):
             play[2] = round(float(pr[cid]), 3)
             play[3] = [[card_name(int(topi[j])), round(float(topv[j]), 3)]
                        for j in range(k)]
+            if kind == 'play':
+                # Belief heatmap (client board layer): the acting seat's
+                # belief head - 3 relative opponents x 52 cards, sigmoid
+                # quantized to uint8, base64. play[5] on play states only.
+                play.append(base64.b64encode(
+                    (beliefs[row] * 255).round().clamp(0, 255)
+                    .to(torch.uint8).numpy().tobytes()).decode())
     return {'viewer_seat': viewer_seat,
             'seat_types': deal_lines[0].get('seats'),
             'win_prob_start': win0, 'deals': out_deals,

@@ -261,6 +261,12 @@
   .legend i { display:inline-block; width:9px; height:9px; border-radius:2px;
               margin:0 3px 0 8px; }
   .allmoves { font-size:.65rem; color:#8A8A93; margin:1px 0 3px; }
+  /* belief lens: VIOLET is the belief head's own authority color (gold =
+     actions/policy, cyan = search values) - never reuse those here */
+  #belief-btn.on { background:#8B5CF6; color:#fff; }
+  .card .bb { position:absolute; left:8%; right:8%; bottom:2px; height:4px;
+              background:rgba(0,0,0,.28); border-radius:2px; overflow:hidden; }
+  .card .bb i { display:block; height:100%; background:#A78BFA; }
   /* ================= mobile pass =================
      Everything below is scoped under body.mobile (set once at load by a
      width probe) - the desktop layout above is untouched. Same DOM and
@@ -315,6 +321,8 @@
   body.mobile #scrub { height:36px; }
   body.mobile #maincol > .legend { display:none; }
   body.mobile .dline { padding:8px 6px; }
+  /* belief lens is a desktop feature for now (hover-driven) */
+  body.mobile #belief-btn, body.mobile #belief-lens { display:none; }
 </style>
 </head>
 <body>
@@ -413,9 +421,11 @@
       <button id="b-nd" title="next deal (&darr;)">deal &#9658;&#9658;</button>
       <span id="posinfo"></span>
       <span style="flex:1"></span>
+      <button id="belief-btn" title="paint Perilune's belief about the hidden cards onto the hands">belief</button>
       <span class="legend">markers: <i style="background:#E5484D"></i>disagreement
         <i style="background:#3A2328"></i>moon threat</span>
     </div>
+    <div class="legend" id="belief-lens" style="margin-top:3px"></div>
     <div class="legend" style="margin-top:3px">
       &#9000; &larr;/&rarr; play &middot; Shift+&larr;/&rarr; trick &middot;
       &uarr;/&darr; deal &middot; Home/End &middot; drag the bar to scrub</div>
@@ -484,7 +494,7 @@ if (MOBILE) {
 function cardHTML(name, cls='') {
   const suit = name.slice(-1), rank = name.slice(0, -1);
   const red = (suit === 'D' || suit === 'H') ? ' red' : '';
-  return `<div class="card${red} ${cls}"><span class="ix">${rank}<br>${SUIT_CHAR[suit]}</span><span class="cpip">${SUIT_CHAR[suit]}</span></div>`;
+  return `<div class="card${red} ${cls}" data-c="${name}"><span class="ix">${rank}<br>${SUIT_CHAR[suit]}</span><span class="cpip">${SUIT_CHAR[suit]}</span></div>`;
 }
 function cardVal(name) {   // engine ordering within a suit
   return RANK_ORDER.indexOf(name.slice(0, -1));
@@ -640,9 +650,9 @@ function render() {
         cardHTML(c, deal.passed[s].includes(c) ? 'hot' : '')).join('')
     : deal._hands[s].map(c =>
         cardHTML(c, played.has(c) ? 'dim' : '')).join('');
-  const hstack = s => `<div class="hstack">${tag(s)}
+  const hstack = s => `<div class="hstack" data-seat="${s}">${tag(s)}
       <div class="hand-row">${cards(s)}</div></div>`;
-  const vhand = s => `<div class="vhand">${tag(s)}
+  const vhand = s => `<div class="vhand" data-seat="${s}">${tag(s)}
       <div class="cards">${cards(s)}</div></div>`;
   // Current trick on the mini table: card at the PLAYER'S position.
   const v = R.viewer_seat ?? 0;
@@ -720,6 +730,7 @@ function render() {
     `<div class="hrow-c">${hstack((v + 2) % 4)}</div>` +
     `<div id="mid">${vhand((v + 1) % 4)}<div id="rtable">${slots}</div>${vhand((v + 3) % 4)}</div>` +
     `<div class="hrow-c">${hstack(v)}</div>`;
+  paintBelief(st);
 
   renderEval(st, deal);
   renderPos(st, deal);
@@ -1747,6 +1758,97 @@ function deepenHere() {
 el('deep64-btn').onclick = () => ensureEngine(deepenHere);
 
 el('deep-k').onchange = () => updateDeepBtn();
+
+// ---- belief heatmap (v1, desktop) ------------------------------------------
+// The acting seat's belief head painted onto the hands it CANNOT see: a
+// violet bar under each hidden card = how surely the net locates that
+// card exactly where it truly is (per-card normalized over the three
+// hidden seats); hover = the full split, true holder checked. Cards the
+// believer can see (its own hand, played cards) are facts, never painted.
+// Data: play[5] from the server - sigmoid belief, uint8, base64.
+let beliefOn = false;
+try { beliefOn = localStorage.getItem('perilune-belief') === '1'; } catch (e) {}
+const _belCache = {};
+function beliefOf(st) {
+  const b64 = (R.deals[st.d].plays[st.i] || [])[5];
+  if (!b64) return null;
+  const key = st.d + ':' + st.i;
+  if (!_belCache[key]) {
+    const s = atob(b64), a = new Uint8Array(s.length);
+    for (let i = 0; i < s.length; i++) a[i] = s.charCodeAt(i);
+    _belCache[key] = a;
+  }
+  return _belCache[key];
+}
+function paintBelief(st) {
+  const lens = el('belief-lens');
+  if (!beliefOn || MOBILE || !st) { if (lens) lens.textContent = ''; return; }
+  if (st.type !== 'play') {
+    lens.textContent = 'belief lens: play steps only';
+    return;
+  }
+  const bel = beliefOf(st);
+  if (!bel) {
+    lens.textContent = 'belief lens: no belief data in this match (logged before the feature)';
+    return;
+  }
+  const believer = R.deals[st.d].plays[st.i][0];
+  lens.innerHTML = `belief lens: <b style="color:#A78BFA">${esc(seatLabel(believer))}</b>'s
+    view (raw net) &middot; bar under a hidden card = how surely Perilune places it
+    there &middot; hover a card for the full split`;
+  document.querySelectorAll('#board [data-seat]').forEach(h => {
+    const t = +h.dataset.seat;
+    if (t === believer) return;
+    const k = (t - believer + 4) % 4 - 1;   // engine belief row: relative opp
+    h.querySelectorAll('.card').forEach(cd => {
+      if (cd.classList.contains('dim')) return;   // played = public fact
+      const name = cd.dataset.c;
+      if (!name) return;
+      const cid = cardId(name);
+      const ps = [0, 1, 2].map(r => bel[r * 52 + cid] / 255);
+      const tot = ps[0] + ps[1] + ps[2];
+      const conf = tot > 0 ? ps[k] / tot : 1 / 3;
+      const bb = document.createElement('div');
+      bb.className = 'bb';
+      bb.innerHTML = `<i style="width:${Math.round(conf * 100)}%"></i>`;
+      cd.appendChild(bb);
+      cd.dataset.bel = ps.join(',');
+      cd.dataset.holder = t;
+      cd.dataset.believer = believer;
+    });
+  });
+}
+el('belief-btn').classList.toggle('on', beliefOn);
+el('belief-btn').onclick = () => {
+  beliefOn = !beliefOn;
+  try { localStorage.setItem('perilune-belief', beliefOn ? '1' : '0'); } catch (e) {}
+  el('belief-btn').classList.toggle('on', beliefOn);
+  render();
+};
+el('board').addEventListener('pointermove', e => {
+  if (!beliefOn || MOBILE) return;
+  const tip = el('wtip');
+  const cd = e.target.closest ? e.target.closest('.card[data-bel]') : null;
+  if (!cd) { tip.style.display = 'none'; return; }
+  const ps = cd.dataset.bel.split(',').map(Number);
+  const tot = (ps[0] + ps[1] + ps[2]) || 1;
+  const believer = +cd.dataset.believer, holder = +cd.dataset.holder;
+  tip.innerHTML = `<div style="margin-bottom:3px">${ct(cd.dataset.c)}
+      &middot; <span class="muted">${esc(seatLabel(believer))}'s belief</span></div>` +
+    [0, 1, 2].map(r => {
+      const s = (believer + 1 + r) % 4;
+      return `<div class="wrow"${s === holder ? ' style="font-weight:700"' : ''}>
+        <span class="sw" style="background:${SEAT_COLORS[s]}"></span>
+        ${esc(seatLabel(s))}${s === holder ? ' &check;' : ''}
+        <span class="wpct">${(ps[r] / tot * 100).toFixed(0)}%</span></div>`;
+    }).join('');
+  tip.style.display = 'block';
+  tip.style.left = Math.min(e.clientX + 14, innerWidth - 175) + 'px';
+  tip.style.top = (e.clientY - 12) + 'px';
+});
+el('board').addEventListener('pointerleave', () => {
+  if (beliefOn) el('wtip').style.display = 'none';
+});
 
 // Help overlay: first visit opens it once, then it is on demand.
 function showHelp(on) {
