@@ -1013,44 +1013,19 @@ async function ensureIdentity() {
   return pid;
 }
 function renderIdentity(name) {
+  // The key REVEAL lives on the progress page (behind a warning click);
+  // the menu only offers restore, which pre-identity visitors need.
   el('home-codename').innerHTML = name
-    ? `you play as <b style="color:var(--gold)">${esc(name)}</b>
-       <a href="#" id="key-reveal">your key</a>`
+    ? `you play as <b style="color:var(--gold)">${esc(name)}</b>`
     : `new player &middot; a codename is assigned when you first play
        &middot; <a href="#" id="key-restore">returning? restore your key</a>`;
-  const rv = el('key-reveal');
-  if (rv) rv.onclick = e => { e.preventDefault(); showKeyPanel('reveal'); };
   const rs = el('key-restore');
-  if (rs) rs.onclick = e => { e.preventDefault(); showKeyPanel('restore'); };
+  if (rs) rs.onclick = e => { e.preventDefault(); showKeyPanel(); };
 }
-function showKeyPanel(mode) {
+function showKeyPanel() {
   const p = el('key-panel');
   p.style.display = 'block';
-  if (mode === 'reveal') {
-    p.innerHTML = `<div class="muted2" style="margin-bottom:4px">This key
-      <b>is</b> your identity - anyone holding it can play as you. Keep it
-      private; save it to move your identity to another device.</div>
-      <code style="user-select:all">${esc(pid)}</code>
-      <div style="margin-top:6px">
-        <button id="key-copy">copy</button>
-        <button id="key-dl">download key file</button>
-        <button id="key-close">close</button></div>`;
-    el('key-copy').onclick = async () => {
-      try { await navigator.clipboard.writeText(pid); el('key-copy').textContent = 'copied!'; }
-      catch (e) {}
-    };
-    el('key-dl').onclick = () => {
-      const blob = new Blob(
-        [`Perilune identity key - keep this file private.\nkey: ${pid}\n`],
-        {type: 'text/plain'});
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'perilune-key.txt';
-      a.click();
-      URL.revokeObjectURL(a.href);
-    };
-    el('key-close').onclick = () => { p.style.display = 'none'; };
-  } else {
+  {
     p.innerHTML = `<div class="muted2" style="margin-bottom:4px">Paste your
       key, or drop your key file here.</div>
       <input id="key-in" placeholder="key" style="width:100%" maxlength="64">

@@ -37,6 +37,12 @@
   td { padding:4px 8px 4px 0; border-top:1px solid #29292E; }
   .bar-h { height:8px; background:#26262A; border-radius:4px; overflow:hidden; }
   .bar-h i { display:block; height:100%; background:#E8B923; }
+  button { background:#26262A; color:#ECECEC; border:0; border-radius:7px;
+           padding:5px 12px; cursor:pointer; font-size:.8rem;
+           margin-right:4px; }
+  button:hover { background:#33333A; }
+  code { background:#26262A; padding:3px 8px; border-radius:5px;
+         font-size:.8rem; word-break:break-all; }
   #tip { position:fixed; z-index:20; background:#232327; border-radius:8px;
          padding:6px 10px; font-size:.72rem; pointer-events:none;
          display:none; box-shadow:0 3px 10px rgba(0,0,0,.5);
@@ -87,6 +93,13 @@
 <div class="panel">
   <h3>Matches</h3>
   <table id="mlist"></table>
+</div>
+
+<div class="panel" id="key-sec" style="display:none">
+  <h3>Identity key</h3>
+  <div id="key-body"><button id="key-btn">your key</button>
+    <span class="small muted">&middot; moves your identity to another
+    device</span></div>
 </div>
 
 <p class="small muted" style="margin-top:14px"><a href="/">&larr; back to the
@@ -177,6 +190,45 @@ const roll = (vals, w) => vals.map((_, i) => {
   fetch(`/api/name?pid=${encodeURIComponent(pid)}`).then(r => r.json())
     .then(d => { document.querySelector('h1').textContent =
       `${d.name} — your progress`; }).catch(() => {});
+
+  // Identity key: two-step reveal. First click arms a warning; only the
+  // second click shows the key.
+  if (pid && !q.get('pid')) {   // own storage only - never a dev override
+    el('key-sec').style.display = 'block';
+    el('key-btn').onclick = () => {
+      el('key-body').innerHTML = `<div class="small" style="color:#E8A33D;
+          margin-bottom:6px">Clicking again will SHOW your identity key.
+        Anyone who sees this key can play as you - do not share it, and
+        don't reveal it on stream.</div>
+        <button id="key-show">show my key</button>
+        <button id="key-cancel">cancel</button>`;
+      el('key-show').onclick = () => {
+        el('key-body').innerHTML = `<code style="user-select:all">${pid}</code>
+          <div style="margin-top:6px">
+            <button id="key-copy">copy</button>
+            <button id="key-dl">download key file</button>
+            <button id="key-hide">hide</button></div>
+          <div class="small muted" style="margin-top:4px">Keep it private.
+          Restore it on another device from the home menu.</div>`;
+        el('key-copy').onclick = async () => {
+          try { await navigator.clipboard.writeText(pid);
+                el('key-copy').textContent = 'copied!'; } catch (e) {}
+        };
+        el('key-dl').onclick = () => {
+          const blob = new Blob(
+            [`Perilune identity key - keep this file private.\nkey: ${pid}\n`],
+            {type: 'text/plain'});
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = 'perilune-key.txt';
+          a.click();
+          URL.revokeObjectURL(a.href);
+        };
+        el('key-hide').onclick = () => location.reload();
+      };
+      el('key-cancel').onclick = () => location.reload();
+    };
+  }
 
   // band 1: identity numbers
   const wins = M.filter(m => m.place === 1).length;
