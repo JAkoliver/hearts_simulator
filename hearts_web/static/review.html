@@ -1432,6 +1432,14 @@ el('d-gap').onclick = () => { disSort = 'gap';
     + (q.get('share') ? ' · shared view' : '');
   el('xray-note').textContent = R.note;
   prep();
+  // Cached deep results render immediately on revisit (no engine boot
+  // needed) - and a completed sweep re-harvests into the progress store.
+  try {
+    const man = await (await fetch('/static/models/manifest.json')).json();
+    deepMd5 = (man.policy_onnx_md5 || '').slice(0, 8);
+  } catch (e) { deepMd5 = 'nomd5'; }
+  for (const v of await idbLoadCached()) deepAccept(v);
+  scheduleHarvest();
   // Position deep link: open scrubbed to the shared moment.
   if (q.get('pos') !== null && q.get('pos') !== undefined && q.get('pos') !== '') {
     const p2 = Math.max(0, Math.min(steps.length - 1, +q.get('pos') || 0));
@@ -1614,11 +1622,13 @@ async function deepStart() {
 async function bootEngine() {
   el('deep-btn').disabled = true;
   dstatus('loading engine + model…');
-  try {
-    const man = await (await fetch('/static/models/manifest.json')).json();
-    deepMd5 = (man.policy_onnx_md5 || '').slice(0, 8);
-  } catch (e) { deepMd5 = 'nomd5'; }
-  for (const v of await idbLoadCached()) deepAccept(v);
+  if (!deepMd5) {   // boot normally sets these at page load; belt-and-braces
+    try {
+      const man = await (await fetch('/static/models/manifest.json')).json();
+      deepMd5 = (man.policy_onnx_md5 || '').slice(0, 8);
+    } catch (e) { deepMd5 = 'nomd5'; }
+    for (const v of await idbLoadCached()) deepAccept(v);
+  }
   deepWorker = new Worker('/static/analysis_worker.js?v=17');
   // A crashed worker (e.g. a wasm abort) must be VISIBLE, never a frozen
   // counter.
@@ -1661,6 +1671,7 @@ async function bootEngine() {
                  || v.i === 'cards'))
         render();
       renderDis();
+      scheduleHarvest();
     } else if (m.type === 'progress') {
       dstatus(`analyzing ${m.done}/${m.total}…`);
       if (m.done >= m.total) { dstatus(`done (${m.total} positions)`); deepDone(); }
@@ -1731,6 +1742,91 @@ function deepMerged(st) {
     it.names = it.ids.map(idName);
   }
   return {items, K: dr.K};
+}
+
+// ---- search-verdict harvest (progress page; local device only) ------------
+// When the viewer's WHOLE game is searched (every non-forced decision of
+// their seat has a deep result), per-match cost stats are written to a
+// local IndexedDB store the progress page reads. Completeness is an
+// honesty requirement: unsearched mistakes are invisible, so a partial
+// match would systematically look better-played than it was. The floor K
+// and model hash ride along - costs from different depths/models are
+// different strata, never silently mixed.
+function pdbOpen() {
+  return new Promise((res, rej) => {
+    const rq = indexedDB.open('perilune-progress', 1);
+    rq.onupgradeneeded = () => rq.result.createObjectStore('search');
+    rq.onsuccess = () => res(rq.result);
+    rq.onerror = () => rej(rq.error);
+  });
+}
+async function harvestSearchStats() {
+  if (SHARED || !R) return;   // a shared viewer's device, not their match
+  const seat = R.viewer_seat;
+  let nDec = 0, floorK = Infinity, costly = 0, costSum = 0;
+  const cats = {pass: [0, 0, 0], lead: [0, 0, 0],
+                follow: [0, 0, 0], discard: [0, 0, 0]};   // [costly, n, cost]
+  for (const st of steps) {
+    if (st.type !== 'play') continue;
+    const [sv, name] = R.deals[st.d].plays[st.i];
+    if (sv !== seat || isForced(st)) continue;
+    const dm = deepMerged(st);
+    if (!dm) return;              // any unanalyzed decision -> not eligible
+    if (dm.items.length < 2) continue;   // all-equivalent: no real decision
+    nDec++;
+    floorK = Math.min(floorK, dm.K);
+    const mine = dm.items.find(it => it.ids.includes(cardId(name)));
+    if (!mine) return;
+    let best = dm.items[0];
+    for (const it of dm.items) if (it.mean > best.mean) best = it;
+    const diff = best.mean - mine.mean;
+    const cat = st.i % 4 === 0 ? 'lead'
+      : name.slice(-1) === R.deals[st.d].plays[st.i - st.i % 4][1].slice(-1)
+        ? 'follow' : 'discard';
+    cats[cat][1]++;
+    if (best !== mine && diff >= 0.01
+        && diff > 2 * Math.sqrt(best.se ** 2 + mine.se ** 2)) {
+      costly++; costSum += diff;
+      cats[cat][0]++; cats[cat][2] += diff;
+    }
+  }
+  if (!nDec || !isFinite(floorK)) return;
+  // pass costs (the sweep analyzes all seats' passes; counted when present)
+  for (let d = 0; d < R.deals.length; d++) {
+    const deal = R.deals[d];
+    if (deal.pass_direction === 'hold') continue;
+    const dp = deepResults[passKey(d, seat)];
+    if (!dp || !dp.combos || !dp.mean || !dp.mean.length) continue;
+    const actual = (deal.passed[seat] || []).map(cardId)
+      .sort((a, b) => a - b).join(',');
+    let ai = -1, bi = 0;
+    for (let i = 0; i < dp.mean.length; i++) {
+      if ([...dp.combos.slice(i * 3, i * 3 + 3)]
+          .sort((a, b) => a - b).join(',') === actual) ai = i;
+      if (dp.mean[i] > dp.mean[bi]) bi = i;
+    }
+    if (ai < 0) continue;
+    cats.pass[1]++;
+    const diff = dp.mean[bi] - dp.mean[ai];
+    if (bi !== ai && diff >= 0.01
+        && diff > 2 * Math.sqrt(dp.se[bi] ** 2 + dp.se[ai] ** 2)) {
+      cats.pass[0]++; cats.pass[2] += diff;
+      costly++; costSum += diff;
+    }
+  }
+  const entry = {ident: matchIdent(), harvested: Math.floor(Date.now() / 1000),
+                 k: floorK, md5: deepMd5, seat, nDec, costly,
+                 costSum: Math.round(costSum * 1e4) / 1e4, cats,
+                 deals: R.deals.length};
+  const db = await pdbOpen();
+  db.transaction('search', 'readwrite').objectStore('search')
+    .put(entry, entry.ident);
+}
+let _harvestT = null;
+function scheduleHarvest() {
+  if (SHARED) return;
+  clearTimeout(_harvestT);
+  _harvestT = setTimeout(() => { harvestSearchStats().catch(() => {}); }, 2500);
 }
 
 // Par for a deal: per-seat points of the all-AI playout from the deal's

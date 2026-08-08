@@ -69,6 +69,15 @@
 </div>
 
 <div class="panel">
+  <h3>Search verdicts <span class="muted">&middot; deep-search costs,
+    computed and stored on this device</span></h3>
+  <div id="sv-cover" class="small muted" style="margin-bottom:6px"></div>
+  <svg id="sp-cost" height="70" style="display:none"></svg>
+  <table id="sv-cats" style="margin-top:8px"></table>
+  <div class="small muted" id="sv-note" style="margin-top:6px"></div>
+</div>
+
+<div class="panel">
   <h3>Habits &middot; agreement by decision type</h3>
   <table id="habits"></table>
   <div class="small muted" style="margin-top:6px">Where you and Perilune
@@ -223,6 +232,71 @@ const roll = (vals, w) => vals.map((_, i) => {
   el('t-moon').textContent =
     `total: ${mc.reduce((a, b) => a + (b || 0), 0)} conceded · `
     + `${M.reduce((a, m) => a + (m.moons_shot || 0), 0)} shot by you`;
+
+  // band 3.5: search verdicts - joined from the LOCAL harvest store
+  // (written by match reviews when a whole game is searched). Costs are
+  // per-(K, model) strata: mixed floors are labeled, never blended away.
+  const pdb = await new Promise(res => {
+    const rq = indexedDB.open('perilune-progress', 1);
+    rq.onupgradeneeded = () => rq.result.createObjectStore('search');
+    rq.onsuccess = () => {
+      const g = rq.result.transaction('search').objectStore('search').getAll();
+      g.onsuccess = () => res(g.result || []);
+      g.onerror = () => res([]);
+    };
+    rq.onerror = () => res([]);
+  });
+  const byIdent = {};
+  for (const e of pdb) byIdent[e.ident] = e;
+  const ident = m => m.mode === 'table' ? `T${m.code}#${m.match_no}` : m.sid;
+  const searched = M.map(m => ({m, e: byIdent[ident(m)]})).filter(x => x.e);
+  if (!searched.length) {
+    el('sv-cover').textContent = 'no searched matches on this device yet - '
+      + 'run Deep analysis to completion in a match review and its costs '
+      + 'land here automatically.';
+  } else {
+    el('sv-cover').textContent =
+      `${searched.length} of ${M.length} matches fully searched on this device`;
+    const costV = searched.map(x => x.e.costSum * 100);
+    const sv = el('sp-cost');
+    sv.style.display = 'block';
+    spark(sv, [{vals: costV, color: '#4CC2FF', width: 1.4, dots: true}],
+      0, Math.max(5, ...costV),
+      i => `${fmtDate(searched[i].m.ts)} &middot; ${what(searched[i].m)} &middot;
+        <b>&minus;${costV[i].toFixed(1)}% match</b> given up
+        &middot; ${searched[i].e.costly} costly
+        <span class="muted">&middot; K=${searched[i].e.k}</span>`);
+    const cats = ['pass', 'lead', 'follow', 'discard'];
+    const agg = {};
+    for (const c of cats) agg[c] = [0, 0, 0];
+    for (const {e} of searched) if (e.cats)
+      for (const c of cats) {
+        agg[c][0] += e.cats[c][0]; agg[c][1] += e.cats[c][1];
+        agg[c][2] += e.cats[c][2];
+      }
+    const maxCost = Math.max(0.001, ...cats.map(c => agg[c][2]));
+    el('sv-cats').innerHTML =
+      '<tr><th>decision</th><th style="width:45%"></th><th>cost</th><th>costly / n</th></tr>'
+      + cats.map(c => {
+        const [h, n, cost] = agg[c];
+        return `<tr><td>${c}</td>
+          <td><div class="bar-h"><i style="width:${(100 * cost / maxCost).toFixed(0)}%;
+            background:#4CC2FF"></i></div></td>
+          <td>${n ? '&minus;' + (100 * cost).toFixed(1) + '%' : '-'}</td>
+          <td class="muted">${h} / ${n}</td></tr>`;
+      }).join('');
+    const ks = [...new Set(searched.map(x => x.e.k))].sort((a, b) => a - b);
+    const md5s = [...new Set(searched.map(x => x.e.md5))];
+    el('sv-note').textContent =
+      'costs = match-win chance given up in confidently-worse plays '
+      + '(the review scorecard rule). '
+      + (ks.length > 1
+         ? `MIXED search depths (K=${ks.join(', ')}) - deeper searches count `
+           + 'more mistakes as confident, so cross-K points are not directly '
+           + 'comparable. '
+         : `all at K=${ks[0]}. `)
+      + (md5s.length > 1 ? 'Spans more than one model version.' : '');
+  }
 
   // band 4: habits
   const cats = ['pass', 'lead', 'follow', 'discard'];
