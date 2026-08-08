@@ -37,6 +37,10 @@
   td { padding:4px 8px 4px 0; border-top:1px solid #29292E; }
   .bar-h { height:8px; background:#26262A; border-radius:4px; overflow:hidden; }
   .bar-h i { display:block; height:100%; background:#E8B923; }
+  #tip { position:fixed; z-index:20; background:#232327; border-radius:8px;
+         padding:6px 10px; font-size:.72rem; pointer-events:none;
+         display:none; box-shadow:0 3px 10px rgba(0,0,0,.5);
+         font-variant-numeric:tabular-nums; }
 </style>
 </head>
 <body>
@@ -44,6 +48,7 @@
 <div class="muted small" id="sub">loading&hellip;</div>
 
 <div class="panel"><div id="hdr"></div></div>
+<div id="tip"></div>
 
 <div class="panel">
   <h3>Placement per match <span class="muted">&middot; line = rolling
@@ -89,8 +94,9 @@ const fmtDate = ts => new Date(ts * 1000).toLocaleDateString(
   undefined, {month: 'short', day: 'numeric'});
 const ORD = ['', '1st', '2nd', '3rd', '4th'];
 
-// Tiny chart helpers: series drawn into a fixed 100x40 viewBox.
-function spark(svg, seriesList, yMin, yMax) {
+// Tiny chart helpers: series drawn into a fixed 100x40 viewBox. `fmt`
+// enables hover: nearest match index -> tooltip html + a guide line.
+function spark(svg, seriesList, yMin, yMax, fmt) {
   const W = 100, H = 40;
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
   svg.setAttribute('preserveAspectRatio', 'none');
@@ -110,7 +116,31 @@ function spark(svg, seriesList, yMin, yMax) {
     if (dots) out += pts.map(p => `<circle cx="${p[0].toFixed(1)}"
       cy="${p[1].toFixed(1)}" r="1.6" fill="${color}"/>`).join('');
   }
+  out += `<line class="guide" x1="0" x2="0" y1="0" y2="${H}" stroke="#6B6B74"
+    stroke-width="0.8" vector-effect="non-scaling-stroke"
+    style="display:none"/>`;
   svg.innerHTML = out;
+  if (!fmt) return;
+  const n = seriesList[0].vals.length;
+  const guide = svg.querySelector('.guide');
+  svg.onpointermove = e => {
+    const r = svg.getBoundingClientRect();
+    let i = Math.round((e.clientX - r.left) / r.width * (n - 1));
+    i = Math.max(0, Math.min(n - 1, i));
+    const gx = n < 2 ? W / 2 : i / (n - 1) * (W - 4) + 2;
+    guide.setAttribute('x1', gx);
+    guide.setAttribute('x2', gx);
+    guide.style.display = 'block';
+    const tip = el('tip');
+    tip.innerHTML = fmt(i);
+    tip.style.display = 'block';
+    tip.style.left = Math.min(e.clientX + 12, innerWidth - 180) + 'px';
+    tip.style.top = (e.clientY - 10) + 'px';
+  };
+  svg.onpointerleave = () => {
+    el('tip').style.display = 'none';
+    guide.style.display = 'none';
+  };
 }
 const roll = (vals, w) => vals.map((_, i) => {
   const s = vals.slice(Math.max(0, i - w + 1), i + 1).filter(v => v != null);
@@ -148,15 +178,23 @@ const roll = (vals, w) => vals.map((_, i) => {
     <div class="lbl">${l}</div></span>`).join('');
 
   // band 2: placement trend (y inverted: 1st on top)
+  const what = m => m.mode === 'table' ? `Table ${esc(m.code)}` : 'vs AI';
   const places = M.map(m => m.place);
+  const rollP = roll(places, 5);
   spark(el('placechart'),
     [{vals: places.map(p => 5 - p), color: '#5B9BD5', width: 0, dots: true},
-     {vals: roll(places, 5).map(p => 5 - p), color: '#E8B923', width: 1.6}],
-    1, 4);
+     {vals: rollP.map(p => 5 - p), color: '#E8B923', width: 1.6}],
+    1, 4,
+    i => `${fmtDate(M[i].ts)} &middot; ${what(M[i])} &middot;
+      <b>${ORD[M[i].place] || M[i].place}</b>
+      <span class="muted">&middot; rolling ${rollP[i].toFixed(2)}</span>`);
 
   // band 3: skill sparklines
   const agreeV = M.map(m => m.agree_pct ?? null);
-  spark(el('sp-agree'), [{vals: agreeV, color: '#E8B923', width: 1.4, dots: true}], 30, 100);
+  spark(el('sp-agree'), [{vals: agreeV, color: '#E8B923', width: 1.4, dots: true}],
+    30, 100,
+    i => `${fmtDate(M[i].ts)} &middot; ${what(M[i])} &middot;
+      <b>${agreeV[i] != null ? agreeV[i] + '%' : 'no data'}</b>`);
   const la = agreeV.filter(v => v != null).slice(-5);
   el('t-agree').textContent = la.length
     ? `last 5: ${(la.reduce((a, b) => a + b, 0) / la.length).toFixed(1)}%` : 'no data';
@@ -165,7 +203,11 @@ const roll = (vals, w) => vals.map((_, i) => {
   const readAI = M.map(m => m.read_t6_ai ?? null);
   spark(el('sp-read'), [
     {vals: readAI, color: '#5B9BD5', width: 1.2},
-    {vals: readV, color: '#A78BFA', width: 1.4, dots: true}], 25, 90);
+    {vals: readV, color: '#A78BFA', width: 1.4, dots: true}], 25, 90,
+    i => `${fmtDate(M[i].ts)} &middot;
+      you <b style="color:#A78BFA">${readV[i] != null ? readV[i] + '%' : '-'}</b>
+      &middot; AI seats <span style="color:#5B9BD5">${
+        readAI[i] != null ? readAI[i] + '%' : '-'}</span>`);
   const lr = readV.filter(v => v != null).slice(-5),
         lra = readAI.filter(v => v != null).slice(-5);
   el('t-read').textContent = lr.length
@@ -175,7 +217,9 @@ const roll = (vals, w) => vals.map((_, i) => {
 
   const mc = M.map(m => m.moons_conceded ?? null);
   spark(el('sp-moon'), [{vals: mc, color: '#E5484D', width: 1.4, dots: true}],
-    0, Math.max(3, ...mc.filter(v => v != null)));
+    0, Math.max(3, ...mc.filter(v => v != null)),
+    i => `${fmtDate(M[i].ts)} &middot; conceded <b>${mc[i] ?? '-'}</b>
+      &middot; shot ${M[i].moons_shot ?? 0}`);
   el('t-moon').textContent =
     `total: ${mc.reduce((a, b) => a + (b || 0), 0)} conceded · `
     + `${M.reduce((a, m) => a + (m.moons_shot || 0), 0)} shot by you`;
