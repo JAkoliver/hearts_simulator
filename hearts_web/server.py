@@ -17,6 +17,7 @@ Run:  python -m uvicorn hearts_web.server:app --host 0.0.0.0 --port 8642
 """
 import base64
 import hashlib
+import hmac
 import json
 import os
 import secrets
@@ -949,10 +950,94 @@ def compute_review(deal_lines, viewer_seat):
                      'hands.')}
 
 
-@app.get('/api/review')
-def api_review(pid: str, sid: str = None, code: str = None,
-               match_no: int = None):
+# ---------------------------------------------------------------------------
+# Shareable review links: stateless HMAC tokens. A player who was seated in
+# a match can mint a read-only link; the token carries the match identity
+# and the sharer's seat, so the shared view opens from their perspective
+# without any pid. The secret persists across restarts so links stay valid.
+# ---------------------------------------------------------------------------
+_SHARE_SECRET_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                  '.share_secret')
+try:
+    with open(_SHARE_SECRET_PATH, 'rb') as _f:
+        _SHARE_KEY = _f.read()
+    if len(_SHARE_KEY) < 32:
+        raise IOError('short secret')
+except IOError:
+    _SHARE_KEY = secrets.token_bytes(32)
+    with open(_SHARE_SECRET_PATH, 'wb') as _f:
+        _f.write(_SHARE_KEY)
+
+
+def _share_sign(payload: str) -> str:
+    return hmac.new(_SHARE_KEY, payload.encode(),
+                    hashlib.sha256).hexdigest()[:20]
+
+
+def _share_make(kind, ident, match_no, seat):
+    payload = f'{kind}|{ident}|{match_no}|{seat}'
+    tok = base64.urlsafe_b64encode(payload.encode()).decode().rstrip('=')
+    return f'{tok}.{_share_sign(payload)}'
+
+
+def _share_parse(token):
+    try:
+        tok, sig = token.rsplit('.', 1)
+        payload = base64.urlsafe_b64decode(
+            tok + '=' * (-len(tok) % 4)).decode()
+        if not hmac.compare_digest(sig, _share_sign(payload)):
+            return None
+        kind, ident, match_no, seat = payload.split('|')
+        return kind, ident, int(match_no), int(seat)
+    except Exception:
+        return None
+
+
+@app.get('/api/share')
+def api_share(pid: str, sid: str = None, code: str = None,
+              match_no: int = None):
+    """Mint a read-only share token; ownership rules mirror /api/review."""
     if code:
+        lines = _log_lines_for(f'table:{code.upper()}')
+        if not lines:
+            raise HTTPException(404, 'no recorded deals for this table')
+        want = match_no or max(l.get('match_no', 1) for l in lines)
+        mlines = [l for l in lines if l.get('match_no', 1) == want]
+        if not mlines:
+            raise HTTPException(404, f'no deals for match {want}')
+        seat = next((int(s) for s, p in (mlines[0].get('seat_pids') or {}).items()
+                     if p == pid), None)
+        if seat is None:
+            raise HTTPException(403, 'you were not seated in this match')
+        return {'token': _share_make('t', code.upper(), want, seat)}
+    if sid:
+        lines = [l for l in _log_lines_for(sid) if l.get('pid') == pid]
+        if not lines:
+            raise HTTPException(404, 'no recorded deals for this match')
+        return {'token': _share_make('s', sid, 1, lines[0]['human_seat'])}
+    raise HTTPException(400, 'sid or code required')
+
+
+@app.get('/api/review')
+def api_review(pid: str = None, sid: str = None, code: str = None,
+               match_no: int = None, share: str = None):
+    if share:
+        p = _share_parse(share)
+        if p is None:
+            raise HTTPException(403, 'invalid share link')
+        kind, ident, want, seat = p
+        if kind == 't':
+            lines = [l for l in _log_lines_for(f'table:{ident}')
+                     if l.get('match_no', 1) == want]
+            key = (f'table:{ident}', want)
+        else:
+            lines = _log_lines_for(ident)
+            key = (ident, 1)
+        if not lines:
+            raise HTTPException(404, 'this match is no longer available')
+    elif code:
+        if not pid:
+            raise HTTPException(400, 'pid required')
         lines = _log_lines_for(f'table:{code.upper()}')
         if not lines:
             raise HTTPException(404, 'no recorded deals for this table')
@@ -966,6 +1051,8 @@ def api_review(pid: str, sid: str = None, code: str = None,
             raise HTTPException(403, 'you were not seated in this match')
         key = (f'table:{code.upper()}', want)
     elif sid:
+        if not pid:
+            raise HTTPException(400, 'pid required')
         lines = [l for l in _log_lines_for(sid) if l.get('pid') == pid]
         if not lines:
             raise HTTPException(404, 'no recorded deals for this match')

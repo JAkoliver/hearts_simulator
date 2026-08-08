@@ -66,3 +66,4 @@ cloud_jobs/
 hearts_web/site_config.py
 hearts_web/static/models/
 hearts_web/static/ort/
+hearts_web/.share_secret

@@ -354,6 +354,8 @@
                                  font-size:.9rem; white-space:nowrap; }
   body.mobile #posinfo { order:2; flex-basis:100%; text-align:center;
                          margin:0; }
+  body.mobile #share-pos { order:3; flex:0 0 auto; margin:0 auto;
+                           padding:6px 14px; }
   body.mobile #controls > span:not(#posinfo):not(.legend) { display:none; }
   body.mobile #scrub { height:36px; }
   body.mobile #maincol > .legend { display:none; }
@@ -369,6 +371,8 @@
   <h1>Match review</h1>
   <span id="matchinfo" class="muted"></span>
   <button id="help-btn" title="How this review works">?</button>
+  <button id="share-btn" class="xbtn" style="margin-top:0"
+    title="copy a read-only link to this match review">share</button>
   <span style="flex:1"></span>
   <span class="muted" id="xray-note" style="font-size:.7rem"></span>
 </div>
@@ -458,6 +462,8 @@
       <button id="b-nt" title="next trick (shift+&rarr;)">trick &#9658;</button>
       <button id="b-nd" title="next deal (&darr;)">deal &#9658;&#9658;</button>
       <span id="posinfo"></span>
+      <button id="share-pos" class="xbtn" style="margin-top:0"
+        title="copy a read-only link that opens at exactly this position">link this position</button>
       <span style="flex:1"></span>
       <button id="belief-btn" title="paint Perilune's belief about the hidden cards onto the hands">belief</button>
       <span class="legend">markers: <i style="background:#E5484D"></i>disagreement
@@ -1405,10 +1411,13 @@ el('d-gap').onclick = () => { disSort = 'gap';
 // ---- boot -----------------------------------------------------------------
 (async () => {
   const params = new URLSearchParams();
-  params.set('pid', q.get('pid') || '');
-  if (q.get('code')) { params.set('code', q.get('code'));
-    if (q.get('match_no')) params.set('match_no', q.get('match_no')); }
-  else params.set('sid', q.get('sid') || '');
+  if (q.get('share')) params.set('share', q.get('share'));
+  else {
+    params.set('pid', q.get('pid') || '');
+    if (q.get('code')) { params.set('code', q.get('code'));
+      if (q.get('match_no')) params.set('match_no', q.get('match_no')); }
+    else params.set('sid', q.get('sid') || '');
+  }
   try {
     const r = await fetch(`/api/review?${params}`);
     if (!r.ok) throw new Error((await r.json()).detail || `error ${r.status}`);
@@ -1419,15 +1428,52 @@ el('d-gap').onclick = () => { disSort = 'gap';
     return;
   }
   el('matchinfo').textContent =
-    `${R.deals.length} deals · final ${R.deals[R.deals.length - 1].totals.join(' / ')}`;
+    `${R.deals.length} deals · final ${R.deals[R.deals.length - 1].totals.join(' / ')}`
+    + (q.get('share') ? ' · shared view' : '');
   el('xray-note').textContent = R.note;
   prep();
+  // Position deep link: open scrubbed to the shared moment.
+  if (q.get('pos') !== null && q.get('pos') !== undefined && q.get('pos') !== '') {
+    const p2 = Math.max(0, Math.min(steps.length - 1, +q.get('pos') || 0));
+    cur = p2;
+  }
   renderDis();
   renderScrub();
   renderStrip();
   render();
   addEventListener('resize', renderStrip);
 })();
+
+// ---- shareable links ------------------------------------------------------
+// Stateless HMAC tokens minted by the server; the link is read-only and
+// opens from the sharer's seat perspective. A shared viewer re-shares the
+// same token (they never mint).
+const SHARED = !!q.get('share');
+let _shareTok = SHARED ? q.get('share') : null;
+async function shareLink(btn, withPos) {
+  const orig = btn.textContent;
+  try {
+    if (!_shareTok) {
+      const p = new URLSearchParams({pid: q.get('pid') || ''});
+      if (q.get('code')) { p.set('code', q.get('code'));
+        if (q.get('match_no')) p.set('match_no', q.get('match_no')); }
+      else p.set('sid', q.get('sid') || '');
+      const r = await fetch(`/api/share?${p}`);
+      if (!r.ok) throw new Error((await r.json()).detail || `error ${r.status}`);
+      _shareTok = (await r.json()).token;
+    }
+    let url = `${location.origin}/review?share=${_shareTok}`;
+    if (withPos) url += `&pos=${cur}`;
+    try { await navigator.clipboard.writeText(url); }
+    catch (e) { window.prompt('Copy this link:', url); }
+    btn.textContent = 'copied!';
+  } catch (e) {
+    btn.textContent = 'share failed';
+  }
+  setTimeout(() => { btn.textContent = orig; }, 1600);
+}
+el('share-btn').onclick = () => shareLink(el('share-btn'), false);
+el('share-pos').onclick = () => shareLink(el('share-pos'), true);
 
 // ---- deep analysis (client-side search; runs on the viewer's device) ------
 // A Web Worker drives the WASM engine + onnxruntime-web through the pump
@@ -1441,7 +1487,9 @@ const deepKey = (d, i) => d + '|' + i;
 const passKey = (d, seat) => deepKey(d, 'ps' + seat);
 const cardId = n => 'CDSH'.indexOf(n.slice(-1)) * 13 + cardVal(n);
 const idName = c => RANK_ORDER[c % 13] + 'CDSH'[Math.floor(c / 13)];
-const matchIdent = () => q.get('code')
+const matchIdent = () => q.get('share')
+  ? `S${q.get('share').slice(0, 20)}`
+  : q.get('code')
   ? `T${q.get('code')}#${q.get('match_no') || ''}` : (q.get('sid') || '');
 const passOffset = deal => deal.pass_direction === 'hold' ? 0 : 12;
 // Backend tag rides on every status line - "done (3) · webgpu-fp16" -
