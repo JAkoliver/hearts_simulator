@@ -740,15 +740,25 @@ function showMatchEnd() {
     ? '<button id="rematch-btn">Rematch</button>' +
       '<button id="close-table-btn" class="btn-danger">Close table for everyone</button>'
     : '';
-  el('o-body').innerHTML = '<table><tr><th>Place</th><th>Player</th><th>Score</th></tr>' +
+  // Rematch series: once a table has played 2+ matches, the end screen
+  // doubles as the running scoreboard (wins per seat; tied firsts both
+  // count). One match in, the column would just repeat the placements.
+  const series = mode === 'table' && Array.isArray(state.series_wins)
+    && state.series_played > 1;
+  el('o-body').innerHTML = '<table><tr><th>Place</th><th>Player</th><th>Score</th>'
+    + (series ? '<th>Series</th>' : '') + '</tr>' +
     order.map(s => `<tr><td>${state.placements[s]}</td>
       <td>${seatName(s)}</td>
-      <td>${state.match_scores[s]}</td></tr>`).join('') + '</table>' +
+      <td>${state.match_scores[s]}</td>`
+      + (series ? `<td>${state.series_wins[s]}</td>` : '')
+      + '</tr>').join('') + '</table>' +
+    (series ? `<p class="sub" style="opacity:.75; margin:4px 0 0">Series wins
+       over ${state.series_played} matches at this table</p>` : '') +
     `<div id="lesson" style="display:none; margin-top:10px; text-align:left;
        background:#26262A; border-radius:8px; padding:8px 12px;
        font-size:.85rem"></div>` +
     `<div style="margin-top:8px"><button id="analyze-btn">Analyze match</button>` +
-    `<button id="insight-btn">Quick insights</button>${hostBtns}</div>`;
+    `${hostBtns}</div>`;
   // One to revisit: the match's biggest raw-net disagreement, surfaced
   // without a click. Habit authority - labeled as Perilune's PICK, with
   // the review one tap away for the deep-search verdict.
@@ -794,7 +804,6 @@ function showMatchEnd() {
     else p.set('sid', sid);
     window.open(`/review?${p}`, '_blank');
   };
-  el('insight-btn').onclick = showInsights;
   if (mode === 'table' && state.you_host) {
     el('rematch-btn').onclick = async () => {
       try { handleTableState(await api('/api/table/rematch', POSTJSON({code: tcode, pid}))); }
@@ -813,34 +822,6 @@ function showMatchEnd() {
     if (mode === 'table') leaveTable(); else newMatch();
   };
   el('overlay').style.display = 'flex';
-}
-
-// Post-match insight: the net re-judges every play you made this match.
-async function showInsights() {
-  el('o-body').innerHTML = 'Analyzing your match&hellip;';
-  try {
-    const path = mode === 'table'
-      ? `/api/table/insight/${tcode}?pid=${encodeURIComponent(pid)}`
-      : `/api/insight/${sid}?pid=${encodeURIComponent(pid)}`;
-    const r = await api(path);
-    let html = `<p>Perilune agreed with <b>${r.n_agree} of ${r.n_decisions}</b>
-      of your plays (${r.agree_pct}%).</p>`;
-    if (r.disagreements.length) {
-      html += '<table><tr><th>Deal</th><th>Trick</th><th>You</th><th>Perilune</th></tr>' +
-        r.disagreements.map(d =>
-          `<tr><td>${d.deal}</td><td>${d.trick}</td>
-           <td>${cardHTML(d.you, 'mini')}</td><td>${cardHTML(d.ai, 'mini')}</td></tr>`).join('') +
-        '</table>';
-    }
-    html += `<p style="font-size:.75rem; opacity:.7">${esc(r.note)}</p>` +
-            '<div><button id="insight-back">Back</button></div>';
-    el('o-body').innerHTML = html;
-    el('insight-back').onclick = showMatchEnd;
-  } catch (e) {
-    el('o-body').innerHTML = `Insights unavailable: ${esc(e.message)}
-      <div><button id="insight-back">Back</button></div>`;
-    el('insight-back').onclick = showMatchEnd;
-  }
 }
 
 // ---- table mode (multi-human) --------------------------------------------
@@ -1025,6 +1006,8 @@ function renderLobby(ts) {
   el('o-body').innerHTML =
     '<p class="sub" style="opacity:.75">Share this code with up to 3 friends'
     + ' &middot; AI fills empty seats.</p>'
+    + '<p style="margin:2px 0 6px"><button id="lobby-invite">Copy invite link'
+    + '</button></p>'
     + '<div id="lobby-players">'
     + ts.players.map(n => `<span class="pchip">${esc(n)}</span>`).join('')
     + '</div>'
@@ -1050,6 +1033,20 @@ function renderLobby(ts) {
       : (ts.tier_label
           ? `<p style="opacity:.7">AI difficulty: ${esc(ts.tier_label)}</p>` : '')
         + '<p style="opacity:.7">Waiting for the host to start&hellip;</p>');
+  el('lobby-invite').onclick = async () => {
+    const url = `${location.origin}/?join=${ts.code}`;
+    const b = el('lobby-invite');
+    try { await navigator.clipboard.writeText(url); }
+    catch (e) {   // no clipboard access (plain http etc.): manual copy
+      window.prompt('Copy this invite link:', url);
+      return;
+    }
+    b.textContent = 'Link copied ✓';
+    setTimeout(() => {
+      const n = el('lobby-invite');
+      if (n) n.textContent = 'Copy invite link';
+    }, 1500);
+  };
   if (ts.you_host) {
     const lt = el('lobby-timer');
     lt.value = localStorage.getItem('hearts_timer') || '60';
@@ -1374,7 +1371,22 @@ async function newMatch() {
 // button, a finished match, or a lost session returns to the menu.
 const _wantMenu = _q.get('menu') === '1';
 if (_wantMenu) history.replaceState(null, '', '/');
+const _joinCode = (_q.get('join') || '').trim().toUpperCase();
+if (_joinCode) history.replaceState(null, '', '/');  // no re-join on refresh
 async function init() {
+  // Invite link (/?join=CODE): join that table directly, before any
+  // saved-session resume - clicking an invite states your intent.
+  if (/^[A-Z0-9]{4}$/.test(_joinCode)) {
+    try {
+      await ensureIdentity();
+      const ts = await api('/api/table/join', POSTJSON({code: _joinCode, pid}));
+      enterTable(ts);
+      return;
+    } catch (e) {
+      showHome(`Couldn't join table ${_joinCode}: ${e.message}`);
+      return;
+    }
+  }
   if (localStorage.getItem(K('hearts_mode')) === 'table') {
     const code = localStorage.getItem(K('hearts_table'));
     if (code) {

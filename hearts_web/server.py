@@ -473,6 +473,8 @@ class Table:
         self.n_actions = 0
         self.finished = False
         self.match_no = 1          # increments on rematch (client epoch)
+        self.series_wins = [0, 0, 0, 0]  # per-seat wins across rematches
+        self.series_played = 0           # completed matches at this table
         self.t0 = time.time()
         self.created = time.time()
         self.last_seen = {host_pid: time.time()}   # pid -> last poll (heartbeat)
@@ -637,9 +639,16 @@ class Table:
             self._snapshot_deal()
         if match_done:
             self.finished = True
+            places = list(self.menv.placements())
+            # Series tally: ties for first each count as a win.
+            self.series_played += 1
+            best = min(places)
+            for s in range(4):
+                if places[s] == best:
+                    self.series_wins[s] += 1
             self.emit('match_end',
                       final=list(map(int, self.menv.match_scores)),
-                      placements=list(self.menv.placements()))
+                      placements=places)
             log_line({'v': LOG_V, 'kind': 'match', 'sid': f'table:{self.code}',
                       'pid': None, 'mode': 'table', 'seed': self.seed,
                       'human_seat': None, 'match_no': self.match_no,
@@ -718,6 +727,8 @@ class Table:
                 'finished': self.finished,
                 'placements': (list(self.menv.placements())
                                if self.finished else None),
+                'series_wins': list(self.series_wins),
+                'series_played': self.series_played,
                 'events': self.events[cursor:], 'cursor': len(self.events)}
 
 
