@@ -1936,6 +1936,20 @@ def table_start(body: TableJoinBody):
         return t.view(body.pid)
 
 
+@app.post('/api/table/speed')
+def table_speed(body: TableJoinBody):
+    """Host-only, any time - lobby or mid-match. Clients pick the new
+    pace up on their next poll (the animator reads it per event)."""
+    t = _get_table(body.code)
+    body.pid = resolve_pid(body.pid)
+    with t.lock:
+        if body.pid != t.host_pid:
+            raise HTTPException(403, 'only the host sets the speed')
+        if body.speed in ('normal', 'fast', 'instant'):
+            t.speed = body.speed
+        return t.view(body.pid, 0)
+
+
 @app.get('/api/table/state/{code}')
 def table_state(code: str, pid: str, cursor: int = 0):
     t = _get_table(code)

@@ -449,7 +449,12 @@ function render() {
     const c = preselect;
     preselect = null;
     if (state.legal.includes(c)) {
-      if (actionable()) { playCard(c); return; }
+      // Defer one tick: render() runs inside the animation's busy window
+      // (submit/pumpEvents clear their flags AFTER it), so an immediate
+      // play is rejected and the queue died. 0ms lands after the flags
+      // clear - instant to the eye, correct to the machine.
+      setTimeout(() => { if (actionable() && state.your_turn) playCard(c); }, 0);
+      return;
     }
     markPreselect();   // clear the stale outline; fall through to normal status
   }
@@ -977,6 +982,7 @@ function handleTableState(ts) {
   // so the display ticks smoothly between 1.5s polls.
   tableDeadline = (!ts.finished && ts.turn_seconds_left != null)
     ? Date.now() + ts.turn_seconds_left * 1000 : null;
+  if (el('speed-btn')) updateSpeedBtn();
   if (fresh.length) { evq.push(...fresh); pumpEvents(); }
   else if (!pumping) render();
 }
@@ -1035,19 +1041,31 @@ function applyTheme(t) {
 let theme = localStorage.getItem('hearts_theme') || 'dark';
 applyTheme(theme);
 function speedLabel() {
-  return `Speed: ${(mode === 'table' && state && state.speed)
-    ? state.speed + ' (host)' : soloSpeed}`;
+  if (mode === 'table' && state && state.speed)
+    return `Speed: ${state.speed}${state.you_host ? ' (table)' : " (host's)"}`;
+  return `Speed: ${soloSpeed}`;
 }
 function updateSpeedBtn() {
   const b = el('speed-btn');
   b.textContent = speedLabel();
-  b.disabled = mode === 'table';   // tables follow the host's setting
+  // at a table only the HOST may change it - mid-match included
+  b.disabled = mode === 'table' && !(state && state.you_host);
 }
-el('speed-btn').onclick = () => {
+el('speed-btn').onclick = async () => {
   const order = ['normal', 'fast', 'instant'];
-  soloSpeed = order[(order.indexOf(soloSpeed) + 1) % order.length];
-  localStorage.setItem('hearts_speed', soloSpeed);
-  updateSpeedBtn();
+  if (mode === 'table') {
+    if (!(state && state.you_host)) return;
+    const next = order[(order.indexOf(state.speed || 'normal') + 1) % 3];
+    try {
+      handleTableState(await api('/api/table/speed',
+        POSTJSON({code: tcode, pid, speed: next})));
+    } catch (e) {}
+    updateSpeedBtn();
+  } else {
+    soloSpeed = order[(order.indexOf(soloSpeed) + 1) % order.length];
+    localStorage.setItem('hearts_speed', soloSpeed);
+    updateSpeedBtn();
+  }
 };
 updateSpeedBtn();
 el('theme-btn').onclick = () => {
