@@ -1,0 +1,11 @@
+{
+ "candidate": "cand_b2f_kl8.pth.ep2.pth",
+ "drift_agreement": 0.97668,
+ "threshold": 0.97,
+ "pass": true,
+ "n_drift": 20025,
+ "telemetry": {
+  "defense_holdout_teacher_match": 0.55138,
+  "mean_entropy_drift_holdout": 0.2957
+ }
+}
