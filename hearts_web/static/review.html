@@ -1936,12 +1936,32 @@ function deepAllDone() {
 }
 // Gray out 'Deep analysis' once every play position is at or above the
 // SELECTED K (raising the dropdown re-arms the pass for the remainder).
+// Progressive depth unlock: K=128 joins the selector once the WHOLE
+// match is analyzed at K>=64, K=256 once it's fully at K>=128 - the
+// expensive tiers earn their place instead of tempting cold starts.
+function updateKOptions() {
+  if (!R || !R.deals) return;
+  const sel = el('deep-k');
+  const want = [16, 32, 64];
+  if (deepJobs(64, true).length === 0) {
+    want.push(128);
+    if (deepJobs(128, true).length === 0) want.push(256);
+  }
+  if (sel.options.length === want.length) return;
+  const cur = +sel.value;
+  sel.innerHTML = want.map(k =>
+    `<option value="${k}"${k === cur ? ' selected' : ''}>K=${k}</option>`)
+    .join('');
+}
+
 function updateDeepBtn() {
+  updateKOptions();
   if (deepRunning) return;
   const done = deepWorker && deepAllDone();
   el('deep-btn').disabled = !!done;
   if (done) dstatus(`all positions analyzed at K≥${el('deep-k').value}`);
 }
+el('deep-k').onchange = () => updateDeepBtn();
 
 function deepDone() {
   deepRunning = false;
