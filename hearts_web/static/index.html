@@ -232,11 +232,13 @@
   .af-tag small { font-weight:400; opacity:.85; }
   .af-tag.on { background:var(--gold); color:#222; font-weight:600; }
   .af-t0 { bottom:5px; left:50%; transform:translateX(-50%); }
-  /* side tags sit ABOVE their card's landing spot (cards center at 50%
-     and stand 48px tall), like the top tag relates to its card */
-  .af-t1 { left:5px; top:calc(50% - 46px); }
+  /* side tags centered on their card's x (cards land at 50% +-70px,
+     stand 48px tall): left tag BELOW its card, right tag above */
+  .af-t1 { left:calc(50% - 70px); transform:translateX(-50%);
+           top:calc(50% + 28px); }
   .af-t2 { top:5px; left:50%; transform:translateX(-50%); }
-  .af-t3 { right:5px; top:calc(50% - 46px); }
+  .af-t3 { left:calc(50% + 70px); transform:translateX(-50%);
+           top:calc(50% - 46px); }
   /* deal-end scoreboard overlay (restored): deal points -> totals */
   .af-scores { position:absolute; inset:0; z-index:3; display:flex;
                flex-direction:column; justify-content:center; gap:3px;
