@@ -916,22 +916,51 @@ function showMatchEnd() {
       if (mode === 'table') { rp.set('code', tcode); rp.set('match_no', state.match_no); }
       else rp.set('sid', sid);
       if (d.idx != null) rp.set('pos', (d.deal - 1) * 53 + 1 + d.idx);
-      box.innerHTML = `<b>One to revisit</b> &middot; deal ${d.deal},
-        trick ${d.trick}: you played ${ctxt(d.you)}, Perilune's pick was
-        ${ctxt(d.ai)} <span style="opacity:.7">(${(d.p_ai * 100).toFixed(0)}%
-        vs ${(d.p_you * 100).toFixed(0)}%)</span> &middot;
-        <a href="/review?${rp}" target="_blank">view this moment</a>
-        <div style="opacity:.6; font-size:.72rem; margin-top:3px">Its
-        opinion, not ground truth &mdash; the review's deep search
-        settles it.</div>
+      const linkFor = dd => {
+        const p2 = new URLSearchParams(devPlayer ? {pid} : {});
+        if (mode === 'table') { p2.set('code', tcode); p2.set('match_no', state.match_no); }
+        else p2.set('sid', sid);
+        if (dd.idx != null) p2.set('pos', (dd.deal - 1) * 53 + 1 + dd.idx);
+        return p2;
+      };
+      const renderLesson = (dd, verdictHtml) => {
+        el('lesson-body').innerHTML = `<b>One to revisit</b> &middot; deal
+          ${dd.deal}, trick ${dd.trick}: you played ${ctxt(dd.you)},
+          Perilune's pick was ${ctxt(dd.ai)}
+          <span style="opacity:.7">(${(dd.p_ai * 100).toFixed(0)}%
+          vs ${(dd.p_you * 100).toFixed(0)}%)</span> &middot;
+          <a href="/review?${linkFor(dd)}" target="_blank">view this moment</a>`
+          + (verdictHtml
+             || `<div style="opacity:.6; font-size:.72rem; margin-top:3px">Its
+                 opinion, not ground truth &mdash; the review's deep search
+                 settles it.</div>`);
+      };
+      box.innerHTML = `<div id="lesson-body"></div>
         <div id="verify-area" style="margin-top:6px; font-size:.76rem"></div>`;
       box.style.display = 'block';
-      // Search-verify the top disagreements on the player's own device
-      // (auto on WebGPU desktops, button elsewhere; results pre-seed
-      // the review's cache). Leaving the end screen cancels it.
+      // Card population is SEARCH-LED (user call 2026-08-09): when the
+      // deep verification auto-runs, the card holds (the spinner sits
+      // where its text will appear) and then features the WORST of the
+      // 3 verified plays; the raw-net card appears immediately only
+      // when search is off/button-gated, and on skip/timeout/error.
+      const auto = window.verifyEnd && verifyEnd.willAutoRun();
+      if (!auto) renderLesson(d);
       if (window.verifyEnd) {
         verifyEnd.begin({list: r.disagreements.slice(0, 3), mode, tcode,
-                         matchNo: state.match_no, sid, pid});
+          matchNo: state.match_no, sid, pid,
+          onDone(results) {
+            let worst = null;
+            for (const res of results) {
+              if (res.gap != null && (!worst || res.gap > worst.gap)) worst = res;
+            }
+            if (worst) renderLesson(worst.dis,
+              `<div style="color:#4CC2FF; font-size:.72rem; margin-top:3px">
+                 deep search verdict: ${worst.txt}</div>`);
+            else renderLesson(d);
+          },
+          onAbort() {
+            if (!el('lesson-body').innerHTML) renderLesson(d);
+          }});
         ['o-btn', 'rematch-btn', 'close-table-btn'].forEach(id => {
           const b2 = el(id);
           if (b2) b2.addEventListener('click',
@@ -1596,6 +1625,6 @@ document.addEventListener('keydown', e => {
 init().then(() => { if (_wantMenu) showHome(); });
 </script>
 <script src="/static/attract.js?v=7"></script>
-<script src="/static/verify_end.js?v=1"></script>
+<script src="/static/verify_end.js?v=2"></script>
 </body>
 </html>

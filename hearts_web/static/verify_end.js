@@ -29,6 +29,11 @@
   const cardId = n => 'CDSH'.indexOf(n.slice(-1)) * 13 + rankVal(n);
 
   const area = () => el('verify-area');
+  let ctx = null;
+  const abort = html => {
+    stop(html);
+    if (ctx && ctx.onAbort) ctx.onAbort();
+  };
   const isMobileUA = () =>
     /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent);
   const autoAllowed = () =>
@@ -42,10 +47,10 @@
   }
 
   function skip() {
-    stop('');
     const n = 1 + (+localStorage.getItem(SKIP_KEY) || 0);
     localStorage.setItem(SKIP_KEY, String(n));
     if (n >= 2) localStorage.setItem(AUTO_KEY, '0');
+    abort('');
   }
 
   function status(msg) {
@@ -82,6 +87,7 @@
   }
 
   async function run(c) {
+    ctx = c;
     status('loading deep search engine…');
     let R, md5 = 'nomd5';
     try {
@@ -98,7 +104,7 @@
         const man = await (await fetch('/static/models/manifest.json')).json();
         md5 = (man.policy_onnx_md5 || '').slice(0, 8);
       } catch (e) {}
-    } catch (e) { stop(''); return; }
+    } catch (e) { abort(''); return; }
 
     const ident = c.mode === 'table'
       ? `T${c.tcode}#${c.matchNo}` : (c.sid || '');
@@ -111,7 +117,7 @@
                  actionIdx: passOffset(R.deals[d.deal - 1]) + d.idx, K,
                  playedId: cardId(d.you), dis: d});
     }
-    if (!jobs.length) { stop(''); return; }
+    if (!jobs.length) { abort(''); return; }
 
     let fp16Bad = false;
     try { fp16Bad = localStorage.getItem('perilune-fp16-bad') === 'v16'; }
@@ -126,13 +132,14 @@
             device)</span></div>${rows}
             <div style="opacity:.6; margin-top:2px">already analyzed in
             the review - open it to explore</div>`);
+      if (c.onDone) c.onDone(results);
     };
 
     worker = new Worker('/static/analysis_worker.js?v=19');
-    capTimer = setTimeout(() => stop(
+    capTimer = setTimeout(() => abort(
       `<span style="opacity:.7">deep verification stopped - too slow on
        this device</span>`), CAP_MS);
-    worker.onerror = () => stop('');
+    worker.onerror = () => abort('');
     worker.onmessage = ev => {
       const m = ev.data;
       if (m.type === 'ready') {
@@ -149,7 +156,7 @@
         const job = jobs.find(j => j.d === m.d && j.i === m.i);
         if (!job) return;
         if (m.desync || !m.actions) {
-          results.push({dis: job.dis, icon: '·', cls: '#A6A6AF',
+          results.push({dis: job.dis, gap: null, icon: '·', cls: '#A6A6AF',
                         txt: 'could not verify'});
           if (results.length >= jobs.length) finish();
           return;
@@ -163,18 +170,28 @@
           const gap = m.mean[ib] - m.mean[ip];
           const se = Math.sqrt(m.se[ib] ** 2 + m.se[ip] ** 2);
           const dp = m.pts ? m.pts[ip] - m.pts[ib] : null;
-          results.push({dis: job.dis, ...verdict(gap, se, dp)});
+          results.push({dis: job.dis, gap, ...verdict(gap, se, dp)});
+        } else {
+          results.push({dis: job.dis, gap: null, icon: '·', cls: '#A6A6AF',
+                        txt: 'could not verify'});
         }
         if (results.length >= jobs.length) finish();
         else status(`deep-verifying… ${results.length}/${jobs.length} done`);
-      } else if (m.type === 'fatal') stop('');
+      } else if (m.type === 'fatal') abort('');
     };
     worker.postMessage({type: 'init', skipFp16: fp16Bad,
                         mobile: isMobileUA()});
   }
 
   // Public entry, called from showMatchEnd's insight callback.
+  // willAutoRun tells the caller whether to HOLD the lesson card (auto
+  // path: card populates from the WORST verified play via onDone) or
+  // render it immediately (button tier / opted out). onAbort fires on
+  // every path that ends without results (skip, timeout, error) so the
+  // caller can fall back to the raw-net card; cancel() (leaving the
+  // screen) deliberately does not - nothing is left to populate.
   window.verifyEnd = {
+    willAutoRun() { return autoAllowed(); },
     begin(c) {
       if (!area() || !c.list || !c.list.length) return;
       if (autoAllowed()) { run(c); return; }
