@@ -30,7 +30,6 @@
   const rev = {m: 1 % N_DEMOS, d: 0, i: 0, nextAt: 0};
 
   const SEATN = ['P1', 'P2', 'P3', 'P4'];
-  const SLOT = ['af-s0', 'af-s1', 'af-s2', 'af-s3'];  // bottom/left/top/right
 
   function dealOf(st) {
     const m = demos[st.m];
@@ -60,37 +59,70 @@
     }
   }
 
+  // Felt skeleton: on-table seat tags (name + running total, active
+  // player gold) around a centered trick area. Rebuilt only when the
+  // (match, deal) key changes so card entry/sweep animations survive
+  // between ticks - a full innerHTML rebuild would replay every drop.
+  function feltSkeleton(box, key) {
+    box.innerHTML = SEATN.map((n, s) =>
+      `<div class="af-tag af-t${s}" id="af-tag${s}"></div>`).join('')
+      + '<div id="attract-trick"></div>';
+    box.dataset.key = key;
+  }
+
+  function updateTags(totals, active) {
+    for (let s = 0; s < 4; s++) {
+      const t = el('af-tag' + s);
+      if (!t) continue;
+      t.textContent = `${SEATN[s]} ${totals[s]}`;
+      t.classList.toggle('on', s === active);
+    }
+  }
+
   function renderPlay() {
+    const match = demos[play.m];
     const deal = dealOf(play);
     if (!deal) return 1000;
     const box = el('attract-felt');
     const cap = el('attract-play-cap');
+    const key = `${play.m}:${play.d}`;
+    if (box.dataset.key !== key || !el('attract-trick')) {
+      feltSkeleton(box, key);
+    }
+    const before = play.d > 0 ? match.deals[play.d - 1].totals : [0, 0, 0, 0];
+    const trickBox = el('attract-trick');
     if (play.i === -1) {
-      box.innerHTML = SLOT.map(c => `<div class="${c}"></div>`).join('');
+      trickBox.innerHTML = '';
+      updateTags(before, -1);
       cap.textContent = deal.pass_dir === 'hold'
         ? `deal ${play.d + 1} - no pass`
         : `deal ${play.d + 1} - passing ${deal.pass_dir}`;
       return 1400;
     }
     if (play.i >= deal.plays.length) {
-      box.innerHTML = `<div class="af-scores">${deal.totals.map((t, s) =>
-        `<div><span>${SEATN[s]}</span><b>${t}</b></div>`).join('')}</div>`;
+      trickBox.innerHTML = '';
+      updateTags(deal.totals, -1);   // the tags ARE the scoreboard
       cap.textContent = `deal ${play.d + 1} scores - lowest wins`;
-      return 2400;
+      return 2000;
     }
-    const tstart = Math.floor(play.i / 4) * 4;
-    const trick = deal.plays.slice(tstart, play.i + 1);
-    box.innerHTML = SLOT.map(c => `<div class="${c}"></div>`).join('');
-    for (const p of trick) {
-      box.getElementsByClassName(SLOT[p.s])[0].innerHTML =
-        cardHTML(p.c, 'mini');
+    const p = deal.plays[play.i];
+    if (play.i % 4 === 0) trickBox.innerHTML = '';   // new trick
+    const div = document.createElement('div');
+    div.className = `atc pos${p.s}`;
+    div.innerHTML = cardHTML(p.c, 'mini');
+    trickBox.appendChild(div);
+    updateTags(before, p.s);
+    if (play.i % 4 === 3) {
+      const w = deal.winners[Math.floor(play.i / 4)];
+      cap.textContent = `${SEATN[w]} takes the trick`;
+      // the game's cadence: a beat to read the trick, then the sweep
+      // glides all four cards toward the winner and fades
+      setTimeout(() => {
+        for (const c of trickBox.children) c.classList.add('sweep' + w);
+      }, 500);
+      return 1450;
     }
-    if (trick.length === 4) {
-      cap.textContent =
-        `${SEATN[deal.winners[Math.floor(play.i / 4)]]} takes the trick`;
-      return 1300;
-    }
-    cap.textContent = `${SEATN[deal.plays[play.i].s]} plays`;
+    cap.textContent = `${SEATN[p.s]} plays`;
     return 650;
   }
 

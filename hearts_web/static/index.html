@@ -213,16 +213,38 @@
              align-self:center; }
   .attract h3 { font-family:'Space Grotesk', system-ui, sans-serif;
                 color:var(--banner); font-size:1rem; margin-bottom:8px; }
-  #attract-felt { position:relative; height:190px; background:#14301F;
-                  border-radius:10px; overflow:hidden; }
-  .af-s0 { position:absolute; left:50%; bottom:8px; transform:translateX(-50%); }
-  .af-s1 { position:absolute; left:12px; top:50%; transform:translateY(-50%); }
-  .af-s2 { position:absolute; left:50%; top:8px; transform:translateX(-50%); }
-  .af-s3 { position:absolute; right:12px; top:50%; transform:translateY(-50%); }
-  .af-scores { padding-top:34px; font-size:.85rem; }
-  .af-scores div { display:flex; justify-content:space-between;
-                   padding:4px 34px; color:var(--text); }
-  .af-scores span { color:var(--muted); }
+  /* demo felt: the real table's radial-gradient grammar, LIGHTENED -
+     the panel behind it is itself table-colored (--overlay-panel sits
+     between --felt and --felt-edge, so the true felt would vanish) */
+  #attract-felt { position:relative; height:190px;
+                  background:radial-gradient(ellipse at center,
+                    #35353B 0%, #242428 100%);
+                  border-radius:10px; overflow:hidden;
+                  box-shadow:0 2px 8px rgba(0,0,0,.45) inset; }
+  body.green #attract-felt {
+    background:radial-gradient(ellipse at center, #2a8a50 0%, #1d6b3c 100%); }
+  /* on-felt seat tags, the game's .seat .tag grammar at demo scale */
+  .af-tag { position:absolute; font-size:.62rem; color:var(--seat-text);
+            background:var(--tag-bg); padding:1px 8px; border-radius:8px;
+            white-space:nowrap; font-variant-numeric:tabular-nums; }
+  .af-tag.on { background:var(--gold); color:#222; font-weight:600; }
+  .af-t0 { bottom:5px; left:50%; transform:translateX(-50%); }
+  .af-t1 { left:5px; top:50%; transform:translateY(-50%); }
+  .af-t2 { top:5px; left:50%; transform:translateX(-50%); }
+  .af-t3 { right:5px; top:50%; transform:translateY(-50%); }
+  /* demo trick cards: same drop entry + sweep-to-winner exit as .tcard */
+  #attract-trick { position:absolute; inset:0; display:flex;
+                   align-items:center; justify-content:center; }
+  .atc { position:absolute; animation:drop .25s ease-out;
+         transition:translate .45s ease-in, opacity .45s ease-in; }
+  .atc.pos0 { translate:0 44px; }
+  .atc.pos1 { translate:-70px 0; }
+  .atc.pos2 { translate:0 -44px; }
+  .atc.pos3 { translate:70px 0; }
+  .atc.sweep0 { translate:0 170px !important; opacity:0; }
+  .atc.sweep1 { translate:-280px 0 !important; opacity:0; }
+  .atc.sweep2 { translate:0 -170px !important; opacity:0; }
+  .atc.sweep3 { translate:280px 0 !important; opacity:0; }
   .af-cap { font-size:.72rem; color:var(--muted); min-height:1.15em;
             margin-top:8px; }
   .af-demo { font-size:.62rem; color:var(--muted); opacity:.8; margin-top:8px; }
@@ -1526,6 +1548,6 @@ document.addEventListener('keydown', e => {
 }, true);
 init().then(() => { if (_wantMenu) showHome(); });
 </script>
-<script src="/static/attract.js?v=1"></script>
+<script src="/static/attract.js?v=2"></script>
 </body>
 </html>
