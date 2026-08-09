@@ -314,6 +314,9 @@
   .vrow.feat { font-size:.82rem; color:var(--text);
                border-bottom:1px solid #333338; padding-bottom:6px;
                margin-bottom:4px; }
+  .vrow.feat .vtx { white-space:nowrap; overflow:hidden;
+                    text-overflow:ellipsis; }
+  .vverdict { grid-column:2 / -1; margin-top:1px; }
   .vic { text-align:center; }
   .vmo { font-variant-numeric:tabular-nums; white-space:nowrap; }
   .vgo { font-size:.7rem; }
@@ -969,15 +972,24 @@ function showMatchEnd() {
         if (order[0].gap == null) { renderLesson(d); return; }
         const rows = order.map((res, i) => {
           const dd = res.dis;
-          const detail = i === 0
-            ? `you played ${ctxt(dd.you)} &mdash; Perilune's pick
-               ${ctxt(dd.ai)} &middot;
-               <span style="color:${res.cls}">${res.txt}</span>`
-            : `<span style="color:${res.cls}">${res.txt}</span>`;
-          return `<div class="vrow${i === 0 ? ' feat' : ''}">
+          // Featured row is TWO deliberate lines: the moment (play
+          // context) on line 1, the verdict alone on line 2 aligned
+          // under the moment column - never a mid-sentence wrap.
+          if (i === 0) {
+            return `<div class="vrow feat">
+              <span class="vic" style="color:${res.cls}">${res.icon}</span>
+              <span class="vmo">deal ${dd.deal}, trick ${dd.trick}</span>
+              <span class="vtx">you played ${ctxt(dd.you)} &mdash;
+                Perilune's pick ${ctxt(dd.ai)}</span>
+              <a class="qlink vgo" href="/review?${linkFor(dd)}"
+                 target="_blank">view</a>
+              <span class="vverdict" style="color:${res.cls}">${res.txt}</span>
+            </div>`;
+          }
+          return `<div class="vrow">
             <span class="vic" style="color:${res.cls}">${res.icon}</span>
             <span class="vmo">deal ${dd.deal}, trick ${dd.trick}</span>
-            <span class="vtx">${detail}</span>
+            <span class="vtx"><span style="color:${res.cls}">${res.txt}</span></span>
             <a class="qlink vgo" href="/review?${linkFor(dd)}"
                target="_blank">view</a></div>`;
         }).join('');
