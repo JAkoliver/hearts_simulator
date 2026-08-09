@@ -174,11 +174,30 @@
     return 1500;
   }
 
+  // A LIVE game behind the menu (Return-to-current-game showing) means
+  // no demos AND no re-enable link - the menu is a pause screen there,
+  // not a landing page.
+  function liveGame() {
+    const r = el('home-resume');
+    return !!r && r.style.display !== 'none';
+  }
+
+  // Visibility is re-derived every tick (the menu opens/closes through
+  // several paths; polling beats hooking them all).
+  function syncVisibility() {
+    const live = liveGame();
+    const on = enabled() && !live;
+    el('attract-play').style.display = on ? '' : 'none';
+    el('attract-review').style.display = on ? '' : 'none';
+    el('attract-show').style.display = (!enabled() && !live) ? '' : 'none';
+  }
+
   function tick() {
-    if (!enabled()) return;
     const home = el('home');
-    const panel = el('attract-play');
     if (!home || home.style.display !== 'flex') return;
+    syncVisibility();
+    if (!enabled() || liveGame()) return;
+    const panel = el('attract-play');
     if (!panel || panel.offsetParent === null) return;   // hidden (mobile)
     const now = Date.now();
     if (now >= play.nextAt) {
@@ -192,20 +211,14 @@
     }
   }
 
-  function setVisible(on) {
-    el('attract-play').style.display = on ? '' : 'none';
-    el('attract-review').style.display = on ? '' : 'none';
-    el('attract-show').style.display = on ? 'none' : '';
-  }
-
   window.attractToggle = function (on) {
     localStorage.setItem(KEY, on ? '1' : '0');
-    setVisible(on);
+    syncVisibility();
   };
 
   async function boot() {
     if (!el('attract-play')) return;
-    setVisible(enabled());
+    syncVisibility();
     for (let i = 0; i < N_DEMOS; i++) {
       try {
         demos[i] = await (await fetch(`/static/demo/match_${i}.json?v=1`)).json();
