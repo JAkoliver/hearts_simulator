@@ -294,6 +294,12 @@
                    color:var(--banner); margin-bottom:10px; }
   #help-modal p { margin:7px 0; color:var(--text); }
   #help-modal b { color:var(--banner); }
+  /* end-screen verification spinner */
+  @keyframes vspin { to { transform:rotate(360deg); } }
+  .vring { display:inline-block; width:11px; height:11px;
+           border:2px solid var(--tag-bg); border-top-color:var(--gold);
+           border-radius:50%; animation:vspin .9s linear infinite;
+           vertical-align:-2px; }
   #home-history { margin-top:14px; border-top:1px solid #2E2E33; padding-top:8px;
                   text-align:left; }
   #home-history h4 { font-size:.7rem; color:var(--muted); text-transform:uppercase;
@@ -917,8 +923,21 @@ function showMatchEnd() {
         <a href="/review?${rp}" target="_blank">view this moment</a>
         <div style="opacity:.6; font-size:.72rem; margin-top:3px">Its
         opinion, not ground truth &mdash; the review's deep search
-        settles it.</div>`;
+        settles it.</div>
+        <div id="verify-area" style="margin-top:6px; font-size:.76rem"></div>`;
       box.style.display = 'block';
+      // Search-verify the top disagreements on the player's own device
+      // (auto on WebGPU desktops, button elsewhere; results pre-seed
+      // the review's cache). Leaving the end screen cancels it.
+      if (window.verifyEnd) {
+        verifyEnd.begin({list: r.disagreements.slice(0, 3), mode, tcode,
+                         matchNo: state.match_no, sid, pid});
+        ['o-btn', 'rematch-btn', 'close-table-btn'].forEach(id => {
+          const b2 = el(id);
+          if (b2) b2.addEventListener('click',
+            () => verifyEnd.cancel(), {once: true});
+        });
+      }
     } catch (e) {}
   })();
   // Full review opens in its OWN TAB reading the telemetry log - a host
@@ -1577,5 +1596,6 @@ document.addEventListener('keydown', e => {
 init().then(() => { if (_wantMenu) showHome(); });
 </script>
 <script src="/static/attract.js?v=7"></script>
+<script src="/static/verify_end.js?v=1"></script>
 </body>
 </html>
