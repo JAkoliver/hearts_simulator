@@ -14,6 +14,8 @@
                  font-size:1.25rem; font-weight:700; color:#ECECEC;
                  letter-spacing:.01em; text-decoration:none; }
   #siteband .t:hover { color:#E8B923; }
+  #siteband svg { display:inline-block !important; width:20px !important;
+                  height:20px !important; }
   #sitenav { position:absolute; top:50%; transform:translateY(-50%);
              right:10px; }
   #sitenav-btn { font-size:.75rem; padding:4px 12px; background:#26262A;
@@ -43,7 +45,7 @@
       fill="#E5484D"/></svg>Perilune</a>
     <div id="sitenav"><button id="sitenav-btn">Menu</button>
       <div id="sitenav-dd">
-        <a href="/">Play</a>
+        <a href="/?menu=1">Play</a>
         <a href="/leaderboard">Leaderboard</a>
         <a href="/progress">Your progress</a>
         <a href="/account">Account</a>

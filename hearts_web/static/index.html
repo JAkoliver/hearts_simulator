@@ -266,7 +266,10 @@
   <button id="o-btn"></button>
 </div></div>
 
-<div id="home"><div class="opanel">
+<div id="home"><div class="opanel" style="position:relative">
+  <button id="home-close" title="back to the game (Esc)" style="display:none;
+    position:absolute; top:8px; right:10px; background:none; border:0;
+    color:#A6A6AF; font-size:1.25rem; cursor:pointer; padding:2px 8px">&times;</button>
   <h2>Hearts</h2>
   <div class="hrow" id="home-resume" style="display:none">
     <button id="home-resume-btn">Return to current game</button></div>
@@ -812,8 +815,15 @@ function showHome(err) {
   const active = !!(state && !state.finished
     && ((mode === 'solo' && sid) || (mode === 'table' && tcode)));
   el('home-resume').style.display = active ? 'block' : 'none';
+  el('home-close').style.display = active ? 'block' : 'none';
   loadHistory();
 }
+el('home-close').onclick = () => hideHome();
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && el('home').style.display === 'flex'
+      && el('home-close').style.display !== 'none')
+    hideHome();
+});
 // Leaving a table mid-game frees the seat server-side; abandoned solo
 // sessions just age out of the registry.
 function abandonCurrent() {
@@ -1264,6 +1274,8 @@ async function newMatch() {
 }
 // Refreshing resumes the ongoing game (solo session or table); the reset
 // button, a finished match, or a lost session returns to the menu.
+const _wantMenu = _q.get('menu') === '1';
+if (_wantMenu) history.replaceState(null, '', '/');
 async function init() {
   if (localStorage.getItem(K('hearts_mode')) === 'table') {
     const code = localStorage.getItem(K('hearts_table'));
@@ -1306,7 +1318,7 @@ if (DEV_CONTROLS) {
     else showHome();
   };
 }
-init();
+init().then(() => { if (_wantMenu) showHome(); });
 </script>
 </body>
 </html>
