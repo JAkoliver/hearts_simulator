@@ -439,6 +439,7 @@ class Table:
                             for _ in range(cfg.CODE_LEN))
         self.tier = _norm_tier(tier)
         self.timer_s = TURN_TIMER_S   # host-set at start (0 = no timer)
+        self.speed = 'normal'         # host-set animation pace
         self.turn_deadline = None   # AFK timer for the blocking human seat
         self.timeouts = []          # indices into deal_actions auto-played
         self.state = 'lobby'
@@ -647,7 +648,8 @@ class Table:
         self.last_seen[pid] = time.time()
         self.departed.discard(pid)
         base = {'code': self.code, 'state': self.state, 'target': TARGET,
-                'tier': self.tier, 'tier_label': TIERS[self.tier]['label']}
+                'tier': self.tier, 'tier_label': TIERS[self.tier]['label'],
+                'speed': self.speed}
         if self.state == 'playing' and self.turn_deadline is not None:
             base['turn_seconds_left'] = max(
                 0, int(self.turn_deadline - time.time()))
@@ -1874,6 +1876,7 @@ class TableJoinBody(BaseModel):
     pid: str
     name: str | None = None
     timer_s: int | None = None   # host's turn-timer choice, sent with start
+    speed: str | None = None     # host's animation pace, sent with start
 
 
 class TableActBody(BaseModel):
@@ -1927,6 +1930,8 @@ def table_start(body: TableJoinBody):
         if t.state == 'lobby':
             if body.timer_s in (0, 30, 60, 90, 120):
                 t.timer_s = body.timer_s
+            if body.speed in ('normal', 'fast', 'instant'):
+                t.speed = body.speed
             t.start()
         return t.view(body.pid)
 

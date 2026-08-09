@@ -227,7 +227,7 @@
 </head>
 <body>
 <header>
-<div id="theme-toggle"><button id="theme-btn"></button></div>
+<div id="theme-toggle"><button id="speed-btn" title="animation speed - cycle normal / fast / instant (tables follow the host's lobby setting)"></button><button id="theme-btn"></button></div>
 <div id="menu-btn-wrap"><button id="menu-btn">Menu</button></div>
   <svg class="logo" width="20" height="20" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#00000055"/><path d="M11 27 V7 H17.5 a6.5 6.5 0 0 1 0 13 H11" fill="none" stroke="#ECECEC" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="25.2" cy="7.6" r="3.1" fill="#E5484D"/></svg>
   <h1>Perilune</h1>
@@ -295,7 +295,18 @@
 
 <script>
 const SUIT_CHAR = {C:'♣', D:'♦', S:'♠', H:'♥'};
-const AI_DELAY = 800, PASS_DELAY = 150, TRICK_PAUSE = 2000, DEAL_PAUSE = 400;
+const PASS_DELAY = 150;
+// Pacing tiers. Solo: player's persisted choice, changeable live.
+// Tables: the HOST's choice, distributed via table state to all seats.
+const SPEEDS = {
+  normal:  {ai: 800, trick: 2000, deal: 400, sweep: 450},
+  fast:    {ai: 280, trick: 800,  deal: 200, sweep: 250},
+  instant: {ai: 0,   trick: 260,  deal: 0,   sweep: 120},
+};
+let soloSpeed = localStorage.getItem('hearts_speed') || 'normal';
+if (!SPEEDS[soloSpeed]) soloSpeed = 'normal';
+const pace = () => SPEEDS[(mode === 'table' && state && SPEEDS[state.speed])
+  ? state.speed : soloSpeed];
 const DEV_CONTROLS = true;   // set false to hide testing controls (reset button)
 const RANKS = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'], SUITS = 'CDSH';
 const cardName = c => RANKS[c % 13] + SUITS[Math.floor(c / 13)];
@@ -438,9 +449,7 @@ function render() {
     const c = preselect;
     preselect = null;
     if (state.legal.includes(c)) {
-      setStatus('Playing your queued card&hellip;');
-      setTimeout(() => { if (actionable() && state.your_turn) playCard(c); }, 200);
-      return;
+      if (actionable()) { playCard(c); return; }
     }
     markPreselect();   // clear the stale outline; fall through to normal status
   }
@@ -594,7 +603,8 @@ async function animate(events, preTrick = []) {
         if (n) n.remove();
       }
       if (!dimmed && i > lastTE && canDim()) { dimmed = true; applyLegality(); }
-      await sleep(ev.seat === state.your_seat ? 120 : AI_DELAY);
+      await sleep(ev.seat === state.your_seat
+        ? Math.min(120, pace().ai) : pace().ai);
     } else if (ev.type === 'trick_end') {
       renderTrick(ev.cards);
       el('banner').textContent = ev.winner === null ? '' :
@@ -605,13 +615,13 @@ async function animate(events, preTrick = []) {
         dimmed = true;
         applyLegality();   // you lead next: lead legality is known now
       }
-      await sleep(TRICK_PAUSE - 450);
+      await sleep(Math.max(0, pace().trick - pace().sweep));
       // Sweep the trick toward the winner, then clear.
       if (ev.winner !== null) {
         const p = pos(ev.winner);
         document.querySelectorAll('#trick .tcard').forEach(n =>
           n.classList.add(`sweep${p}`));
-        await sleep(450);
+        await sleep(pace().sweep);
       }
       el('banner').textContent = '';
       shown = [];
@@ -630,7 +640,7 @@ async function animate(events, preTrick = []) {
       if (state.finished) continue;   // match over: skip the deal popup,
                                       // only the end-game screen shows
       await showDealEnd(ev);
-      await sleep(DEAL_PAUSE);
+      await sleep(pace().deal);
     }
   }
 }
@@ -664,8 +674,34 @@ function showMatchEnd() {
     order.map(s => `<tr><td>${state.placements[s]}</td>
       <td>${seatName(s)}</td>
       <td>${state.match_scores[s]}</td></tr>`).join('') + '</table>' +
+    `<div id="lesson" style="display:none; margin-top:10px; text-align:left;
+       background:#26262A; border-radius:8px; padding:8px 12px;
+       font-size:.85rem"></div>` +
     `<div style="margin-top:8px"><button id="analyze-btn">Analyze match</button>` +
     `<button id="insight-btn">Quick insights</button>${hostBtns}</div>`;
+  // One to revisit: the match's biggest raw-net disagreement, surfaced
+  // without a click. Habit authority - labeled as Perilune's PICK, with
+  // the review one tap away for the deep-search verdict.
+  (async () => {
+    try {
+      const path = mode === 'table'
+        ? `/api/table/insight/${tcode}?pid=${encodeURIComponent(pid)}`
+        : `/api/insight/${sid}?pid=${encodeURIComponent(pid)}`;
+      const r = await api(path);
+      const d = (r.disagreements || [])[0];
+      const box = el('lesson');
+      if (!d || !box) return;
+      box.innerHTML = `<b>One to revisit</b> &middot; deal ${d.deal},
+        trick ${d.trick}: you played ${cardHTML(d.you, 'mini')} &mdash;
+        Perilune's pick was ${cardHTML(d.ai, 'mini')}
+        <span style="opacity:.7">(${(d.p_ai * 100).toFixed(0)}% vs
+        ${(d.p_you * 100).toFixed(0)}%)</span>
+        <div style="opacity:.6; font-size:.72rem; margin-top:3px">Its
+        opinion, not ground truth &mdash; Analyze match runs the deep
+        search that settles it.</div>`;
+      box.style.display = 'block';
+    } catch (e) {}
+  })();
   // Full review opens in its OWN TAB reading the telemetry log - a host
   // rematch or table close cannot disturb it, and this tab stays free to
   // follow the rematch.
@@ -739,6 +775,7 @@ function setMode(m, code) {
   localStorage.setItem(K('hearts_mode'), m);
   if (code) localStorage.setItem(K('hearts_table'), code);
   else localStorage.removeItem(K('hearts_table'));
+  if (el('speed-btn')) updateSpeedBtn();
 }
 function showHome(err) {
   tableDeadline = null;
@@ -881,12 +918,21 @@ function renderLobby(ts) {
              <option value="90">90s</option>
              <option value="120">2 min</option>
            </select></p>
+         <p style="opacity:.7">Play speed:
+           <select id="lobby-speed">
+             <option value="normal">Normal</option>
+             <option value="fast">Fast</option>
+             <option value="instant">Instant</option>
+           </select></p>
          <p style="opacity:.7">AI fills any empty seats.</p>`
       : '<p style="opacity:.7">Waiting for the host to start&hellip;</p>');
   if (ts.you_host) {
     const lt = el('lobby-timer');
     lt.value = localStorage.getItem('hearts_timer') || '60';
     lt.onchange = () => localStorage.setItem('hearts_timer', lt.value);
+    const ls = el('lobby-speed');
+    ls.value = localStorage.getItem('hearts_speed') || 'normal';
+    ls.onchange = () => localStorage.setItem('hearts_speed', ls.value);
   }
   const b = el('o-btn');
   if (ts.you_host) {
@@ -896,7 +942,8 @@ function renderLobby(ts) {
       try {
         handleTableState(await api('/api/table/start',
           POSTJSON({code: tcode, pid,
-                    timer_s: +el('lobby-timer').value})));
+                    timer_s: +el('lobby-timer').value,
+                    speed: el('lobby-speed').value})));
       } catch (e) { setStatus('Error: ' + e.message); }
     };
   } else b.style.display = 'none';
@@ -987,6 +1034,22 @@ function applyTheme(t) {
 }
 let theme = localStorage.getItem('hearts_theme') || 'dark';
 applyTheme(theme);
+function speedLabel() {
+  return `Speed: ${(mode === 'table' && state && state.speed)
+    ? state.speed + ' (host)' : soloSpeed}`;
+}
+function updateSpeedBtn() {
+  const b = el('speed-btn');
+  b.textContent = speedLabel();
+  b.disabled = mode === 'table';   // tables follow the host's setting
+}
+el('speed-btn').onclick = () => {
+  const order = ['normal', 'fast', 'instant'];
+  soloSpeed = order[(order.indexOf(soloSpeed) + 1) % order.length];
+  localStorage.setItem('hearts_speed', soloSpeed);
+  updateSpeedBtn();
+};
+updateSpeedBtn();
 el('theme-btn').onclick = () => {
   theme = theme === 'green' ? 'dark' : 'green';
   localStorage.setItem('hearts_theme', theme);
