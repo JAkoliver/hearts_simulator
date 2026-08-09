@@ -46,6 +46,9 @@
   .seat .tag, #overlay td, #overlay th { font-variant-numeric:tabular-nums; }
   #overlay h2, #home h2 { font-family:'Space Grotesk', system-ui, sans-serif; }
   footer a { color:var(--muted); }
+  #lesson a { color:var(--muted); text-decoration:none;
+              border-bottom:1px dotted var(--muted); }
+  #lesson a:hover { color:var(--gold); border-bottom-color:var(--gold); }
   #home-progress, .qlink, #key-restore { color:var(--muted);
     text-decoration:none; border-bottom:1px dotted var(--muted); }
   #home-progress:hover, .qlink:hover, #key-restore:hover {
@@ -666,7 +669,11 @@ function showDealEnd(ev) {
   });
 }
 
+let _endShownFor = null;
 function showMatchEnd() {
+  const endKey = mode === 'table' ? `${tcode}:${state.match_no}` : sid;
+  if (_endShownFor === endKey) return;   // finished-poll re-renders: keep
+  _endShownFor = endKey;                 // the built overlay, no refetch
   const order = [0,1,2,3].sort((a,b) => state.placements[a] - state.placements[b]);
   const p = state.placements[state.your_seat];
   el('o-title').textContent = p === 1 ? 'You won the match!' :
@@ -794,6 +801,8 @@ function setMode(m, code) {
   if (el('speed-btn')) updateSpeedBtn();
 }
 function showHome(err) {
+  _endShownFor = null;   // returning to a finished match rebuilds its screen
+
   tableDeadline = null;
   el('home').style.display = 'flex';
   el('home-err').textContent = err || '';
