@@ -69,3 +69,20 @@ hearts_web/static/ort/
 hearts_web/.share_secret
 hearts_web/player_names.jsonl
 hearts_web/player_keys.jsonl
+
+# ====================================================================
+# Live-site operations & player data (release boundary: never public,
+# see docs/RELEASE_PLAN.md sec. 2/6 and docs/site_security_design.md)
+# ====================================================================
+hearts_web/match_logs.jsonl
+logs/
+# Tunnel infrastructure + machine-specific schedule launchers
+RUN_TUNNEL.cmd
+TUNNEL_HELPER.ps1
+MORNING_TO_GENTLE.cmd
+PAUSE_V2_EXPERIMENT.cmd
+RESUME_V2_EXPERIMENT.cmd
+RUN_FAST_GEN_NIGHT.cmd
+STOP_GEN_*.cmd
+# Local WASM/node build tree (regenerable)
+node_build/
