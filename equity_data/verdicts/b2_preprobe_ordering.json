@@ -1,0 +1,26 @@
+[
+ {
+  "arm": "kl4ep1",
+  "moons_per_match": 2.375,
+  "paired_delta": -0.062,
+  "n_pairs": 16
+ },
+ {
+  "arm": "kl8ep1",
+  "moons_per_match": 2.375,
+  "paired_delta": -0.062,
+  "n_pairs": 16
+ },
+ {
+  "arm": "kl8ep2",
+  "moons_per_match": 2.375,
+  "paired_delta": -0.062,
+  "n_pairs": 16
+ },
+ {
+  "arm": "kl4ep2",
+  "moons_per_match": 2.562,
+  "paired_delta": 0.125,
+  "n_pairs": 16
+ }
+]
