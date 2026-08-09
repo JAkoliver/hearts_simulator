@@ -141,6 +141,11 @@ _idx_history = {}
 # match was played against; each era keeps every player's single best
 # SOLE solo win vs the full tier. Archived eras stay browsable forever.
 _lb = {}          # era(md5[:12]) -> {canonical_pid: entry}
+# Matches with a logged summary line - i.e. FINISHED. Reviews/insights/
+# share-minting gate on this: the review payload carries the match SEED,
+# and one seed drives every future deal of the match, so a mid-match
+# review would let a player simulate all remaining hands.
+_finished_matches = set()   # (sid, match_no)
 
 
 def _index_add(d, off):
@@ -153,6 +158,7 @@ def _index_add(d, off):
         if d.get('seat_pids') and key not in _idx_seatpids:
             _idx_seatpids[key] = d['seat_pids']
     elif kind == 'match':
+        _finished_matches.add((d['sid'], d.get('match_no', 1)))
         if d.get('mode') == 'table':
             sp = d.get('seat_pids') or _idx_seatpids.get(key, {})
             for s, p in sp.items():
@@ -1030,11 +1036,15 @@ def api_share(pid: str, sid: str = None, code: str = None,
                      if p == pid), None)
         if seat is None:
             raise HTTPException(403, 'you were not seated in this match')
+        if (f'table:{code.upper()}', want) not in _finished_matches:
+            raise HTTPException(409, 'sharing opens when the match ends')
         return {'token': _share_make('t', code.upper(), want, seat)}
     if sid:
         lines = [l for l in _log_lines_for(sid) if l.get('pid') == pid]
         if not lines:
             raise HTTPException(404, 'no recorded deals for this match')
+        if (sid, 1) not in _finished_matches:
+            raise HTTPException(409, 'sharing opens when the match ends')
         return {'token': _share_make('s', sid, 1, lines[0]['human_seat'])}
     raise HTTPException(400, 'sid or code required')
 
@@ -1082,6 +1092,8 @@ def api_review(pid: str = None, sid: str = None, code: str = None,
         key = (sid, 1)
     else:
         raise HTTPException(400, 'sid or code required')
+    if key not in _finished_matches:
+        raise HTTPException(409, 'the review opens when the match ends')
     cached = _review_cache.get(key)
     if cached is None or cached['n_deals'] != len(lines):
         cached = {'n_deals': len(lines),
@@ -1709,6 +1721,8 @@ def _log_lines_for(sid):
 @app.get('/api/insight/{sid}')
 def solo_insight(sid: str, pid: str):
     pid = resolve_pid(pid)
+    if (sid, 1) not in _finished_matches:
+        raise HTTPException(409, 'insights open when the match ends')
     lines = [l for l in _log_lines_for(sid) if l.get('pid') == pid]
     if not lines:
         raise HTTPException(404, 'no recorded deals for this match')
@@ -1722,6 +1736,8 @@ def table_insight(code: str, pid: str):
     if not lines:
         raise HTTPException(404, 'no recorded deals for this table')
     latest = max(l.get('match_no', 1) for l in lines)
+    if (f'table:{code.upper()}', latest) not in _finished_matches:
+        raise HTTPException(409, 'insights open when the match ends')
     lines = [l for l in lines if l.get('match_no', 1) == latest]
     seat = next((int(s) for s, p in (lines[0].get('seat_pids') or {}).items()
                  if p == pid), None)
