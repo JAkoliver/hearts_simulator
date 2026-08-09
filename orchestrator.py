@@ -552,6 +552,11 @@ def main():
             ledger["baseline_score"] = new_mean
             write_ledger(ledger)
             
+            # The webapp serves ONLY promoted weights (hearts_web_model.pth);
+            # the chain's hearts_model_final.pth holds unpromoted candidates
+            # mid-trial and must never reach the site.
+            shutil.copy('hearts_model_final.pth', 'hearts_web_model.pth')
+            print("Webapp deployment weights refreshed (hearts_web_model.pth).")
             print("Automating C++ deployment... Tracing network architecture...")
             export_res = subprocess.run(["python", "export.py"])
             if export_res.returncode == 0:

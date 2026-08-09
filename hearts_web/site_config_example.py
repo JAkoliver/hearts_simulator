@@ -8,7 +8,7 @@ instrument, keep the operations).
 
 # Checkpoint the AI seats play with. The live site may run weights that
 # are newer than any released checkpoint.
-MODEL_PATH = 'hearts_model_final.pth'
+MODEL_PATH = 'hearts_web_model.pth'
 
 # Per-IP rate limits, applied only to tunneled traffic (CF-Connecting-IP
 # present): (max requests, window seconds).

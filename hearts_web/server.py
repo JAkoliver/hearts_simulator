@@ -137,6 +137,10 @@ def _norm_tier(t):
 _idx_deals = {}
 _idx_seatpids = {}
 _idx_history = {}
+# Leaderboard (per MODEL ERA, option-b design): era = the model md5 the
+# match was played against; each era keeps every player's single best
+# SOLE solo win vs the full tier. Archived eras stay browsable forever.
+_lb = {}          # era(md5[:12]) -> {canonical_pid: entry}
 
 
 def _index_add(d, off):
@@ -163,6 +167,20 @@ def _index_add(d, off):
                 {'mode': 'solo', 'sid': d['sid'], 'ts': d['ts'],
                  'deals': d['deals'], 'seat': seat,
                  'place': d['placements'][seat], 'final': d['final']})
+            # Leaderboard: SOLE first place (tied placements are floats,
+            # so == 1 excludes them), solo, full tier only (tier absent =
+            # the pre-tier era, which was all full-strength).
+            if (d.get('tier') in (None, 'full')
+                    and d['placements'][seat] == 1):
+                era = (d.get('model') or 'unknown')[:12]
+                score = int(d['final'][seat])
+                e = _lb.setdefault(era, {})
+                cur = e.get(d['pid'])
+                # strictly-better replaces; equal keeps the EARLIER win
+                if cur is None or score < cur['score']:
+                    e[d['pid']] = {'canon': d['pid'], 'score': score,
+                                   'deals': d['deals'], 'ts': d['ts'],
+                                   'sid': d['sid'], 'seat': seat}
 
 
 def _build_log_index():
@@ -1637,6 +1655,36 @@ def account_page():
 def player_page(slug: str):
     return FileResponse(os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                      'static', 'progress.html'))
+
+
+@app.get('/api/leaderboard')
+def api_leaderboard(era: str = None):
+    """Current model-era board by default; archived eras by md5. Every
+    row links its winning match via a minted share token - every score
+    is verifiable by inspection."""
+    cur_era = MODEL_MD5[:12]
+    e = (era or cur_era)[:12]
+    with _log_lock:
+        entries = list(_lb.get(e, {}).values())
+        eras = [{'era': k, 'n': len(v),
+                 'latest': max(r['ts'] for r in v.values())}
+                for k, v in _lb.items() if v]
+    entries.sort(key=lambda r: (r['score'], r['ts']))
+    rows = []
+    for i, r in enumerate(entries[:100]):
+        nm = codename_of(r['canon'])
+        rows.append({'rank': i + 1, 'name': nm, 'slug': _name_slug(nm),
+                     'score': r['score'], 'deals': r['deals'], 'ts': r['ts'],
+                     'share': _share_make('s', r['sid'], 1, r['seat'])})
+    eras.sort(key=lambda x: x['latest'], reverse=True)
+    return {'era': e, 'current': e == cur_era, 'current_era': cur_era,
+            'eras': eras, 'rows': rows}
+
+
+@app.get('/leaderboard')
+def leaderboard_page():
+    return FileResponse(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                     'static', 'leaderboard.html'))
 
 
 def _log_lines_for(sid):
