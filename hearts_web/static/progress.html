@@ -462,8 +462,9 @@ const roll = (vals, w) => vals.map((_, i) => {
         <td>${n ? pct.toFixed(1) + '%' : '-'}</td><td class="muted">${n}</td></tr>`;
     }).join('');
 
-  // band 5: match list - 5 newest, the rest behind one click (the charts
-  // above always use the FULL history; only the list collapses)
+  // band 5: match list - 5 newest; 'load more' opens a 10-row window
+  // paged through the full history with newer/older controls (the
+  // charts above always use the FULL history; only the list windows)
   const newest = [...M].reverse();
   const mrow = m => {
     const href = PLAYER
@@ -476,17 +477,42 @@ const roll = (vals, w) => vals.map((_, i) => {
       <td>${m.agree_pct != null ? m.agree_pct + '%' : '-'}</td>
       <td><a href="${href}">review</a></td></tr>`;
   };
-  const renderList = all => {
-    el('mlist').innerHTML =
-      '<tr><th>date</th><th>match</th><th>place</th><th>deals</th><th>agree</th><th></th></tr>'
-      + (all ? newest : newest.slice(0, 5)).map(mrow).join('')
-      + (!all && newest.length > 5
-         ? `<tr><td colspan="6"><a href="#" id="mlist-more">show all ${
-             newest.length} matches</a></td></tr>` : '');
-    const mm = el('mlist-more');
-    if (mm) mm.onclick = e => { e.preventDefault(); renderList(true); };
+  // mode: null = compact 5; otherwise the start index of a 10-row page
+  let pageStart = null;
+  const HEAD =
+    '<tr><th>date</th><th>match</th><th>place</th><th>deals</th><th>agree</th><th></th></tr>';
+  const renderList = () => {
+    if (pageStart === null) {
+      el('mlist').innerHTML = HEAD + newest.slice(0, 5).map(mrow).join('')
+        + (newest.length > 5
+           ? `<tr><td colspan="6"><a href="#" id="mlist-more">load more</a></td></tr>`
+           : '');
+      const mm = el('mlist-more');
+      if (mm) mm.onclick = e => { e.preventDefault(); pageStart = 0; renderList(); };
+      return;
+    }
+    const page = newest.slice(pageStart, pageStart + 10);
+    const hasNewer = pageStart > 0;
+    const hasOlder = pageStart + 10 < newest.length;
+    const from = pageStart + 1, to = pageStart + page.length;
+    el('mlist').innerHTML = HEAD + page.map(mrow).join('')
+      + `<tr><td colspan="6" style="text-align:center">
+           <a href="#" id="mlist-newer"
+              style="visibility:${hasNewer ? 'visible' : 'hidden'}">&larr; newer</a>
+           <span class="muted" style="margin:0 14px">${from}-${to} of ${newest.length}</span>
+           <a href="#" id="mlist-older"
+              style="visibility:${hasOlder ? 'visible' : 'hidden'}">older &rarr;</a>
+         </td></tr>`;
+    el('mlist-newer').onclick = e => {
+      e.preventDefault();
+      if (hasNewer) { pageStart = Math.max(0, pageStart - 10); renderList(); }
+    };
+    el('mlist-older').onclick = e => {
+      e.preventDefault();
+      if (hasOlder) { pageStart += 10; renderList(); }
+    };
   };
-  renderList(false);
+  renderList();
 })();
 </script>
 <script src="/static/nav.js?v=5"></script>
