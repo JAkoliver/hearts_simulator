@@ -267,8 +267,18 @@ async def html_no_cache(request: Request, call_next):
     # exact thing require-corp demands); the rest of the site keeps its
     # current header behavior. COOP severs window.opener on the review
     # tab - it reads the telemetry log and never uses the opener.
-    if request.url.path in ('/review', '/static/searchlab.html'):
+    p = request.url.path
+    if p in ('/review', '/static/searchlab.html'):
         resp.headers['Cross-Origin-Opener-Policy'] = 'same-origin'
+        resp.headers['Cross-Origin-Embedder-Policy'] = 'require-corp'
+    elif p.startswith('/static/') and p.endswith(('.js', '.mjs', '.wasm')):
+        # Spec trap (bit us live 2026-08-09): a COEP document may only
+        # spawn dedicated workers whose SCRIPT RESPONSES also carry COEP
+        # - without this the review page's analysis worker fails to
+        # create with an opaque 'worker crashed: unknown'. Same for
+        # ORT's threaded sub-workers (the .mjs). Harmless on scripts
+        # loaded by non-isolated pages: COEP is only consumed for
+        # documents and workers.
         resp.headers['Cross-Origin-Embedder-Policy'] = 'require-corp'
     return resp
 
