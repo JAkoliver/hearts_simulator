@@ -21,7 +21,7 @@
   a { color:#E8B923; }
   .muted { color:#A6A6AF; }
   #top { display:flex; align-items:center; gap:10px; flex-wrap:wrap;
-         margin-bottom:10px; }
+         margin-bottom:10px; padding-right:84px; /* the fixed Menu corner */ }
   /* side columns carry the scrollbar's width on top of their content
      width (gutter reserved always, so content never reflows) */
   #grid { flex:1 1 auto; min-height:0; display:grid;
@@ -321,7 +321,6 @@
   body.mobile #matchinfo { flex:1 1 0; min-width:0; white-space:nowrap;
     overflow:hidden; text-overflow:ellipsis; font-size:.78rem; }
   body.mobile #top > span:not(#matchinfo):not(#xray-note) { display:none; }
-  body.mobile #xray-note { flex-basis:100%; }
   body.mobile .mpanel { margin-bottom:8px; }
   body.mobile .mpanel > summary { list-style:none; background:#1E1E21;
     border-radius:10px; padding:11px 12px; font-size:.74rem; color:#A6A6AF;
@@ -376,8 +375,8 @@
   <button id="share-btn" class="xbtn" style="margin-top:0"
     title="copy a read-only link to this match review">share</button>
   <span style="flex:1"></span>
-  <span class="muted" id="xray-note" style="font-size:.7rem"></span>
 </div>
+<div class="muted" id="xray-note" style="font-size:.7rem; margin:-6px 0 8px"></div>
 
 <div id="help-overlay"><div id="help-card">
   <button id="help-close" title="close">&times;</button>
@@ -2293,5 +2292,6 @@ try {
   if (!localStorage.getItem('perilune-review-help')) showHelp(true);
 } catch (e) {}
 </script>
+<script src="/static/nav.js"></script>
 </body>
 </html>
