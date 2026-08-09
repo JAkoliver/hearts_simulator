@@ -57,7 +57,14 @@ function anError() {
 }
 
 async function init() {
-  ort.env.wasm.wasmPaths = '/static/ort/';
+  // Explicit VERSIONED urls instead of a path prefix: ORT spawns its
+  // threaded sub-workers from the .mjs, whose response must carry COEP
+  // - and edge caches (Cloudflare caches by extension) can pin a stale
+  // pre-COEP copy under the unversioned URL indefinitely. ?v= makes
+  // every header deploy a fresh edge key.
+  ort.env.wasm.wasmPaths = {
+    mjs: '/static/ort/ort-wasm-simd-threaded.jsep.mjs?v=' + VER,
+    wasm: '/static/ort/ort-wasm-simd-threaded.jsep.wasm?v=' + VER };
   // Threaded CPU fallback (2026-08-09): multi-threaded wasm requires
   // crossOriginIsolated, which /review now serves COOP/COEP for. When
   // isolation is absent this resolves to 1 thread - byte-identical to
