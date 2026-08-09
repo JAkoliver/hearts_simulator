@@ -1063,12 +1063,36 @@ function showKeyPanel() {
     el('key-close').onclick = () => { p.style.display = 'none'; };
   }
 }
-if (pid) {
-  fetch(`/api/name?pid=${encodeURIComponent(pid)}`)
-    .then(r => r.ok ? r.json() : null)
-    .then(d => renderIdentity(d && d.name))
-    .catch(() => renderIdentity(null));
-} else renderIdentity(null);
+// Legacy-key upgrade (public-launch prep): pre-hash keys are UUIDs
+// (dashes); hash-era keys are bare hex. A legacy key auto-rotates once
+// so the server stops holding any plaintext credential for us - same
+// codename, same history, new key stored here. A dead legacy uuid
+// (no identity, or rotated elsewhere) is dropped so lazy minting or a
+// restore starts clean.
+async function upgradeLegacyKey() {
+  if (!pid || !pid.includes('-')) return;
+  try {
+    const r = await fetch('/api/identity/rotate', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({key: pid})});
+    if (r.ok) {
+      const d = await r.json();
+      pid = d.key;
+      localStorage.setItem(K('hearts_pid'), pid);
+    } else if (r.status === 404) {
+      pid = null;
+      localStorage.removeItem(K('hearts_pid'));
+    }
+  } catch (e) {}
+}
+upgradeLegacyKey().finally(() => {
+  if (pid) {
+    fetch(`/api/name?pid=${encodeURIComponent(pid)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => renderIdentity(d && d.name))
+      .catch(() => renderIdentity(null));
+  } else renderIdentity(null);
+});
 
 // Difficulty tier: persisted choice + smooth AFK countdown ticker.
 let tableDeadline = null;

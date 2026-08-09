@@ -1216,12 +1216,15 @@ NAMES_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                           'player_names.jsonl')
 _names = {}
 _names_used = set()
+_hash_era = set()   # canonical ids that are HASHES (never credentials)
 _names_lock = threading.Lock()
 try:
     with open(NAMES_PATH, encoding='utf-8') as _f:
         for _line in _f:
             try:
                 _d = json.loads(_line)
+                if _d.get('he'):
+                    _hash_era.add(_d['pid'])
                 _names[_d['pid']] = _d['name']
                 _names_used.add(_d['name'])
             except (ValueError, KeyError):
@@ -1239,13 +1242,15 @@ def _name_slug(n):
 _slug2pid = {_name_slug(_n): _p for _p, _n in _names.items()}
 
 
-def codename_of(pid):
+def codename_of(pid, hash_era=False):
     pid = (pid or '')[:64]
     if not pid:
         return 'Nameless Drifter'
     with _names_lock:
         if pid in _names:
             return _names[pid]
+        if hash_era:
+            _hash_era.add(pid)
         rng = secrets.SystemRandom()
         name = None
         for _ in range(500):
@@ -1270,8 +1275,10 @@ def codename_of(pid):
         _names_used.add(name)
         _slug2pid[_name_slug(name)] = pid
         with open(NAMES_PATH, 'a', encoding='utf-8') as f:
-            f.write(json.dumps({'pid': pid, 'name': name,
-                                'ts': int(time.time())}) + '\n')
+            row = {'pid': pid, 'name': name, 'ts': int(time.time())}
+            if hash_era:
+                row['he'] = 1
+            f.write(json.dumps(row) + '\n')
         return name
 
 
@@ -1289,37 +1296,58 @@ def codename_of(pid):
 def identity_new():
     for _ in range(100):
         key = secrets.token_hex(16)
+        canon = _kh(key)
         with _names_lock:
-            taken = key in _names
+            taken = canon in _names
         if not taken:
             break
-    # codename_of registers the key in the names store (assign-once);
-    # a 128-bit collision between the check and here is not a real event,
-    # and even then codename_of just returns the existing identity.
-    return {'key': key, 'name': codename_of(key)}
+    # The canonical id is the key's HASH: the plaintext key never touches
+    # a server file. codename_of registers assign-once; a 128-bit
+    # collision between check and assignment is not a real event.
+    return {'key': key, 'name': codename_of(canon, hash_era=True)}
 
 
-# Key rotation (compromised-key remedy): the ORIGINAL key stays the
-# canonical id everywhere internally (logs, names, history never
-# rewrite); rotation mints a replacement key that RESOLVES to the
-# canonical id and permanently revokes the presented one. Append-only
-# player_keys.jsonl replays into the maps at startup.
+# Keys at rest (2026-08-08, public-launch prep): the server stores only
+# SHA-256 fingerprints of credentials. For hash-era identities the
+# canonical id IS the key's hash - the plaintext key exists only in the
+# player's browser and key-file, so a leaked server file impersonates
+# nobody. Canonical ids are IDENTIFIERS, never credentials: presenting a
+# hash-era canonical id is rejected outright (only the preimage - the
+# key - authenticates). Legacy identities (pre-hash raw pids) keep
+# working as-is; their exposure closes on rotation/upgrade, after which
+# their logged pid is just a revoked id. Rotation maps a new key's hash
+# to the same canonical id and revokes the old credential.
 KEYS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                          'player_keys.jsonl')
-_key2canon = {}    # current replacement key -> canonical id
-_canon2key = {}    # canonical id -> current key
-_revoked = set()   # every key ever rotated away
+
+
+def _kh(k):
+    return hashlib.sha256(k.encode()).hexdigest()
+
+
+_cred2canon = {}   # sha256(current key) -> canonical id (rotated ids)
+_canon2cred = {}   # canonical id -> sha256(current key)
+_revoked = set()   # raw legacy creds AND cred-hashes rotated away
 try:
     with open(KEYS_PATH, encoding='utf-8') as _f:
         for _line in _f:
             try:
                 _d = json.loads(_line)
-                _prev = _canon2key.get(_d['canon'], _d['canon'])
-                _revoked.add(_prev)
-                _key2canon.pop(_prev, None)
-                _key2canon[_d['key']] = _d['canon']
-                _canon2key[_d['canon']] = _d['key']
-                _revoked.discard(_d['key'])
+                # v1 events stored the raw replacement key; hash on load
+                _nh = _d.get('kh') or _kh(_d['key'])
+                for _r in _d.get('rv', ()):
+                    _revoked.add(_r)
+                    _cred2canon.pop(_r, None)
+                _prevh = _canon2cred.get(_d['canon'])
+                if _prevh:
+                    _revoked.add(_prevh)
+                    _cred2canon.pop(_prevh, None)
+                else:
+                    # first rotation: the canonical itself was the cred
+                    _revoked.add(_d['canon'])
+                _cred2canon[_nh] = _d['canon']
+                _canon2cred[_d['canon']] = _nh
+                _revoked.discard(_nh)
             except (ValueError, KeyError):
                 continue
 except FileNotFoundError:
@@ -1327,16 +1355,25 @@ except FileNotFoundError:
 
 
 def resolve_pid(key):
-    """Canonical id for a presented key. Revoked keys fail loudly so a
-    stale device explains itself instead of acting as a ghost."""
+    """Canonical id for a presented CREDENTIAL. Revoked keys fail loudly
+    (a stale device explains itself); hash-era canonical ids are refused
+    - identifiers in server files must never authenticate."""
     k = (key or '')[:64]
     if not k:
         return k
     with _names_lock:
-        if k in _revoked:
+        h = _kh(k)
+        if k in _revoked or h in _revoked:
             raise HTTPException(
                 404, 'this key was rotated - use your replacement key')
-        return _key2canon.get(k, k)
+        c = _cred2canon.get(h)
+        if c:
+            return c            # rotated identity, current key
+        if h in _names:
+            return h            # hash-era identity, original key
+        if k in _names and k in _hash_era:
+            raise HTTPException(403, 'invalid key')   # id, not a credential
+        return k                # legacy credential, or unknown (mints later)
 
 
 class RotateBody(BaseModel):
@@ -1347,23 +1384,23 @@ class RotateBody(BaseModel):
 def identity_rotate(body: RotateBody):
     with _names_lock:
         k = (body.key or '')[:64]
-        if k in _revoked:
+        h = _kh(k)
+        if k in _revoked or h in _revoked:
             raise HTTPException(404, 'this key was already rotated')
-        canon = _key2canon.get(k, k)
-        if canon not in _names:
+        canon = _cred2canon.get(h) or (h if h in _names else k)
+        if canon not in _names or (k in _names and k in _hash_era):
             raise HTTPException(404, 'unknown key')
-        for _ in range(100):
-            nk = secrets.token_hex(16)
-            if nk not in _names and nk not in _key2canon \
-                    and nk not in _revoked:
-                break
-        prev = _canon2key.get(canon, canon)
-        _revoked.add(prev)
-        _key2canon.pop(prev, None)
-        _key2canon[nk] = canon
-        _canon2key[canon] = nk
+        nk = secrets.token_hex(16)
+        nh = _kh(nk)
+        rv = [x for x in (k, h, _canon2cred.get(canon)) if x]
+        for x in rv:
+            _revoked.add(x)
+            _cred2canon.pop(x, None)
+        _cred2canon[nh] = canon
+        _canon2cred[canon] = nh
+        _revoked.discard(nh)
         with open(KEYS_PATH, 'a', encoding='utf-8') as f:
-            f.write(json.dumps({'canon': canon, 'key': nk,
+            f.write(json.dumps({'canon': canon, 'kh': nh, 'rv': rv,
                                 'ts': int(time.time())}) + '\n')
         return {'key': nk, 'name': _names[canon]}
 
