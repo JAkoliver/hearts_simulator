@@ -50,6 +50,19 @@
 </div>
 <div class="small muted eras" style="margin-top:8px" id="eras"></div>
 
+<h1 id="daily" style="margin-top:30px">Daily challenge</h1>
+<div class="muted small" id="dsub">loading&hellip;</div>
+<div class="panel">
+  <table id="dboard"></table>
+  <div class="small muted" id="dempty" style="display:none">No completions
+    yet today &mdash; be the first.</div>
+</div>
+<div class="small muted" style="margin-top:10px">
+  One attempt per player per UTC day &middot; the identical deal for
+  everyone &middot; lowest final score wins, earliest finish breaks ties
+  &middot; <span id="dlock"></span>
+</div>
+
 
 
 <script>
@@ -95,6 +108,46 @@ const q = new URLSearchParams(location.search);
   else if (!d.current)
     el('eras').innerHTML =
       `<a href="/leaderboard">&larr; current era leaderboard</a>`;
+})();
+
+// ---- daily challenge board -------------------------------------------
+(async () => {
+  const pid = localStorage.getItem('hearts_pid') || '';
+  let d;
+  try {
+    const r = await fetch('/api/daily/leaderboard'
+      + (pid ? `?pid=${encodeURIComponent(pid)}` : ''));
+    if (!r.ok) throw new Error(`error ${r.status}`);
+    d = await r.json();
+  } catch (e) {
+    el('dsub').textContent = 'could not load: ' + e.message;
+    return;
+  }
+  el('dsub').textContent = `${d.date} · ${d.rows.length} finished`
+    + (d.viewer_completed ? ' · you played today ✓' : '');
+  el('dlock').innerHTML = d.unlocked
+    ? 'click a score to watch the match'
+    : `match reviews unlock once you finish today's challenge ·
+       <a class="p" href="/?daily=1">play it now</a>`;
+  if (!d.rows.length) {
+    el('dempty').style.display = 'block';
+    return;
+  }
+  const ORD = ['', '1st', '2nd', '3rd', '4th'];
+  el('dboard').innerHTML =
+    '<tr><th></th><th>player</th><th>score</th><th>place</th><th>deals</th><th>time</th></tr>'
+    + d.rows.map(r => `<tr${r.rank === 1 ? ' class="top1"' : ''}>
+        <td class="rank">${r.rank}</td>
+        <td><a class="p" href="/player/${encodeURIComponent(r.slug)}">${esc(r.name)}</a></td>
+        <td>${r.share
+          ? `<a class="sc" href="/review?share=${encodeURIComponent(r.share)}"
+               title="watch this match">${r.score}</a>`
+          : `<span class="sc" style="opacity:.55"
+               title="finish today's challenge to unlock reviews">${r.score}</span>`}</td>
+        <td class="muted">${ORD[Math.round(r.place)] || r.place}</td>
+        <td class="muted">${r.deals}</td>
+        <td class="muted">${new Date(r.ts * 1000).toLocaleString(undefined,
+          {hour: 'numeric', minute: '2-digit'})}</td></tr>`).join('');
 })();
 </script>
 <script src="/static/nav.js?v=5"></script>

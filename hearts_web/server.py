@@ -146,6 +146,14 @@ _lb = {}          # era(md5[:12]) -> {canonical_pid: entry}
 # and one seed drives every future deal of the match, so a mid-match
 # review would let a player simulate all remaining hands.
 _finished_matches = set()   # (sid, match_no)
+# Daily challenge: one seeded solo match per identity per UTC day. The
+# board keeps each player's completion; attempts are recorded at START
+# (an abandoned daily burns the attempt - no reroll scumming) and
+# persist in daily_attempts.jsonl (gitignored: operational data).
+_daily = {}            # date 'YYYY-MM-DD' -> {canonical_pid: entry}
+_daily_attempts = {}   # (date, canonical_pid) -> sid
+DAILY_ATT_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                              'daily_attempts.jsonl')
 
 
 def _index_add(d, off):
@@ -173,6 +181,12 @@ def _index_add(d, off):
                 {'mode': 'solo', 'sid': d['sid'], 'ts': d['ts'],
                  'deals': d['deals'], 'seat': seat,
                  'place': d['placements'][seat], 'final': d['final']})
+            if d.get('daily'):
+                # first completion wins (attempts are once/day anyway)
+                _daily.setdefault(d['daily'], {}).setdefault(d['pid'], {
+                    'canon': d['pid'], 'score': int(d['final'][seat]),
+                    'place': d['placements'][seat], 'deals': d['deals'],
+                    'ts': d['ts'], 'sid': d['sid'], 'seat': seat})
             # Leaderboard: SOLE first place (tied placements are floats,
             # so == 1 excludes them), solo, full tier only (tier absent =
             # the pre-tier era, which was all full-strength).
@@ -207,6 +221,18 @@ def _build_log_index():
 _build_log_index()
 
 
+try:
+    with open(DAILY_ATT_PATH, 'r', encoding='utf-8') as _f:
+        for _ln in _f:
+            try:
+                _a = json.loads(_ln)
+                _daily_attempts[(_a['date'], _a['pid'])] = _a['sid']
+            except (ValueError, KeyError):
+                continue
+except FileNotFoundError:
+    pass
+
+
 def log_line(obj):
     with _log_lock:
         with open(LOG_PATH, 'ab') as f:
@@ -230,7 +256,8 @@ _rl_lock = threading.Lock()
 _rl_general, _rl_create = {}, {}
 RL_GENERAL = cfg.RL_GENERAL
 RL_CREATE = cfg.RL_CREATE
-CREATE_PATHS = ('/api/new', '/api/table/new', '/api/table/join',
+CREATE_PATHS = ('/api/new', '/api/daily/new',
+                '/api/table/new', '/api/table/join',
                 '/api/identity/new', '/api/identity/rotate')
 
 
@@ -323,11 +350,15 @@ def hand_of(menv, seat):
 
 
 class Session:
-    def __init__(self, pid=None, ua='', tier='full'):
+    def __init__(self, pid=None, ua='', tier='full', daily=None):
         self.sid = secrets.token_urlsafe(12)
-        self.seed = secrets.randbits(31)
+        self.daily = daily          # 'YYYY-MM-DD' for the daily challenge
+        self.seed = _daily_seed(daily) if daily else secrets.randbits(31)
         self.menv = MatchEnv(seed=self.seed)
-        self.human_seat = secrets.randbelow(4)
+        # Daily: the SEAT is fixed too - same seed + same seat = the
+        # identical hand for every player, or scores aren't comparable.
+        self.human_seat = ((_daily_seed(daily) >> 8) % 4 if daily
+                           else secrets.randbelow(4))
         self.pid = pid            # anonymous persistent player id (client)
         self.tier = _norm_tier(tier)
         self.ua = (ua or '')[:120]
@@ -347,7 +378,8 @@ class Session:
         return {'v': LOG_V, 'kind': kind, 'sid': self.sid, 'pid': self.pid,
                 'seed': self.seed, 'human_seat': self.human_seat,
                 'model': TIERS[self.tier]['md5'], 'tier': self.tier,
-                'ts': round(time.time(), 3)}
+                'ts': round(time.time(), 3),
+                **({'daily': self.daily} if self.daily else {})}
 
     # -- engine helpers -----------------------------------------------------
     def _legal(self):
@@ -1049,6 +1081,103 @@ def _share_make(kind, ident, match_no, seat):
     payload = f'{kind}|{ident}|{match_no}|{seat}'
     tok = base64.urlsafe_b64encode(payload.encode()).decode().rstrip('=')
     return f'{tok}.{_share_sign(payload)}'
+
+
+def _daily_date():
+    return time.strftime('%Y-%m-%d', time.gmtime())
+
+
+def _daily_seed(date):
+    # HMAC of the persistent share secret: deterministic across restarts
+    # within a day, unpredictable in advance (never derivable client-side).
+    dig = hmac.new(_SHARE_KEY, ('daily|' + date).encode(), hashlib.sha256)
+    return int.from_bytes(dig.digest()[:4], 'big') & 0x7FFFFFFF
+
+
+@app.post('/api/daily/new')
+def daily_new(body: NewBody, request: Request = None):
+    if not body or not body.pid:
+        raise HTTPException(400, 'identity required for the daily challenge')
+    canon = resolve_pid(body.pid)
+    date = _daily_date()
+    ex = _daily_attempts.get((date, canon))
+    if ex:
+        with _sessions_lock:
+            s = _sessions.get(ex)
+        if s is not None and not s.finished and s.pid == canon:
+            with s.lock:
+                return s.state()      # resume the live attempt
+        raise HTTPException(409, "you've used today's attempt - a new "
+                                 'challenge arrives at midnight UTC')
+    ua = request.headers.get('user-agent', '') if request else ''
+    s = Session(pid=canon, ua=ua, tier='full', daily=date)
+    with _log_lock:
+        with open(DAILY_ATT_PATH, 'a', encoding='utf-8') as f:
+            f.write(json.dumps({'date': date, 'pid': canon, 'sid': s.sid,
+                                'ts': round(time.time(), 3)}) + '\n')
+    _daily_attempts[(date, canon)] = s.sid
+    with _sessions_lock:
+        _sessions[s.sid] = s
+        while len(_sessions) > cfg.SESSION_CAP:
+            _sessions.pop(next(iter(_sessions)))
+    with s.lock:
+        s.run_ai_turns()
+        return s.state()
+
+
+@app.get('/api/daily/status')
+def daily_status(pid: str = None):
+    date = _daily_date()
+    out = {'date': date, 'attempted': False, 'completed': False,
+           'players': len(_daily.get(date, {}))}
+    if pid:
+        try:
+            canon = resolve_pid(pid)
+        except HTTPException:
+            return out
+        out['attempted'] = (date, canon) in _daily_attempts
+        out['completed'] = canon in _daily.get(date, {})
+        if out['attempted'] and not out['completed']:
+            sid = _daily_attempts[(date, canon)]
+            with _sessions_lock:
+                live = _sessions.get(sid)
+            out['resumable'] = bool(live and not live.finished)
+    return out
+
+
+@app.get('/api/daily/leaderboard')
+def daily_leaderboard(pid: str = None, date: str = None):
+    """Today's board by default. Review links (minted share tokens) are
+    included ONLY for viewers who completed that day's challenge - the
+    review payload carries the day's SEED, so an uncompleted viewer
+    could otherwise study the hands before playing. Past days are open
+    (their seed is never reused)."""
+    today = _daily_date()
+    d = date or today
+    if not (len(d) == 10 and d <= today):
+        raise HTTPException(400, 'bad date')
+    canon = None
+    if pid:
+        try:
+            canon = resolve_pid(pid)
+        except HTTPException:
+            canon = None
+    entries = sorted(_daily.get(d, {}).values(),
+                     key=lambda r: (r['score'], r['ts']))
+    viewer_done = bool(canon and canon in _daily.get(d, {}))
+    unlocked = viewer_done or d < today
+    rows = []
+    for i, r in enumerate(entries[:100]):
+        nm = codename_of(r['canon'])
+        row = {'rank': i + 1, 'name': nm, 'slug': _name_slug(nm),
+               'score': r['score'], 'place': r['place'],
+               'deals': r['deals'], 'ts': r['ts']}
+        if unlocked:
+            row['share'] = _share_make('s', r['sid'], 1, r['seat'])
+        rows.append(row)
+    return {'date': d, 'today': today, 'rows': rows,
+            'viewer_completed': viewer_done, 'unlocked': unlocked,
+            'attempted': bool(canon and (d, canon) in _daily_attempts)}
 
 
 def _share_parse(token):

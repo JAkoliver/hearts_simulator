@@ -89,3 +89,5 @@ node_build/
 
 # B2 training banks: regenerable from the A2 corpus (seeded builder)
 b2_data/
+
+hearts_web/daily_attempts.jsonl

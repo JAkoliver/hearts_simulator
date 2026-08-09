@@ -442,6 +442,8 @@
     </select>
   </div>
   <div class="hrow"><button id="home-solo">Play vs AI</button></div>
+  <div class="hrow"><button id="home-daily"
+    title="one attempt per day - the identical deal for every player; compare on the daily leaderboard">Daily challenge</button></div>
   <div class="hrow"><button id="home-host">Host a table</button></div>
   <div class="hrow"><a class="qlink" href="/leaderboard"
     style="font-size:.8rem">leaderboard &rarr;</a></div>
@@ -1089,6 +1091,7 @@ function showHome(err) {
   // the menu must never paint the demos, even for a frame)
   if (window.attractSync) attractSync();
   loadHistory();
+  dailyRefresh();
 }
 el('home-closeroom-btn').onclick = async () => {
   try { await api('/api/table/close', POSTJSON({code: tcode, pid})); }
@@ -1594,7 +1597,10 @@ const _wantMenu = _q.get('menu') === '1';
 if (_wantMenu) history.replaceState(null, '', '/');
 const _joinCode = (_q.get('join') || '').trim().toUpperCase();
 if (_joinCode) history.replaceState(null, '', '/');  // no re-join on refresh
+const _wantDaily = _q.get('daily') === '1';
+if (_wantDaily) history.replaceState(null, '', '/');
 async function init() {
+  if (_wantDaily) { dailyStart(); return; }
   // Invite link (/?join=CODE): join that table directly, before any
   // saved-session resume - clicking an invite states your intent.
   if (/^[A-Z0-9]{4}$/.test(_joinCode)) {
@@ -1637,6 +1643,47 @@ async function init() {
   showHome();
 }
 el('home-solo').onclick = () => newMatch().catch(e => showHome(e.message));
+// Daily challenge: one seeded attempt/day; server enforces and resumes.
+async function dailyStart() {
+  try {
+    await ensureIdentity();
+    abandonCurrent();
+    passSelection = [];
+    preselect = null;
+    setMode('solo');
+    tableDeadline = null;
+    const st = await api('/api/daily/new', POSTJSON({pid}));
+    hideHome();
+    state = st;
+    sid = st.sid;
+    localStorage.setItem(K('hearts_sid'), sid);
+    render();
+  } catch (e) { showHome(e.message); dailyRefresh(); }
+}
+async function dailyRefresh() {
+  const b = el('home-daily');
+  if (!pid) { b.textContent = 'Daily challenge'; b.dataset.done = ''; return; }
+  try {
+    const st = await api(`/api/daily/status?pid=${encodeURIComponent(pid)}`);
+    if (st.completed) {
+      b.textContent = 'Daily done ✓ · leaderboard';
+      b.dataset.done = '1';
+    } else if (st.attempted && st.resumable) {
+      b.textContent = 'Resume daily challenge';
+      b.dataset.done = '';
+    } else if (st.attempted) {
+      b.textContent = 'Daily attempt used · leaderboard';
+      b.dataset.done = '1';
+    } else {
+      b.textContent = 'Daily challenge';
+      b.dataset.done = '';
+    }
+  } catch (e) {}
+}
+el('home-daily').onclick = () => {
+  if (el('home-daily').dataset.done) location.href = '/leaderboard#daily';
+  else dailyStart();
+};
 el('home-host').onclick = hostTable;
 el('home-join').onclick = joinTable;
 el('menu-btn').onclick = () => showHome();
