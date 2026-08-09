@@ -304,6 +304,19 @@
            gap:6px; white-space:nowrap; overflow:hidden; }
   .vsub { font-size:.68rem; opacity:.6; margin-top:2px;
           text-align:center; }
+  /* unified verdict panel: header tag + aligned moment grid */
+  .vhead { display:flex; align-items:baseline; justify-content:space-between;
+           gap:10px; margin-bottom:6px; }
+  .vtag { font-size:.66rem; color:#4CC2FF; opacity:.85; white-space:nowrap; }
+  .vrow { display:grid; grid-template-columns:15px max-content 1fr max-content;
+          gap:0 8px; align-items:baseline; font-size:.74rem;
+          color:var(--muted); padding:2px 0; }
+  .vrow.feat { font-size:.82rem; color:var(--text);
+               border-bottom:1px solid #333338; padding-bottom:6px;
+               margin-bottom:4px; }
+  .vic { text-align:center; }
+  .vmo { font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .vgo { font-size:.7rem; }
   #home-history { margin-top:14px; border-top:1px solid #2E2E33; padding-top:8px;
                   text-align:left; }
   #home-history h4 { font-size:.7rem; color:var(--muted); text-transform:uppercase;
@@ -947,19 +960,39 @@ function showMatchEnd() {
       // where its text will appear) and then features the WORST of the
       // 3 verified plays; the raw-net card appears immediately only
       // when search is off/button-gated, and on skip/timeout/error.
+      // Unified verdict panel: 'One to revisit' IS the worst verified
+      // row, emphasized atop an aligned grid; provenance lives in one
+      // quiet header tag; every moment links to its review position.
+      const renderVerdictPanel = results => {
+        const order = [...results].sort(
+          (a, b) => (b.gap ?? -1) - (a.gap ?? -1));
+        if (order[0].gap == null) { renderLesson(d); return; }
+        const rows = order.map((res, i) => {
+          const dd = res.dis;
+          const detail = i === 0
+            ? `you played ${ctxt(dd.you)} &mdash; Perilune's pick
+               ${ctxt(dd.ai)} &middot;
+               <span style="color:${res.cls}">${res.txt}</span>`
+            : `<span style="color:${res.cls}">${res.txt}</span>`;
+          return `<div class="vrow${i === 0 ? ' feat' : ''}">
+            <span class="vic" style="color:${res.cls}">${res.icon}</span>
+            <span class="vmo">deal ${dd.deal}, trick ${dd.trick}</span>
+            <span class="vtx">${detail}</span>
+            <a class="qlink vgo" href="/review?${linkFor(dd)}"
+               target="_blank">view</a></div>`;
+        }).join('');
+        el('lesson-body').innerHTML = `<div class="vhead">
+            <b>One to revisit</b>
+            <span class="vtag">deep search &middot; K=64 &middot;
+              verified on your device</span></div>${rows}`;
+      };
       const auto = window.verifyEnd && verifyEnd.willAutoRun();
       if (!auto) renderLesson(d);
       if (window.verifyEnd) {
         verifyEnd.begin({list: r.disagreements.slice(0, 3), mode, tcode,
           matchNo: state.match_no, sid, pid,
           onDone(results) {
-            let worst = null;
-            for (const res of results) {
-              if (res.gap != null && (!worst || res.gap > worst.gap)) worst = res;
-            }
-            if (worst) renderLesson(worst.dis,
-              `<div style="color:#4CC2FF; font-size:.72rem; margin-top:3px">
-                 deep search verdict: ${worst.txt}</div>`);
+            if (results.length) renderVerdictPanel(results);
             else renderLesson(d);
           },
           onAbort() {
@@ -1629,6 +1662,6 @@ document.addEventListener('keydown', e => {
 init().then(() => { if (_wantMenu) showHome(); });
 </script>
 <script src="/static/attract.js?v=7"></script>
-<script src="/static/verify_end.js?v=3"></script>
+<script src="/static/verify_end.js?v=4"></script>
 </body>
 </html>

@@ -126,14 +126,9 @@
     catch (e) {}
     const results = [];
     const finish = () => {
-      const rows = results.map(r =>
-        `<div style="color:${r.cls}">${r.icon} deal ${r.dis.deal},
-         trick ${r.dis.trick}: ${r.txt}</div>`).join('');
-      stop(`<div style="color:#4CC2FF; margin-bottom:2px">Deep search
-            verdict <span style="opacity:.65">(K=${K}, verified on your
-            device)</span></div>${rows}
-            <div style="opacity:.6; margin-top:2px">already analyzed in
-            the review - open it to explore</div>`);
+      // rendering belongs to the caller (the unified lesson panel);
+      // this line vanishes and onDone draws everything
+      stop('');
       if (c.onDone) c.onDone(results);
     };
 
