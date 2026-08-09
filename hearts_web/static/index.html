@@ -1119,7 +1119,7 @@ function abandonCurrent() {
 const PLACE_WORD = ['', '1st', '2nd', '3rd', '4th'];
 async function loadHistory() {
   try {
-    const h = await api(`/api/history?pid=${encodeURIComponent(pid)}&limit=100`);
+    const h = await api(`/api/history?pid=${encodeURIComponent(pid)}&limit=5`);
     if (!h.matches.length) { el('home-history').style.display = 'none'; return; }
     const row = (m, i) => {
       const when = new Date(m.ts * 1000)
@@ -1129,25 +1129,17 @@ async function loadHistory() {
       return `<div class="histline" data-i="${i}">${when} &middot; ${what}
         &middot; <b>${place}</b> of 4 <span class="muted2">&middot; ${m.deals} deals</span></div>`;
     };
-    // 5 newest by default; the rest behind one click
-    const renderList = all => {
-      const ms = all ? h.matches : h.matches.slice(0, 5);
-      el('hist-list').innerHTML = ms.map(row).join('')
-        + (!all && h.matches.length > 5
-           ? `<div class="histline" id="hist-more" style="color:var(--muted)">
-                show all ${h.matches.length} matches</div>` : '');
-      document.querySelectorAll('.histline').forEach(n => {
-        if (n.id === 'hist-more') { n.onclick = () => renderList(true); return; }
-        n.onclick = () => {
-          const m = h.matches[+n.dataset.i];
-          const p = new URLSearchParams(devPlayer ? {pid} : {});
-          if (m.mode === 'table') { p.set('code', m.code); p.set('match_no', m.match_no); }
-          else p.set('sid', m.sid);
-          window.open(`/review?${p}`, '_blank');
-        };
-      });
-    };
-    renderList(false);
+    // last 5 only - the full history lives on the progress page
+    el('hist-list').innerHTML = h.matches.slice(0, 5).map(row).join('');
+    document.querySelectorAll('.histline').forEach(n => {
+      n.onclick = () => {
+        const m = h.matches[+n.dataset.i];
+        const p = new URLSearchParams(devPlayer ? {pid} : {});
+        if (m.mode === 'table') { p.set('code', m.code); p.set('match_no', m.match_no); }
+        else p.set('sid', m.sid);
+        window.open(`/review?${p}`, '_blank');
+      };
+    });
     el('home-history').style.display = 'block';
   } catch (e) { el('home-history').style.display = 'none'; }
 }
