@@ -20,7 +20,7 @@
              right:10px; }
   #sitenav-btn { font-size:.75rem; padding:4px 12px; background:#26262A;
                  color:#ECECEC; border:0; border-radius:7px; cursor:pointer; }
-  #sitenav-btn:hover { background:#33333A; }
+  #sitenav-btn:hover { background:#33333A; color:#E8B923; }
   #sitenav-dd { display:none; position:absolute; right:0;
                 top:calc(100% + 6px); background:#1E1E21;
                 border:1px solid #2E2E33; border-radius:9px; min-width:150px;
@@ -36,7 +36,7 @@
   document.head.appendChild(style);
   const band = document.createElement('div');
   band.id = 'siteband';
-  band.innerHTML = `<a class="t" href="/"><svg width="20" height="20"
+  band.innerHTML = `<a class="t" href="/?menu=1"><svg width="20" height="20"
       viewBox="0 0 32 32" style="vertical-align:-4px; margin-right:6px"><rect
       width="32" height="32" rx="7" fill="#00000055"/><path
       d="M11 27 V7 H17.5 a6.5 6.5 0 0 1 0 13 H11" fill="none"

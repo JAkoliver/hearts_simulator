@@ -60,6 +60,10 @@
   #menu-btn-wrap { position:absolute; top:8px; right:10px; z-index:5; }
   #menu-btn-wrap button { font-size:.75rem; padding:4px 12px;
     background:var(--tag-bg); color:var(--text); }
+  #menu-btn-wrap button:hover { color:var(--gold); }
+  #home-close:hover { color:var(--gold) !important; }
+  header h1 { cursor:pointer; }
+  header h1:hover { color:var(--gold); }
   /* The table centers to the viewport (same axis as the hand); the side
      panel hangs off its right edge absolutely so it can't push it over. */
   /* Auto margins here + on the footer split the leftover viewport height
@@ -1309,6 +1313,7 @@ el('home-solo').onclick = () => newMatch().catch(e => showHome(e.message));
 el('home-host').onclick = hostTable;
 el('home-join').onclick = joinTable;
 el('menu-btn').onclick = () => showHome();
+document.querySelector('header h1').onclick = () => showHome();
 el('home-resume-btn').onclick = hideHome;
 if (DEV_CONTROLS) {
   el('dev-controls').style.display = 'block';
