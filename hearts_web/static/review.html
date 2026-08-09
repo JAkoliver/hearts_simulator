@@ -985,7 +985,7 @@ function renderEval(st, deal) {
     // Deal-start step: the deepen button targets the PASS analysis, so a
     // pass can be pushed to K=256 like any play position.
     const b64s = el('deep64-btn');
-    if ((deepWorker || MOBILE) && deal.pass_direction !== 'hold') {
+    if (deal.pass_direction !== 'hold') {
       const cur2 = dp ? dp.K : 0;   // dp = the SELECTED seat's analysis
       const nextP = Math.min(256, cur2 ? cur2 * 2
                                        : Math.max(8, +el('deep-k').value / 2));
@@ -1098,14 +1098,19 @@ function renderEval(st, deal) {
   const b64 = el('deep64-btn');
   const nextK = Math.min(256, dr ? dr.K * 2 : +el('deep-k').value);
   b64.textContent = `K=${nextK} here`;
-  b64.style.display = (deepWorker || MOBILE) && !forced ? 'inline-block' : 'none';
+  // Always offered on analyzable positions: the click boots the engine
+  // on demand (ensureEngine). Gating on a live deepWorker hid the
+  // button whenever cached/pre-seeded results rendered without a sweep
+  // (regression after the end-screen verification began seeding the
+  // cache).
+  b64.style.display = !forced ? 'inline-block' : 'none';
   b64.disabled = !!(dr && dr.K >= 256);
   b64.dataset.kind = 'play';
   el('deep-pos').innerHTML = forced
-    ? (deepWorker || MOBILE ? 'this position: forced move (only one legal card)' : '')
+    ? 'this position: forced move (only one legal card)'
     : dr
     ? `this position: analyzed at K=${dr.K}${dr.K >= 256 ? ' (max)' : ''}`
-    : (deepWorker || MOBILE ? 'this position: not yet analyzed' : '');
+    : 'this position: not yet analyzed';
   updateDeepBtn();
   const x = el('ev-x');
   if (x) x.onclick = () => { evalExpanded = !evalExpanded; render(); };
