@@ -1,0 +1,13 @@
+{
+ "tag": "r2kl8ep1",
+ "n_paired": 64,
+ "base_moons_per_match": 2.484375,
+ "cand_moons_per_match": 2.5,
+ "paired_delta": 0.015625,
+ "se": 0.1056259392275326,
+ "t": 0.14792767869587062,
+ "p_one_sided": 0.5588000779635297,
+ "def_place_base": 2.96875,
+ "def_place_cand": 2.9583333333333335,
+ "pass": false
+}

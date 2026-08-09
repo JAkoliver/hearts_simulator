@@ -116,6 +116,15 @@ variable.) Every reopening gets its own pre-registration.
   visit-count targets.
 - Search amplification past the net's ceiling: K>64, ISMCTS, learned
   leaf evaluation (both variants).
+- Anchored supervised imitation of search-defender decisions AT THE
+  ~60k-decision corpus scale (2026-08-09, exploiter round 2,
+  docs/exploiter_league_r2_results.md): both drift-screened candidates
+  dead-null at the defense gate (+0.016 / +0.094 moons/match, p=.56 /
+  .80) despite a real, large teacher behavior gap (search defenders
+  concede 50% fewer moons). Untested variables recorded: corpus scale
+  (rerun must pre-register a mid-training defense probe - see the
+  results doc's containment-tension note), non-argmax teacher signals
+  (visit counts, sequence-level), aimed-RL vehicles.
 - Equity-scored-target distillation, ANY recipe (2026-08-05, expert-iter
   v2 comparative stage, docs/expert_iter_v2_results.md). Binary
   confidence-filtered hard-CE at the strongest health-passing anchor
