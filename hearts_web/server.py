@@ -1158,7 +1158,8 @@ def compute_insight(deal_lines, seat):
                 mask_l.append(mask)
                 hand = set(np.flatnonzero(obs[:52] > 0).tolist())
                 eq = _equiv_groups(hand, played_deal, legal)
-                meta.append((d['deal_no'], plays // 4 + 1, card, len(legal), eq))
+                meta.append((d['deal_no'], plays // 4 + 1, card, len(legal),
+                             eq, plays))
             if not passing:
                 played_deal.add(card)
                 plays += 1
@@ -1171,14 +1172,14 @@ def compute_insight(deal_lines, seat):
             logits, _ = _net(obs_t, mask_t)
             probs = torch.softmax(logits, dim=1)
         ais = torch.argmax(logits, dim=1)
-        for i, (deal_no, trick, card, n_legal, eq) in enumerate(meta):
+        for i, (deal_no, trick, card, n_legal, eq, pidx) in enumerate(meta):
             ai = int(ais[i])
             # Equivalent cards (connected string, visible info) count as
             # agreement - the net's preference inside a group is arbitrary.
             if ai == card or any(ai in g and card in g for g in eq):
                 n_agree += 1
             elif n_legal > 1:
-                dis.append({'deal': deal_no, 'trick': trick,
+                dis.append({'deal': deal_no, 'trick': trick, 'idx': pidx,
                             'you': card_name(card), 'ai': card_name(ai),
                             'p_you': round(float(probs[i, card]), 3),
                             'p_ai': round(float(probs[i, ai]), 3)})

@@ -696,14 +696,25 @@ function showMatchEnd() {
       const d = (r.disagreements || [])[0];
       const box = el('lesson');
       if (!d || !box) return;
+      // inline glyphs (6♣ / 4♦), red suits tinted - no card blocks
+      const ctxt = nm => {
+        const s2 = nm.slice(-1);
+        return `<b${s2 === 'H' || s2 === 'D'
+          ? ' style="color:#FF7A7A"' : ''}>${nm.slice(0, -1)}${SUIT_CHAR[s2]}</b>`;
+      };
+      // deep link to the exact step: each deal = 1 start step + 52 plays
+      const rp = new URLSearchParams(devPlayer ? {pid} : {});
+      if (mode === 'table') { rp.set('code', tcode); rp.set('match_no', state.match_no); }
+      else rp.set('sid', sid);
+      if (d.idx != null) rp.set('pos', (d.deal - 1) * 53 + 1 + d.idx);
       box.innerHTML = `<b>One to revisit</b> &middot; deal ${d.deal},
-        trick ${d.trick}: you played ${cardHTML(d.you, 'mini')} &mdash;
-        Perilune's pick was ${cardHTML(d.ai, 'mini')}
-        <span style="opacity:.7">(${(d.p_ai * 100).toFixed(0)}% vs
-        ${(d.p_you * 100).toFixed(0)}%)</span>
+        trick ${d.trick}: you played ${ctxt(d.you)}, Perilune's pick was
+        ${ctxt(d.ai)} <span style="opacity:.7">(${(d.p_ai * 100).toFixed(0)}%
+        vs ${(d.p_you * 100).toFixed(0)}%)</span> &middot;
+        <a href="/review?${rp}" target="_blank">view this moment</a>
         <div style="opacity:.6; font-size:.72rem; margin-top:3px">Its
-        opinion, not ground truth &mdash; Analyze match runs the deep
-        search that settles it.</div>`;
+        opinion, not ground truth &mdash; the review's deep search
+        settles it.</div>`;
       box.style.display = 'block';
     } catch (e) {}
   })();
