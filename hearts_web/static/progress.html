@@ -26,6 +26,7 @@
   #hdr .big { font-size:1.5rem; font-weight:700;
               font-variant-numeric:tabular-nums; }
   #hdr .lbl { font-size:.68rem; color:#A6A6AF; text-transform:uppercase; }
+  #hdr .vdiv { width:1px; align-self:stretch; background:#33333A; }
   svg { display:block; width:100%; }
   .cards3 { display:grid; grid-template-columns:repeat(3, 1fr); gap:12px;
             margin-top:12px; }
@@ -214,17 +215,22 @@ const roll = (vals, w) => vals.map((_, i) => {
   const dz = M.reduce((a, m) => a + (m.deals_zero || 0), 0);
   const dh = M.reduce((a, m) => a + (m.deals_harsh || 0), 0);
   const dn = M.reduce((a, m) => a + (m.n_deals || 0), 0);
+  const chip = ([v, l]) => `<span><div class="big">${v}</div>
+    <div class="lbl">${l}</div></span>`;
+  // two groups: MATCH outcomes | DEAL craft (tails adjacent, odometer last)
   el('hdr').innerHTML = [
     [M.length, 'matches'],
     [`${(100 * wins / M.length).toFixed(0)}%`, 'win rate'],
     [avgPlace.toFixed(2), 'avg placement'],
     [streak, 'win streak'],
+  ].map(chip).join('')
+  + '<i class="vdiv"></i>'
+  + [
     [totDeals ? (totPts / totDeals).toFixed(2) : '-', 'pts / deal'],
-    [(totDeals * 13).toLocaleString(), 'tricks played'],
     [dn ? (100 * dz / dn).toFixed(0) + '%' : '-', 'deals at 0'],
     [dn ? (100 * dh / dn).toFixed(0) + '%' : '-', 'deals at 25+'],
-  ].map(([v, l]) => `<span><div class="big">${v}</div>
-    <div class="lbl">${l}</div></span>`).join('');
+    [(totDeals * 13).toLocaleString(), 'tricks played'],
+  ].map(chip).join('');
 
   // band 2: placement trend (y inverted: 1st on top)
   const what = m => m.mode === 'table' ? `Table ${esc(m.code)}` : 'vs AI';
