@@ -230,7 +230,7 @@
 </head>
 <body>
 <header>
-<div id="theme-toggle"><button id="speed-btn" title="animation speed - cycle normal / fast / instant (tables follow the host's lobby setting)"></button><button id="theme-btn"></button></div>
+<div id="theme-toggle"><button id="theme-btn"></button><button id="speed-btn" title="animation speed - cycle normal / fast / instant (at a table only the host can change it)"></button><button id="auto-btn" title="automatically play your card when only one is legal"></button></div>
 <div id="menu-btn-wrap"><button id="menu-btn">Menu</button></div>
   <svg class="logo" width="20" height="20" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#00000055"/><path d="M11 27 V7 H17.5 a6.5 6.5 0 0 1 0 13 H11" fill="none" stroke="#ECECEC" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="25.2" cy="7.6" r="3.1" fill="#E5484D"/></svg>
   <h1>Perilune</h1>
@@ -473,6 +473,7 @@ function render() {
     const away = state.away_seats && state.away_seats.includes(state.current_seat);
     setStatus(`${seatName(state.current_seat)}'s turn${away ? ' (disconnected)' : ''}`, true);
   }
+  maybeAutoForced();
 }
 
 function markPreselect() {
@@ -1070,6 +1071,36 @@ function updateSpeedBtn() {
   b.textContent = speedLabel();
   // at a table only the HOST may change it - mid-match included
   b.disabled = mode === 'table' && !(state && state.you_host);
+}
+let autoForced = localStorage.getItem('hearts_autoforced') === '1';
+function updateAutoBtn() {
+  el('auto-btn').textContent = `Auto-forced: ${autoForced ? 'on' : 'off'}`;
+}
+el('auto-btn').onclick = () => {
+  autoForced = !autoForced;
+  localStorage.setItem('hearts_autoforced', autoForced ? '1' : '0');
+  updateAutoBtn();
+  render();   // may fire immediately on a waiting forced move
+};
+updateAutoBtn();
+// Forced-move auto-play: exactly one legal card, play phase, your turn.
+// Scheduled with a short beat so the move is followable; the callback
+// re-verifies everything (turn may have moved on, setting toggled off).
+let _autoT = null;
+function maybeAutoForced() {
+  if (!autoForced || !state || state.finished) return;
+  const passing = mode === 'table' ? state.passing
+                                   : (state.your_turn && state.passing);
+  if (passing || !state.your_turn || !state.legal
+      || state.legal.length !== 1) return;
+  const card = state.legal[0];
+  clearTimeout(_autoT);
+  _autoT = setTimeout(() => {
+    if (autoForced && state && state.your_turn && !state.finished
+        && state.legal && state.legal.length === 1
+        && state.legal[0] === card && actionable())
+      playCard(card);
+  }, 300);
 }
 el('speed-btn').onclick = async () => {
   const order = ['normal', 'fast', 'instant'];
