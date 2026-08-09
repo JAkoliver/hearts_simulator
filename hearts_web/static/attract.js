@@ -216,6 +216,11 @@
     syncVisibility();
   };
 
+  // Called synchronously by showHome() so panel visibility is settled
+  // in the same DOM update that opens the menu - the 200ms tick alone
+  // let the demos paint for a frame over a live game.
+  window.attractSync = syncVisibility;
+
   async function boot() {
     if (!el('attract-play')) return;
     syncVisibility();

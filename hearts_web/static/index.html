@@ -987,6 +987,9 @@ function showHome(err) {
   // human's next poll lands them back on their menu with a notice
   el('home-closeroom').style.display =
     (mode === 'table' && tcode && isHost) ? 'block' : 'none';
+  // settle attract-demo visibility IN THIS update (a live game behind
+  // the menu must never paint the demos, even for a frame)
+  if (window.attractSync) attractSync();
   loadHistory();
 }
 el('home-closeroom-btn').onclick = async () => {
@@ -1573,6 +1576,6 @@ document.addEventListener('keydown', e => {
 }, true);
 init().then(() => { if (_wantMenu) showHome(); });
 </script>
-<script src="/static/attract.js?v=5"></script>
+<script src="/static/attract.js?v=6"></script>
 </body>
 </html>
