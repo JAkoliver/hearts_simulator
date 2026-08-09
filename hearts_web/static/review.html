@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Perilune &mdash; Match review</title>
 <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="manifest" href="/static/manifest.json">
+<script>if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');</script>
 <style>
   @font-face { font-family:'Space Grotesk';
     src:url('/static/fonts/space-grotesk.woff2') format('woff2');
@@ -1653,7 +1655,7 @@ async function bootEngine() {
     } catch (e) { deepMd5 = 'nomd5'; }
     for (const v of await idbLoadCached()) deepAccept(v);
   }
-  deepWorker = new Worker('/static/analysis_worker.js?v=17');
+  deepWorker = new Worker('/static/analysis_worker.js?v=18');
   // A crashed worker (e.g. a wasm abort) must be VISIBLE, never a frozen
   // counter.
   deepWorker.onerror = e => {
@@ -1722,7 +1724,10 @@ async function bootEngine() {
   let fp16Bad = false;
   try { fp16Bad = localStorage.getItem('perilune-fp16-bad') === 'v16'; }
   catch (e) {}
-  deepWorker.postMessage({type: 'init', skipFp16: fp16Bad, mobile: MOBILE});
+  deepWorker.postMessage({type: 'init', skipFp16: fp16Bad, mobile: MOBILE,
+    // ?an_ep=wasm forces the CPU tier - the cheap way to verify the
+    // threaded fallback on a WebGPU-capable browser.
+    forceWasm: new URLSearchParams(location.search).get('an_ep') === 'wasm'});
 }
 
 // A forced play (single legal card) carries no decision - the ranked list

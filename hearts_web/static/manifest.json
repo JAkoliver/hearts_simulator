@@ -1,0 +1,14 @@
+{
+  "name": "Perilune — Hearts vs AI",
+  "short_name": "Perilune",
+  "description": "Play Hearts against the Perilune AI and review your matches with in-browser deep search.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#121212",
+  "theme_color": "#18181B",
+  "icons": [
+    { "src": "/static/favicon.svg", "sizes": "any",
+      "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

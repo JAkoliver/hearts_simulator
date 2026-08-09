@@ -260,6 +260,16 @@ async def html_no_cache(request: Request, call_next):
     ct = resp.headers.get('content-type', '')
     if 'text/html' in ct:
         resp.headers['Cache-Control'] = 'no-cache'
+    # Cross-origin isolation, SCOPED to the pages that run in-browser
+    # search: SharedArrayBuffer (threaded-wasm ORT fallback when WebGPU
+    # is absent) requires COOP+COEP on the document. Safe here because
+    # these pages are fully self-hosted (fonts/ort/models local - the
+    # exact thing require-corp demands); the rest of the site keeps its
+    # current header behavior. COOP severs window.opener on the review
+    # tab - it reads the telemetry log and never uses the opener.
+    if request.url.path in ('/review', '/static/searchlab.html'):
+        resp.headers['Cross-Origin-Opener-Policy'] = 'same-origin'
+        resp.headers['Cross-Origin-Embedder-Policy'] = 'require-corp'
     return resp
 
 
@@ -1149,6 +1159,19 @@ def api_review(pid: str = None, sid: str = None, code: str = None,
 def review_page():
     return FileResponse(os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                      'static', 'review.html'))
+
+
+@app.get('/sw.js')
+def service_worker():
+    # Served from the ROOT path so the service worker's scope covers '/'
+    # (a worker under /static/ could only control /static/). no-cache so
+    # SW updates deploy immediately instead of after the browser's 24h
+    # update-check allowance.
+    return FileResponse(
+        os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                     'static', 'sw.js'),
+        media_type='text/javascript',
+        headers={'Cache-Control': 'no-cache'})
 
 
 # ---------------------------------------------------------------------------

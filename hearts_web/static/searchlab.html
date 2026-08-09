@@ -49,7 +49,13 @@ function randInputs(b) {
 }
 
 async function bench(ep) {
-  log(`\n=== ${ep} ===`);
+  // Threaded wasm needs crossOriginIsolated (COOP/COEP served on this
+  // page since 2026-08-09); without it this resolves to 1 thread.
+  const hw = navigator.hardwareConcurrency || 2;
+  ort.env.wasm.numThreads = self.crossOriginIsolated
+    ? Math.max(1, Math.min(8, hw - 1)) : 1;
+  log(`\n=== ${ep} (isolated=${!!self.crossOriginIsolated}, `
+      + `wasm threads=${ort.env.wasm.numThreads}) ===`);
   let sess;
   const t0 = performance.now();
   try {

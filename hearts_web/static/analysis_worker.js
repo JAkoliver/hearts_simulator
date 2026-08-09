@@ -45,6 +45,8 @@ let jobs = [], running = false, jobsDone = 0, jobsTotal = 0;
 // fetching logits and doing masked argmax in JS.
 let useAct = true;
 let skipFp16 = false;   // main thread remembers per-browser fp16 failures
+let forceWasm = false;  // ?an_ep=wasm debug override: skip webgpu tiers
+let isMobile = false;   // thread cap: phones throttle thermally
 
 function anError() {
   // read NUL-terminated error string from the wasm heap
@@ -56,6 +58,14 @@ function anError() {
 
 async function init() {
   ort.env.wasm.wasmPaths = '/static/ort/';
+  // Threaded CPU fallback (2026-08-09): multi-threaded wasm requires
+  // crossOriginIsolated, which /review now serves COOP/COEP for. When
+  // isolation is absent this resolves to 1 thread - byte-identical to
+  // the old single-thread behavior. Cap below hardwareConcurrency so
+  // the page/UI thread keeps a core; phones cap lower (thermals).
+  const hw = (self.navigator && navigator.hardwareConcurrency) || 2;
+  ort.env.wasm.numThreads = self.crossOriginIsolated
+    ? Math.max(1, Math.min(isMobile ? 4 : 8, hw - 1)) : 1;
   M = await AnalysisEngine({
     locateFile: f => '/static/' + f + '?v=' + VER });
   M._an_init(1);
@@ -63,6 +73,7 @@ async function init() {
   // problem and proved read-only in this ORT build; the fix lives in the
   // MODEL now - the exported graph never needs >5 bindings per op.)
   try {
+    if (forceWasm) throw new Error('wasm forced (?an_ep=wasm)');
     if (skipFp16) throw new Error('fp16 previously failed on this browser');
     if (!self.navigator || !navigator.gpu) throw new Error('no webgpu');
     // fp16 first: the net is MEASURED fp16-safe (peak activation 31 vs
@@ -76,6 +87,7 @@ async function init() {
     ep = 'webgpu-fp16';
   } catch (e) {
     try {
+      if (forceWasm) throw new Error('wasm forced');
       policy = await ort.InferenceSession.create(
         '/static/models/perilune_policy.onnx?v=' + VER,
         { executionProviders: ['webgpu'] });
@@ -84,7 +96,9 @@ async function init() {
       policy = await ort.InferenceSession.create(
         '/static/models/perilune_policy.onnx?v=' + VER,
         { executionProviders: ['wasm'] });
-      ep = 'wasm';
+      // Honest label (UI shows it): the budget-bearer must be visible.
+      ep = ort.env.wasm.numThreads > 1
+        ? `wasm-threaded(${ort.env.wasm.numThreads})` : 'wasm';
     }
   }
   equity = await ort.InferenceSession.create(
@@ -386,6 +400,8 @@ onmessage = (ev) => {
   const m = ev.data;
   if (m.type === 'init') {
     skipFp16 = !!m.skipFp16;
+    forceWasm = !!m.forceWasm;
+    isMobile = !!m.mobile;
     if (m.mobile) BUCKETS = [16, 32, 64, 128, 208, 416];
     init().catch(
       e => postMessage({ type: 'fatal', message: String(e).slice(0, 300) }));
