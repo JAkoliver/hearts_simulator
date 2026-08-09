@@ -20,7 +20,7 @@
              right:10px; }
   #sitenav-btn { font-size:.75rem; padding:4px 12px; background:#26262A;
                  color:#ECECEC; border:0; border-radius:7px; cursor:pointer; }
-  #sitenav-btn:hover { background:#33333A; color:#E8B923; }
+  #sitenav-btn:hover { background:#33333A; }
   #sitenav-dd { display:none; position:absolute; right:0;
                 top:calc(100% + 6px); background:#1E1E21;
                 border:1px solid #2E2E33; border-radius:9px; min-width:150px;

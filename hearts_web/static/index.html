@@ -60,7 +60,6 @@
   #menu-btn-wrap { position:absolute; top:8px; right:10px; z-index:5; }
   #menu-btn-wrap button { font-size:.75rem; padding:4px 12px;
     background:var(--tag-bg); color:var(--text); }
-  #menu-btn-wrap button:hover { color:var(--gold); }
   #home-close:hover { color:var(--gold) !important; }
   header h1 { cursor:pointer; }
   header h1:hover { color:var(--gold); }
@@ -140,6 +139,11 @@
   #hand .card.illegal { opacity:.38; cursor:not-allowed; }
   #hand .card:not(.illegal):hover { transform:translateY(-8px); }
   #hand .card.selected { transform:translateY(-14px); outline:3px solid var(--gold); }
+  /* cards just passed TO you: a gold pulse when they land in your hand */
+  #hand .card.recvflash { animation:recvflash 2.2s ease-out; }
+  @keyframes recvflash {
+    0%, 55% { outline:3px solid var(--gold); box-shadow:0 0 10px var(--gold); }
+    100% { outline:3px solid transparent; box-shadow:none; } }
   /* Contextual text lives ON the felt, above your seat tag - it can't
      collide with cards rising out of the hand, and the hand needs no
      reserved headroom above it. */
@@ -277,6 +281,9 @@
   <h2>Hearts</h2>
   <div class="hrow" id="home-resume" style="display:none">
     <button id="home-resume-btn">Return to current game</button></div>
+  <div class="hrow" id="home-closeroom" style="display:none">
+    <button id="home-closeroom-btn" style="background:#3A2328; color:#ECECEC">
+      Close room for everyone</button></div>
   <div class="hrow">
     <select id="home-tier" title="AI difficulty - applies to Play vs AI and to the AI seats of a table you host">
       <option value="casual">Casual &middot; v3</option>
@@ -322,6 +329,7 @@ const RANKS = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'], SUITS = 'C
 const cardName = c => RANKS[c % 13] + SUITS[Math.floor(c / 13)];
 let sid = null, state = null, busy = false, passSelection = [];
 let preselect = null;   // card queued mid-animation, auto-played on your turn
+let _recvFlashKey = null, _recvFlashUntil = 0;   // pass-received gold pulse
 let lastHandHTML = null;  // renderHand rebuild-skip cache
 
 const el = id => document.getElementById(id);
@@ -412,9 +420,19 @@ function renderHand(showLegal = true) {
   const inPassing = mode === 'table' ? state.passing
                                      : (state.your_turn && state.passing);
   const dim = showLegal && state.your_turn && !inPassing;
+  // Flash the cards you were just passed - once per deal, when they
+  // first appear post-pass (the received list persists all deal).
+  const recvKey = `${mode}:${tcode || sid}:${state.deal_no}`;
+  if (state.received && state.received.length && !inPassing
+      && _recvFlashKey !== recvKey) {
+    _recvFlashKey = recvKey;
+    _recvFlashUntil = Date.now() + 2400;
+  }
+  const flashNow = _recvFlashKey === recvKey && Date.now() < _recvFlashUntil;
   const html = state.hand.map(h => {
     let cls = (dim && !legal.has(h.card)) ? 'illegal' : '';
     if (passSelection.includes(h.card) || h.card === preselect) cls += ' selected';
+    if (flashNow && state.received.includes(h.name)) cls += ' recvflash';
     return cardHTML(h.name, cls);
   }).join('');
   // Rebuild only on real change: the table-mode poll re-renders every
@@ -795,6 +813,7 @@ async function showInsights() {
 
 // ---- table mode (multi-human) --------------------------------------------
 let mode = 'solo', tcode = null, tcursor = 0, pollTimer = null;
+let isHost = false;
 let evq = [], pumping = false, shownTrick = [];
 let curMatchNo = null, pollMs = 1500;
 
@@ -820,8 +839,19 @@ function showHome(err) {
     && ((mode === 'solo' && sid) || (mode === 'table' && tcode)));
   el('home-resume').style.display = active ? 'block' : 'none';
   el('home-close').style.display = active ? 'block' : 'none';
+  // hosts can end the room from here too - lobby or mid-game; every
+  // human's next poll lands them back on their menu with a notice
+  el('home-closeroom').style.display =
+    (mode === 'table' && tcode && isHost) ? 'block' : 'none';
   loadHistory();
 }
+el('home-closeroom-btn').onclick = async () => {
+  try { await api('/api/table/close', POSTJSON({code: tcode, pid})); }
+  catch (e) {}
+  stopPolling();
+  setMode('solo');
+  showHome();
+};
 el('home-close').onclick = () => hideHome();
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && el('home').style.display === 'flex'
@@ -976,6 +1006,14 @@ function renderLobby(ts) {
   }
   const b = el('o-btn');
   if (ts.you_host) {
+    if (!el('lobby-close')) el('o-body').insertAdjacentHTML('beforeend',
+      `<p><button id="lobby-close" style="background:#3A2328; color:#ECECEC">
+        Close room</button></p>`);
+    el('lobby-close').onclick = async () => {
+      try { await api('/api/table/close', POSTJSON({code: tcode, pid})); }
+      catch (e) {}
+      leaveTable();
+    };
     b.style.display = '';
     b.textContent = `Start (${ts.players.length} human${ts.players.length > 1 ? 's' : ''})`;
     b.onclick = async () => {
@@ -991,6 +1029,7 @@ function renderLobby(ts) {
 }
 
 function handleTableState(ts) {
+  if (ts.you_host !== undefined) isHost = !!ts.you_host;
   if (ts.state === 'lobby') return renderLobby(ts);
   lastLobbySig = null;   // next lobby (rematch etc.) re-renders fresh
   if (ts.match_no !== undefined && ts.match_no !== curMatchNo) {
