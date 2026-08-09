@@ -531,7 +531,7 @@ async function submit(cards) {
     for (const card of cards) {
       const resp = await api(`/api/play/${sid}`,
         {method:'POST', headers:{'Content-Type':'application/json'},
-         body: JSON.stringify({card})});
+         body: JSON.stringify({card, pid})});
       events = events.concat(resp.events || []);
       state = resp;
     }
@@ -1127,7 +1127,7 @@ async function init() {
   const saved = localStorage.getItem(K('hearts_sid'));
   if (saved) {
     try {
-      const st = await api(`/api/state/${saved}`);
+      const st = await api(`/api/state/${saved}?pid=${encodeURIComponent(pid || '')}`);
       if (!st.finished) { sid = saved; state = st; hideHome(); render(); return; }
     } catch (e) { /* unknown session (e.g. server restarted) */ }
   }

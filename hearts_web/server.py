@@ -206,7 +206,8 @@ _rl_lock = threading.Lock()
 _rl_general, _rl_create = {}, {}
 RL_GENERAL = cfg.RL_GENERAL
 RL_CREATE = cfg.RL_CREATE
-CREATE_PATHS = ('/api/new', '/api/table/new', '/api/table/join')
+CREATE_PATHS = ('/api/new', '/api/table/new', '/api/table/join',
+                '/api/identity/new', '/api/identity/rotate')
 
 
 def _limited(bucket, ip, limit, window):
@@ -692,6 +693,7 @@ def _get_table(code):
 
 class PlayBody(BaseModel):
     card: int
+    pid: str | None = None
 
 
 class NewBody(BaseModel):
@@ -1549,6 +1551,7 @@ def api_progress(pid: str = None, player: str = None, limit: int = 60):
             raise HTTPException(404, 'unknown player')
         pid = canon
         public = True
+        limit = min(limit, 40)   # bound anonymous compute per request
     else:
         pid = resolve_pid(pid)
     hist = list(_idx_history.get(pid, ()))[-max(1, min(100, limit)):]
@@ -1702,9 +1705,19 @@ def _get(sid):
     return s
 
 
+# A sid alone is NOT a credential: solo review URLs carry it in the
+# address bar (visible to anyone watching a stream), so pid-bound
+# sessions require the pid on state reads and plays - otherwise a
+# spectator could read the hand or inject moves into a live session.
+def _own_session(s, pid):
+    if s.pid and (not pid or resolve_pid(pid) != s.pid):
+        raise HTTPException(403, 'not your session')
+
+
 @app.get('/api/state/{sid}')
-def get_state(sid: str):
+def get_state(sid: str, pid: str = None):
     s = _get(sid)
+    _own_session(s, pid)
     with s.lock:
         return s.state()
 
@@ -1904,6 +1917,7 @@ def table_play(code: str, body: TableActBody):
 @app.post('/api/play/{sid}')
 def play(sid: str, body: PlayBody):
     s = _get(sid)
+    _own_session(s, body.pid)
     with s.lock:
         if s.finished:
             raise HTTPException(409, 'match is over')
