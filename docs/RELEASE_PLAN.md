@@ -63,6 +63,14 @@ DO NOT RELEASE:
 ORGANIZATION/SECURITY until release:
 - Primary repo stays private. Big artifacts: private GitHub release
   assets (the pilot-bundle-v1 pattern) or an external encrypted backup.
+- DONE 2026-08-09: private ops repo at E:\perilune_ops (local git,
+  NEVER public) versions the gitignored layer - secrets, live
+  site_config, player data, tunnel/schedule launchers - via its
+  SYNC_OPS.cmd snapshot script, plus notes/ for exploit-value-while-
+  unfixed reasoning (the material docs/site_security_design.md's
+  publishable rule excludes). Off-disk backup DONE 2026-08-09:
+  github.com/JAkoliver/perilune-ops (PRIVATE by permanent intent -
+  never flip public, never transfer); sync_ops.ps1 pushes every run.
 - BACKUP discipline (do this soon, not at release): periodic copy of
   Hall_of_Fame/, equity_data/, expert_data/, and the repo to a second
   disk or private cloud. A single-disk project is one failure from
@@ -93,6 +101,13 @@ ledger/experiment_ledger) - release the milestones that mark eras:
    rpa_/github_pat_/gho_/PUBLIC_KEY-style material (2026-08-01 scan:
    clean; .mcp.json with the RunPod key was never tracked and is now
    gitignored). Rotate the RunPod API key regardless at release time.
+   ALSO: exploitability sweep of docs/TODOs - confirm no committed text
+   describes an OPEN weakness of the live site. Rule (2026-08-09):
+   security docs are publishable-by-construction - they state
+   invariants that hold with the code public (Kerckhoffs), never open
+   holes or detection methods; see docs/site_security_design.md sec. 6.
+   Anything with exploit-value-while-unfixed lives in the private ops
+   layer (gitignored / off-repo), not in committed prose.
 2. PERSONAL DATA: decide on email/username in git commits (fine to keep
    or re-author; user's call), remove personal match logs (sec. 2).
 3. LICENSES: code (suggest MIT or Apache-2.0), weights + data (suggest
