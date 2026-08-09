@@ -644,7 +644,13 @@ async function animate(events, preTrick = []) {
   if (anyPlays) setStatus(mode === 'table' ? 'Playing&hellip;' : 'AI is thinking', true);
   const lastTE = events.map(e => e.type).lastIndexOf('trick_end');
   const playsAfterLastTE = events.some((e, i) => i > lastTE && e.type === 'play');
-  const canDim = () => state.your_turn && !state.passing && !state.finished;
+  // Never pre-render legality when this batch crosses into the NEXT deal:
+  // state is already the new deal, and dimming would paint the fresh hand
+  // while the deal-end screen is still up (pass deals were shielded by the
+  // passing check; hold deals leaked exactly this way).
+  const crossedDeal = events.some(e => e.type === 'deal_end');
+  const canDim = () => !crossedDeal && state.your_turn && !state.passing
+    && !state.finished;
   let dimmed = false;
   for (let i = 0; i < events.length; i++) {
     const ev = events[i];
