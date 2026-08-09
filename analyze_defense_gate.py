@@ -50,8 +50,15 @@ def per_match(df):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--tag', default='r1t1')
+    ap.add_argument('--dir', default=None,
+                    help='arm-CSV directory (default: the round-1 layout '
+                         'equity_data/exploiter_r1/gate_<tag>)')
+    ap.add_argument('--verdict', default=None,
+                    help='verdict JSON path (default: the round-1 name '
+                         'equity_data/verdicts/exploiter_r1_defense_gate_'
+                         '<tag>.json)')
     args = ap.parse_args()
-    out_dir = f'equity_data/exploiter_r1/gate_{args.tag}'
+    out_dir = args.dir or f'equity_data/exploiter_r1/gate_{args.tag}'
 
     base = per_match(load_arm(out_dir, 'base'))
     cand = per_match(load_arm(out_dir, 'cand'))
@@ -89,8 +96,9 @@ def main():
                'paired_delta': md, 'se': se, 't': t, 'p_one_sided': p,
                'def_place_base': dp_b, 'def_place_cand': dp_c,
                'pass': bool(gate_pass)},
-              open(f'equity_data/verdicts/exploiter_r1_defense_gate_{args.tag}.json',
-                   'w'), indent=1)
+              open(args.verdict
+                   or f'equity_data/verdicts/exploiter_r1_defense_gate_'
+                      f'{args.tag}.json', 'w'), indent=1)
     return 0 if gate_pass else 1
 
 
