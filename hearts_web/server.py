@@ -252,6 +252,18 @@ def _limited(bucket, ip, limit, window):
 
 
 @app.middleware('http')
+async def html_no_cache(request: Request, call_next):
+    # Pages must revalidate on every load - stale HTML pins stale includes
+    # (nav.js label changes invisible for a day). Assets stay cacheable;
+    # their updates ride versioned query strings.
+    resp = await call_next(request)
+    ct = resp.headers.get('content-type', '')
+    if 'text/html' in ct:
+        resp.headers['Cache-Control'] = 'no-cache'
+    return resp
+
+
+@app.middleware('http')
 async def rate_limit(request: Request, call_next):
     ip = request.headers.get('cf-connecting-ip')
     if ip and request.url.path.startswith('/api/'):
