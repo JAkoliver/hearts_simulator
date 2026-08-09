@@ -860,7 +860,8 @@ function renderEval(st, deal) {
         : idx.slice(0, 3);
       if (mineIdx != null && !shown.includes(mineIdx)) shown.push(mineIdx);
       html += `<div class="deep-h" style="margin-top:10px">${
-        dp.seat === R.viewer_seat ? 'Your pass' : esc(seatLabel(dp.seat)) + "'s pass"},
+        dp.seat === R.viewer_seat && !SHARED ? 'Your pass'
+          : esc(seatLabel(dp.seat)) + "'s pass"},
         deep search &middot; K=${dp.K}</div>`;
       for (const i of shown) {
         const cards = dp.combos.slice(i * 3, i * 3 + 3).map(idName);
@@ -876,7 +877,7 @@ function renderEval(st, deal) {
             dp.pts ? dp.pts[i].toFixed(1) + ' pts' : ''}${
             !isMine || dloss < 0.0005 ? '' :
             ` &middot; &minus;${(dloss * 100).toFixed(1)}% match`}${
-            isMine ? (dp.seat === R.viewer_seat
+            isMine ? (dp.seat === R.viewer_seat && !SHARED
               ? ' &larr; you passed' : ' &larr; passed') : ''}</i></span></div>`;
       }
       // The default view is already top-3 PLUS the pass made, so expanding
@@ -891,7 +892,8 @@ function renderEval(st, deal) {
           dloss >= 0.01 && dloss > sig
             ? `<span class="dv">This pass cost &minus;${(dloss * 100).toFixed(1)}% match win</span>`
             : dloss < 0.01
-            ? `<span class="dv ok">Your pass matches the best candidate's value</span>`
+            ? `<span class="dv ok">${dp.seat === R.viewer_seat && !SHARED
+              ? 'Your' : 'This'} pass matches the best candidate's value</span>`
             : `<span class="dv unk">Too close to call at K=${dp.K}</span>`}</div>`;
       }
       html += `<div class="muted" style="font-size:.64rem; margin-top:3px">
@@ -943,7 +945,7 @@ function renderEval(st, deal) {
       // One row per giver: name -> cards -> receiver, with an agreement
       // badge; click a row to inspect that seat's picks.
       const off = {left: 1, right: 3, across: 2}[deal.pass_direction];
-      const short = s => s === R.viewer_seat ? 'You' : `Seat ${s + 1}`;
+      const short = s => s === R.viewer_seat && !SHARED ? 'You' : `Seat ${s + 1}`;
       const agree = s => {
         const rows = pe.filter(e => e[0] === s);
         const m = rows.filter(e => {
@@ -981,7 +983,7 @@ function renderEval(st, deal) {
       b64s.style.display = 'inline-block';
       b64s.disabled = cur2 >= 256;
       b64s.dataset.kind = 'pass';
-      const who = passSeat === R.viewer_seat ? 'your pass'
+      const who = passSeat === R.viewer_seat && !SHARED ? 'your pass'
         : `seat ${passSeat + 1}'s pass`;
       el('deep-pos').innerHTML = dp
         ? `${who}: analyzed at K=${dp.K}${dp.K >= 256 ? ' (max)' : ''}`
@@ -1075,8 +1077,8 @@ function renderEval(st, deal) {
           The search confirms this play cost real match-win chance.</div>`;
       else if (v && v.kind === 'nocost')
         html += `<div class="muted" style="font-size:.68rem; margin-top:3px">
-          Played out, your card matches the best move's value &mdash; the
-          raw-policy preference above carried no real cost.</div>`;
+          Played out, the played card matches the best move's value &mdash;
+          the raw-policy preference above carried no real cost.</div>`;
     }
   }
   el('evalbox').innerHTML = html;
@@ -1449,6 +1451,10 @@ el('d-gap').onclick = () => { disSort = 'gap';
     `${R.deals.length} deals · final ${R.deals[R.deals.length - 1].totals.join(' / ')}`
     + (q.get('share') ? ' · shared view' : '');
   el('xray-note').textContent = R.note;
+  if (SHARED) {   // a recipient is not the sharer: no first-person labels
+    const nm = (R.seat_names || {})[String(R.viewer_seat)];
+    el('d-you').textContent = nm ? `${nm}'s plays` : "sharer's plays";
+  }
   prep();
   // Cached deep results render immediately on revisit (no engine boot
   // needed) - and a completed sweep re-harvests into the progress store.
@@ -1942,7 +1948,7 @@ function deepenHere() {
     deepWorker.postMessage({type: 'queue', front: true, jobs: [{
       kind: 'pass', key: passKey(st.d, seat), d: st.d, i: 'ps' + seat,
       deal: st.d, seat, actionIdx: 0, K: nextP}]});
-    dstatus(`deep-checking ${seat === R.viewer_seat ? 'your' : 'seat ' + (seat + 1) + "'s"} pass (K=${nextP})…`);
+    dstatus(`deep-checking ${seat === R.viewer_seat && !SHARED ? 'your' : 'seat ' + (seat + 1) + "'s"} pass (K=${nextP})…`);
     return;
   }
   if (st.type !== 'play') return;

@@ -67,10 +67,10 @@
     <span class="muted">&middot; habit, not ground truth</span></h3>
     <svg id="sp-agree" height="60"></svg><div class="small muted" id="t-agree"></div></div>
   <div class="panel"><h3>Readability
-    <span class="muted">&middot; you vs AI seats (raw-net belief)</span></h3>
+    <span class="muted" id="h-read">&middot; you vs AI seats (raw-net belief)</span></h3>
     <svg id="sp-read" height="60"></svg><div class="small muted" id="t-read"></div></div>
   <div class="panel"><h3>Moons
-    <span class="muted">&middot; conceded per match / your shots</span></h3>
+    <span class="muted" id="h-moon">&middot; conceded per match / your shots</span></h3>
     <svg id="sp-moon" height="60"></svg><div class="small muted" id="t-moon"></div></div>
 </div>
 
@@ -86,8 +86,8 @@
 <div class="panel">
   <h3>Habits &middot; agreement by decision type</h3>
   <table id="habits"></table>
-  <div class="small muted" style="margin-top:6px">Where you and Perilune
-    part ways most often - the practice list, not a verdict.</div>
+  <div class="small muted" id="h-habits" style="margin-top:6px">Where you and
+    Perilune part ways most often - the practice list, not a verdict.</div>
 </div>
 
 <div class="panel">
@@ -184,8 +184,13 @@ const roll = (vals, w) => vals.map((_, i) => {
     el('sub').textContent = 'could not load progress: ' + e.message;
     return;
   }
-  if (PLAYER && pubName)
+  if (PLAYER && pubName) {
     document.querySelector('h1').textContent = `${pubName} — progress`;
+    el('h-read').innerHTML = '&middot; player vs AI seats (raw-net belief)';
+    el('h-moon').innerHTML = '&middot; conceded per match / their shots';
+    el('h-habits').textContent = 'Where this player and Perilune part ways '
+      + 'most often - the practice list, not a verdict.';
+  }
   if (!M.length) {
     el('sub').textContent = PLAYER
       ? 'no finished matches yet.'
@@ -240,13 +245,13 @@ const roll = (vals, w) => vals.map((_, i) => {
     {vals: readAI, color: '#5B9BD5', width: 1.2},
     {vals: readV, color: '#A78BFA', width: 1.4, dots: true}], 25, 90,
     i => `${fmtDate(M[i].ts)} &middot;
-      you <b style="color:#A78BFA">${readV[i] != null ? readV[i] + '%' : '-'}</b>
+      ${PLAYER ? 'player' : 'you'} <b style="color:#A78BFA">${readV[i] != null ? readV[i] + '%' : '-'}</b>
       &middot; AI seats <span style="color:#5B9BD5">${
         readAI[i] != null ? readAI[i] + '%' : '-'}</span>`);
   const lr = readV.filter(v => v != null).slice(-5),
         lra = readAI.filter(v => v != null).slice(-5);
   el('t-read').textContent = lr.length
-    ? `mapped by trick 6, last 5: you ${(lr.reduce((a,b)=>a+b,0)/lr.length).toFixed(0)}%`
+    ? `mapped by trick 6, last 5: ${PLAYER ? 'player' : 'you'} ${(lr.reduce((a,b)=>a+b,0)/lr.length).toFixed(0)}%`
       + (lra.length ? ` · AI seats ${(lra.reduce((a,b)=>a+b,0)/lra.length).toFixed(0)}%` : '')
     : 'no data (all-human tables have no AI reference)';
 
@@ -257,7 +262,7 @@ const roll = (vals, w) => vals.map((_, i) => {
       &middot; shot ${M[i].moons_shot ?? 0}`);
   el('t-moon').textContent =
     `total: ${mc.reduce((a, b) => a + (b || 0), 0)} conceded · `
-    + `${M.reduce((a, m) => a + (m.moons_shot || 0), 0)} shot by you`;
+    + `${M.reduce((a, m) => a + (m.moons_shot || 0), 0)} shot by ${PLAYER ? 'them' : 'you'}`;
 
   // band 3.5: search verdicts (OWN view only: the data lives in
   // each viewer's browser - on a public profile it would show the
