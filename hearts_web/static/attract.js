@@ -70,11 +70,30 @@
     box.dataset.key = key;
   }
 
-  function updateTags(totals, active) {
+  // Running deal points per seat up to (and including) play index i:
+  // completed tricks only, like the game (round scores land at trick
+  // end). Hearts 1 each, QS 13.
+  function dealPts(deal, i) {
+    const pts = [0, 0, 0, 0];
+    const done = Math.floor((i + 1) / 4);
+    for (let t = 0; t < done; t++) {
+      let p = 0;
+      for (const pl of deal.plays.slice(4 * t, 4 * t + 4)) {
+        if (pl.c === 'QS') p += 13;
+        else if (pl.c.slice(-1) === 'H') p += 1;
+      }
+      pts[deal.winners[t]] += p;
+    }
+    return pts;
+  }
+
+  // The game's tag format: Name - total (+deal points)
+  function updateTags(totals, pts, active) {
     for (let s = 0; s < 4; s++) {
       const t = el('af-tag' + s);
       if (!t) continue;
-      t.textContent = `${SEATN[s]} ${totals[s]}`;
+      t.innerHTML = `${SEATN[s]} &middot; ${totals[s]}
+        <small>(+${pts[s]})</small>`;
       t.classList.toggle('on', s === active);
     }
   }
@@ -93,17 +112,20 @@
     const trickBox = el('attract-trick');
     if (play.i === -1) {
       trickBox.innerHTML = '';
-      updateTags(before, -1);
+      updateTags(before, [0, 0, 0, 0], -1);
       cap.textContent = deal.pass_dir === 'hold'
         ? `deal ${play.d + 1} - no pass`
         : `deal ${play.d + 1} - passing ${deal.pass_dir}`;
       return 1400;
     }
     if (play.i >= deal.plays.length) {
-      trickBox.innerHTML = '';
-      updateTags(deal.totals, -1);   // the tags ARE the scoreboard
+      // deal-end scoreboard overlay: deal points -> new totals
+      trickBox.innerHTML = `<div class="af-scores">${deal.scores.map(
+        (sc, s) => `<div><span>${SEATN[s]}</span><b>+${sc}</b>
+                    <i>${deal.totals[s]}</i></div>`).join('')}</div>`;
+      updateTags(before, deal.scores, -1);
       cap.textContent = `deal ${play.d + 1} scores - lowest wins`;
-      return 2000;
+      return 2600;
     }
     const p = deal.plays[play.i];
     if (play.i % 4 === 0) trickBox.innerHTML = '';   // new trick
@@ -111,7 +133,7 @@
     div.className = `atc pos${p.s}`;
     div.innerHTML = cardHTML(p.c, 'mini');
     trickBox.appendChild(div);
-    updateTags(before, p.s);
+    updateTags(before, dealPts(deal, play.i), p.s);
     if (play.i % 4 === 3) {
       const w = deal.winners[Math.floor(play.i / 4)];
       cap.textContent = `${SEATN[w]} takes the trick`;

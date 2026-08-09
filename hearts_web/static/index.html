@@ -223,19 +223,37 @@
                   box-shadow:0 2px 8px rgba(0,0,0,.45) inset; }
   body.green #attract-felt {
     background:radial-gradient(ellipse at center, #2a8a50 0%, #1d6b3c 100%); }
-  /* on-felt seat tags, the game's .seat .tag grammar at demo scale */
+  /* on-felt seat tags, the game's .seat .tag grammar at demo scale;
+     z-index keeps side tags ABOVE played cards */
   .af-tag { position:absolute; font-size:.62rem; color:var(--seat-text);
             background:var(--tag-bg); padding:1px 8px; border-radius:8px;
-            white-space:nowrap; font-variant-numeric:tabular-nums; }
+            white-space:nowrap; font-variant-numeric:tabular-nums;
+            z-index:2; }
+  .af-tag small { font-weight:400; opacity:.85; }
   .af-tag.on { background:var(--gold); color:#222; font-weight:600; }
   .af-t0 { bottom:5px; left:50%; transform:translateX(-50%); }
   .af-t1 { left:5px; top:50%; transform:translateY(-50%); }
   .af-t2 { top:5px; left:50%; transform:translateX(-50%); }
   .af-t3 { right:5px; top:50%; transform:translateY(-50%); }
-  /* demo trick cards: same drop entry + sweep-to-winner exit as .tcard */
+  /* deal-end scoreboard overlay (restored): deal points -> totals */
+  .af-scores { position:absolute; inset:0; z-index:3; display:flex;
+               flex-direction:column; justify-content:center; gap:3px;
+               background:rgba(0,0,0,.42); font-size:.78rem; }
+  .af-scores div { display:flex; justify-content:center; gap:12px;
+                   font-variant-numeric:tabular-nums; }
+  .af-scores span { color:var(--muted); width:24px; text-align:right; }
+  .af-scores b { width:34px; text-align:right; color:var(--text); }
+  .af-scores i { font-style:normal; color:var(--gold); width:30px;
+                 text-align:right; }
+  /* demo trick cards: entry starts near REAL played-card size (the
+     mini is 34px vs the table's 68px - the stock drop keyframe reads
+     wrong at this scale) and settles onto the small table; exit =
+     the trick-take sweep toward the winner */
   #attract-trick { position:absolute; inset:0; display:flex;
                    align-items:center; justify-content:center; }
-  .atc { position:absolute; animation:drop .25s ease-out;
+  @keyframes afdrop { from { transform:scale(1.9) translateY(-8px);
+                             opacity:.3; } }
+  .atc { position:absolute; animation:afdrop .3s ease-out;
          transition:translate .45s ease-in, opacity .45s ease-in; }
   .atc.pos0 { translate:0 44px; }
   .atc.pos1 { translate:-70px 0; }
@@ -1548,6 +1566,6 @@ document.addEventListener('keydown', e => {
 }, true);
 init().then(() => { if (_wantMenu) showHome(); });
 </script>
-<script src="/static/attract.js?v=2"></script>
+<script src="/static/attract.js?v=3"></script>
 </body>
 </html>
