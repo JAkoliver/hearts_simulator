@@ -24,10 +24,27 @@
     return !REDUCED;               // default: on, unless reduced motion
   }
 
+  // Random play order: each panel walks its own shuffled sequence of
+  // the demo matches and reshuffles when the sequence is spent.
+  function shuffled() {
+    const a = Array.from({length: N_DEMOS}, (_, i) => i);
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
   // Panel cursors: i = -1 pass interstitial, 0..plays-1 a play,
   // plays.length the deal-score interstitial.
-  const play = {m: 0, d: 0, i: -1, nextAt: 0};
-  const rev = {m: 1 % N_DEMOS, d: 0, i: 0, nextAt: 0};
+  const play = {order: shuffled(), oi: 0, m: 0, d: 0, i: -1, nextAt: 0};
+  const rev = {order: shuffled(), oi: 0, m: 0, d: 0, i: 0, nextAt: 0};
+  play.m = play.order[0];
+  rev.m = rev.order[0];
+  if (rev.m === play.m) {          // panels start on different matches
+    rev.oi = 1 % N_DEMOS;
+    rev.m = rev.order[rev.oi];
+  }
 
   const SEATN = ['P1', 'P2', 'P3', 'P4'];
 
@@ -42,9 +59,14 @@
     if (deal && st.i > deal.plays.length) {
       st.i = -1;
       st.d++;
-      if (st.d >= demos[st.m].deals.length) {
-        st.d = 0;
-        st.m = (st.m + 1) % N_DEMOS;
+      if (st.d >= demos[st.m].deals.length) {   // match over: next in the
+        st.d = 0;                               // shuffled order
+        st.oi++;
+        if (st.oi >= st.order.length) {
+          st.order = shuffled();
+          st.oi = 0;
+        }
+        st.m = st.order[st.oi];
       }
     }
   }
