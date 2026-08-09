@@ -209,11 +209,20 @@ const roll = (vals, w) => vals.map((_, i) => {
   const avgPlace = M.reduce((a, m) => a + m.place, 0) / M.length;
   let streak = 0;
   for (let i = M.length - 1; i >= 0 && M[i].place === 1; i--) streak++;
+  const totPts = M.reduce((a, m) => a + (m.final ? m.final[m.seat] : 0), 0);
+  const totDeals = M.reduce((a, m) => a + m.deals, 0);
+  const dz = M.reduce((a, m) => a + (m.deals_zero || 0), 0);
+  const dh = M.reduce((a, m) => a + (m.deals_harsh || 0), 0);
+  const dn = M.reduce((a, m) => a + (m.n_deals || 0), 0);
   el('hdr').innerHTML = [
     [M.length, 'matches'],
     [`${(100 * wins / M.length).toFixed(0)}%`, 'win rate'],
     [avgPlace.toFixed(2), 'avg placement'],
     [streak, 'win streak'],
+    [totDeals ? (totPts / totDeals).toFixed(2) : '-', 'pts / deal'],
+    [(totDeals * 13).toLocaleString(), 'tricks played'],
+    [dn ? (100 * dz / dn).toFixed(0) + '%' : '-', 'deals at 0'],
+    [dn ? (100 * dh / dn).toFixed(0) + '%' : '-', 'deals at 25+'],
   ].map(([v, l]) => `<span><div class="big">${v}</div>
     <div class="lbl">${l}</div></span>`).join('');
 
@@ -222,7 +231,7 @@ const roll = (vals, w) => vals.map((_, i) => {
   const places = M.map(m => m.place);
   const rollP = roll(places, 5);
   spark(el('placechart'),
-    [{vals: places.map(p => 5 - p), color: '#5B9BD5', width: 0, dots: true},
+    [{vals: places.map(p => 5 - p), color: '#7CBF8E', width: 0, dots: true},
      {vals: rollP.map(p => 5 - p), color: '#E8B923', width: 1.6}],
     1, 4,
     i => `${fmtDate(M[i].ts)} &middot; ${what(M[i])} &middot;
@@ -242,11 +251,11 @@ const roll = (vals, w) => vals.map((_, i) => {
   const readV = M.map(m => m.read_t6 ?? null);
   const readAI = M.map(m => m.read_t6_ai ?? null);
   spark(el('sp-read'), [
-    {vals: readAI, color: '#5B9BD5', width: 1.2},
+    {vals: readAI, color: '#8A8A93', width: 1.2},
     {vals: readV, color: '#A78BFA', width: 1.4, dots: true}], 25, 90,
     i => `${fmtDate(M[i].ts)} &middot;
       ${PLAYER ? 'player' : 'you'} <b style="color:#A78BFA">${readV[i] != null ? readV[i] + '%' : '-'}</b>
-      &middot; AI seats <span style="color:#5B9BD5">${
+      &middot; AI seats <span style="color:#8A8A93">${
         readAI[i] != null ? readAI[i] + '%' : '-'}</span>`);
   const lr = readV.filter(v => v != null).slice(-5),
         lra = readAI.filter(v => v != null).slice(-5);

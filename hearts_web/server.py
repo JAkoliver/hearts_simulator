@@ -1480,6 +1480,7 @@ def compute_match_stats(deal_lines, seat):
     play_deal = []    # per play state: (deal_idx, play_in_deal)
     tracked = sorted({seat, *ai_seats})
     moons_shot = moons_conceded = 0
+    n_deals_ct = deals_zero = deals_harsh = 0
     for di, d in enumerate(deal_lines):
         plays = 0
         played_deal = set()
@@ -1541,6 +1542,11 @@ def compute_match_stats(deal_lines, seat):
                 moons_shot += 1
             else:
                 moons_conceded += 1
+        n_deals_ct += 1
+        if rs[seat] == 0:
+            deals_zero += 1
+        if rs[seat] >= 25:   # 25 = maximal non-moon damage, 26 = ate a moon
+            deals_harsh += 1
     # one batched forward for everything
     agree = {c: [0, 0] for c in ('pass', 'lead', 'follow', 'discard')}
     read_t6 = {t: [] for t in tracked}
@@ -1599,6 +1605,8 @@ def compute_match_stats(deal_lines, seat):
         'read_t6': round(100 * sum(my_vals) / len(my_vals), 1) if my_vals else None,
         'read_t6_ai': round(100 * sum(ai_vals) / len(ai_vals), 1) if ai_vals else None,
         'moons_shot': moons_shot, 'moons_conceded': moons_conceded,
+        'n_deals': n_deals_ct, 'deals_zero': deals_zero,
+        'deals_harsh': deals_harsh,
     }
 
 
