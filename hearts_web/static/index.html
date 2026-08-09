@@ -294,12 +294,15 @@
                    color:var(--banner); margin-bottom:10px; }
   #help-modal p { margin:7px 0; color:var(--text); }
   #help-modal b { color:var(--banner); }
-  /* end-screen verification spinner */
+  /* end-screen verification spinner + status lines */
   @keyframes vspin { to { transform:rotate(360deg); } }
   .vring { display:inline-block; width:11px; height:11px;
            border:2px solid var(--tag-bg); border-top-color:var(--gold);
            border-radius:50%; animation:vspin .9s linear infinite;
-           vertical-align:-2px; }
+           vertical-align:-2px; flex:none; }
+  .vline { display:flex; align-items:center; gap:6px;
+           white-space:nowrap; overflow:hidden; }
+  .vsub { font-size:.68rem; opacity:.6; margin-top:2px; }
   #home-history { margin-top:14px; border-top:1px solid #2E2E33; padding-top:8px;
                   text-align:left; }
   #home-history h4 { font-size:.7rem; color:var(--muted); text-transform:uppercase;
@@ -1625,6 +1628,6 @@ document.addEventListener('keydown', e => {
 init().then(() => { if (_wantMenu) showHome(); });
 </script>
 <script src="/static/attract.js?v=7"></script>
-<script src="/static/verify_end.js?v=2"></script>
+<script src="/static/verify_end.js?v=3"></script>
 </body>
 </html>

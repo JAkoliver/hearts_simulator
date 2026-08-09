@@ -53,12 +53,14 @@
     abort('');
   }
 
+  // Two deliberate lines, never an accidental wrap: the action line
+  // (spinner + message + skip), then a quieter provenance line.
   function status(msg) {
     if (!area()) return;
-    area().innerHTML = `<span class="vring"></span> ${msg}
-      <span style="opacity:.7">&middot; runs on your device, nothing is
-      uploaded</span> &middot;
-      <a href="#" id="verify-skip" class="qlink">skip</a>`;
+    area().innerHTML = `<div class="vline"><span class="vring"></span>
+        <span>${msg}</span> &middot;
+        <a href="#" id="verify-skip" class="qlink">skip</a></div>
+      <div class="vsub">runs on your device &middot; nothing is uploaded</div>`;
     el('verify-skip').onclick = e => { e.preventDefault(); skip(); };
   }
 
