@@ -56,6 +56,9 @@ BASELINE = 'Hall_of_Fame/hearts_model_milestone_1785322724.pth'
 BASELINE_MD5_8 = '8a89da90'
 REG_SHARES = (0.75, 0.875)
 REG_LRS = (1e-5, 3e-5)
+# Amendment 2026-08-09 (signed): KL anchor is REGISTERED at these
+# coefficients for the final grid (prereg amendment section).
+REG_KL_COEFS = (4.0, 8.0)
 
 
 def md5_8(path):
@@ -137,8 +140,10 @@ def main():
     if not args.exploration:
         assert args.anchor_share in REG_SHARES, 'off-registry share needs --exploration'
         assert args.lr in REG_LRS, 'off-registry lr needs --exploration'
-        assert args.epoch_budget is None and args.anchor_loss == 'ce', \
-            'budget-epoch/KL anchor need --exploration'
+        assert args.epoch_budget is None, 'budget-epoch needs --exploration'
+        assert args.anchor_loss == 'ce' or args.kl_coef in REG_KL_COEFS, \
+            'off-registry kl-coef needs --exploration (amendment 2026-08-09 ' \
+            'registers KL at coefs {4.0, 8.0})'
     else:
         print('EXPLORATION RUN (halt report only - never gate-eligible)')
 
