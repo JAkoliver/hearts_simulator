@@ -1936,21 +1936,29 @@ function deepAllDone() {
 }
 // Gray out 'Deep analysis' once every play position is at or above the
 // SELECTED K (raising the dropdown re-arms the pass for the remainder).
-// Progressive depth unlock: K=128 joins the selector once the WHOLE
-// match is analyzed at K>=64, K=256 once it's fully at K>=128 - the
-// expensive tiers earn their place instead of tempting cold starts.
+// Progressive depth ladder: K=128 unlocks once the WHOLE match is
+// analyzed at K>=64, K=256 once fully at 128 - and tiers the match
+// has ALREADY fully reached drop off the list (a sweep there would be
+// a no-op). When even the top unlocked tier is complete, it stays as
+// the lone (disabled-by-done) reference.
 function updateKOptions() {
   if (!R || !R.deals) return;
   const sel = el('deep-k');
-  const want = [16, 32, 64];
-  if (deepJobs(64, true).length === 0) {
-    want.push(128);
-    if (deepJobs(128, true).length === 0) want.push(256);
+  const full = K => deepJobs(K, true).length === 0;
+  const ladder = [16, 32, 64];
+  if (full(64)) {
+    ladder.push(128);
+    if (full(128)) ladder.push(256);
   }
-  if (sel.options.length === want.length) return;
+  let want = ladder.filter(k => !full(k));
+  if (!want.length) want = [ladder[ladder.length - 1]];
+  const sig = want.join(',');
+  if (sel.dataset.sig === sig) return;
+  sel.dataset.sig = sig;
   const cur = +sel.value;
+  const pick = want.includes(cur) ? cur : want[0];
   sel.innerHTML = want.map(k =>
-    `<option value="${k}"${k === cur ? ' selected' : ''}>K=${k}</option>`)
+    `<option value="${k}"${k === pick ? ' selected' : ''}>K=${k}</option>`)
     .join('');
 }
 
