@@ -76,6 +76,9 @@
                 border:1px solid #6B3038 !important; color:#D98A8A !important;
                 font-size:.85rem !important; }
   .btn-danger:hover { background:#3A2328 !important; color:#ECECEC !important; }
+  /* menu with no game behind it: the game chrome is gone, not dimmed */
+  body.nogame #layout, body.nogame #theme-toggle, body.nogame footer
+    { display:none; }
   #menu-btn-wrap { position:absolute; top:8px; right:10px; z-index:5; }
   #menu-btn-wrap button { font-size:.75rem; padding:4px 12px;
     background:var(--tag-bg); color:var(--text); }
@@ -856,6 +859,9 @@ function showHome(err) {
   // turn server-side, tables keep polling. Offer the way back.
   const active = !!(state && !state.finished
     && ((mode === 'solo' && sid) || (mode === 'table' && tcode)));
+  // No game behind the menu -> hide the felt, hand, corner settings and
+  // footer entirely instead of showing them dimmed underneath.
+  document.body.classList.toggle('nogame', !active);
   el('home-resume').style.display = active ? 'block' : 'none';
   el('home-close').style.display = active ? 'block' : 'none';
   // hosts can end the room from here too - lobby or mid-game; every
@@ -868,6 +874,10 @@ el('home-closeroom-btn').onclick = async () => {
   try { await api('/api/table/close', POSTJSON({code: tcode, pid})); }
   catch (e) {}
   stopPolling();
+  state = null;
+  sid = null;
+  tcode = null;
+  localStorage.removeItem(K('hearts_sid'));
   setMode('solo');
   showHome();
 };
@@ -921,7 +931,10 @@ async function loadHistory() {
     el('home-history').style.display = 'block';
   } catch (e) { el('home-history').style.display = 'none'; }
 }
-function hideHome() { el('home').style.display = 'none'; }
+function hideHome() {
+  el('home').style.display = 'none';
+  document.body.classList.remove('nogame');
+}
 
 async function hostTable() {
   try {
@@ -954,6 +967,11 @@ function leaveTable() {
     api('/api/table/leave', POSTJSON({code: tcode, pid})).catch(() => {});
   stopPolling();
   el('overlay').style.display = 'none';
+  // the table is gone: no current game exists to return to
+  state = null;
+  sid = null;
+  tcode = null;
+  localStorage.removeItem(K('hearts_sid'));
   setMode('solo');
   showHome();
 }
