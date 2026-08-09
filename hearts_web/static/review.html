@@ -22,8 +22,13 @@
        display:inline; }
   a { color:#E8B923; }
   .muted { color:#A6A6AF; }
-  #top { display:flex; align-items:center; gap:10px; flex-wrap:wrap;
-         margin-bottom:10px; padding-right:84px; /* the fixed Menu corner */ }
+  /* #top rides INSIDE the fixed site band (left side; the band's own
+     wordmark stays centered, Menu right). Mobile restores the in-flow
+     layout below. */
+  #top { position:fixed; top:0; left:12px; height:44px; z-index:56;
+         display:flex; align-items:center; gap:10px; flex-wrap:nowrap;
+         margin:0; max-width:44vw; overflow:hidden; }
+  #matchinfo { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   /* side columns carry the scrollbar's width on top of their content
      width (gutter reserved always, so content never reflows) */
   #grid { flex:1 1 auto; min-height:0; display:grid;
@@ -319,7 +324,9 @@
   body.mobile #grid { display:block; }
   /* header on ONE line: match info shrinks with ellipsis so the ? stays
      up top; the x-ray note gets its own row; desktop spacer hidden */
-  body.mobile #top { row-gap:2px; }
+  body.mobile #top { position:static; height:auto; max-width:none;
+                     flex-wrap:wrap; row-gap:2px; margin-bottom:10px;
+                     padding-right:84px; }
   body.mobile #matchinfo { flex:1 1 0; min-width:0; white-space:nowrap;
     overflow:hidden; text-overflow:ellipsis; font-size:.78rem; }
   body.mobile #top > span:not(#matchinfo):not(#xray-note) { display:none; }
@@ -363,6 +370,8 @@
   body.mobile #scrub { height:36px; }
   body.mobile #maincol > .legend { display:none; }
   body.mobile .dline { padding:8px 6px; }
+  #xray-note { display:none; }
+  body.mobile #xray-note { display:block; }
   /* belief lens is a desktop feature for now (hover-driven) */
   body.mobile #belief-btn, body.mobile #belief-lens,
   body.mobile #readpanel { display:none; }
@@ -370,7 +379,6 @@
 </head>
 <body>
 <div id="top">
-  <svg width="18" height="18" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#00000055"/><path d="M11 27 V7 H17.5 a6.5 6.5 0 0 1 0 13 H11" fill="none" stroke="#ECECEC" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="25.2" cy="7.6" r="3.1" fill="#E5484D"/></svg>
   <h1>Match review</h1>
   <span id="matchinfo" class="muted"></span>
   <button id="help-btn" title="How this review works">?</button>
@@ -378,11 +386,12 @@
     title="copy a read-only link to this match review">share</button>
   <span style="flex:1"></span>
 </div>
-<div class="muted" id="xray-note" style="font-size:.7rem; margin:-6px 0 8px"></div>
+<div class="muted" id="xray-note" style="font-size:.7rem; margin:0 0 8px"></div>
 
 <div id="help-overlay"><div id="help-card">
   <button id="help-close" title="close">&times;</button>
   <h2>How this review works</h2>
+  <p id="help-note" class="muted" style="font-size:.78rem"></p>
 
   <h4>Two different opinions, never mixed</h4>
   <p><b>Perilune's view</b> (right panel) shows the raw network's
@@ -1452,6 +1461,7 @@ el('d-gap').onclick = () => { disSort = 'gap';
     `${R.deals.length} deals · final ${R.deals[R.deals.length - 1].totals.join(' / ')}`
     + (q.get('share') ? ' · shared view' : '');
   el('xray-note').textContent = R.note;
+  el('help-note').textContent = R.note;
   if (SHARED) {   // a recipient is not the sharer: no first-person labels
     const nm = (R.seat_names || {})[String(R.viewer_seat)];
     el('d-you').textContent = nm ? `${nm}'s plays` : "sharer's plays";
