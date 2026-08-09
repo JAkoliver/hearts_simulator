@@ -1,0 +1,102 @@
+{
+ "stage": "B2 grid drift screen (prereg registered grid, 4 configs x 3 epochs)",
+ "threshold": 0.97,
+ "n_drift_positions": 20025,
+ "baseline_reference": {
+  "defense_holdout_match": 0.5127,
+  "null_agreement": 1.0
+ },
+ "verdict": "ALL 12 checkpoints FAIL the drift screen (best 0.9381)",
+ "prereg_branch": "Drift screen catching all candidates = the mixture ratios are wrong, not the design; one registered amendment may adjust ratios before a second (final) grid.",
+ "findings": [
+  "Anchor share had NO drift effect at matched lr/epoch (0.93808 == 0.93808 at ep1 lr1e-5 for shares 0.75 and 0.875): under the epoch-over-defense-stream definition, share does not reduce defense-gradient dose.",
+  "Drift tracks total defense CE descent monotonically (CE 0.41->0.17 maps to agreement 0.925->0.867); epoch 1 is always the best epoch.",
+  "Defense-holdout teacher-match improved in every config (0.513 -> 0.546-0.566): the imitation signal is learnable; the failure is purely containment."
+ ],
+ "checkpoints": [
+  {
+   "candidate": "cand_b2_s75_lr1.pth.ep1.pth",
+   "drift": 0.93808,
+   "defense_match": 0.54962,
+   "entropy": 0.365,
+   "pass": false
+  },
+  {
+   "candidate": "cand_b2_s75_lr1.pth.ep2.pth",
+   "drift": 0.93328,
+   "defense_match": 0.55577,
+   "entropy": 0.3329,
+   "pass": false
+  },
+  {
+   "candidate": "cand_b2_s75_lr1.pth.ep3.pth",
+   "drift": 0.92464,
+   "defense_match": 0.55973,
+   "entropy": 0.3223,
+   "pass": false
+  },
+  {
+   "candidate": "cand_b2_s75_lr3.pth.ep1.pth",
+   "drift": 0.91905,
+   "defense_match": 0.55807,
+   "entropy": 0.3454,
+   "pass": false
+  },
+  {
+   "candidate": "cand_b2_s75_lr3.pth.ep2.pth",
+   "drift": 0.90407,
+   "defense_match": 0.56112,
+   "entropy": 0.3073,
+   "pass": false
+  },
+  {
+   "candidate": "cand_b2_s75_lr3.pth.ep3.pth",
+   "drift": 0.89179,
+   "defense_match": 0.56644,
+   "entropy": 0.2756,
+   "pass": false
+  },
+  {
+   "candidate": "cand_b2_s875_lr1.pth.ep1.pth",
+   "drift": 0.93808,
+   "defense_match": 0.54638,
+   "entropy": 0.2679,
+   "pass": false
+  },
+  {
+   "candidate": "cand_b2_s875_lr1.pth.ep2.pth",
+   "drift": 0.92305,
+   "defense_match": 0.55339,
+   "entropy": 0.2441,
+   "pass": false
+  },
+  {
+   "candidate": "cand_b2_s875_lr1.pth.ep3.pth",
+   "drift": 0.91126,
+   "defense_match": 0.55727,
+   "entropy": 0.2352,
+   "pass": false
+  },
+  {
+   "candidate": "cand_b2_s875_lr3.pth.ep1.pth",
+   "drift": 0.90976,
+   "defense_match": 0.55622,
+   "entropy": 0.2519,
+   "pass": false
+  },
+  {
+   "candidate": "cand_b2_s875_lr3.pth.ep2.pth",
+   "drift": 0.88504,
+   "defense_match": 0.5581,
+   "entropy": 0.236,
+   "pass": false
+  },
+  {
+   "candidate": "cand_b2_s875_lr3.pth.ep3.pth",
+   "drift": 0.86677,
+   "defense_match": 0.56534,
+   "entropy": 0.2112,
+   "pass": false
+  }
+ ]
+}
