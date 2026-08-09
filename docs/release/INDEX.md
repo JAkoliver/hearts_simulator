@@ -26,7 +26,10 @@ Reading order for an outside observer:
 
 Status: drafts 2026-08-01; update pass 2026-08-09 (era 8 closed —
 expert-iter v2 decisive negative; era 9 exploiter league round 1 +
-round 2 in flight; Perilune site evolution and its security design).
+round 2 in flight). Scope rule from the same pass: these docs narrate
+the AI's development; the web app appears only as a user tool with its
+use cases (ARCHITECTURE sec. 8) — its own development history is not
+release-doc material.
 
 ## Glossary (project-specific terms, used across all docs here)
 
@@ -70,12 +73,6 @@ round 2 in flight; Perilune site evolution and its security design).
   (historical record).
 
 Added at the 2026-08-09 update pass:
-- The client-side search / Perilune arc (2026-08-02..08-09) has NO
-  speed_ledger entries - primary sources are commit bodies (3a8ab88,
-  ab094ea, the 08-08 security chain c703baf..f1a90e0),
-  hearts_web/TODO.md, and docs/site_security_design.md. Acceptable for
-  a non-measurement arc, but claims from it must cite commits, not the
-  ledger.
 - Exploiter-league round 1 defense-gate trial deltas are cited from
   the per-trial verdict JSONs + the r2 prereg summary; the ledger
   entry for the round-1 PPO trials should be confirmed present

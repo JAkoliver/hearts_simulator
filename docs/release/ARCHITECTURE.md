@@ -278,50 +278,33 @@ Current promotion regime (evolved, era 7):
 
 ## 8. Web app — Perilune (hearts_web/)
 
-FastAPI server + static browser UI, grown from a localhost calibration
-tool into the project's public site (play.perilune.ai). One human seat
-vs three AI seats by default (the promoted baseline, raw policy,
-labeled in the UI) on the exact match rules training uses (MatchEnv);
-multi-human tables seat up to four with AI fill. Run locally:
+Perilune is the project's user-facing tool, not part of the training
+system: a FastAPI server + browser UI for playing and studying the
+released nets. Run locally with
 `python -m uvicorn hearts_web.server:app --port 8642`.
 
-- **Tables:** 4-char join codes + invite links (/?join=CODE), queued
-  simultaneous passing, per-seat privacy enforced server-side (the
-  state a player receives contains their own hand and public
-  information only), host controls (start/speed/timer/rematch/close),
-  rematch series scoreboard, polls-as-heartbeats lifecycle with a
-  reaper for abandoned tables.
-- **Telemetry v2 + replay contract:** one JSONL line per deal and per
-  match (per-deal flush, abandonment-safe); MatchEnv(seed) plus the
-  logged (seat, card) sequence reproduces any game bit-exactly. The
-  log is the source for review mode, insights, history, leaderboards —
-  and it is personal play data, excluded from release (RELEASE_PLAN
-  sec. 2).
-- **Review mode (/review):** scrubbable replay with x-ray hands,
-  per-play top-3 policy bars (info-honest per-seat observations),
-  pass-decision evaluation, equivalence merging (strictly-equivalent
-  cards share one bar — ~30% of raw "disagreements" were false
-  positives), and a win-probability strip from the deployed equity
-  net's exact input layout.
-- **Client-side deep analysis:** the C++ engine + determinized search
-  compiled to WASM; policy/equity nets exported to ONNX and run
-  in-browser via self-hosted onnxruntime-web (WebGPU with fixed-shape
-  buckets, WASM fallback). Deep analysis costs the visitor's hardware,
-  not the server's GPU — the hosting-ready shape for open weights.
-  The server never serves public search probes.
-- **Identity and integrity (docs/site_security_design.md):**
-  server-assigned immutable codenames as public handles; the only
-  credential is a server-minted bearer key, stored hashed (canonical
-  id = sha256(key)); session ids are identifiers, not credentials;
-  reviews/insights/shares gate on match completion so the match seed
-  cannot leak mid-game; the site serves PROMOTED weights only from a
-  dedicated model file the promotion path refreshes; leaderboards are
-  per model era (keyed by logged model md5), server-verified, sole
-  first place only, every score linking to its verifiable match.
-- **Config boundary:** committed site_config_example.py carries safe
-  generic defaults; the live site_config.py (production rate limits,
-  caps, policies) is operations, not instrument, and stays out of the
-  repo ("publish the instrument, keep the operations", 2026-08-04).
+Use cases:
+- **Play the AI:** one human seat vs three AI seats (the promoted
+  baseline, raw policy, labeled in the UI) on the exact match-to-100
+  rules training uses (MatchEnv); difficulty tiers seat older anchor
+  nets. Multi-human tables seat up to four with AI fill (join codes /
+  invite links).
+- **Review your games:** every match is replayable (/review) —
+  scrubbable board with the net's per-play top-3, pass-decision
+  evaluation, and a win-probability strip from the deployed equity
+  net. "Deep check this position" runs the actual determinized search
+  in the visitor's own browser (engine compiled to WASM, nets via
+  ONNX Runtime Web) — analysis costs the user's hardware, so a public
+  deployment needs no analysis GPU.
+- **Research instrument for THIS project's loop:** telemetry-logged
+  human play is the calibration and exploit-discovery channel (it
+  surfaced the era-9 moon-defense agenda; JOURNEY era 9) — never
+  training data. Logs are personal play data, excluded from release
+  (RELEASE_PLAN sec. 2).
+
+Operational design (identity model, game-integrity invariants,
+public/private config boundary) is documented separately in
+docs/site_security_design.md and site_config_example.py.
 
 ## 9. What is deliberately absent
 

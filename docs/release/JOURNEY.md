@@ -557,60 +557,23 @@ Then the experiment, one shot, and its anatomy (ledger 2026-07-31):
 
 ---
 
-## Interlude — Perilune, the public face (07-24 .. ongoing)
-
-The web app (era 6's calibration afterthought) grew into the project's
-public instrument, named **Perilune** — the lowest point of a lunar
-orbit: moon plus lowest-score-wins. It matters to the research
-narrative for one reason above all: **it is where the baseline's
-measured weakness was demonstrated by a human**, which set era 9's
-direction.
-
-- From localhost to public: FastAPI server + browser table at
-  play.perilune.ai (Cloudflare named tunnel), multi-human tables with
-  join codes and invite links, per-seat server-side privacy, host
-  controls, rematch series (fa63df5 and onward).
-- Telemetry v2 with a replay contract: one JSONL line per deal and per
-  match; MatchEnv(seed) + logged actions reproduce any game bit-exactly
-  (b765958). That contract feeds the review mode (/review: x-ray hands,
-  per-play top-3, win-probability strip from the deployed equity net)
-  and the post-match insight panel.
-- Client-side deep analysis: the C++ engine and determinized search
-  ported to WASM, the nets exported to ONNX and run in-browser
-  (WebGPU/WASM) — "deep check this position" costs the visitor's
-  hardware, not the server's GPU, which is the hosting-ready shape for
-  open weights (commits 3a8ab88, ab094ea and successors; roadmap note
-  in hearts_web/TODO.md). The port's debug findings — implementation-
-  bound std::shuffle breaking cross-toolchain deal replay, fp16
-  overflow on real observations, per-shape WebGPU pipeline compilation
-  — are recorded in the commit bodies (see INDEX known debts: this arc
-  has no ledger entries).
-- Identity and integrity, designed for open weights: server-assigned
-  immutable codenames; bearer keys hashed at rest (the canonical id IS
-  sha256(key)); session ids are identifiers, not credentials; reviews
-  gate on match completion so the match seed cannot leak mid-game; the
-  leaderboard is per model era and serves PROMOTED weights only. The
-  full invariant set, each claim traced to the commit that verified it,
-  is docs/site_security_design.md — written under the release rule
-  that security docs state invariants that hold with the code public,
-  never operational tuning (site_config split, 2026-08-04).
-- The role in the loop is deliberately bounded: human play is for
-  exploit discovery, calibration, and opponent modeling — never direct
-  policy training (the volume math forbids it). The discovery that
-  mattered: **the user shot four moons in eight fully-logged deals
-  against the raw net** (match VFFCIjaDZn188tAJ, 2026-08-02) — free
-  tempo blocks declined, two moons with no in-suit block available at
-  all, a passing-layer failure. The analyzer had measured the
-  moon-defense hole for weeks (51.5% vs v4-m10's 61.1%); the live
-  demonstration promoted it from telemetry to agenda.
-
----
-
 ## Era 9 — The exploiter league (08-05 .. ongoing)
 
 If self-improvement recipes are dead from this baseline (eras 7-8), the
 remaining lever is targeted: attack the measured weakness, then teach
-the defense. The exploiter league does this with the project's full
+the defense. The weakness had been on the books for weeks — the
+analyzer's moon-defense number (51.5% vs v4-m10's 61.1%, concessions
+~2x) — but what promoted it from telemetry to agenda was a human:
+**the user shot four moons in eight fully-logged deals against the raw
+net** on the project's web app (match VFFCIjaDZn188tAJ, 2026-08-02;
+hearts_web/, see ARCHITECTURE sec. 8). Replay analysis showed free
+tempo blocks declined and two moons with no in-suit block available at
+all — a passing-layer failure, a curriculum problem, not an
+architecture one. Human play's role in the loop is exactly this and
+deliberately no more: exploit discovery and calibration, never direct
+policy training (the volume math forbids it).
+
+The exploiter league attacks the hole with the project's full
 measurement discipline — frozen instruments, certified attackers,
 pre-registered gates, halt-default (docs/exploiter_league_prereg.md,
 user-approved).
