@@ -76,9 +76,13 @@
                 border:1px solid #6B3038 !important; color:#D98A8A !important;
                 font-size:.85rem !important; }
   .btn-danger:hover { background:#3A2328 !important; color:#ECECEC !important; }
-  /* menu with no game behind it: the game chrome is gone, not dimmed */
-  body.nogame #layout, body.nogame #theme-toggle, body.nogame footer
-    { display:none; }
+  /* menu/lobby with no live game behind it: ALL game chrome is gone,
+     not dimmed (hand + pass button are top-level siblings of #layout,
+     and #side relocates on narrow screens; !important beats the inline
+     display toggles on pass-controls) */
+  body.nogame #layout, body.nogame #hand, body.nogame #pass-controls,
+  body.nogame #side, body.nogame #theme-toggle, body.nogame footer
+    { display:none !important; }
   #menu-btn-wrap { position:absolute; top:8px; right:10px; z-index:5; }
   #menu-btn-wrap button { font-size:.75rem; padding:4px 12px;
     background:var(--tag-bg); color:var(--text); }
@@ -1010,6 +1014,7 @@ function renderLobby(ts) {
     return;
   }
   lastLobbySig = sig;
+  document.body.classList.add('nogame');   // no live game behind a lobby
   el('o-title').textContent = `Table ${ts.code}`;
   el('o-body').innerHTML =
     '<p class="sub" style="opacity:.75">Share this code with up to 3 friends'
@@ -1074,6 +1079,7 @@ function renderLobby(ts) {
 function handleTableState(ts) {
   if (ts.you_host !== undefined) isHost = !!ts.you_host;
   if (ts.state === 'lobby') return renderLobby(ts);
+  document.body.classList.remove('nogame');
   lastLobbySig = null;   // next lobby (rematch etc.) re-renders fresh
   if (ts.match_no !== undefined && ts.match_no !== curMatchNo) {
     // Rematch (or first sight of this table): new event epoch - reset
