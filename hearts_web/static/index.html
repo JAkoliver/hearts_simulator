@@ -1084,9 +1084,9 @@ el('auto-btn').onclick = () => {
 };
 updateAutoBtn();
 // Forced-move auto-play: exactly one legal card, play phase, your turn.
-// Scheduled with a short beat so the move is followable; the callback
-// re-verifies everything (turn may have moved on, setting toggled off).
-let _autoT = null;
+// Same mechanics as a preselected card: a 0ms defer past the busy
+// window, then it plays - no artificial beat. The callback re-verifies
+// everything (turn may have moved on, setting toggled off).
 function maybeAutoForced() {
   if (!autoForced || !state || state.finished) return;
   const passing = mode === 'table' ? state.passing
@@ -1094,13 +1094,12 @@ function maybeAutoForced() {
   if (passing || !state.your_turn || !state.legal
       || state.legal.length !== 1) return;
   const card = state.legal[0];
-  clearTimeout(_autoT);
-  _autoT = setTimeout(() => {
+  setTimeout(() => {
     if (autoForced && state && state.your_turn && !state.finished
         && state.legal && state.legal.length === 1
         && state.legal[0] === card && actionable())
       playCard(card);
-  }, 300);
+  }, 0);
 }
 el('speed-btn').onclick = async () => {
   const order = ['normal', 'fast', 'instant'];
