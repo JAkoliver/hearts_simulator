@@ -682,7 +682,6 @@ def main():
         if h.hexdigest()[:8] != want:
             raise SystemExit(f'anchor baseline {ap} md5 {h.hexdigest()[:8]} '
                              f'!= {want} - refusing to train')
-        from hearts_net import net_from_checkpoint
         anchor_net = net_from_checkpoint(ap).to(device).eval()
         for p_ in anchor_net.parameters():
             p_.requires_grad_(False)
