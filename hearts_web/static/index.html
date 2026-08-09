@@ -271,6 +271,9 @@
             margin-top:8px; }
   .af-demo { font-size:.62rem; color:var(--muted); opacity:.8; margin-top:8px; }
   .af-demo a { color:var(--muted); }
+  /* re-enable link: tiny, tucked in the menu panel's bottom-right */
+  #attract-show { position:absolute; right:14px; bottom:8px;
+                  font-size:.62rem; opacity:.85; }
   #attract-rev-body { height:190px; margin-top:8px; overflow:hidden; }
   .ar-row { display:flex; align-items:center; gap:8px; margin:8px 0; }
   .ar-bar { flex:1; height:9px; background:var(--tag-bg); border-radius:5px;
@@ -421,7 +424,7 @@
   <div class="hrow"><input id="home-code" placeholder="CODE" maxlength="4">
     <button id="home-join">Join table</button></div>
   <div id="home-err"></div>
-  <div id="attract-show" style="display:none; margin-top:6px"><a class="qlink"
+  <div id="attract-show" style="display:none"><a class="qlink"
     href="#" onclick="attractToggle(true);return false">show demos</a></div>
   <div id="home-history" style="display:none">
     <h4>Recent matches <a id="home-progress" href="#"
