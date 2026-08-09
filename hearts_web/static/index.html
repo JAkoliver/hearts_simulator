@@ -57,6 +57,25 @@
   #theme-toggle { position:absolute; top:8px; left:10px; z-index:5; }
   #theme-toggle button { font-size:.75rem; padding:4px 12px;
     background:var(--tag-bg); color:var(--text); }
+  /* lobby: player chips, a settings card with aligned label:control
+     rows, compact selects, and a shared quiet-danger button style */
+  #lobby-players { margin:6px 0 2px; }
+  .pchip { display:inline-block; background:var(--tag-bg);
+           border-radius:999px; padding:3px 13px; margin:3px;
+           font-size:.9rem; }
+  .lobby-set { background:var(--tag-bg); border-radius:10px;
+               padding:10px 14px; margin:10px auto 2px; max-width:270px;
+               text-align:left; display:flex; flex-direction:column;
+               gap:8px; }
+  .lobby-set .srow { display:flex; align-items:center;
+                     justify-content:space-between; gap:12px;
+                     font-size:.9rem; }
+  .lobby-set .srow > span { color:var(--muted); }
+  select.sel-s { padding:3px 9px; font-size:.85rem; }
+  .btn-danger { background:transparent !important;
+                border:1px solid #6B3038 !important; color:#D98A8A !important;
+                font-size:.85rem !important; }
+  .btn-danger:hover { background:#3A2328 !important; color:#ECECEC !important; }
   #menu-btn-wrap { position:absolute; top:8px; right:10px; z-index:5; }
   #menu-btn-wrap button { font-size:.75rem; padding:4px 12px;
     background:var(--tag-bg); color:var(--text); }
@@ -282,7 +301,7 @@
   <div class="hrow" id="home-resume" style="display:none">
     <button id="home-resume-btn">Return to current game</button></div>
   <div class="hrow" id="home-closeroom" style="display:none">
-    <button id="home-closeroom-btn" style="background:#3A2328; color:#ECECEC">
+    <button id="home-closeroom-btn" class="btn-danger">
       Close room for everyone</button></div>
   <div class="hrow">
     <select id="home-tier" title="AI difficulty - applies to Play vs AI and to the AI seats of a table you host">
@@ -706,7 +725,7 @@ function showMatchEnd() {
     `You placed ${['','1st','2nd','3rd','4th'][Math.round(p)] || p}`;
   const hostBtns = (mode === 'table' && state.you_host)
     ? '<button id="rematch-btn">Rematch</button>' +
-      '<button id="close-table-btn">Close table for everyone</button>'
+      '<button id="close-table-btn" class="btn-danger">Close table for everyone</button>'
     : '';
   el('o-body').innerHTML = '<table><tr><th>Place</th><th>Player</th><th>Score</th></tr>' +
     order.map(s => `<tr><td>${state.placements[s]}</td>
@@ -975,27 +994,33 @@ function renderLobby(ts) {
   lastLobbySig = sig;
   el('o-title').textContent = `Table ${ts.code}`;
   el('o-body').innerHTML =
-    '<p>Share this code with up to 3 friends.</p><div id="lobby-players">' +
-    ts.players.map(n => `<div>${esc(n)}</div>`).join('') + '</div>' +
-    (ts.tier_label
-      ? `<p style="opacity:.7">AI difficulty: ${esc(ts.tier_label)}</p>` : '') +
-    (ts.you_host
-      ? `<p style="opacity:.7">Turn timer:
-           <select id="lobby-timer">
-             <option value="0">No timer</option>
-             <option value="30">30s</option>
-             <option value="60">60s</option>
-             <option value="90">90s</option>
-             <option value="120">2 min</option>
-           </select></p>
-         <p style="opacity:.7">Play speed:
-           <select id="lobby-speed">
-             <option value="normal">Normal</option>
-             <option value="fast">Fast</option>
-             <option value="instant">Instant</option>
-           </select></p>
-         <p style="opacity:.7">AI fills any empty seats.</p>`
-      : '<p style="opacity:.7">Waiting for the host to start&hellip;</p>');
+    '<p class="sub" style="opacity:.75">Share this code with up to 3 friends'
+    + ' &middot; AI fills empty seats.</p>'
+    + '<div id="lobby-players">'
+    + ts.players.map(n => `<span class="pchip">${esc(n)}</span>`).join('')
+    + '</div>'
+    + (ts.you_host
+      ? `<div class="lobby-set">
+           <div class="srow"><span>AI difficulty</span>
+             <b>${esc(ts.tier_label || '')}</b></div>
+           <div class="srow"><span>Turn timer</span>
+             <select id="lobby-timer" class="sel-s">
+               <option value="0">No timer</option>
+               <option value="30">30s</option>
+               <option value="60">60s</option>
+               <option value="90">90s</option>
+               <option value="120">2 min</option>
+             </select></div>
+           <div class="srow"><span>Play speed</span>
+             <select id="lobby-speed" class="sel-s">
+               <option value="normal">Normal</option>
+               <option value="fast">Fast</option>
+               <option value="instant">Instant</option>
+             </select></div>
+         </div>`
+      : (ts.tier_label
+          ? `<p style="opacity:.7">AI difficulty: ${esc(ts.tier_label)}</p>` : '')
+        + '<p style="opacity:.7">Waiting for the host to start&hellip;</p>');
   if (ts.you_host) {
     const lt = el('lobby-timer');
     lt.value = localStorage.getItem('hearts_timer') || '60';
@@ -1007,8 +1032,8 @@ function renderLobby(ts) {
   const b = el('o-btn');
   if (ts.you_host) {
     if (!el('lobby-close')) el('o-body').insertAdjacentHTML('beforeend',
-      `<p><button id="lobby-close" style="background:#3A2328; color:#ECECEC">
-        Close room</button></p>`);
+      `<p style="margin-top:10px"><button id="lobby-close"
+         class="btn-danger">Close room</button></p>`);
     el('lobby-close').onclick = async () => {
       try { await api('/api/table/close', POSTJSON({code: tcode, pid})); }
       catch (e) {}
