@@ -205,6 +205,48 @@
   #home input::placeholder { color:var(--muted); }
   #home-code { width:80px; text-transform:uppercase; }
   #home-err { color:#E5484D; font-size:.8rem; min-height:1.2em; margin-top:6px; }
+  /* attract mode: demo panels FLANKING the menu (never behind it - the
+     menu-honesty law; explicit demo captions keep them unmistakable) */
+  #home { gap:26px; }
+  .attract { background:var(--overlay-panel); border-radius:14px;
+             padding:14px 16px; width:252px; text-align:center;
+             align-self:center; }
+  .attract h3 { font-family:'Space Grotesk', system-ui, sans-serif;
+                color:var(--banner); font-size:1rem; margin-bottom:8px; }
+  #attract-felt { position:relative; height:190px; background:#14301F;
+                  border-radius:10px; overflow:hidden; }
+  .af-s0 { position:absolute; left:50%; bottom:8px; transform:translateX(-50%); }
+  .af-s1 { position:absolute; left:12px; top:50%; transform:translateY(-50%); }
+  .af-s2 { position:absolute; left:50%; top:8px; transform:translateX(-50%); }
+  .af-s3 { position:absolute; right:12px; top:50%; transform:translateY(-50%); }
+  .af-scores { padding-top:34px; font-size:.85rem; }
+  .af-scores div { display:flex; justify-content:space-between;
+                   padding:4px 34px; color:var(--text); }
+  .af-scores span { color:var(--muted); }
+  .af-cap { font-size:.72rem; color:var(--muted); min-height:1.15em;
+            margin-top:8px; }
+  .af-demo { font-size:.62rem; color:var(--muted); opacity:.8; margin-top:8px; }
+  .af-demo a { color:var(--muted); }
+  #attract-rev-body { min-height:152px; margin-top:8px; }
+  .ar-row { display:flex; align-items:center; gap:8px; margin:8px 0; }
+  .ar-bar { flex:1; height:9px; background:var(--tag-bg); border-radius:5px;
+            overflow:hidden; }
+  .ar-bar i { display:block; height:100%; background:#4CC2FF; }
+  .ar-row.pick .ar-bar i { background:#C8A24A; }
+  .ar-row > span { font-size:.7rem; color:var(--muted); width:34px;
+                   text-align:right; font-variant-numeric:tabular-nums; }
+  @media (max-width:1150px) { .attract { display:none; } }
+  /* game-side help modal */
+  #help-modal { position:fixed; inset:0; background:rgba(0,0,0,.72);
+                display:none; align-items:center; justify-content:center;
+                z-index:11; }
+  #help-modal .opanel { background:var(--overlay-panel); border-radius:14px;
+                        padding:22px 28px; max-width:430px; text-align:left;
+                        position:relative; font-size:.85rem; }
+  #help-modal h3 { font-family:'Space Grotesk', system-ui, sans-serif;
+                   color:var(--banner); margin-bottom:10px; }
+  #help-modal p { margin:7px 0; color:var(--text); }
+  #help-modal b { color:var(--banner); }
   #home-history { margin-top:14px; border-top:1px solid #2E2E33; padding-top:8px;
                   text-align:left; }
   #home-history h4 { font-size:.7rem; color:var(--muted); text-transform:uppercase;
@@ -266,7 +308,7 @@
 </head>
 <body>
 <header>
-<div id="theme-toggle"><button id="theme-btn"></button><button id="speed-btn" title="animation speed - cycle normal / fast / instant (at a table only the host can change it)"></button><button id="auto-btn" title="automatically play your card when only one is legal"></button></div>
+<div id="theme-toggle"><button id="theme-btn"></button><button id="speed-btn" title="animation speed - cycle normal / fast / instant (at a table only the host can change it)"></button><button id="auto-btn" title="automatically play your card when only one is legal"></button><button id="help-btn" title="how Hearts works">?</button></div>
 <div id="menu-btn-wrap"><button id="menu-btn">Menu</button></div>
   <svg class="logo" width="20" height="20" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#00000055"/><path d="M11 27 V7 H17.5 a6.5 6.5 0 0 1 0 13 H11" fill="none" stroke="#ECECEC" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="25.2" cy="7.6" r="3.1" fill="#E5484D"/></svg>
   <h1>Perilune</h1>
@@ -302,7 +344,13 @@
   <button id="o-btn"></button>
 </div></div>
 
-<div id="home"><div class="opanel" style="position:relative">
+<div id="home"><div id="attract-play" class="attract">
+  <h3>Play Hearts</h3>
+  <div id="attract-felt"></div>
+  <div id="attract-play-cap" class="af-cap"></div>
+  <div class="af-demo">demo &middot; Perilune vs itself &middot;
+    <a href="#" onclick="attractToggle(false);return false">hide</a></div>
+</div><div class="opanel" style="position:relative">
   <button id="home-close" title="back to the game (Esc)" style="display:none;
     position:absolute; top:8px; right:10px; background:none; border:0;
     color:#A6A6AF; font-size:1.25rem; cursor:pointer; padding:2px 8px">&times;</button>
@@ -329,11 +377,42 @@
   <div class="hrow"><input id="home-code" placeholder="CODE" maxlength="4">
     <button id="home-join">Join table</button></div>
   <div id="home-err"></div>
+  <div id="attract-show" style="display:none; margin-top:6px"><a class="qlink"
+    href="#" onclick="attractToggle(true);return false">show demos</a></div>
   <div id="home-history" style="display:none">
     <h4>Recent matches <a id="home-progress" href="#"
       style="float:right; font-size:.72rem; font-weight:400">your progress &rarr;</a></h4>
     <div id="hist-list"></div>
   </div>
+</div><div id="attract-review" class="attract">
+  <h3>Review Matches</h3>
+  <div id="attract-rev-head" class="af-cap"></div>
+  <div id="attract-rev-body"></div>
+  <div class="af-demo">demo &middot; the net's top-3 each play &middot;
+    <a href="#" onclick="attractToggle(false);return false">hide</a></div>
+</div></div>
+
+<div id="help-modal"><div class="opanel">
+  <button id="help-close" title="close (Esc)" style="position:absolute; top:8px;
+    right:10px; background:none; border:0; color:#A6A6AF; font-size:1.25rem;
+    cursor:pointer; padding:2px 8px">&times;</button>
+  <h3>How Hearts works</h3>
+  <p><b>Goal:</b> take the FEWEST points. Hearts are 1 point each, the
+  Q&spades; is 13. A match plays deals until someone reaches 100 -
+  lowest total wins.</p>
+  <p><b>Each deal:</b> pass 3 cards (direction cycles left / right /
+  across / none), then the 2&clubs; leads. You must follow suit when
+  you can; hearts can't LEAD a trick until one has been played
+  (the &hearts; badge lights when they're broken).</p>
+  <p><b>Shooting the moon:</b> take ALL 26 points in a deal and the
+  other three players get 26 each instead.</p>
+  <p><b>Timers:</b> at a hosted table with a turn timer, running out
+  auto-plays your lowest card - deliberately weak, so stalling never
+  helps.</p>
+  <p><b>After a match:</b> Analyze match opens the full review - every
+  play judged by the AI, with deep search on your own hardware.</p>
+  <p style="font-size:.72rem; color:var(--muted)">More on the project:
+  <a href="/about">about Perilune</a></p>
 </div></div>
 
 <footer>An experiment in training a match-aware Hearts AI &middot; matches are recorded anonymously to improve it &middot; <a href="/about">about</a></footer>
@@ -1431,7 +1510,22 @@ if (DEV_CONTROLS) {
     else showHome();
   };
 }
+// Game-side help ("?"): the review teaches itself; now the game does too.
+el('help-btn').onclick = () => { el('help-modal').style.display = 'flex'; };
+el('help-close').onclick = () => { el('help-modal').style.display = 'none'; };
+el('help-modal').onclick = e => {
+  if (e.target === el('help-modal')) el('help-modal').style.display = 'none';
+};
+// Capture phase so Esc closes ONLY the help when it's open (the menu's
+// own Esc handler lives in the bubble phase).
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && el('help-modal').style.display === 'flex') {
+    el('help-modal').style.display = 'none';
+    e.stopPropagation();
+  }
+}, true);
 init().then(() => { if (_wantMenu) showHome(); });
 </script>
+<script src="/static/attract.js?v=1"></script>
 </body>
 </html>
