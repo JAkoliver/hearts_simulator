@@ -24,7 +24,9 @@ Reading order for an outside observer:
    regenerating data from seeds.
 7. model_cards/ - per released checkpoint.
 
-Status: skeleton 2026-08-01. JOURNEY/ARCHITECTURE first drafts pending.
+Status: drafts 2026-08-01; update pass 2026-08-09 (era 8 closed —
+expert-iter v2 decisive negative; era 9 exploiter league round 1 +
+round 2 in flight; Perilune site evolution and its security design).
 
 ## Glossary (project-specific terms, used across all docs here)
 
@@ -48,6 +50,12 @@ Status: skeleton 2026-08-01. JOURNEY/ARCHITECTURE first drafts pending.
 | SDPA | `F.scaled_dot_product_attention` — PyTorch's fused attention kernel (adopted via its own pre-registered gate). |
 | AOTI | AOTInductor: ahead-of-time compiled serving path (Linux/cloud; certified on H100). |
 | ISMCTS | Information-set Monte Carlo tree search — built, measured, closed for strength (kept as a possible target generator). |
+| shooter probe | SearchPlayer in shooter mode: a moon-seeking search attacker used as a frozen measurement instrument. AGG always shoots; SEL commits only when moon equity beats normal play. |
+| clone attacker | Small net distilled from a search-shooter, certified to retain >=50% of the teacher's moon rate, so defended-game generation runs at trace speed. |
+| defense gate | 64 CRN-paired seed-matches vs the frozen SEL probe; a candidate passes by conceding significantly fewer moons (one-sided alpha=0.05). |
+| moon-alive | Harness label on a recorded decision: no non-attacker seat has taken a point yet this deal, i.e. the moon threat is live. Selects defense-stream training samples; never enters the observation. |
+| anchored distillation | Round-2 recipe: hard-CE imitation of search-defender decisions in moon-alive states + self-distillation to the baseline's own argmax in ordinary states, making drift an offline-measurable quantity (the >=97% agreement drift screen). |
+| Perilune | The project's public web app (hearts_web/, play.perilune.ai) — named for the lowest point of a lunar orbit: moon + lowest-score-wins. |
 
 ## Known documentation debts (from the 2026-08-01 drafting audit)
 - [NEEDS CITATION] v5 -1.233 gate sample size (commit a4136b5 lacks n).
@@ -60,3 +68,17 @@ Status: skeleton 2026-08-01. JOURNEY/ARCHITECTURE first drafts pending.
 - Stale figures in match_aware_search_design.md (N=8000 "local ~5.8h")
   are superseded by the ledger - noted in JOURNEY, doc left as-is
   (historical record).
+
+Added at the 2026-08-09 update pass:
+- The client-side search / Perilune arc (2026-08-02..08-09) has NO
+  speed_ledger entries - primary sources are commit bodies (3a8ab88,
+  ab094ea, the 08-08 security chain c703baf..f1a90e0),
+  hearts_web/TODO.md, and docs/site_security_design.md. Acceptable for
+  a non-measurement arc, but claims from it must cite commits, not the
+  ledger.
+- Exploiter-league round 1 defense-gate trial deltas are cited from
+  the per-trial verdict JSONs + the r2 prereg summary; the ledger
+  entry for the round-1 PPO trials should be confirmed present
+  pre-release.
+- Era 9 / round 2 sections describe an IN-FLIGHT experiment - rewrite
+  to past tense with final verdicts when round 2 concludes.

@@ -100,7 +100,34 @@ marked [NEEDS CITATION] rather than guessed.
 | Soft-target distills un-sharpen the champion | entropy 0.32 → 1.04–1.08; teacher-match below baseline | holdout | — | 07-31 | ledger |
 | Hard-argmax distill imitation metrics | holdout teacher-match 60.1%; tension +10.2 over baseline | holdout | — | 07-31 | ledger |
 | **Expert-iter v1 one-shot gate: FAIL (decisive)** | win **39.9% v 50.3%**; placement **+0.292** | n=3200 matches | discordant 377:710; placement SE 0.019 (~17 SE) | 07-31 | ledger; 88ff398 |
-| Expert-iter v2 | pre-registered, in progress — no results | — | — | 08-01 | docs/expert_iter_v2_prereg.md (DRAFT) |
+
+## Expert iteration v2 — filtered targets (era 8 close)
+
+| Claim | Number | N | CI / p | Date | Citation |
+|---|---|---|---|---|---|
+| v2 confident-record bank (demand-aware, per-family reserves) | ~1.16M records; natural 51,715 confident + six seeded families 8.1–9.5k each | — | — | 08-04 | ledger; docs/expert_iter_v2_prereg.md |
+| Recipe freeze HALT: both prereg anchor coefs violate entropy diagnostic | ratios 3.03 / 2.35 (coef 0.25 / 1.0) vs <=2.0 bar | holdout | — | 08-04 | docs/expert_iter_v2_freeze_report.md; verdicts/expert_iter_v2_freeze.json |
+| Anchor dose-response (holdout-only, pre-unblinding): stronger anchor improves ALL axes | teacher-match 0.594→0.688; non-conf KL 1.62→0.229; entropy ratio 3.03→1.76 (coefs 0.25→4.0) | holdout | — | 08-04 | freeze report; verdicts/expert_iter_v2_freeze_exploration_*.json |
+| Registered amendment: lambda=4.0 frozen (supersedes {0.25, 1.0}) | — | — | — | 08-04 | prereg amendment (user-approved) |
+| **All 5 binary mixes significantly WORSE than baseline** | placement **+0.1011..+0.1554** | 6,400 (block, match) pairs per arm | hier. SE 0.0026–0.0168; one-sided max-T p_adj = 1.0 | 08-05 | docs/expert_iter_v2_results.md; verdicts/expert_iter_v2_[a-e]*.json |
+| **All 3 continuous-certainty arms identical to baseline** | delta -0.0010 / +0.0088 / +0.0045 | 6,400 pairs per arm | all 95% CIs cross 0 | 08-05 | expert_iter_v2_results.md; verdicts/expert_iter_v2_[f-h]*.json |
+| Registered contrasts (enrichment f−g; size f−h): both null | -0.0098 (SE 0.0073); -0.0055 (SE 0.0075) | — | indistinguishable | 08-05 | expert_iter_v2_results.md |
+| **CLOSURE: any equity-scored-target recipe (binary or continuous)** — v1 noise hypothesis refuted; the ordering signal is inert for match play | — | — | — | 08-05 | docs/experiment_rules.md closure entry |
+
+## Exploiter league — round 1 and the round-2 teacher check (era 9)
+
+| Claim | Number | N | CI / p | Date | Citation |
+|---|---|---|---|---|---|
+| Phase A instrument PASS: AGG completion vs baseline defenders | **0.515 moons/deal** (77x background 0.0067) | 402 matches / 2,535 deals | check1 pass | 08-06 | docs/exploiter_league_phaseA.md |
+| Phase A: SEL completion and attempt rate vs baseline | 0.367 moons/deal; attempt 71.2% | 402 matches | check3 band [0.02, 0.90] pass | 08-06 | exploiter_league_phaseA.md |
+| Phase A ordering check: v4-m10 defends better than baseline (the hole is real in-instrument) | SEL held to **0.237** vs 0.367 | 402 matches | CIs disjoint: [0.223, 0.252] vs [0.349, 0.385] | 08-06 | exploiter_league_phaseA.md |
+| Phase B clone certification: SEL clone | 0.2242 moons/deal (retention >=50% bar) | 120 matches | [0.196, 0.252] PASS | 08-06/07 | docs/exploiter_league_phaseB.md |
+| Phase B: AGG d192 clone HALT (real miss, confirmed) | 0.2377 (retention 46%) | 500 matches | [0.224, 0.252] below bar | 08-07 | exploiter_league_phaseB.md |
+| Phase B: AGG d256 retrain passes its single registered shot | **0.2906** | 500 matches | [0.276, 0.306] PASS | 08-07 | exploiter_league_phaseB.md |
+| **Round 1 defense gate: first pass ever (PPO exposure, monotonic)** | -0.031 → -0.047 → **-0.250 moons/match** | 64 CRN-paired matches/trial | p=0.029 (trial 3) | 08-07/08 | verdicts/exploiter_r1_defense_gate_r1t[1-3].json; r2 prereg sec. "round 1 established" |
+| Round 1 gates 2+3: same candidate FAILS both protections | match NI +0.005, UB **+0.034** vs +0.030; search **+0.267**, UB **+0.453** vs +0.3 | n=3200 / n=4800 | SE 0.0176 / 0.1127 | 08-08 | verdicts/exploiter_r1_gates23_r1t3.json |
+| **Teacher check: search defenders halve moon concessions vs raw** | **1.208 vs 2.417 moons/match**; +13 counter-moons/440 deals | CRN-paired, gate seed block | t=-8.3, p<1e-5 | 08-08 | exploiter_r2_teacher_check.json; 92e62e0 |
+| Round 2 (anchored defense distillation): pre-registered, corpus in flight | volume condition met early: 38,029/30,000 moon-alive decisions at SEL ~30% | live read | HALT checks all clean (non-binding until corpus complete) | 08-09 | docs/exploiter_league_r2_prereg.md; validate_r2_corpus.py (cea23a4) |
 
 ### Note on the flip/SNR figures
 

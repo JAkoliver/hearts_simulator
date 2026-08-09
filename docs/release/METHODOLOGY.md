@@ -64,6 +64,20 @@ reference comparison (the same ratio computed for the known-working
 deal-point scorer) revealed the threshold itself was mis-set. Options
 went to the user; nothing proceeded unilaterally (ledger 2026-07-25).
 
+Amendments have a shape too: pre-data, in writing, user-approved, and
+recorded in the prereg itself. The expert-iter v2 recipe freeze is the
+canonical example (2026-08-04): both pre-registered anchor
+coefficients failed an entropy diagnostic, exploration to pick a
+replacement ran on HOLDOUT ONLY — before any gate data existed — and
+the finding (a monotone dose-response) plus the frozen lambda=4.0 went
+into the prereg as a signed amendment before the comparative stage
+launched (docs/expert_iter_v2_freeze_report.md). Selection stayed on
+one side of the blind; the gate stayed on the other. The same pattern
+carried era 9: the round-2 attacker check was re-registered on
+measurable quantities before generation analysis, and the
+pausable-generation requirement was an amendment at approval time
+(docs/exploiter_league_r2_prereg.md).
+
 ## 5. Gate power, and the two re-powering campaigns
 
 An underpowered gate is worse than none: it converts real effects into
@@ -126,8 +140,15 @@ that closed them, and are not revisited without new evidence
 (one-shot; 255k further games flat), same-lineage distillation (fails
 at 3.5k and 12.5k fresh deals; sharpen saturates at 2.0), imitation-only
 scale-up (v5-L +3.3..+5.3 on every data mix), search amplification
-past the net's ceiling (K>64, ISMCTS, learned leaves), and — era 8 —
-whole-distribution imitation of an equity-scored teacher. The register
+past the net's ceiling (K>64, ISMCTS, learned leaves), and — era 8,
+completed in two rounds — imitation of the equity-scored teacher: v1
+closed whole-distribution targets; v2 (5 binary mixes worse, 3
+continuous-certainty arms null, 8 arms total) extended the closure to
+ANY equity-scored-target recipe and refuted the noise mechanism — the
+ordering signal itself is inert for match play. Outside the closure,
+recorded explicitly: teachers with a different signal source (visit
+counts, exploiter-league demonstrations — era 9 uses the latter). The
+register
 is why era 5's pivot was a strategy change rather than a bigger budget:
 the map of what does NOT work is treated as an asset
 (docs/ROADMAP.md, asset inventory).

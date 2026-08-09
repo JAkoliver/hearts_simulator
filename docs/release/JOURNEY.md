@@ -514,17 +514,170 @@ Then the experiment, one shot, and its anatomy (ledger 2026-07-31):
   +4.44-win-pt edge exists at decision time but is NOT extractable by
   whole-distribution imitation. New closed direction: distilling a
   search teacher requires targets that ENCODE PREFERENCE STRENGTH.
-- **v2 — filtered targets — is queued, pre-registered, and NOT yet
-  run** (docs/expert_iter_v2_prereg.md, DRAFT awaiting user sign-off):
-  train only on flip-confident decisions (gap > 2x its SE), anchor the
-  flat-state policy to the baseline via a KL term, record format v2
-  carries per-decision search statistics so filtering happens at train
-  time. A 5-mix x 2-replicate x 2-seed-block selection experiment
-  precedes a one-shot confirmation battery; the stop rule is binding —
-  if v2 fails, equity-scored flat-search expert iteration closes
-  entirely. **Status at time of writing: in progress** (generation
-  toward per-family confident-record reserves; fallback match-mode PPO
-  resumed meanwhile, ledger 2026-07-31).
+- **v2 — filtered targets — ran 08-01..08-05 and closed the direction
+  decisively** (docs/expert_iter_v2_prereg.md, user-signed; results in
+  docs/expert_iter_v2_results.md and equity_data/verdicts/). The
+  recipe: train only on flip-confident decisions (top-2 equity gap >
+  2x its SE), anchor the flat-state policy to the baseline via a KL
+  term; record format v2 carries per-decision search statistics so
+  filtering happens at train time. Generation ran demand-aware to
+  per-family reserves (natural >=50k confident records plus six seeded
+  tension families >=8,400 each, ~1.16M records total) with
+  user-controlled pacing profiles and PID-file-only kills.
+- The recipe freeze produced its own finding first: BOTH pre-registered
+  anchor coefficients {0.25, 1.0} violated the entropy diagnostic
+  (ratios 3.03/2.35 vs the <=2.0 bar). A holdout-only exploration —
+  run before any gate data existed, recorded in the freeze report —
+  found a **monotone dose-response: a stronger anchor improved every
+  axis simultaneously** (teacher-match 0.594 -> 0.688, non-confident KL
+  1.62 -> 0.229, entropy ratio 3.03 -> 1.76 across coefs 0.25 -> 4.0;
+  epochs were not the lever). A registered amendment froze lambda=4.0
+  (docs/expert_iter_v2_freeze_report.md). A second pre-data amendment
+  added three exploratory continuous-certainty arms (weight w=erf(z/2),
+  loss w*CE + lambda(1-w)*KL) to test whether BINARY filtering was the
+  problem.
+- The comparative stage (16 trainings, 32 evals, zero failures):
+  **all five binary candidate mixes significantly WORSE than baseline**
+  (+0.10..+0.16 placement, one-sided max-T p_adj = 1.0 on 6,400
+  (block, match) pairs per arm) — and **all three continuous-certainty
+  arms statistically identical to baseline** (|delta| <= 0.009; the
+  registered enrichment and size contrasts both null). The confirmation
+  battery was skipped: nothing to confirm.
+- The mechanism verdict is the era's product: v1's noise hypothesis was
+  **refuted**. The harm lives in the confident teacher signal itself —
+  neutralizing the noise converges to no-change, so the equity-scored
+  teacher's ordering signal is INERT for match play. The closure
+  (docs/experiment_rules.md) covers ANY equity-scored-target recipe,
+  binary or continuous. Outside it: teachers with a DIFFERENT signal
+  source — visit counts, or demonstrations from games where something
+  is actually at stake. Era 9 went to the second.
+- One transferable side finding: the KL anchor behaved as a pure
+  regularizer with clean monotone dose-response — worth knowing for any
+  distill-onto-RL-sharpened-net setting.
+
+---
+
+## Interlude — Perilune, the public face (07-24 .. ongoing)
+
+The web app (era 6's calibration afterthought) grew into the project's
+public instrument, named **Perilune** — the lowest point of a lunar
+orbit: moon plus lowest-score-wins. It matters to the research
+narrative for one reason above all: **it is where the baseline's
+measured weakness was demonstrated by a human**, which set era 9's
+direction.
+
+- From localhost to public: FastAPI server + browser table at
+  play.perilune.ai (Cloudflare named tunnel), multi-human tables with
+  join codes and invite links, per-seat server-side privacy, host
+  controls, rematch series (fa63df5 and onward).
+- Telemetry v2 with a replay contract: one JSONL line per deal and per
+  match; MatchEnv(seed) + logged actions reproduce any game bit-exactly
+  (b765958). That contract feeds the review mode (/review: x-ray hands,
+  per-play top-3, win-probability strip from the deployed equity net)
+  and the post-match insight panel.
+- Client-side deep analysis: the C++ engine and determinized search
+  ported to WASM, the nets exported to ONNX and run in-browser
+  (WebGPU/WASM) — "deep check this position" costs the visitor's
+  hardware, not the server's GPU, which is the hosting-ready shape for
+  open weights (commits 3a8ab88, ab094ea and successors; roadmap note
+  in hearts_web/TODO.md). The port's debug findings — implementation-
+  bound std::shuffle breaking cross-toolchain deal replay, fp16
+  overflow on real observations, per-shape WebGPU pipeline compilation
+  — are recorded in the commit bodies (see INDEX known debts: this arc
+  has no ledger entries).
+- Identity and integrity, designed for open weights: server-assigned
+  immutable codenames; bearer keys hashed at rest (the canonical id IS
+  sha256(key)); session ids are identifiers, not credentials; reviews
+  gate on match completion so the match seed cannot leak mid-game; the
+  leaderboard is per model era and serves PROMOTED weights only. The
+  full invariant set, each claim traced to the commit that verified it,
+  is docs/site_security_design.md — written under the release rule
+  that security docs state invariants that hold with the code public,
+  never operational tuning (site_config split, 2026-08-04).
+- The role in the loop is deliberately bounded: human play is for
+  exploit discovery, calibration, and opponent modeling — never direct
+  policy training (the volume math forbids it). The discovery that
+  mattered: **the user shot four moons in eight fully-logged deals
+  against the raw net** (match VFFCIjaDZn188tAJ, 2026-08-02) — free
+  tempo blocks declined, two moons with no in-suit block available at
+  all, a passing-layer failure. The analyzer had measured the
+  moon-defense hole for weeks (51.5% vs v4-m10's 61.1%); the live
+  demonstration promoted it from telemetry to agenda.
+
+---
+
+## Era 9 — The exploiter league (08-05 .. ongoing)
+
+If self-improvement recipes are dead from this baseline (eras 7-8), the
+remaining lever is targeted: attack the measured weakness, then teach
+the defense. The exploiter league does this with the project's full
+measurement discipline — frozen instruments, certified attackers,
+pre-registered gates, halt-default (docs/exploiter_league_prereg.md,
+user-approved).
+
+**Phase A — build and validate the attacker instrument (08-05/06).**
+A search-shooter mode inside SearchPlayer: moon-probability scoring
+over the shared determinizations, a moon-line rollout continuation, and
+pass-phase shooting via a rewound pass search. Two modes: AGG (always
+shoots — dense threat) and SEL (commits only when moon equity beats
+normal play — realistic threat). The instrument spec froze at K=64 flat
+after a hard lesson: K=256-endgame under six shooter processes wedged
+WDDM and froze the machine (moon matches cross totals>=85 within ~3
+deals, so the endgame boost fired on most decisions). Base rates over
+402 matches per combo (docs/exploiter_league_phaseA.md, all checks
+PASS): AGG completes **0.515 moons/deal** against baseline defenders —
+77x the background rate; SEL 0.367 at a 71.2% attempt rate; and the
+ordering check that validates the whole premise: **v4-m10 defenders
+hold the same SEL attacker to 0.237** — the older net really does
+defend better, inside the instrument that will judge the fix.
+
+**Phase B — certify cheap attacker clones (08-06/07).** Generation at
+search speed is unaffordable, so the shooters were distilled into small
+nets with a registered retention bar: >=50% of the teacher's moon rate.
+SEL clone passed first try (0.224 moons/deal [0.196, 0.252]). The AGG
+clone HALTED at d192 (retention 46% — confirmed at n=500, a real miss,
+not noise) and passed as a d256 retrain on its single registered shot
+(**shooter_agg_v1b, 0.291 moons/deal [0.276, 0.306]**,
+docs/exploiter_league_phaseB.md). Clones are identified by md5 —
+weights stay out of the repo.
+
+**Phase C / round 1 — PPO exposure (08-07/08).** Match-mode PPO with
+0.15/0.15 clone shares in the opponent pool. The registered defense
+gate (64 CRN-paired matches vs the frozen SEL probe) went monotonic
+across trials: -0.031 -> -0.047 -> **-0.250 moons/match (p=0.029) —
+the first defense-gate pass the project has recorded.** Defense is
+teachable by exposure. But the same candidate failed both protection
+gates (verdicts/exploiter_r1_gates23_r1t3.json): search guard +0.267
+(UB +0.453 vs +0.3), match non-inferiority UB +0.034 vs +0.030 on a
+~zero point estimate — a precision failure that motivated re-powering
+the bound to n=6,400 for round 2. Round 1's verdict, recorded in the
+round-2 pre-registration: **the gain is real, the vehicle pays for it
+wrongly — PPO's drift is unaimed.**
+
+**The teacher check that set round 2 (08-08).** Before designing
+imitation, measure whether the behavior to imitate exists: CRN-paired
+on the gate seed block, **search defenders concede 1.208 moons/match
+where raw defenders concede 2.417** — a 50% reduction (t=-8.3,
+p<1e-5), plus 13 counter-moons in 440 deals. The search player already
+knows how to defend; the raw net does not.
+
+**Round 2 — anchored defense distillation (08-08 .. in flight).**
+The pre-registration (docs/exploiter_league_r2_prereg.md, approved
+08-08) inverts round 1's failure: imitate the search defenders
+SUPERVISED (hard-CE on moon-alive defender decisions and passes), and
+control drift BY CONSTRUCTION — ordinary decisions self-distill to the
+baseline's own argmax, an offline drift screen (>=97% argmax agreement
+on 20k held-out ordinary positions) runs before any gate, and the gate
+family is unchanged so results stay comparable. Phase A2 generates the
+corpus: certified clones attack, three search defenders play and have
+their decisions recorded (seat-tagged v2 records; generation is
+losslessly pausable by prereg amendment — kill-anytime by PID file,
+resume trims the at-most-one partial match). Status at time of
+writing: AGG half complete and in-band, the >=30,000 moon-alive volume
+condition already met (validate_r2_corpus.py, first live read
+all-clean), SEL half finishing; one watch item — SEL completion sits
+just above its 0.05/deal halt floor, and the complete-corpus number
+decides.
 
 ---
 

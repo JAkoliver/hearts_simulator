@@ -162,6 +162,20 @@ Key facts:
   invalidates that certification until the search package is
   re-validated. Drift is checked by measurement, not by calendar —
   the trigger-based recalibration item in docs/ROADMAP.md.
+- **Shooter probes (exploiter league, era 9):** SearchPlayer carries a
+  shooter_mode — moon-probability scoring over the shared
+  determinizations, a moon-line rollout continuation, and pass-phase
+  shooting via a rewound pass search. AGG always shoots; SEL commits
+  only when moon equity beats normal play. Frozen at K=64 flat as a
+  measurement instrument (md5-archived traces); certified distilled
+  clones (train_shooter.py, retention bar >=50% of teacher moon rate)
+  stand in as fast training/generation attackers. The round-2 corpus
+  recorder (search_eval.cpp --search-defenders) writes seat-tagged
+  2,284-byte decision records for the three defender chairs — obs[556],
+  legal mask, chosen action, and harness labels (pass / moon-alive /
+  defender) that select training samples without ever entering the
+  observation. Generation is losslessly pausable: per-deal flush,
+  kill-anytime by PID file, resume trims the at-most-one partial match.
 
 ## 4. Inference serving (InferenceServer.hpp)
 
@@ -262,23 +276,63 @@ Current promotion regime (evolved, era 7):
   measurement portability the thing to avoid, not training portability.
   Fleet validation runs keep pairs intact per node (e2280a3).
 
-## 8. Web app (hearts_web/)
+## 8. Web app — Perilune (hearts_web/)
 
-FastAPI server (hearts_web/server.py docstring): one human seat vs
-three AI seats (current promoted baseline, raw policy, labeled in the
-UI) on the exact match rules training uses (MatchEnv). Browser UI: card
-table, passing, trick display, match summary, paced AI plays. Every
-match appends one JSON line of telemetry to match_logs.jsonl (personal
-play data — excluded from release, RELEASE_PLAN sec. 2). Run:
+FastAPI server + static browser UI, grown from a localhost calibration
+tool into the project's public site (play.perilune.ai). One human seat
+vs three AI seats by default (the promoted baseline, raw policy,
+labeled in the UI) on the exact match rules training uses (MatchEnv);
+multi-human tables seat up to four with AI fill. Run locally:
 `python -m uvicorn hearts_web.server:app --port 8642`.
+
+- **Tables:** 4-char join codes + invite links (/?join=CODE), queued
+  simultaneous passing, per-seat privacy enforced server-side (the
+  state a player receives contains their own hand and public
+  information only), host controls (start/speed/timer/rematch/close),
+  rematch series scoreboard, polls-as-heartbeats lifecycle with a
+  reaper for abandoned tables.
+- **Telemetry v2 + replay contract:** one JSONL line per deal and per
+  match (per-deal flush, abandonment-safe); MatchEnv(seed) plus the
+  logged (seat, card) sequence reproduces any game bit-exactly. The
+  log is the source for review mode, insights, history, leaderboards —
+  and it is personal play data, excluded from release (RELEASE_PLAN
+  sec. 2).
+- **Review mode (/review):** scrubbable replay with x-ray hands,
+  per-play top-3 policy bars (info-honest per-seat observations),
+  pass-decision evaluation, equivalence merging (strictly-equivalent
+  cards share one bar — ~30% of raw "disagreements" were false
+  positives), and a win-probability strip from the deployed equity
+  net's exact input layout.
+- **Client-side deep analysis:** the C++ engine + determinized search
+  compiled to WASM; policy/equity nets exported to ONNX and run
+  in-browser via self-hosted onnxruntime-web (WebGPU with fixed-shape
+  buckets, WASM fallback). Deep analysis costs the visitor's hardware,
+  not the server's GPU — the hosting-ready shape for open weights.
+  The server never serves public search probes.
+- **Identity and integrity (docs/site_security_design.md):**
+  server-assigned immutable codenames as public handles; the only
+  credential is a server-minted bearer key, stored hashed (canonical
+  id = sha256(key)); session ids are identifiers, not credentials;
+  reviews/insights/shares gate on match completion so the match seed
+  cannot leak mid-game; the site serves PROMOTED weights only from a
+  dedicated model file the promotion path refreshes; leaderboards are
+  per model era (keyed by logged model md5), server-verified, sole
+  first place only, every score linking to its verifiable match.
+- **Config boundary:** committed site_config_example.py carries safe
+  generic defaults; the live site_config.py (production rate limits,
+  caps, policies) is operations, not instrument, and stays out of the
+  repo ("publish the instrument, keep the operations", 2026-08-04).
 
 ## 9. What is deliberately absent
 
 Closed by measurement (docs/experiment_rules.md, closed directions):
 learned leaf evaluation in search (both variants), ISMCTS for strength,
 K>64 base amplification, PPO fine-tuning at the ceiling, same-lineage
-distillation refresh, imitation-only scale-up to larger nets, and
-(v1, era 8) whole-distribution imitation of the equity-scored teacher.
+distillation refresh, imitation-only scale-up to larger nets, and —
+era 8, in two rounds — imitation of the equity-scored teacher: v1
+closed whole-distribution targets, v2 extended the closure to ANY
+equity-scored-target recipe, binary-filtered or continuous-weighted
+(the ordering signal itself is inert for match play).
 
 Cross-references: narrative in docs/release/JOURNEY.md; measurement
 practice in docs/release/METHODOLOGY.md; numbers in

@@ -86,6 +86,16 @@ verified on 2026-07-27), so reanalysis needs no regeneration. Verify
 shard integrity before any analysis with
 `python analyze_validation.py --verify-md5` (exit 0 = all shards OK).
 
+The era-9 defended-game corpus follows the same contract:
+ops/run_r2_gen.sh regenerates it from its recorded seed bases (AGG
+160M+, SEL 170M+, stride 1M/shard, match index x1000 within a shard —
+audited disjoint from every earlier block, script header), attacker
+clones identified by md5. validate_r2_corpus.py re-runs the registered
+instrument checks and the volume count from the generator outputs
+alone. Corpus regeneration is not a paired measurement, so resume after
+interruption is match-lossless but not required to be bit-identical to
+an uninterrupted run (prereg amendment, 2026-08-08).
+
 Determinism caveats: bit-identical replay holds within a hardware/OS
 class (the Linux pilot's A/A run was 20/20 bit-identical; ledger
 2026-07-26); across heterogeneous hardware, bf16 argmax flips occur at
