@@ -1481,10 +1481,17 @@ def compute_match_stats(deal_lines, seat):
     tracked = sorted({seat, *ai_seats})
     moons_shot = moons_conceded = 0
     n_deals_ct = deals_zero = deals_harsh = 0
+    dist = [0] * 5          # my per-deal score shape: 0/1-5/6-12/13-24/25+
+    dist_ai = [0] * 5       # AI seats' deals, same buckets (the reference)
+    qs_eaten = qs_fed = 0   # Q.S: deals I ate her / deals I unloaded her
+    max_deficit = 0         # worst points-behind-the-leader moment
+    _bucket = lambda v: 0 if v == 0 else 1 if v <= 5 else         2 if v <= 12 else 3 if v <= 24 else 4
     for di, d in enumerate(deal_lines):
         plays = 0
         played_deal = set()
         trick = []
+        had_qs = None   # Q.S in the post-pass hand (set at first play)
+        qs_taker = None
         for s, card, ms in d['actions']:
             if menv.get_current_player() != s:
                 raise ValueError('replay desync in progress stats')
@@ -1519,9 +1526,11 @@ def compute_match_stats(deal_lines, seat):
                     mask_l.append(mask)
                 play_hands.append(hands_now)
                 play_deal.append((di, plays))
+                if had_qs is None and seat in hands_now:
+                    had_qs = 36 in hands_now[seat]
                 if s == seat:
                     cat = ('lead' if not trick
-                           else 'follow' if card // 13 == trick[0] // 13
+                           else 'follow' if card // 13 == trick[0][1] // 13
                            else 'discard')
                     obs = np.array(menv.observe(), dtype=np.float32)
                     hand = set(np.flatnonzero(obs[:52] > 0).tolist())
@@ -1529,13 +1538,33 @@ def compute_match_stats(deal_lines, seat):
                                        _equiv_groups(hand, played_deal, legal)))
                     obs_l.append(obs)
                     mask_l.append(mask)
-                trick.append(card)
+                trick.append((s, card))
                 if len(trick) == 4:
+                    lead = trick[0][1] // 13
+                    ws, wv = trick[0]
+                    for ts2, tc2 in trick[1:]:
+                        if tc2 // 13 == lead and tc2 % 13 > wv % 13:
+                            ws, wv = ts2, tc2
+                    if any(tc2 == 36 for _, tc2 in trick):
+                        qs_taker = ws
                     trick = []
                 played_deal.add(card)
                 plays += 1
             menv.step(card)
         rs = d['round_scores']
+        if qs_taker is not None:
+            if qs_taker == seat:
+                qs_eaten += 1
+            elif had_qs:
+                qs_fed += 1
+        dist[_bucket(rs[seat])] += 1
+        for o in ai_seats:
+            dist_ai[_bucket(rs[o])] += 1
+        tot = d.get('totals')
+        if tot:
+            gap = tot[seat] - min(tot[o] for o in range(4) if o != seat)
+            if gap > max_deficit:
+                max_deficit = gap
         if sum(rs) == 78:
             shooter = int(np.argmin(rs))
             if shooter == seat:
@@ -1607,6 +1636,9 @@ def compute_match_stats(deal_lines, seat):
         'moons_shot': moons_shot, 'moons_conceded': moons_conceded,
         'n_deals': n_deals_ct, 'deals_zero': deals_zero,
         'deals_harsh': deals_harsh,
+        'dist': dist, 'dist_ai': dist_ai,
+        'qs_eaten': qs_eaten, 'qs_fed': qs_fed,
+        'max_deficit': int(max_deficit),
     }
 
 

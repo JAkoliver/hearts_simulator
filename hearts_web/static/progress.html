@@ -38,6 +38,15 @@
        text-transform:uppercase; padding:3px 8px 3px 0; }
   td { padding:4px 8px 4px 0; border-top:1px solid #29292E; }
   .bar-h { height:8px; background:#26262A; border-radius:4px; overflow:hidden; }
+  .shrow { display:flex; align-items:center; gap:8px; font-size:.72rem;
+           font-variant-numeric:tabular-nums; margin:3px 0; }
+  .shrow .lb { width:3.4em; color:#A6A6AF; text-align:right; }
+  .shrow .tr { flex:1; position:relative; height:9px;
+               background:#26262A; border-radius:4px; }
+  .shrow .tr i { position:absolute; inset:0 auto 0 0; border-radius:4px; }
+  .shrow .tr .ai { background:#3A3A42; }
+  .shrow .tr .me { background:#7CBF8E; height:5px; top:2px; }
+  .shrow .pc { width:3em; color:#A6A6AF; }
   .bar-h i { display:block; height:100%; background:#E8B923; }
   button { background:#26262A; color:#ECECEC; border:0; border-radius:7px;
            padding:5px 12px; cursor:pointer; font-size:.8rem;
@@ -71,9 +80,16 @@
   <div class="panel"><h3>Readability
     <span class="muted" id="h-read">&middot; you vs AI seats (raw-net belief)</span></h3>
     <svg id="sp-read" height="60"></svg><div class="small muted" id="t-read"></div></div>
-  <div class="panel"><h3>Moons
-    <span class="muted" id="h-moon">&middot; conceded per match / your shots</span></h3>
-    <svg id="sp-moon" height="60"></svg><div class="small muted" id="t-moon"></div></div>
+  <div class="panel"><h3>Score shape
+    <span class="muted">&middot; your deals by points taken</span></h3>
+    <div id="shape"></div><div class="small muted" id="t-shape"
+      style="margin-top:4px"></div></div>
+</div>
+
+<div class="panel">
+  <h3>Records</h3>
+  <div id="records" style="display:flex; gap:26px; flex-wrap:wrap;
+    justify-content:center; text-align:center"></div>
 </div>
 
 <div class="panel">
@@ -189,7 +205,6 @@ const roll = (vals, w) => vals.map((_, i) => {
   if (PLAYER && pubName) {
     document.querySelector('h1').textContent = `${pubName} — progress`;
     el('h-read').innerHTML = '&middot; player vs AI seats (raw-net belief)';
-    el('h-moon').innerHTML = '&middot; conceded per match / their shots';
     el('h-habits').textContent = 'Where this player and Perilune part ways '
       + 'most often - the practice list, not a verdict.';
   }
@@ -201,6 +216,18 @@ const roll = (vals, w) => vals.map((_, i) => {
   }
   el('sub').textContent = `${M.length} finished match${M.length > 1 ? 'es' : ''}`
     + (!PLAYER && M.length < 5 ? ' · play more to see trends' : '');
+  // leaderboard chip: current-era rank, if any (matched by codename)
+  (async () => {
+    try {
+      const lb = await (await fetch('/api/leaderboard')).json();
+      const myName = PLAYER ? pubName
+        : (await (await fetch(`/api/name?pid=${encodeURIComponent(pid)}`)).json()).name;
+      const row = lb.rows.find(r => r.name === myName);
+      if (row) el('sub').innerHTML +=
+        ` &middot; <a href="/leaderboard">leaderboard #${row.rank}
+         &middot; ${row.score} pts</a>`;
+    } catch (e) {}
+  })();
   if (!PLAYER)
     fetch(`/api/name?pid=${encodeURIComponent(pid)}`).then(r => r.json())
       .then(d => { document.querySelector('h1').textContent =
@@ -271,14 +298,62 @@ const roll = (vals, w) => vals.map((_, i) => {
       + (lra.length ? ` · AI seats ${(lra.reduce((a,b)=>a+b,0)/lra.length).toFixed(0)}%` : '')
     : 'no data (all-human tables have no AI reference)';
 
-  const mc = M.map(m => m.moons_conceded ?? null);
-  spark(el('sp-moon'), [{vals: mc, color: '#E5484D', width: 1.4, dots: true}],
-    0, Math.max(3, ...mc.filter(v => v != null)),
-    i => `${fmtDate(M[i].ts)} &middot; conceded <b>${mc[i] ?? '-'}</b>
-      &middot; shot ${M[i].moons_shot ?? 0}`);
-  el('t-moon').textContent =
-    `total: ${mc.reduce((a, b) => a + (b || 0), 0)} conceded · `
-    + `${M.reduce((a, m) => a + (m.moons_shot || 0), 0)} shot by ${PLAYER ? 'them' : 'you'}`;
+  // Score shape: your deals bucketed by points taken, AI seats' deals
+  // ghosted behind as the reference (wide gray = normal, green = you)
+  {
+    const dist = [0, 0, 0, 0, 0], distAI = [0, 0, 0, 0, 0];
+    for (const m of M) {
+      (m.dist || []).forEach((v, i) => dist[i] += v);
+      (m.dist_ai || []).forEach((v, i) => distAI[i] += v);
+    }
+    const n = dist.reduce((a, b) => a + b, 0);
+    const na = distAI.reduce((a, b) => a + b, 0);
+    const LBL = ['0', '1-5', '6-12', '13-24', '25+'];
+    el('shape').innerHTML = n ? LBL.map((l, i) => {
+      const pm = 100 * dist[i] / n, pa = na ? 100 * distAI[i] / na : 0;
+      return `<div class="shrow"><span class="lb">${l}</span>
+        <span class="tr"><i class="ai" style="width:${pa.toFixed(1)}%"></i>
+          <i class="me" style="width:${pm.toFixed(1)}%"></i></span>
+        <span class="pc">${pm.toFixed(0)}%</span></div>`;
+    }).join('') : '<div class="small muted">no data yet</div>';
+    const qe = M.reduce((a, m) => a + (m.qs_eaten || 0), 0);
+    const qf = M.reduce((a, m) => a + (m.qs_fed || 0), 0);
+    el('t-shape').innerHTML = `green = ${PLAYER ? 'player' : 'you'}, gray =
+      AI seats &middot; <span style="color:#FF7A7A">Q&spades;</span> eaten in
+      ${n ? (100 * qe / n).toFixed(0) : 0}% of deals &middot; unloaded
+      ${qf} time${qf === 1 ? '' : 's'}`;
+  }
+
+  // Records: the moments worth remembering
+  {
+    const W = M.filter(m => m.place === 1);
+    const chip = (v, l, href) => `<span><div class="big" style="font-size:1.15rem">${
+      href ? `<a href="${href}" style="color:inherit">${v}</a>` : v}</div>
+      <div class="lbl" style="font-size:.66rem; color:#A6A6AF;
+        text-transform:uppercase">${l}</div></span>`;
+    let best = null;
+    for (const m of W) {
+      const sc = m.final ? m.final[m.seat] : null;
+      if (sc != null && (!best || sc < best.sc
+          || (sc === best.sc && m.ts < best.m.ts)))
+        best = {sc, m};
+    }
+    const cb = Math.max(0, ...W.map(m => m.max_deficit || 0));
+    const lg = Math.max(...M.map(m => m.deals));
+    const ms = M.reduce((a, m) => a + (m.moons_shot || 0), 0);
+    const me = M.reduce((a, m) => a + (m.moons_conceded || 0), 0);
+    const bhref = best ? (PLAYER
+      ? `/review?share=${encodeURIComponent(best.m.share || '')}`
+      : best.m.mode === 'table'
+        ? `/review?code=${encodeURIComponent(best.m.code)}&match_no=${best.m.match_no}`
+        : `/review?sid=${encodeURIComponent(best.m.sid)}`) : null;
+    el('records').innerHTML =
+      chip(best ? `${best.sc} pts` : '&ndash;',
+           best ? `best win · ${fmtDate(best.m.ts)}` : 'best win', bhref)
+      + chip(cb > 0 ? `+${cb}` : '&ndash;', 'biggest comeback win')
+      + chip(`${lg}`, 'longest match (deals)')
+      + chip(`${ms} / ${me}`, 'moons shot / eaten');
+  }
 
   // band 3.5: search verdicts (OWN view only: the data lives in
   // each viewer's browser - on a public profile it would show the
