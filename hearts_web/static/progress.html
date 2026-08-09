@@ -336,7 +336,7 @@ const roll = (vals, w) => vals.map((_, i) => {
     const qe = M.reduce((a, m) => a + (m.qs_eaten || 0), 0);
     const qf = M.reduce((a, m) => a + (m.qs_fed || 0), 0);
     el('t-shape').innerHTML = `green = ${PLAYER ? 'player' : 'you'}, gray =
-      AI seats &middot; <span style="color:#FF7A7A">Q&spades;</span> eaten in
+      AI seats &middot; <span style="color:#E8B923">Q&spades;</span> eaten in
       ${n ? (100 * qe / n).toFixed(0) : 0}% of deals &middot; unloaded
       ${qf} time${qf === 1 ? '' : 's'}`;
   }
