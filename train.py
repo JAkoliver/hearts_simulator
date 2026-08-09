@@ -120,7 +120,7 @@ def compute_gae(rewards, values, dones, gamma=1.0, gae_lambda=0.95):
 
 def ppo_update(network, optimizer, buffer, device, gamma=1.0, eps_clip=0.2, k_epochs=4,
                minibatch_size=2048, gae_lambda=0.95, entropy_coef=0.01, aux_coef=0.5,
-               actor_coef=1.0):
+               actor_coef=1.0, anchor_net=None, anchor_kl_coef=0.0):
     if len(buffer.states) == 0:
         return None, None
 
@@ -191,6 +191,27 @@ def ppo_update(network, optimizer, buffer, device, gamma=1.0, eps_clip=0.2, k_ep
                 # early garbage advantages can't damage a good warm-start policy
                 loss = (actor_coef * (actor_loss - entropy_coef * entropy.mean())
                         + 0.5 * critic_loss + aux_coef * belief_loss)
+
+                # Round-3 anchored PPO (docs/exploiter_league_r3_prereg.md):
+                # KL(candidate || frozen baseline) on THREAT-DEAD states only
+                # - aimed drift. Dead = >=2 seats already have round points
+                # (obs dims 156-159, round scores /26; attacker-agnostic:
+                # with <=1 scorer a moon is still possible, those states
+                # stay free to learn defense). Validated against the r2
+                # corpus labels: 0% false-anchoring on moon-alive records.
+                if anchor_net is not None and anchor_kl_coef > 0:
+                    dead = (old_states[midx][:, 156:160] > 1e-6).sum(1) >= 2
+                    if bool(dead.any()):
+                        dmask = old_masks[midx][dead]
+                        clogits = masked_logits[dead]
+                        with torch.no_grad():
+                            alogits, _, _ = anchor_net.forward_all(
+                                old_states[midx][dead], dmask)
+                        clogp = torch.log_softmax(clogits, dim=1).masked_fill(~dmask, 0.0)
+                        alogp = torch.log_softmax(alogits, dim=1).masked_fill(~dmask, 0.0)
+                        cp = torch.softmax(clogits, dim=1)
+                        anchor_kl = (cp * (clogp - alogp)).sum(dim=1).mean()
+                        loss = loss + anchor_kl_coef * anchor_kl
 
                 # Size-weighted so accumulated micro-grads equal the full
                 # minibatch gradient exactly
@@ -644,6 +665,30 @@ def main():
         slots = [EnvSlot(seed=1000 + i) for i in range(num_envs)]
         print("Slot rollouts (vec_env disabled)")
 
+    # Round-3 anchored PPO: frozen baseline for the threat-dead KL term
+    # (docs/exploiter_league_r3_prereg.md). md5-verified so a stale
+    # working file can never silently become the anchor.
+    anchor_net = None
+    anchor_kl_coef = float(config.get('anchor_kl_coef', 0.0))
+    if anchor_kl_coef > 0:
+        import hashlib
+        ap = config.get('anchor_baseline_path',
+                        'Hall_of_Fame/hearts_model_milestone_1785322724.pth')
+        want = config.get('anchor_baseline_md5_8', '8a89da90')
+        h = hashlib.md5()
+        with open(ap, 'rb') as f:
+            for chunk in iter(lambda: f.read(1 << 20), b''):
+                h.update(chunk)
+        if h.hexdigest()[:8] != want:
+            raise SystemExit(f'anchor baseline {ap} md5 {h.hexdigest()[:8]} '
+                             f'!= {want} - refusing to train')
+        from hearts_net import net_from_checkpoint
+        anchor_net = net_from_checkpoint(ap).to(device).eval()
+        for p_ in anchor_net.parameters():
+            p_.requires_grad_(False)
+        print(f"ANCHORED PPO (round 3): KL coef {anchor_kl_coef} to frozen "
+              f"baseline {ap} ({want}) on threat-dead states")
+
     games_played = 0
     pool_refresh_interval = config.get('pool_refresh_interval', 25000)
     next_pool_refresh = pool_refresh_interval
@@ -704,7 +749,9 @@ def main():
                                                    gae_lambda=config.get('gae_lambda', 0.95),
                                                    entropy_coef=config.get('entropy_coef', 0.01),
                                                    aux_coef=config.get('aux_coef', 0.5),
-                                                   actor_coef=0.0 if in_warmup else 1.0)
+                                                   actor_coef=0.0 if in_warmup else 1.0,
+                                                   anchor_net=anchor_net,
+                                                   anchor_kl_coef=anchor_kl_coef)
 
             ev_str = f"{explained_var:.3f}" if explained_var is not None else "n/a"
             bce_str = f"{belief_bce:.4f}" if belief_bce is not None else "n/a"
