@@ -92,9 +92,17 @@
     for (let s = 0; s < 4; s++) {
       const t = el('af-tag' + s);
       if (!t) continue;
+      t.style.display = '';
       t.innerHTML = `${SEATN[s]} &middot; ${totals[s]}
         <small>(+${pts[s]})</small>`;
       t.classList.toggle('on', s === active);
+    }
+  }
+
+  function hideTags() {
+    for (let s = 0; s < 4; s++) {
+      const t = el('af-tag' + s);
+      if (t) t.style.display = 'none';
     }
   }
 
@@ -119,11 +127,12 @@
       return 1400;
     }
     if (play.i >= deal.plays.length) {
-      // deal-end scoreboard overlay: deal points -> new totals
+      // deal-end scoreboard overlay: deal points -> new totals; the
+      // tags leave the table while it shows (they'd double the info)
       trickBox.innerHTML = `<div class="af-scores">${deal.scores.map(
         (sc, s) => `<div><span>${SEATN[s]}</span><b>+${sc}</b>
                     <i>${deal.totals[s]}</i></div>`).join('')}</div>`;
-      updateTags(before, deal.scores, -1);
+      hideTags();
       cap.textContent = `deal ${play.d + 1} scores - lowest wins`;
       return 2600;
     }
