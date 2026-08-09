@@ -311,11 +311,28 @@ const roll = (vals, w) => vals.map((_, i) => {
     const LBL = ['0', '1-5', '6-12', '13-24', '25+'];
     el('shape').innerHTML = n ? LBL.map((l, i) => {
       const pm = 100 * dist[i] / n, pa = na ? 100 * distAI[i] / na : 0;
-      return `<div class="shrow"><span class="lb">${l}</span>
+      return `<div class="shrow" data-i="${i}"><span class="lb">${l}</span>
         <span class="tr"><i class="ai" style="width:${pa.toFixed(1)}%"></i>
           <i class="me" style="width:${pm.toFixed(1)}%"></i></span>
         <span class="pc">${pm.toFixed(0)}%</span></div>`;
     }).join('') : '<div class="small muted">no data yet</div>';
+    // hover a bucket row -> both values, reusing the chart tooltip
+    el('shape').onpointermove = e => {
+      const row = e.target.closest ? e.target.closest('.shrow') : null;
+      const tip = el('tip');
+      if (!row) { tip.style.display = 'none'; return; }
+      const i = +row.dataset.i;
+      const pm = n ? 100 * dist[i] / n : 0, pa = na ? 100 * distAI[i] / na : 0;
+      tip.innerHTML = `<b>${LBL[i]} pts</b> &middot;
+        <span style="color:#7CBF8E">${PLAYER ? 'player' : 'you'}
+        ${pm.toFixed(1)}%</span> (${dist[i]} deal${dist[i] === 1 ? '' : 's'})
+        &middot; <span style="color:#A6A6AF">AI seats ${pa.toFixed(1)}%</span>
+        (${distAI[i]})`;
+      tip.style.display = 'block';
+      tip.style.left = Math.min(e.clientX + 12, innerWidth - 220) + 'px';
+      tip.style.top = (e.clientY - 10) + 'px';
+    };
+    el('shape').onpointerleave = () => { el('tip').style.display = 'none'; };
     const qe = M.reduce((a, m) => a + (m.qs_eaten || 0), 0);
     const qf = M.reduce((a, m) => a + (m.qs_fed || 0), 0);
     el('t-shape').innerHTML = `green = ${PLAYER ? 'player' : 'you'}, gray =
