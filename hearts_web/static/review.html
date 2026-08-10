@@ -688,7 +688,15 @@ function evalBars(top, eq, name, p, verb, expanded, spellOut) {
       <span class="zc muted">&middot; ${pctTxt(sum)}${
         tail.length > 1 ? ' combined' : ''}</span></span></div>`;
   }
-  return {html, n: main.length, total: merged.length};
+  // `more` = expanding would actually reveal something. The collapsed
+  // view force-includes the acted card, so with 4 moves and yours
+  // ranked 4th everything is ALREADY visible - a "show all 4" button
+  // there toggles nothing (user report 2026-08-11).
+  const mineRank = main.findIndex(([cs]) => cs.includes(name));
+  const collapsedN = main.length <= 3 ? main.length
+    : 3 + (mineRank >= 3 ? 1 : 0);
+  return {html, n: main.length, total: merged.length,
+          more: main.length > collapsedN || tail.length > 0};
 }
 function seatLabel(s) {
   const nm = R.seat_names && R.seat_names[String(s)];
@@ -1072,7 +1080,7 @@ function renderEval(st, deal) {
     <span class="muted">(${p * 100 < 0.5 ? '&lt;1' : (p * 100).toFixed(0)}%)</span></div>`;
   const bars = evalBars(top, eq, name, p, 'played', evalExpanded);
   html += bars.html;
-  if (bars.total > 3)
+  if (bars.more)
     html += `<button class="xbtn" id="ev-x">${evalExpanded
       ? 'show top 3' : `show all ${bars.total} legal moves`}</button>`;
   else if (top.length > 1)
@@ -1128,7 +1136,12 @@ function renderEval(st, deal) {
         <div class="fill" style="width:${w}%"></div>
         <span>${ctG(it.names)} &middot; ${ptsTxt}${dTxt}${isP ? ' &larr; played' : ''}</span></div>`;
     }
-    if (items.length > 3)
+    // same guard as the raw layer: collapsed already includes the
+    // played card, so only offer the toggle when it hides something
+    const dMineRank = items.findIndex(it => it.ids.includes(playedId));
+    const dCollapsedN = items.length <= 3 ? items.length
+      : 3 + (dMineRank >= 3 ? 1 : 0);
+    if (items.length > dCollapsedN)
       html += `<button class="xbtn" id="dev-x">${deepExpanded
         ? 'show top 3' : `show all ${items.length} moves`}</button>`;
     html += `<div class="muted" style="font-size:.68rem; margin-top:3px">
