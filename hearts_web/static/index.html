@@ -1166,7 +1166,8 @@ async function loadHistory() {
     const row = (m, i) => {
       const when = new Date(m.ts * 1000)
         .toLocaleDateString(undefined, {month: 'short', day: 'numeric'});
-      const what = m.mode === 'table' ? `Table ${esc(m.code)}` : 'vs AI';
+      const what = m.daily ? 'Daily'
+        : m.mode === 'table' ? `Table ${esc(m.code)}` : 'vs AI';
       const place = PLACE_WORD[Math.round(m.place)] || `${m.place}`;
       return `<div class="histline" data-i="${i}">${when} &middot; ${what}
         &middot; <b>${place}</b> of 4 <span class="muted2">&middot; ${m.deals} deals</span></div>`;

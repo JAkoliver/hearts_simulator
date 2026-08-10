@@ -424,7 +424,8 @@ const roll = (vals, w) => vals.map((_, i) => {
   ].map(chip).join('');
 
   // band 2: placement trend (y inverted: 1st on top)
-  const what = m => m.mode === 'table' ? `Table ${esc(m.code)}` : 'vs AI';
+  const what = m => m.daily ? 'Daily'
+    : m.mode === 'table' ? `Table ${esc(m.code)}` : 'vs AI';
   // bucket-tooltip helper: mean of the non-null slice
   const bavg = (arr, i0, i1) => {
     const s = arr.slice(i0, i1 + 1).filter(v => v != null);
