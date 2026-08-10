@@ -5,7 +5,13 @@
 //   {type:'init'}                      -> {type:'ready', ep, kFast}
 //   {type:'load', seed, dealActions}   -> {type:'loaded', deals}
 //   {type:'queue', jobs:[{key, deal, actionIdx, K, playedId}]}  (appends)
-//   {type:'clear'}                     drop pending jobs
+//   {type:'clear'}                     drop pending jobs, reset counters;
+//                                      the in-flight job still posts its
+//                                      result (worth caching) but NOT a
+//                                      progress line - a post-clear
+//                                      progress would overwrite the main
+//                                      thread's "stopped" status with a
+//                                      stale frozen counter
 // worker -> main:
 //   {type:'result', key, deal, actionIdx, K, actions, mean, se, desync}
 //   {type:'progress', done, total}
@@ -40,6 +46,7 @@ const MAX_ROUNDS = {cards: 4000, pass: 400, trace: 400, playout: 400,
                     play: 400};
 let M = null, policy = null, equity = null, ep = null;
 let jobs = [], running = false, jobsDone = 0, jobsTotal = 0;
+let clearEpoch = 0;
 // Fast path fetches the in-graph argmax ('act'); if the backend ever
 // produces an illegal action (engine-validated), fall back permanently to
 // fetching logits and doing masked argmax in JS.
@@ -241,7 +248,22 @@ async function runPolicy(rows, wantBelief) {
   return { acts, belief };
 }
 
+// Yield one MACROtask so queued control messages ('clear') can run.
+// On the wasm tiers session.run resolves synchronously, which makes the
+// whole pump one unbroken microtask chain - onmessage NEVER fires and a
+// Stop click starves until the full sweep finishes (live bug
+// 2026-08-10: the progress counter kept climbing after Stop).
+// MessageChannel, not setTimeout: no nested-timer clamp.
+const _yieldCh = new MessageChannel();
+let _yieldRes = null;
+_yieldCh.port1.onmessage = () => { const r = _yieldRes; _yieldRes = null; if (r) r(); };
+const yieldMacro = () => new Promise(res => {
+  _yieldRes = res;
+  _yieldCh.port2.postMessage(0);
+});
+
 async function analyzeOne(job) {
+  const epoch0 = clearEpoch;
   let kind = job.kind === 'trace' ? M._an_deal_trace(job.deal)
     : job.kind === 'playout' ? M._an_playout(job.deal)
     : job.kind === 'pass' ? M._an_analyze_pass(job.deal, job.seat, job.K, 10)
@@ -251,6 +273,8 @@ async function analyzeOne(job) {
   if (kind < 0) return { ...job, actions: [], mean: [], se: [], desync: true };
   let rounds = 0;
   while (kind !== 0) {
+    await yieldMacro();
+    if (clearEpoch !== epoch0) return null;   // stopped mid-job: abandon
     if (kind === -3) throw new Error('engine: ' + anError());
     const cap = MAX_ROUNDS[job.kind] || MAX_ROUNDS.play;
     if (++rounds > cap)
@@ -357,8 +381,10 @@ async function pumpQueue() {
   running = true;
   while (jobs.length) {
     const job = jobs.shift();
+    const epoch = clearEpoch;
     try {
       const r = await analyzeOne(job);
+      if (r === null || epoch !== clearEpoch) continue;  // cleared: drop
       jobsDone++;
       postMessage({ type: 'result', ...r });
       postMessage({ type: 'progress', done: jobsDone, total: jobsTotal });
@@ -369,6 +395,7 @@ async function pumpQueue() {
       // session recreate; then fail with the ORIGINAL error - the
       // single-threaded CPU fallback would burn hours pretending to work.
       console.warn('deep-analysis job failed:', e);
+      if (epoch !== clearEpoch) continue;   // stopped: don't retry/refail
       if (ep === 'webgpu-fp16') {
         postMessage({ type: 'note',
                       message: `fp16 failed (${String(e).slice(0, 100)}) - switching to fp32` });
@@ -419,5 +446,9 @@ onmessage = (ev) => {
     else jobs.push(...m.jobs);
     jobsTotal += m.jobs.length;
     pumpQueue();
-  } else if (m.type === 'clear') { jobs = []; }
+  } else if (m.type === 'clear') {
+    // Fresh counters: a later queue (e.g. a single-position deepen)
+    // must count from 0/n, not continue a dead sweep's totals.
+    jobs = []; jobsDone = 0; jobsTotal = 0; clearEpoch++;
+  }
 };

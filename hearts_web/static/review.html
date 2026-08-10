@@ -1717,7 +1717,7 @@ async function bootEngine() {
   // v19: version busts EDGE caches too (Cloudflare caches .js by
   // extension; a stale pre-COEP copy at the edge blocks worker spawn
   // even when the origin is fixed - bit us live 2026-08-09).
-  deepWorker = new Worker('/static/analysis_worker.js?v=19');
+  deepWorker = new Worker('/static/analysis_worker.js?v=20');
   // A crashed worker (e.g. a wasm abort) must be VISIBLE, never a frozen
   // counter.
   deepWorker.onerror = e => {
