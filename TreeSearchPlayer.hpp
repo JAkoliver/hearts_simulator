@@ -46,6 +46,12 @@ public:
     struct Config {
         int iterations = 400;
         float c_puct = 1.5f;
+        // Phase 2 (docs/phase2_visitcount_prereg.md): match-aware leaf
+        // scoring. When set (with a 556-dim model), leaf/terminal values
+        // become per-seat MATCH EQUITY - the flat search's exact recipe
+        // (ScoreEquity 10-dim input + TerminalWinValue tie mass) applied
+        // per seat for the Max^n backup. Null = legacy per-round points.
+        std::shared_ptr<torch::jit::script::Module> equity_model;
         int leaf_batch = 16;
         // Discourages same-path collisions inside a wave (normalized units)
         float virtual_loss = 0.3f;
@@ -60,7 +66,18 @@ public:
 
     TreeSearchPlayer(std::shared_ptr<InferenceBackend> backend, int model_obs_dim, Config cfg)
         : backend_(std::move(backend)), obs_dim_(model_obs_dim), cfg_(cfg), rng_(cfg.seed),
-          flat_(backend_, model_obs_dim, cfg.pass_cfg) {}
+          flat_(backend_, model_obs_dim, cfg.pass_cfg) {
+        match_aware_ = (obs_dim_ == 556);
+        if (match_aware_ && !cfg_.equity_model)
+            throw std::runtime_error("556-dim tree search requires an equity model");
+    }
+
+    // Match context for the OUTER game (556 ctx dims + equity totals).
+    void SetMatchContext(const std::array<double, 4>& totals, int deals) {
+        match_totals_ = totals;
+        deals_played_ = deals;
+        flat_.SetMatchContext(totals, deals);
+    }
 
     TreeSearchPlayer(torch::jit::script::Module model, int model_obs_dim, Config cfg)
         : TreeSearchPlayer(std::make_shared<DirectBackend>(std::move(model), cfg.pass_cfg.device,
@@ -119,7 +136,7 @@ public:
                     cur = ci;
                     if (done) {
                         terminal = true;
-                        for (int s = 0; s < 4; ++s) tv[s] = NormReward(sim, s);
+                        tv = SeatValues(sim);
                         break;
                     }
                 }
@@ -137,9 +154,7 @@ public:
             // Batch-rollout every leaf sim to the end of the round
             RolloutLeaves(leaves);
             for (auto& lf : leaves) {
-                std::array<double, 4> v{};
-                for (int s = 0; s < 4; ++s) v[s] = NormReward(lf.sim, s);
-                Backup(lf.node, v);
+                Backup(lf.node, SeatValues(lf.sim));
             }
             completed += static_cast<int>(leaves.size());
         }
@@ -202,11 +217,73 @@ private:
         return (avg - sc[seat]) / 13.0;
     }
 
-    torch::Tensor ObsTensor(const HeartsEnv& env) {
+    // Engine obs is 550 floats; match-aware models take 550 + 6 ctx dims
+    // rotated by the acting seat (the write_rec/WriteCtx layout).
+    void FillObsRow(float* dst, const HeartsEnv& env) {
         auto obs = env.Observe();
+        std::memcpy(dst, obs.data(), 550 * sizeof(float));
+        if (!match_aware_) return;
+        const int seat = env.GetCurrentPlayer();
+        double mx = *std::max_element(match_totals_.begin(), match_totals_.end());
+        for (int i = 0; i < 4; ++i)
+            dst[550 + i] = (float)(match_totals_[(seat + i) % 4] / 100.0);
+        dst[554] = (float)(deals_played_ / 20.0);
+        dst[555] = (float)((100.0 - mx) / 100.0);
+    }
+
+    torch::Tensor ObsTensor(const HeartsEnv& env) {
         torch::Tensor o = torch::empty({1, obs_dim_}, torch::kFloat32);
-        std::memcpy(o.data_ptr<float>(), obs.data(), obs_dim_ * sizeof(float));
+        FillObsRow(o.data_ptr<float>(), env);
         return o;
+    }
+
+    // Per-seat terminal value for a finished ROUND: match equity when
+    // match-aware (flat ScoreEquity recipe, all four rotations), else
+    // the legacy per-round points/13.
+    std::array<double, 4> SeatValues(const HeartsEnv& env) {
+        std::array<double, 4> v{};
+        if (!match_aware_) {
+            for (int s2 = 0; s2 < 4; ++s2) v[s2] = NormReward(env, s2);
+            return v;
+        }
+        auto sc = env.GetRoundScores();
+        std::array<double, 4> after = match_totals_;
+        for (int i = 0; i < 4; ++i) after[i] += sc[i];
+        double mx = *std::max_element(after.begin(), after.end());
+        if (mx >= 100.0) {
+            for (int s2 = 0; s2 < 4; ++s2)
+                v[s2] = TerminalWin(after, s2);
+            return v;
+        }
+        const int deals_after = deals_played_ + 1;
+        torch::Tensor x = torch::zeros({4, 10}, torch::kFloat32);
+        float* xp = x.data_ptr<float>();
+        for (int s2 = 0; s2 < 4; ++s2) {
+            float* row = xp + s2 * 10;
+            for (int i = 0; i < 4; ++i)
+                row[i] = (float)(after[(s2 + i) % 4] / 100.0);
+            row[4] = (float)(deals_after / 20.0);
+            row[5] = (float)((100.0 - mx) / 100.0);
+            row[6 + (deals_after % 4)] = 1.0f;
+        }
+        torch::NoGradGuard g;
+        auto probs = torch::softmax(
+            cfg_.equity_model->forward({x}).toTensor(), 1);
+        auto acc = probs.accessor<float, 2>();
+        for (int s2 = 0; s2 < 4; ++s2) v[s2] = acc[s2][0];   // P(place 1)
+        return v;
+    }
+
+    static double TerminalWin(const std::array<double, 4>& totals, int seat) {
+        double mine = totals[seat];
+        int better = 0, tied = 0;
+        for (int i = 0; i < 4; ++i) {
+            if (i == seat) continue;
+            if (totals[i] < mine) ++better;
+            else if (totals[i] == mine) ++tied;
+        }
+        if (better > 0) return 0.0;
+        return 1.0 / (1 + tied);
     }
 
     static torch::Tensor MaskTensor(const std::vector<int>& legal) {
@@ -310,8 +387,7 @@ private:
         bool* mp = m.data_ptr<bool>();
         for (size_t k = 0; k < need.size(); ++k) {
             const HeartsEnv& sim = leaves[need[k]].sim;
-            auto obs = sim.Observe();
-            std::memcpy(op + k * obs_dim_, obs.data(), obs_dim_ * sizeof(float));
+            FillObsRow(op + k * obs_dim_, sim);
             auto lr = sim.GetLegalActions();
             for (int i = 0; i < 13; ++i) {
                 if (lr[i] != -1) mp[k * 52 + lr[i]] = true;
@@ -346,8 +422,7 @@ private:
             bool* mp = m.data_ptr<bool>();
             for (size_t k = 0; k < active.size(); ++k) {
                 const HeartsEnv& sim = leaves[active[k]].sim;
-                auto obs = sim.Observe();
-                std::memcpy(op + k * obs_dim_, obs.data(), obs_dim_ * sizeof(float));
+                FillObsRow(op + k * obs_dim_, sim);
                 auto lr = sim.GetLegalActions();
                 for (int i = 0; i < 13; ++i) {
                     if (lr[i] != -1) mp[k * 52 + lr[i]] = true;
@@ -369,6 +444,9 @@ private:
 
     std::shared_ptr<InferenceBackend> backend_;
     int obs_dim_;
+    bool match_aware_ = false;
+    std::array<double, 4> match_totals_{};
+    int deals_played_ = 0;
     Config cfg_;
     std::mt19937 rng_;
     SearchPlayer flat_;  // sampler, pass search, and backend sharing

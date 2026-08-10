@@ -12,6 +12,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <filesystem>
 #include <fstream>
 #include <functional>
 #include <iostream>
@@ -373,6 +374,31 @@ static bool TestBatchEquivalence(torch::jit::script::Module& model, int obs_dim,
 
 // ---------------------------------------------------------------------------
 
+
+// Lossless resume for --tree-selfplay (Phase 2 prereg): records are a
+// fixed 2522 bytes; a match ends with a kind=1 trailer. Resume trims
+// the file to the last complete match and returns how many are done.
+static int TreeResumeTrim(const std::string& record_path) {
+    std::ifstream f(record_path, std::ios::binary | std::ios::ate);
+    if (!f) return 0;
+    const long long REC = 2522;
+    long long n = f.tellg() / REC;
+    int completed = 0;
+    long long keep = 0;
+    for (long long i = 0; i < n; ++i) {
+        f.seekg(i * REC + 2493);   // kind byte
+        char kind = 0;
+        f.read(&kind, 1);
+        if (kind == 1) {
+            completed++;
+            keep = (i + 1) * REC;
+        }
+    }
+    f.close();
+    std::filesystem::resize_file(record_path, keep);
+    return completed;
+}
+
 int main(int argc, char** argv) {
     // Engine work is plain C++ on this thread; without this, libtorch's
     // intra-op pool fans tiny CPU ops across every core - harmless on a
@@ -391,6 +417,7 @@ int main(int argc, char** argv) {
     unsigned int seed = 42;
     bool uniform = false, selftest = false, pass_search = false, use_cuda = false;
     bool oracle_leaves = false, use_tree = false, use_bf16 = false;
+    bool tree_selfplay = false;
     bool search_defenders = false;
     bool resume_flag = false;
     std::string attacker_path;
@@ -423,6 +450,7 @@ int main(int argc, char** argv) {
         else if (a == "--rollout-tricks") rollout_tricks = std::stoi(next());
         else if (a == "--oracle-leaves") oracle_leaves = true;
         else if (a == "--tree") use_tree = true;
+        else if (a == "--tree-selfplay") tree_selfplay = true;
         else if (a == "--iterations") tree_iterations = std::stoi(next());
         else if (a == "--c-puct") tree_c_puct = std::stof(next());
         else if (a == "--uniform-sampling") uniform = true;
@@ -476,6 +504,170 @@ int main(int argc, char** argv) {
         ok &= t;
         std::cerr << (ok ? "SELFTEST PASS" : "SELFTEST FAIL") << "\n";
         return ok ? 0 : 1;
+    }
+
+
+    if (tree_selfplay) {
+        // Phase 2 generation (docs/phase2_visitcount_prereg.md): the
+        // match-aware TREE teacher plays ALL FOUR seats of natural
+        // matches; every play decision is recorded with the root visit
+        // distribution (the distillation target). Passing delegates to
+        // the flat pass search and is NOT recorded (prereg scope).
+        // Record layout (little-endian, 2522 bytes fixed):
+        //   f32 obs[556] | u8 mask[52] | f32 pi[52] | i32 action |
+        //   i32 total_visits | u8 seat | u8 kind (0 play, 1 trailer) |
+        //   u16 match | u8 deal | u8 pad | i16 final[4] | f32 place[4]
+        // Per-deal flush; --resume trims to the last trailer (the r2
+        // kill-anytime contract).
+        if (sdim != 556) {
+            std::cerr << "--tree-selfplay requires a 556-dim search model\n";
+            return 2;
+        }
+        if (equity_path.empty() || record_path.empty()) {
+            std::cerr << "--tree-selfplay requires --equity-model and --record-out\n";
+            return 2;
+        }
+        std::shared_ptr<torch::jit::script::Module> eq;
+        try {
+            eq = std::make_shared<torch::jit::script::Module>(
+                torch::jit::load(equity_path));
+            eq->eval();
+        } catch (const c10::Error& e) {
+            std::cerr << "Failed to load equity model: " << e.what() << "\n";
+            return 1;
+        }
+        SearchPlayer::Config pc;
+        pc.determinizations = k;
+        pc.seed = seed + 1000;
+        pc.pass_search = true;
+        pc.device = device;
+        pc.bf16 = use_bf16;
+        pc.equity_model = eq;
+        pc.match_aware = true;
+        TreeSearchPlayer::Config tc;
+        tc.iterations = tree_iterations;
+        tc.c_puct = tree_c_puct;
+        tc.seed = seed;
+        tc.root_noise = true;    // self-play diversity (deterministic per seed)
+        tc.equity_model = eq;
+        tc.pass_cfg = pc;
+        TreeSearchPlayer tsp(std::move(search_model), 556, tc);
+
+        int mi0 = 0;
+        if (resume_flag) {
+            mi0 = TreeResumeTrim(record_path);
+            std::cerr << "resume: trimmed to " << mi0
+                      << " complete matches; continuing from match "
+                      << mi0 << "\n";
+        }
+        const bool fresh = (mi0 == 0 && !resume_flag);
+        std::ofstream rec(record_path, fresh
+            ? std::ios::binary
+            : (std::ios::binary | std::ios::out | std::ios::app));
+
+        auto put_rec = [&](const float* obs556, const uint8_t* mask52,
+                           const float* pi52, int32_t action,
+                           int32_t visits, uint8_t seat, uint8_t kind,
+                           uint16_t match, uint8_t deal,
+                           const int16_t* fin4, const float* place4) {
+            rec.write((const char*)obs556, 556 * 4);
+            rec.write((const char*)mask52, 52);
+            rec.write((const char*)pi52, 52 * 4);
+            rec.write((const char*)&action, 4);
+            rec.write((const char*)&visits, 4);
+            rec.write((const char*)&seat, 1);
+            rec.write((const char*)&kind, 1);
+            rec.write((const char*)&match, 2);
+            rec.write((const char*)&deal, 1);
+            uint8_t pad = 0;
+            rec.write((const char*)&pad, 1);
+            rec.write((const char*)fin4, 8);
+            rec.write((const char*)place4, 16);
+        };
+
+        long total_plays = 0;
+        int total_deals = 0;
+        auto pt0 = std::chrono::steady_clock::now();
+        for (int mi = mi0; mi < matches; ++mi) {
+            unsigned mseed = seed + (unsigned)mi * 1000u;
+            HeartsEnv env(mseed, true);
+            std::array<double, 4> totals{};
+            int deals = 0;
+            while (true) {
+                tsp.SetMatchContext(totals, deals);
+                env.Reset();
+                bool done = false;
+                while (!done) {
+                    int p = env.GetCurrentPlayer();
+                    bool was_passing = env.IsPassing();
+                    int action = tsp.ChooseAction(env);
+                    if (!was_passing) {
+                        float row[556] = {};
+                        auto obs = env.Observe();
+                        std::memcpy(row, obs.data(), 550 * sizeof(float));
+                        double mx = *std::max_element(totals.begin(),
+                                                      totals.end());
+                        for (int i2 = 0; i2 < 4; ++i2)
+                            row[550 + i2] =
+                                (float)(totals[(p + i2) % 4] / 100.0);
+                        row[554] = (float)(deals / 20.0);
+                        row[555] = (float)((100.0 - mx) / 100.0);
+                        uint8_t mk[52] = {};
+                        auto lr = env.GetLegalActions();
+                        for (int i2 = 0; i2 < 13; ++i2)
+                            if (lr[i2] != -1) mk[lr[i2]] = 1;
+                        const auto& pi = tsp.LastPolicy();
+                        int legal_n = 0;
+                        for (int i2 = 0; i2 < 52; ++i2) legal_n += mk[i2];
+                        // forced moves never ran the tree: visits would
+                        // be STALE from the previous search - record 0
+                        int32_t vis = legal_n > 1 ? tsp.LastRootVisits() : 0;
+                        int16_t z4[4] = {};
+                        float zf[4] = {};
+                        put_rec(row, mk, pi.data(), action,
+                                vis, (uint8_t)p, 0,
+                                (uint16_t)mi, (uint8_t)deals, z4, zf);
+                        total_plays++;
+                    }
+                    done = env.Step(action).done;
+                }
+                auto sc = env.GetRoundScores();
+                for (int i2 = 0; i2 < 4; ++i2) totals[i2] += sc[i2];
+                total_deals++;
+                deals++;
+                rec.flush();
+                if (deals >= 60 ||
+                    *std::max_element(totals.begin(), totals.end()) >= 100.0)
+                    break;
+            }
+            float place[4];
+            int16_t fin[4];
+            for (int s2 = 0; s2 < 4; ++s2) {
+                double better = 0, tied = 0;
+                for (int o = 0; o < 4; ++o) {
+                    if (o == s2) continue;
+                    if (totals[o] < totals[s2]) better += 1;
+                    else if (totals[o] == totals[s2]) tied += 1;
+                }
+                place[s2] = (float)(1.0 + better + tied * 0.5);
+                fin[s2] = (int16_t)totals[s2];
+            }
+            float zrow[556] = {};
+            uint8_t zmk[52] = {};
+            float zpi[52] = {};
+            put_rec(zrow, zmk, zpi, -1, 0, 0, 1, (uint16_t)mi,
+                    (uint8_t)deals, fin, place);
+            rec.flush();
+            auto el = std::chrono::duration_cast<std::chrono::seconds>(
+                          std::chrono::steady_clock::now() - pt0).count();
+            std::cerr << "tree match " << (mi + 1) << "/" << matches
+                      << "  deals " << total_deals << "  plays "
+                      << total_plays << "  elapsed " << el << "s\n";
+        }
+        std::cout << "tree-selfplay matches " << (matches - mi0)
+                  << " deals " << total_deals << " plays " << total_plays
+                  << "\nrecords " << record_path << "\n";
+        return 0;
     }
 
     if (opp_path.empty()) {
