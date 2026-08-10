@@ -398,7 +398,7 @@
 </head>
 <body>
 <header>
-<div id="theme-toggle"><button id="theme-btn"></button><button id="speed-btn" title="animation speed - cycle normal / fast / instant (at a table only the host can change it)"></button><button id="auto-btn" title="automatically play your card when only one is legal"></button><button id="help-btn" title="how Hearts works">?</button></div>
+<div id="theme-toggle"><button id="theme-btn"></button><button id="speed-btn" title="animation speed - cycle normal / fast / instant (at a table only the host can change it)"></button><button id="auto-btn" title="automatically play your card when only one is legal"></button><button id="sound-btn" title="game sounds on/off"></button><button id="help-btn" title="how Hearts works">?</button></div>
 <div id="menu-btn-wrap"><button id="menu-btn">Menu</button>
   <div id="menu-dd">
     <a href="/leaderboard">Leaderboard</a>
@@ -818,6 +818,40 @@ async function submit(cards) {
 // legal set refers to your NEXT decision, whose trick is the one after the
 // last trick_end in the stream - dim when that trick's lead card renders,
 // or at the trick_end itself when you won it (you lead, no plays follow).
+// ---- game sounds ----------------------------------------------------------
+// Four moments, one file each: a card landing (placing), the Q-spade
+// landing (explosion - instead of placing), the trick sweep (taking),
+// the deal-end screen (shuffling). Clones per play so rapid events
+// overlap instead of cutting each other off; play() rejections
+// (autoplay policy before first interaction) are swallowed.
+const SND = {};
+for (const [n, v] of [['placing', .5], ['taking', .55],
+                      ['shuffling', .45], ['explosion', .4]]) {
+  SND[n] = new Audio('/static/sound/' + n + '.mp3');
+  SND[n].preload = 'auto';
+  SND[n].volume = v;
+}
+let soundOn = localStorage.getItem('hearts_sound') !== '0';
+function sfx(name) {
+  if (!soundOn) return;
+  try {
+    const a = SND[name].cloneNode();
+    a.volume = SND[name].volume;
+    a.play().catch(() => {});
+  } catch (e) {}
+}
+function updateSoundBtn() {
+  el('sound-btn').textContent = soundOn ? '🔊' : '🔇';
+}
+updateSoundBtn();
+el('sound-btn').onclick = () => {
+  soundOn = !soundOn;
+  try { localStorage.setItem('hearts_sound', soundOn ? '1' : '0'); }
+  catch (e) {}
+  updateSoundBtn();
+  if (soundOn) sfx('placing');   // audible confirmation
+};
+
 async function animate(events, preTrick = []) {
   let shown = preTrick.map(t => ({seat: t.seat, name: t.name}));
   const anyPlays = events.some(e => e.type === 'play');
@@ -836,6 +870,7 @@ async function animate(events, preTrick = []) {
     const ev = events[i];
     if (ev.type === 'play') {
       if (ev.name.endsWith('H')) setHeartsBroken(true);
+      sfx(ev.name === 'QS' ? 'explosion' : 'placing');
       shown.push({seat: ev.seat, name: ev.name});
       renderTrick(shown);
       renderSeats(ev.seat);
@@ -864,6 +899,7 @@ async function animate(events, preTrick = []) {
       await sleep(Math.max(0, pace().trick - pace().sweep));
       // Sweep the trick toward the winner, then clear.
       if (ev.winner !== null) {
+        sfx('taking');
         const p = pos(ev.winner);
         document.querySelectorAll('#trick .tcard').forEach(n =>
           n.classList.add(`sweep${p}`));
@@ -893,6 +929,7 @@ async function animate(events, preTrick = []) {
 
 function showDealEnd(ev) {
   return new Promise(resolve => {
+    sfx('shuffling');
     el('o-title').textContent = ev.moon_by !== null
       ? (ev.moon_by === state.your_seat ? 'You shot the moon!'
                                         : `${seatName(ev.moon_by)} shot the moon!`)
