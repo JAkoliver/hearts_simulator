@@ -1666,6 +1666,205 @@ def search_shared(pid: str = None, sid: str = None, code: str = None,
                 'results': [_pool_srch(by_pid) for by_pid in slot.values()]}
 
 
+# ---- search-verdict stats from the community pool -------------------------
+# The progress page's "Search verdicts" panel, server-side: same math as
+# the client's harvest (review.html harvestSearchStats/deepMerged), fed
+# by pooled uploads instead of one device's IndexedDB - which makes the
+# panel possible on PUBLIC profiles and across a player's devices.
+# Honesty rule preserved: a match only counts when EVERY non-forced
+# decision of that seat is covered (a partially searched match would
+# systematically look better-played than it was).
+def _decision_replay(lines):
+    """Per deal: pass picks + per-play {seat, card, legal, eq, lead}."""
+    lines = sorted(lines, key=lambda d: d['deal_no'])
+    menv = MatchEnv(seed=lines[0]['seed'])
+    deals = []
+    for dl in lines:
+        passed = [[] for _ in range(4)]
+        plays = []
+        played_deal = set()
+        trick = []
+        for s, card, ms in dl['actions']:
+            if menv.is_passing():
+                passed[s].append(card)
+                menv.step(card)
+                continue
+            legal = [a for a in menv.get_legal_actions() if a != -1]
+            hand = set(hand_of(menv, s))
+            eq = [tuple(g) for g in _equiv_groups(hand, played_deal, legal)]
+            plays.append({'seat': s, 'card': card, 'legal': legal, 'eq': eq,
+                          'lead': trick[0] // 13 if trick else None})
+            played_deal.add(card)
+            trick.append(card)
+            if len(trick) == 4:
+                trick = []
+            menv.step(card)
+        deals.append({'passing': bool(passed[0] or passed[1] or passed[2]
+                                      or passed[3]),
+                      'passed': passed, 'plays': plays})
+    return deals
+
+
+def _eq_merge(rec, eq_groups):
+    """The client's deepMerged: pool strictly-equivalent moves before
+    judging, so an equivalent alternative never registers as a cost."""
+    gid = {}
+    for gi, g in enumerate(eq_groups):
+        for c in g:
+            gid[c] = gi
+    items, by_g = [], {}
+    for j, a in enumerate(rec['actions']):
+        g = gid.get(a)
+        if g is None:
+            items.append({'ids': [a], 'mean': rec['mean'][j],
+                          'v': rec['se'][j] ** 2, 'm': 1})
+        elif g in by_g:
+            it = by_g[g]
+            it['ids'].append(a)
+            it['mean'] += rec['mean'][j]
+            it['v'] += rec['se'][j] ** 2
+            it['m'] += 1
+        else:
+            by_g[g] = {'ids': [a], 'mean': rec['mean'][j],
+                       'v': rec['se'][j] ** 2, 'm': 1}
+            items.append(by_g[g])
+    for it in items:
+        it['mean'] /= it['m']
+        it['se'] = it['v'] ** 0.5 / it['m']
+    return items
+
+
+_sv_cache = {}
+
+
+def _sv_stats(key, lines, slot, seat):
+    """One progress-panel entry for one match, or None (ineligible)."""
+    version = sum(len(bp) for bp in slot.values())
+    ck = (key, seat)
+    hit = _sv_cache.get(ck)
+    if hit is not None and hit[0] == version:
+        return hit[1]
+    # highest-K pooled record per position
+    pos = {}
+    for kk, by_pid in slot.items():
+        K, d, i = kk.split('|')
+        cur = pos.get((d, i))
+        if cur is None or int(K) > cur['K']:
+            pos[(d, i)] = _pool_srch(by_pid)
+    entry = None
+    try:
+        rep = _decision_replay(lines)
+        n_dec = costly = 0
+        cost_sum = 0.0
+        floor_k = None
+        cats = {c: [0, 0, 0.0] for c in ('pass', 'lead', 'follow', 'discard')}
+        complete = True
+        for d, deal in enumerate(rep):
+            for i, p in enumerate(deal['plays']):
+                if p['seat'] != seat or len(p['legal']) < 2:
+                    continue
+                rec = pos.get((str(d), str(i)))
+                if rec is None or 'actions' not in rec:
+                    complete = False
+                    break
+                items = _eq_merge(rec, p['eq'])
+                if len(items) < 2:
+                    continue
+                n_dec += 1
+                floor_k = rec['K'] if floor_k is None \
+                    else min(floor_k, rec['K'])
+                mine = next((it for it in items
+                             if p['card'] in it['ids']), None)
+                if mine is None:
+                    complete = False
+                    break
+                best = max(items, key=lambda it: it['mean'])
+                cat = 'lead' if i % 4 == 0 else (
+                    'follow' if p['card'] // 13 == p['lead'] else 'discard')
+                cats[cat][1] += 1
+                diff = best['mean'] - mine['mean']
+                if best is not mine and diff >= 0.01 \
+                        and diff > 2 * (best['se'] ** 2
+                                        + mine['se'] ** 2) ** 0.5:
+                    costly += 1
+                    cost_sum += diff
+                    cats[cat][0] += 1
+                    cats[cat][2] += diff
+            if not complete:
+                break
+            # pass costs: counted when the pool has this seat's pass
+            rec = pos.get((str(d), f'ps{seat}')) if deal['passing'] else None
+            if complete and rec and 'combos' in rec and rec['mean']:
+                actual = tuple(sorted(deal['passed'][seat]))
+                ai = bi = None
+                for j in range(len(rec['mean'])):
+                    tri = tuple(sorted(rec['combos'][j * 3:j * 3 + 3]))
+                    if tri == actual:
+                        ai = j
+                    if bi is None or rec['mean'][j] > rec['mean'][bi]:
+                        bi = j
+                if ai is not None:
+                    cats['pass'][1] += 1
+                    diff = rec['mean'][bi] - rec['mean'][ai]
+                    if bi != ai and diff >= 0.01 \
+                            and diff > 2 * (rec['se'][bi] ** 2
+                                            + rec['se'][ai] ** 2) ** 0.5:
+                        cats['pass'][0] += 1
+                        cats['pass'][2] += diff
+                        costly += 1
+                        cost_sum += diff
+        if complete and n_dec and floor_k is not None:
+            entry = {'k': floor_k, 'nDec': n_dec, 'costly': costly,
+                     'costSum': round(cost_sum, 4), 'cats': cats,
+                     'deals': len(rep)}
+    except Exception:
+        entry = None
+    _sv_cache[ck] = (version, entry)
+    while len(_sv_cache) > 300:
+        _sv_cache.pop(next(iter(_sv_cache)))
+    return entry
+
+
+@app.get('/api/search/progress')
+def api_search_progress(pid: str = None, player: str = None,
+                        limit: int = 60):
+    """Community-pool search verdicts per match. Own view (pid) or
+    public view (player slug) - same access shapes as /api/progress."""
+    if player:
+        with _names_lock:
+            canon = _slug2pid.get((player or '').strip().lower())
+        if canon is None:
+            raise HTTPException(404, 'unknown player')
+        pid = canon
+        limit = min(limit, 40)
+    else:
+        pid = resolve_pid(pid)
+        if not pid:
+            raise HTTPException(400, 'pid required')
+    md5 = _model_md5()
+    hist = list(_idx_history.get(pid, ()))[-max(1, min(100, limit)):]
+    out = []
+    for h in hist:
+        if h['mode'] == 'table':
+            key = (f"table:{h['code']}", h['match_no'])
+        else:
+            key = (h['sid'], 1)
+        with _srch_lock:
+            slot = (_srch.get(f'{key[0]}#{key[1]}') or {}).get(md5)
+            if not slot:
+                continue
+            slot = {kk: dict(bp) for kk, bp in slot.items()}
+        lines = [l for l in _log_lines_for(key[0])
+                 if l.get('match_no', 1) == h.get('match_no', 1)] \
+            if h['mode'] == 'table' else _log_lines_for(h['sid'])
+        if not lines:
+            continue
+        entry = _sv_stats(key, lines, slot, h['seat'])
+        if entry:
+            out.append({'ts': h['ts'], 'md5': md5, **entry})
+    return {'entries': out, 'md5': md5}
+
+
 @app.get('/sw.js')
 def service_worker():
     # Served from the ROOT path so the service worker's scope covers '/'

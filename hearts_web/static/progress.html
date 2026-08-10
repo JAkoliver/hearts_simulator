@@ -32,6 +32,8 @@
   #hdr .lbl { font-size:.68rem; color:#A6A6AF; text-transform:uppercase; }
   #hdr .vdiv { width:1px; align-self:stretch; background:#33333A; }
   svg { display:block; width:100%; }
+  #sv-src a { color:#8B8B93; text-decoration:none; }
+  #sv-src a:hover { color:#C8A24A; }
   .cards3 { display:grid; grid-template-columns:repeat(3, 1fr); gap:12px;
             margin-top:12px; }
   @media (max-width:700px) { .cards3 { grid-template-columns:1fr; } }
@@ -102,8 +104,10 @@
 </div>
 
 <div class="panel">
-  <h3>Search verdicts <span class="muted">&middot; deep-search costs,
-    computed and stored on this device</span></h3>
+  <h3>Search verdicts <span class="muted" id="sv-sub">&middot; deep-search
+    costs</span>
+    <span id="sv-src" style="display:none; float:right; font-size:.72rem;
+      font-weight:400"></span></h3>
   <div id="sv-cover" class="small muted" style="margin-bottom:6px"></div>
   <svg id="sp-cost" height="70" style="display:none"></svg>
   <table id="sv-cats" style="margin-top:8px"></table>
@@ -456,14 +460,13 @@ const roll = (vals, w) => vals.map((_, i) => {
       + chip(`${ms} / ${me}`, 'moons shot / eaten');
   }
 
-  // band 3.5: search verdicts (OWN view only: the data lives in
-  // each viewer's browser - on a public profile it would show the
-  // VISITOR's local data under the profile owner's name)
-  if (PLAYER) {
-    el('sv-cover').parentElement.style.display = 'none';
-  } else {
-    // (written by match reviews when a whole game is searched). Costs are
-    // per-(K, model) strata: mixed floors are labeled, never blended away.
+  // band 3.5: search verdicts. Two sources, same math and rendering:
+  //  - 'device': this browser's harvest (written by fully-searched
+  //    reviews) - own view only.
+  //  - 'all': the server-side community pool (everyone's uploaded
+  //    searches, all of your devices) - the only source that can back
+  //    a PUBLIC profile, and the toggle target on your own.
+  const svLocal = async () => {
     const pdb = await new Promise(res => {
       const rq = indexedDB.open('perilune-progress', 1);
       rq.onupgradeneeded = () => rq.result.createObjectStore('search');
@@ -477,55 +480,99 @@ const roll = (vals, w) => vals.map((_, i) => {
     const byIdent = {};
     for (const e of pdb) byIdent[e.ident] = e;
     const ident = m => m.mode === 'table' ? `T${m.code}#${m.match_no}` : m.sid;
-    const searched = M.map(m => ({m, e: byIdent[ident(m)]})).filter(x => x.e);
+    return M.map(m => ({m, e: byIdent[ident(m)]})).filter(x => x.e);
+  };
+  const svServer = async () => {
+    try {
+      const r = await fetch(PLAYER
+        ? `/api/search/progress?player=${encodeURIComponent(PLAYER)}`
+        : `/api/search/progress?pid=${encodeURIComponent(pid)}`);
+      if (!r.ok) return [];
+      const byTs = {};
+      for (const e of (await r.json()).entries || []) byTs[e.ts] = e;
+      return M.map(m => ({m, e: byTs[m.ts]})).filter(x => x.e);
+    } catch (e) { return []; }
+  };
+  function renderSV(searched, src) {
+    el('sv-sub').innerHTML = src === 'device'
+      ? '&middot; deep-search costs, computed and stored on this device'
+      : '&middot; deep-search costs from the community pool (all devices)';
+    el('sp-cost').style.display = 'none';
+    el('sv-cats').innerHTML = '';
+    el('sv-note').textContent = '';
     if (!searched.length) {
-      el('sv-cover').textContent = 'no searched matches on this device yet - '
-        + 'run Deep analysis to completion in a match review and its costs '
-        + 'land here automatically.';
-    } else {
-      el('sv-cover').textContent =
-        `${searched.length} of ${M.length} matches fully searched on this device`;
-      const costV = searched.map(x => x.e.costSum * 100);
-      const sv = el('sp-cost');
-      sv.style.display = 'block';
-      spark(sv, [{vals: costV, color: '#4CC2FF', width: 1.4, dots: true}],
-        0, Math.max(5, ...costV),
-        i => `${fmtDate(searched[i].m.ts)} &middot; ${what(searched[i].m)} &middot;
-          <b>&minus;${costV[i].toFixed(1)}% match</b> given up
-          &middot; ${searched[i].e.costly} costly
-          <span class="muted">&middot; K=${searched[i].e.k}</span>`);
-      const cats = ['pass', 'lead', 'follow', 'discard'];
-      const agg = {};
-      for (const c of cats) agg[c] = [0, 0, 0];
-      for (const {e} of searched) if (e.cats)
-        for (const c of cats) {
-          agg[c][0] += e.cats[c][0]; agg[c][1] += e.cats[c][1];
-          agg[c][2] += e.cats[c][2];
-        }
-      const maxCost = Math.max(0.001, ...cats.map(c => agg[c][2]));
-      el('sv-cats').innerHTML =
-        '<tr><th>decision</th><th style="width:45%"></th><th>cost</th><th>costly / n</th></tr>'
-        + cats.map(c => {
-          const [h, n, cost] = agg[c];
-          return `<tr><td>${c}</td>
-            <td><div class="bar-h"><i style="width:${(100 * cost / maxCost).toFixed(0)}%;
-              background:#4CC2FF"></i></div></td>
-            <td>${n ? '&minus;' + (100 * cost).toFixed(1) + '%' : '-'}</td>
-            <td class="muted">${h} / ${n}</td></tr>`;
-        }).join('');
-      const ks = [...new Set(searched.map(x => x.e.k))].sort((a, b) => a - b);
-      const md5s = [...new Set(searched.map(x => x.e.md5))];
-      el('sv-note').textContent =
-        'costs = match-win chance given up in confidently-worse plays '
-        + '(the review scorecard rule). '
-        + (ks.length > 1
-           ? `MIXED search depths (K=${ks.join(', ')}) - deeper searches count `
-             + 'more mistakes as confident, so cross-K points are not directly '
-             + 'comparable. '
-           : `all at K=${ks[0]}. `)
-        + (md5s.length > 1 ? 'Spans more than one model version.' : '');
+      el('sv-cover').textContent = src === 'device'
+        ? 'no searched matches on this device yet - run Deep analysis to '
+          + 'completion in a match review and its costs land here automatically.'
+        : 'no fully community-searched matches yet - a match counts once '
+          + 'every one of its decisions has an uploaded search.';
+      return;
     }
-
+    el('sv-cover').textContent =
+      `${searched.length} of ${M.length} matches fully searched`
+      + (src === 'device' ? ' on this device' : ' (community pool)');
+    const costV = searched.map(x => x.e.costSum * 100);
+    const sv = el('sp-cost');
+    sv.style.display = 'block';
+    spark(sv, [{vals: costV, color: '#4CC2FF', width: 1.4, dots: true}],
+      0, Math.max(5, ...costV),
+      i => `${fmtDate(searched[i].m.ts)} &middot; ${what(searched[i].m)} &middot;
+        <b>&minus;${costV[i].toFixed(1)}% match</b> given up
+        &middot; ${searched[i].e.costly} costly
+        <span class="muted">&middot; K=${searched[i].e.k}</span>`);
+    const cats = ['pass', 'lead', 'follow', 'discard'];
+    const agg = {};
+    for (const c of cats) agg[c] = [0, 0, 0];
+    for (const {e} of searched) if (e.cats)
+      for (const c of cats) {
+        agg[c][0] += e.cats[c][0]; agg[c][1] += e.cats[c][1];
+        agg[c][2] += e.cats[c][2];
+      }
+    const maxCost = Math.max(0.001, ...cats.map(c => agg[c][2]));
+    el('sv-cats').innerHTML =
+      '<tr><th>decision</th><th style="width:45%"></th><th>cost</th><th>costly / n</th></tr>'
+      + cats.map(c => {
+        const [h, n, cost] = agg[c];
+        return `<tr><td>${c}</td>
+          <td><div class="bar-h"><i style="width:${(100 * cost / maxCost).toFixed(0)}%;
+            background:#4CC2FF"></i></div></td>
+          <td>${n ? '&minus;' + (100 * cost).toFixed(1) + '%' : '-'}</td>
+          <td class="muted">${h} / ${n}</td></tr>`;
+      }).join('');
+    const ks = [...new Set(searched.map(x => x.e.k))].sort((a, b) => a - b);
+    const md5s = [...new Set(searched.map(x => x.e.md5))];
+    el('sv-note').textContent =
+      'costs = match-win chance given up in confidently-worse plays '
+      + '(the review scorecard rule). '
+      + (ks.length > 1
+         ? `MIXED search depths (K=${ks.join(', ')}) - deeper searches count `
+           + 'more mistakes as confident, so cross-K points are not directly '
+           + 'comparable. '
+         : `all at K=${ks[0]}. `)
+      + (md5s.length > 1 ? 'Spans more than one model version.' : '');
+  }
+  {
+    let svMode = PLAYER ? 'all'
+      : (localStorage.getItem('hearts_svsrc') || 'device');
+    const svShow = async () => {
+      renderSV(svMode === 'device' ? await svLocal() : await svServer(),
+               svMode);
+      if (!PLAYER) {
+        const b = el('sv-src');
+        b.style.display = 'inline';
+        b.innerHTML = ['device', 'all'].map(m2 =>
+          `<a href="#" data-m="${m2}" class="qlink" style="margin-left:10px;${
+            m2 === svMode ? 'color:#C8A24A' : ''}">${
+            m2 === 'device' ? 'this device' : 'all devices'}</a>`).join('');
+        for (const a of b.querySelectorAll('a')) a.onclick = ev => {
+          ev.preventDefault();
+          svMode = a.dataset.m;
+          try { localStorage.setItem('hearts_svsrc', svMode); } catch (e2) {}
+          svShow();
+        };
+      }
+    };
+    await svShow();
   }
 
   // band 4: habits
