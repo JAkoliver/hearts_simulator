@@ -1,0 +1,21 @@
+{
+ "addendum": "stage B-2 2026-08-10",
+ "pairing": "exact",
+ "primary": {
+  "spearman_tree_vs_k256": 0.276,
+  "p": 4.904849677611367e-16,
+  "n": 835
+ },
+ "reliability": {
+  "spearman_k64_vs_k256": 0.572,
+  "p": 2.4624263997409845e-34,
+  "n": 380
+ },
+ "secondary": {
+  "sign_agree_confident_third": 0.649,
+  "n_confident": 285
+ },
+ "attenuation_confirmed": false,
+ "band": "JUDGMENT ZONE",
+ "meaning": "primary in [0.20,0.30); attenuation test: primary 0.276 vs 0.8*sqrt(rel) 0.605 -> attenuation NOT confirmed; user decides"
+}
