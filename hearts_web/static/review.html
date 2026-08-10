@@ -197,7 +197,12 @@
                position:relative; user-select:text; }
   #help-card h2 { font-family:'Space Grotesk', system-ui, sans-serif;
                   font-size:1.05rem; margin-bottom:10px; }
-  #help-card h4 { font-size:.82rem; color:#4CC2FF; margin:14px 0 4px; }
+  #help-card h4 { font-size:.82rem; color:#4CC2FF; margin:14px 0 5px; }
+  #help-card .hitem { font-size:.78rem; line-height:1.5; color:#D2D2D8;
+                      margin:4px 0; }
+  #help-card .hitem b { color:#ECECEC; }
+  #help-card kbd { background:#26262A; border:1px solid #3A3A40;
+                   border-radius:4px; padding:0 5px; font-size:.72rem; }
   #help-card p { font-size:.78rem; line-height:1.5; color:#D2D2D8; }
   #help-close { position:absolute; top:10px; right:12px; background:none;
                 border:0; color:#A6A6AF; font-size:1.3rem; cursor:pointer; }
@@ -393,56 +398,87 @@
   <h2>How this review works</h2>
   <p id="help-note" class="muted" style="font-size:.78rem"></p>
 
-  <h4>Two different opinions, never mixed</h4>
-  <p><b>Perilune's view</b> (right panel) shows the raw network's
-  <i>habit</i>: how often it would play each card. Big percentages mean
-  strong instinct, not that a move is right.</p>
-  <p><b>Deep search</b> (the cyan bars) shows <i>value</i>: each move is
-  actually played out to the end of the deal, many times, with the hidden
-  cards guessed the way the acting seat would have to guess them. This is
-  the opinion worth trusting - and it runs on your own device.</p>
+  <h4>Two opinions, never mixed</h4>
+  <div class="hitem"><b>Perilune's view</b> (right panel) &mdash; the raw
+    network's <i>habit</i>: how often it would play each card. Big
+    percentages mean strong instinct, not that a move is right.</div>
+  <div class="hitem"><b>Deep search</b> (cyan bars) &mdash; <i>value</i>:
+    each move is played out to the end of the deal many times, with the
+    hidden cards guessed the way the acting seat would have to guess
+    them. This is the opinion worth trusting.</div>
 
-  <h4>The numbers on a search bar</h4>
-  <p><b>7.4 pts</b> - average penalty points that seat takes this deal if
-  it plays that card.<br>
-  <b>&minus;2.0% match</b> - match-win chance given up versus the best
-  move. Match win, not deal win: winning a deal early in a long match is
-  worth only a few points of match equity.<br>
-  Equivalent cards (a connected run) are pooled into one entry - the net
-  has no real preference between them.</p>
+  <h4>Reading a search bar</h4>
+  <div class="hitem"><b>7.4 pts</b> &mdash; average penalty points that
+    seat takes this deal if it plays that card.</div>
+  <div class="hitem"><b>&minus;2.0% match</b> &mdash; match-win chance
+    given up versus the best move. Match win, not deal win: winning a
+    deal early in a long match is worth only a few points of match
+    equity.</div>
+  <div class="hitem"><b>Pooled entries</b> &mdash; strictly-equivalent
+    cards (a connected run) share one bar; the game has no real
+    difference between them.</div>
 
   <h4>Verdicts</h4>
-  <p><b>cost &minus;x%</b> - the search is confident this play gave up
-  real match-win chance. <b>no cost</b> - your card matched the best
-  move's value; any raw-policy complaint was habit. <b>? try K=N</b> -
-  the gap might be real but is inside the noise at this depth; deepen the
-  position to settle it.</p>
+  <div class="hitem"><b>cost &minus;x%</b> &mdash; the search is
+    confident this play gave up real match-win chance.</div>
+  <div class="hitem"><b>no cost</b> &mdash; your card matched the best
+    move's value; any raw-policy complaint was habit.</div>
+  <div class="hitem"><b>? try K=N</b> &mdash; the gap might be real but
+    is inside the noise at this depth; deepen the position to
+    settle it.</div>
 
-  <h4>K, and the two buttons</h4>
-  <p>K is how many imagined deals each move is played out over. Higher K =
-  sharper numbers, slower. <b>Deep analysis</b> sweeps the whole match at
-  the K you pick; <b>K=N here</b> deepens just the position you are
-  looking at (16 &rarr; 32 &rarr; 64 &rarr; 128 &rarr; 256). Results are
-  cached per position, so raising K only re-analyzes what is below it.</p>
+  <h4>Depth (K)</h4>
+  <div class="hitem"><b>K</b> is how many imagined deals each move is
+    played out over &mdash; higher is sharper and slower.
+    <b>Deep analysis</b> sweeps the whole match at the selected K;
+    <b>K=N here</b> deepens just the position you are looking at
+    (16 &rarr; 32 &rarr; 64 &rarr; 128 &rarr; 256), no sweep
+    required.</div>
+  <div class="hitem"><b>The ladder earns itself</b> &mdash; K=128 joins
+    the selector once the whole match is analyzed at 64, K=256 after a
+    full 128; depths the match has fully reached drop off the list.
+    Results are cached per position, so raising K only re-analyzes what
+    is below it.</div>
+  <div class="hitem"><b>Pre-analyzed moments</b> &mdash; if the match's
+    end screen verified your top disagreements, those positions arrive
+    here already searched.</div>
+  <div class="hitem"><b>On your device</b> &mdash; the search runs in
+    your browser (GPU when available, multi-core CPU otherwise; the
+    status line names the engine in use). Nothing is uploaded.</div>
+
+  <h4>Passing</h4>
+  <div class="hitem">The deal-start step is the <b>passing station</b>:
+    every seat's three picks are judged pick-by-pick, and
+    <b>K=N pass</b> deepens the selected seat's pass with the same
+    search currency. Click a seat's pass chain to switch seats.</div>
 
   <h4>Par, cards-only, and decision costs</h4>
-  <p><b>Par</b> (deal start) is what a deal's cards cost with Perilune
-  playing all four hands - a luck-inclusive reference, not a skill score.
-  <b>Cards-only match</b> replays the whole match with Perilune in every
-  seat over the same dealt hands: above 25% means the cards favored that
-  seat. <b>Decision costs</b> adds up each seat's confident mistakes -
-  that is the skill side. Cumulative costs can exceed 100% because chances
-  lost can be won back when others err.</p>
+  <div class="hitem"><b>Par</b> (deal start) &mdash; what a deal's cards
+    cost with Perilune playing all four hands: a luck-inclusive
+    reference, not a skill score.</div>
+  <div class="hitem"><b>Cards-only match</b> &mdash; replays the whole
+    match with Perilune in every seat over the same dealt hands; above
+    25% means the cards favored that seat.</div>
+  <div class="hitem"><b>Decision costs</b> &mdash; each seat's confident
+    mistakes added up: the skill side. Totals can exceed 100% because
+    chances lost can be won back when others err.</div>
+
+  <h4>Sharing</h4>
+  <div class="hitem"><b>share</b> copies a read-only link to this match
+    &mdash; it opens from your seat's perspective, needs no account,
+    and can never edit or reveal anything else of yours.</div>
 
   <h4>Getting around</h4>
-  <p>Drag or click the strip to scrub; &larr;/&rarr; step, &uarr;/&darr;
-  jump deals, <b>D</b> next deal, <b>T</b> next trick. Click any entry in
-  the left panel to jump to it - the current one stays highlighted.</p>
+  <div class="hitem">Drag or click the strip to scrub &middot;
+    <kbd>&larr;</kbd><kbd>&rarr;</kbd> step &middot;
+    <kbd>&uarr;</kbd><kbd>&darr;</kbd> jump deals &middot;
+    <kbd>D</kbd> next deal &middot; <kbd>T</kbd> next trick. Click any
+    entry in the left panel to jump to it. On desktop, the belief lens
+    shows what a seat believed about the hidden cards.</div>
 
-  <p class="muted" style="font-size:.7rem">Every judgment is made from
-  what the acting seat could see, even though the review shows all hands.
-  Perilune is strong but not perfect - where it has blind spots (moon
-  defense especially), its opinions inherit them.</p>
+  <p class="muted" style="font-size:.7rem; margin-top:10px">Perilune is
+  strong but not perfect &mdash; where it has blind spots (moon defense
+  especially), its opinions inherit them.</p>
 </div></div>
 
 <div id="wtip"></div>
