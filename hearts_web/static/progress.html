@@ -21,6 +21,9 @@
            margin-top:12px; }
   .panel h3 { font-size:.72rem; color:#A6A6AF; text-transform:uppercase;
               letter-spacing:.05em; margin-bottom:8px; }
+  .fsel { background:#26262A; color:#ECECEC; border:1px solid #333;
+          border-radius:7px; padding:3px 8px; font-size:.78rem;
+          margin-right:6px; }
   /* band 1: identity numbers */
   #hdr { display:flex; gap:26px; flex-wrap:wrap; align-items:baseline;
          justify-content:center; text-align:center; }
@@ -63,6 +66,12 @@
 <body>
 <h1>Your progress</h1>
 <div class="muted small" id="sub">loading&hellip;</div>
+<div class="muted small" id="filters" style="margin:6px 0 2px; display:none">
+  <select id="f-mode" class="fsel"></select>
+  <select id="f-model" class="fsel" style="display:none"></select>
+  <select id="f-hum" class="fsel" style="display:none"></select>
+  <span id="f-count" style="margin-left:8px"></span>
+</div>
 
 <div class="panel"><div id="hdr"></div></div>
 <div id="tip"></div>
@@ -198,6 +207,8 @@ const roll = (vals, w) => vals.map((_, i) => {
     const d = await r.json();
     M = d.matches;   // oldest -> newest
     pubName = d.name;
+    window._prog_meta = {cur: d.current_model,
+                         labels: d.model_labels || {}};
   } catch (e) {
     el('sub').textContent = 'could not load progress: ' + e.message;
     return;
@@ -232,6 +243,79 @@ const roll = (vals, w) => vals.map((_, i) => {
     fetch(`/api/name?pid=${encodeURIComponent(pid)}`).then(r => r.json())
       .then(d => { document.querySelector('h1').textContent =
         `${d.name} — your progress`; }).catch(() => {});
+
+  // ---- filters -----------------------------------------------------
+  // Taxonomy: All | vs AI (solo non-daily + tables where you were the
+  // only human; model sub-filter) | With humans (>=2 humans; any /
+  // humans-only / mixed sub-filter) | Daily. Daily is separate from
+  // vs AI because fixed-seed scores are not comparable with random
+  // deals; charts AND the list all respect the filter.
+  const M_ALL = M;
+  const cat = m => m.daily ? 'daily'
+    : (m.mode === 'table' && (m.humans || 1) >= 2) ? 'human' : 'ai';
+  let fMode = 'all', fModel = 'all', fHum = 'all';
+  const applyFilter = () => M_ALL.filter(m => {
+    if (fMode !== 'all' && cat(m) !== fMode) return false;
+    if (fMode === 'ai' && fModel !== 'all' && (m.model || '') !== fModel)
+      return false;
+    if (fMode === 'human' && fHum !== 'all') {
+      const pure = (m.humans || 0) >= 4;
+      if (fHum === 'pure' && !pure) return false;
+      if (fHum === 'mixed' && pure) return false;
+    }
+    return true;
+  });
+  function buildFilters() {
+    const n = c => M_ALL.filter(m => cat(m) === c).length;
+    el('f-mode').innerHTML = `
+      <option value="all">All matches (${M_ALL.length})</option>
+      <option value="ai">vs AI (${n('ai')})</option>
+      <option value="human">With humans (${n('human')})</option>
+      <option value="daily">Daily (${n('daily')})</option>`;
+    const meta = window._prog_meta || {labels: {}};
+    const models = {};
+    M_ALL.filter(m => cat(m) === 'ai').forEach(m => {
+      const k = m.model || 'unknown';
+      models[k] = (models[k] || 0) + 1;
+    });
+    el('f-model').innerHTML = `<option value="all">all models</option>`
+      + Object.entries(models).map(([k, c]) => {
+          const lab = meta.labels[k] ? esc(meta.labels[k])
+            : `model ${esc(k.slice(0, 8))}`;
+          const cur = k === meta.cur ? ' (current)' : '';
+          return `<option value="${esc(k)}">${lab}${cur} · ${c}</option>`;
+        }).join('');
+    el('f-hum').innerHTML = `
+      <option value="all">any table</option>
+      <option value="pure">humans only</option>
+      <option value="mixed">mixed AI/human</option>`;
+    el('filters').style.display = '';
+    const sync = () => {
+      fMode = el('f-mode').value;
+      fModel = el('f-model').value;
+      fHum = el('f-hum').value;
+      el('f-model').style.display = fMode === 'ai' ? '' : 'none';
+      el('f-hum').style.display = fMode === 'human' ? '' : 'none';
+      renderAll();
+    };
+    el('f-mode').onchange = () => { fModel = 'all'; el('f-model').value = 'all';
+                                    fHum = 'all'; el('f-hum').value = 'all';
+                                    sync(); };
+    el('f-model').onchange = sync;
+    el('f-hum').onchange = sync;
+  }
+
+  async function renderAll() {
+  const M = applyFilter();
+  const panels = document.querySelectorAll('.panel');
+  el('f-count').textContent = fMode === 'all' ? ''
+    : `showing ${M.length} match${M.length === 1 ? '' : 'es'}`;
+  if (!M.length) {
+    panels.forEach(p => p.style.display = 'none');
+    el('f-count').textContent = 'no matches under this filter';
+    return;
+  }
+  panels.forEach(p => p.style.display = '');
 
   // band 1: identity numbers
   const wins = M.filter(m => m.place === 1).length;
@@ -513,6 +597,10 @@ const roll = (vals, w) => vals.map((_, i) => {
     };
   };
   renderList();
+  }   // end renderAll
+
+  buildFilters();
+  renderAll();
 })();
 </script>
 <script src="/static/nav.js?v=5"></script>

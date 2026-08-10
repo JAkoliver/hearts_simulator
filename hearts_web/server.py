@@ -174,13 +174,18 @@ def _index_add(d, off):
                     {'mode': 'table', 'code': d['sid'].split(':', 1)[1],
                      'match_no': d.get('match_no', 1), 'ts': d['ts'],
                      'deals': d['deals'], 'seat': int(s),
-                     'place': d['placements'][int(s)], 'final': d['final']})
+                     'place': d['placements'][int(s)], 'final': d['final'],
+                     'model': (d.get('model') or '')[:12],
+                     'humans': len(sp)})
         elif d.get('pid'):
             seat = d['human_seat']
             _idx_history.setdefault(d['pid'], []).append(
                 {'mode': 'solo', 'sid': d['sid'], 'ts': d['ts'],
                  'deals': d['deals'], 'seat': seat,
-                 'place': d['placements'][seat], 'final': d['final']})
+                 'place': d['placements'][seat], 'final': d['final'],
+                 'model': (d.get('model') or '')[:12],
+                 'tier': d.get('tier') or 'full',
+                 'daily': d.get('daily')})
             if d.get('daily'):
                 # first completion wins (attempts are once/day anyway)
                 _daily.setdefault(d['daily'], {}).setdefault(d['pid'], {
