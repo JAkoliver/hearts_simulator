@@ -1,9 +1,10 @@
 # Phase 2 pre-registration — visit-count expert iteration at 7.6M
 # (+ registered side-probe: anchored-PPO lambda=0.05)
 
-Status: DRAFT — awaiting user signature. Nothing below executes until
-signed. Baseline: 8a89da90 (5th match-era promotion, unchanged since
-07-29).
+Status: SIGNED — user-authorized 2026-08-09 evening ("execute the main
+recommendation; include the optional experiment; maintain the v6
+hold"). Binding. Baseline: 8a89da90 (5th match-era promotion,
+unchanged since 07-29).
 
 ## Why this, why now (the converging evidence)
 

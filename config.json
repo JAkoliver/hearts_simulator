@@ -30,7 +30,7 @@
  "shooter_agg_path": "shooter_agg_v1b.pth",
  "shooter_sel_path": "shooter_sel_v1.pth",
  "shooter_share": 0.15,
- "anchor_kl_coef": 0.4,
+ "anchor_kl_coef": 0.05,
  "anchor_baseline_path": "Hall_of_Fame/hearts_model_milestone_1785322724.pth",
  "anchor_baseline_md5_8": "8a89da90"
 }
