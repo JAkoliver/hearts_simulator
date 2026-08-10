@@ -469,6 +469,7 @@ class Session:
             pass_dir = None
         return {
             'sid': self.sid,
+            'daily': self.daily,
             'finished': self.finished,
             'your_seat': self.human_seat,
             'your_turn': my_turn,

@@ -893,10 +893,11 @@ function showMatchEnd() {
   const p = state.placements[state.your_seat];
   el('o-title').textContent = p === 1 ? 'You won the match!' :
     `You placed ${['','1st','2nd','3rd','4th'][Math.round(p)] || p}`;
+  const isDaily = mode === 'solo' && !!state.daily;
   const hostBtns = (mode === 'table' && state.you_host)
     ? '<button id="rematch-btn">Rematch</button>' +
       '<button id="close-table-btn" class="btn-danger">Close table for everyone</button>'
-    : '';
+    : isDaily ? '<button id="daily-lb-btn">Daily leaderboard</button>' : '';
   // Rematch series: once a table has played 2+ matches, the end screen
   // doubles as the running scoreboard (wins per seat; tied firsts both
   // count). One match in, the column would just repeat the placements.
@@ -1043,11 +1044,25 @@ function showMatchEnd() {
       leaveTable();
     };
   }
-  el('o-btn').textContent = mode === 'table' ? 'Back to menu' : 'Play again';
+  if (isDaily) {
+    el('daily-lb-btn').onclick = () => { location.href = '/leaderboard#daily'; };
+  }
+  // Daily = one shot: no 'Play again' (it would silently start a NORMAL
+  // solo match) - back to the menu, where the button shows done-state.
+  el('o-btn').textContent = (mode === 'table' || isDaily)
+    ? 'Back to menu' : 'Play again';
   el('o-btn').style.display = '';
   el('o-btn').onclick = () => {
     el('overlay').style.display = 'none';
-    if (mode === 'table') leaveTable(); else newMatch();
+    if (mode === 'table') { leaveTable(); return; }
+    if (isDaily) {
+      state = null;
+      sid = null;
+      localStorage.removeItem(K('hearts_sid'));
+      showHome();
+      return;
+    }
+    newMatch();
   };
   el('overlay').style.display = 'flex';
 }
