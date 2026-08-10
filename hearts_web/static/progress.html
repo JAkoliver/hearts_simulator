@@ -279,8 +279,8 @@ const roll = (vals, w) => vals.map((_, i) => {
   let M, pubName = null;
   try {
     const r = await fetch(PLAYER
-      ? `/api/progress?player=${encodeURIComponent(PLAYER)}&limit=300`
-      : `/api/progress?pid=${encodeURIComponent(pid)}&limit=300`);
+      ? `/api/progress?player=${encodeURIComponent(PLAYER)}`
+      : `/api/progress?pid=${encodeURIComponent(pid)}`);
     if (!r.ok) throw new Error(PLAYER && r.status === 404
       ? 'unknown player' : `error ${r.status}`);
     const d = await r.json();

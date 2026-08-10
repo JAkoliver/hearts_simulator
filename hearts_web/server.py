@@ -446,6 +446,7 @@ class Session:
                       'placements': list(self.menv.placements()),
                       'duration_s': round(time.time() - self.t0, 1),
                       'ua': self.ua})
+            _pstats_kick(self.sid, 1)
 
     def run_ai_turns(self):
         while (not self.finished
@@ -722,6 +723,7 @@ class Table:
                       'final': list(map(int, self.menv.match_scores)),
                       'placements': list(self.menv.placements()),
                       'duration_s': round(time.time() - self.t0, 1), 'ua': ''})
+            _pstats_kick(f'table:{self.code}', self.match_no)
 
     # -- per-seat view ------------------------------------------------------
     def view(self, pid, cursor=0):
@@ -2217,7 +2219,6 @@ def api_name(pid: str):
 # not ground truth); readability is belief-authority - both labeled so on
 # the page.
 # ---------------------------------------------------------------------------
-_progress_cache = {}
 
 
 def compute_match_stats(deal_lines, seat):
@@ -2395,6 +2396,134 @@ def compute_match_stats(deal_lines, seat):
     }
 
 
+# ---- persistent per-match progress stats ----------------------------------
+# compute_match_stats (replay + a batched net forward) runs ONCE per
+# (match, seat), ever: results persist in progress_stats.jsonl and load
+# at boot, so restarts don't re-pay compute and the progress page can
+# serve LIFETIME history instead of a window (design 2026-08-11).
+# Rows are stamped with a schema version (bump _PSTATS_V when the stats
+# code changes meaning - stale rows recompute lazily) and the model md5
+# that computed them: agreement/readability are frozen at computation
+# time ("agreement with the Perilune that judged it"), the same
+# mixed-era honesty rule the search-verdict strata use.
+# NOTE this also fixes a cross-seat bug: the old in-memory cache was
+# keyed by match only, so on shared tables the FIRST viewer's per-seat
+# stats were served to every other participant.
+PSTATS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                           'progress_stats.jsonl')
+_PSTATS_V = 1
+_pstats = {}
+_pstats_lock = threading.Lock()
+
+
+def _pstats_load():
+    try:
+        with open(PSTATS_PATH, encoding='utf-8') as f:
+            for line in f:
+                try:
+                    e = json.loads(line)
+                    if e.get('v') == _PSTATS_V:
+                        _pstats[e['k']] = e
+                except Exception:
+                    continue
+    except OSError:
+        pass
+
+
+_pstats_load()
+
+
+def _lines_for_key(key):
+    if key[0].startswith('table:'):
+        return [l for l in _log_lines_for(key[0])
+                if l.get('match_no', 1) == key[1]]
+    return _log_lines_for(key[0])
+
+
+def match_stats_cached(key, seat, lines=None):
+    """Cached per-(match, seat) stats; computes and persists on miss."""
+    k = f'{key[0]}#{key[1]}#s{seat}'
+    with _pstats_lock:
+        e = _pstats.get(k)
+    if e is not None:
+        return e['st']
+    if lines is None:
+        lines = _lines_for_key(key)
+    if not lines:
+        return {}
+    try:
+        st = compute_match_stats(lines, seat)
+    except Exception:
+        return {}
+    st = json.loads(json.dumps(st, default=float))   # no numpy leftovers
+    e = {'k': k, 'v': _PSTATS_V, 'md5': MODEL_MD5[:12], 'st': st}
+    with _pstats_lock:
+        if k not in _pstats:
+            _pstats[k] = e
+            try:
+                with open(PSTATS_PATH, 'a', encoding='utf-8') as f:
+                    f.write(json.dumps(e) + '\n')
+            except OSError:
+                pass
+    return st
+
+
+def _pstats_for_match(sid, match_no):
+    """Match-end hook: precompute every human seat's stats in the
+    background so progress loads are pure cache reads."""
+    try:
+        key = (sid, match_no)
+        lines = _lines_for_key(key)
+        if not lines:
+            return
+        sp = lines[0].get('seat_pids') or {}
+        seats = [int(s) for s in sp] if sp else \
+            ([lines[0]['human_seat']]
+             if lines[0].get('human_seat') is not None else [])
+        for s in seats:
+            match_stats_cached(key, s, lines)
+    except Exception:
+        pass
+
+
+def _pstats_kick(sid, match_no):
+    threading.Thread(target=_pstats_for_match, args=(sid, match_no),
+                     daemon=True).start()
+
+
+def _pstats_backfill():
+    """One-time boot sweep: compute anything the file doesn't cover yet
+    (throttled - shares the net with live games)."""
+    todo = []
+    with _log_lock:
+        hists = {p: list(h) for p, h in _idx_history.items()}
+    seen = set()
+    for p, hist in hists.items():
+        for h in hist:
+            key = (f"table:{h['code']}", h['match_no']) \
+                if h['mode'] == 'table' else (h['sid'], 1)
+            k = f'{key[0]}#{key[1]}#s{h["seat"]}'
+            if k in seen:
+                continue
+            seen.add(k)
+            with _pstats_lock:
+                if k in _pstats:
+                    continue
+            todo.append((key, h['seat']))
+    if not todo:
+        return
+    print(f'progress-stats backfill: {len(todo)} match-seats to compute')
+    for i, (key, seat) in enumerate(todo):
+        match_stats_cached(key, seat)
+        time.sleep(0.5)
+        if (i + 1) % 50 == 0:
+            print(f'progress-stats backfill: {i + 1}/{len(todo)}')
+    print('progress-stats backfill: complete')
+
+
+threading.Thread(target=_pstats_backfill, daemon=True).start()
+
+
 @app.get('/api/progress')
 def api_progress(pid: str = None, player: str = None, limit: int = 60):
     """Own view (pid = the key) or PUBLIC view (player = codename slug).
@@ -2411,30 +2540,30 @@ def api_progress(pid: str = None, player: str = None, limit: int = 60):
             raise HTTPException(404, 'unknown player')
         pid = canon
         public = True
-        limit = min(limit, 100)   # bound anonymous compute per request
     else:
         pid = resolve_pid(pid)
-    # 300-match window: enough history for the bucketed graphs; per-match
-    # stats are cached so repeat loads are cheap
-    hist = list(_idx_history.get(pid, ()))[-max(1, min(300, limit)):]
+    # LIFETIME history: every row comes from the persistent stats cache
+    # (computed once per match-seat, ever). A bounded number of cache
+    # misses compute synchronously per request; anything beyond that is
+    # served as bare history rows and the boot backfill thread (plus the
+    # next visit) completes them - page latency stays bounded even for a
+    # huge uncached profile.
+    hist = list(_idx_history.get(pid, ()))[-5000:]
     out = []
+    compute_budget = 40
     for h in hist:
-        if h['mode'] == 'table':
-            key = (f"table:{h['code']}", h['match_no'])
-            lines = [l for l in _log_lines_for(key[0])
-                     if l.get('match_no', 1) == h['match_no']]
+        key = (f"table:{h['code']}", h['match_no']) \
+            if h['mode'] == 'table' else (h['sid'], 1)
+        k = f'{key[0]}#{key[1]}#s{h["seat"]}'
+        with _pstats_lock:
+            hit = _pstats.get(k)
+        if hit is not None:
+            st = hit['st']
+        elif compute_budget > 0:
+            compute_budget -= 1
+            st = match_stats_cached(key, h['seat'])
         else:
-            key = (h['sid'], 1)
-            lines = _log_lines_for(h['sid'])
-        st = _progress_cache.get(key)
-        if st is None:
-            try:
-                st = compute_match_stats(lines, h['seat']) if lines else {}
-            except Exception:
-                st = {}
-            _progress_cache[key] = st
-            while len(_progress_cache) > 400:
-                _progress_cache.pop(next(iter(_progress_cache)))
+            st = {}
         row = {**h, **st}
         if public:
             row.pop('sid', None)
