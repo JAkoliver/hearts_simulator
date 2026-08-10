@@ -91,3 +91,5 @@ node_build/
 b2_data/
 
 hearts_web/daily_attempts.jsonl
+
+hearts_web/tables_snapshot.pkl*

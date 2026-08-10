@@ -15,8 +15,10 @@ one JSON line of full telemetry to match_logs.jsonl.
 
 Run:  python -m uvicorn hearts_web.server:app --host 0.0.0.0 --port 8642
 """
+import atexit
 import base64
 import hashlib
+import pickle
 import hmac
 import json
 import os
@@ -536,7 +538,8 @@ class Table:
         self.created = time.time()
         self.last_seen = {host_pid: time.time()}   # pid -> last poll (heartbeat)
         self.departed = set()                      # pids that explicitly left
-        self.lock = threading.Lock()
+        # RLock: snapshot_tables() re-acquires from mutating endpoints
+        self.lock = threading.RLock()
 
     def human_pids(self):
         return ([p['pid'] for p in self.lobby] if self.state == 'lobby'
@@ -795,6 +798,98 @@ def _get_table(code):
     if t is None:
         raise HTTPException(404, 'unknown table code')
     return t
+
+# ---------------------------------------------------------------------------
+# Table persistence across restarts (TODO item, implemented 2026-08-09).
+# The C++ env cannot pickle - but it does not need to: the REPLAY
+# CONTRACT (MatchEnv(seed) + the action sequence = bit-exact state) is
+# already load-bearing for reviews. So the snapshot stores plain
+# bookkeeping only; restore rebuilds menv by replaying the completed
+# deals from the match log plus the pickled current-deal actions.
+# Snapshots are written synchronously after every mutating endpoint
+# (tables are few and small - milliseconds), atomically via tmp+rename.
+# ---------------------------------------------------------------------------
+TABLES_SNAP_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                'tables_snapshot.pkl')
+_SNAP_FIELDS = ('code', 'tier', 'timer_s', 'speed', 'timeouts', 'state',
+                'lobby', 'host_pid', 'seat_of', 'names', 'seed', 'events',
+                'pending_pass', 'passed_by', 'deal_start_hands', 'received',
+                'trick', 'last_trick', 'deal_no', 'deal_actions',
+                'n_actions', 'finished', 'match_no', 't0', 'created',
+                'departed', 'series_wins', 'series_played')
+
+
+def snapshot_tables():
+    try:
+        with _tables_lock:
+            snaps = []
+            for t in _tables.values():
+                with t.lock:
+                    snaps.append({f: getattr(t, f) for f in _SNAP_FIELDS})
+        tmp = TABLES_SNAP_PATH + '.tmp'
+        with open(tmp, 'wb') as f:
+            pickle.dump(snaps, f)
+        os.replace(tmp, TABLES_SNAP_PATH)
+    except Exception as e:   # persistence must never break gameplay
+        print(f'table snapshot failed: {e}')
+
+
+def _restore_tables():
+    try:
+        with open(TABLES_SNAP_PATH, 'rb') as f:
+            snaps = pickle.load(f)
+    except FileNotFoundError:
+        return
+    except Exception as e:
+        print(f'table snapshot unreadable ({e}) - starting empty')
+        return
+    ok = 0
+    for d in snaps:
+        try:
+            t = Table.__new__(Table)
+            # defaults first so snapshots from older field sets restore
+            t.series_wins = [0, 0, 0, 0]
+            t.series_played = 0
+            for k, v in d.items():
+                setattr(t, k, v)
+            t.lock = threading.RLock()
+            t.turn_deadline = None
+            t.menv = None
+            t.last_seen = {p: time.time() for p in
+                           ([e['pid'] for e in t.lobby] if t.state == 'lobby'
+                            else list(t.seat_of))}
+            if t.state == 'playing':
+                t.menv = MatchEnv(seed=t.seed)
+                acts = []
+                lines = [l for l in _log_lines_for(f'table:{t.code}')
+                         if l.get('match_no', 1) == t.match_no
+                         and l.get('kind') == 'deal']
+                lines.sort(key=lambda l: l['deal_no'])
+                for l in lines:
+                    acts.extend(a[1] for a in l['actions'])
+                acts.extend(a[1] for a in t.deal_actions)
+                for c in acts:
+                    t.menv.step(int(c))
+                want = t.deal_no - 1
+                if not t.finished and t.menv.deals_played != want:
+                    raise ValueError(f'replay landed on deal '
+                                     f'{t.menv.deals_played + 1}, '
+                                     f'snapshot says {t.deal_no}')
+                # re-arm the AFK timer for whoever is on the clock
+                if (t.timer_s and not t.finished
+                        and t.menv.get_current_player() in t.humans()):
+                    t.turn_deadline = time.time() + t.timer_s
+            with _tables_lock:
+                _tables[t.code] = t
+            ok += 1
+        except Exception as e:
+            print(f"table {d.get('code', '?')} not restored: {e}")
+    if ok:
+        print(f'restored {ok} live table(s) from snapshot')
+
+
+atexit.register(snapshot_tables)
+
 
 
 class PlayBody(BaseModel):
@@ -2092,6 +2187,7 @@ def table_new(body: TableNewBody):
         while len(_tables) > cfg.TABLE_CAP:
             _tables.pop(next(iter(_tables)))
         _tables[t.code] = t
+    snapshot_tables()
     return t.view(canon)
 
 
@@ -2108,6 +2204,7 @@ def table_join(body: TableJoinBody):
         if len(t.lobby) >= 4:
             raise HTTPException(409, 'table is full (4 players max)')
         t.lobby.append({'pid': pid, 'name': codename_of(pid)})
+        snapshot_tables()
         return t.view(pid)
 
 
@@ -2124,6 +2221,7 @@ def table_start(body: TableJoinBody):
             if body.speed in ('normal', 'fast', 'instant'):
                 t.speed = body.speed
             t.start()
+            snapshot_tables()
         return t.view(body.pid)
 
 
@@ -2138,6 +2236,7 @@ def table_speed(body: TableJoinBody):
             raise HTTPException(403, 'only the host sets the speed')
         if body.speed in ('normal', 'fast', 'instant'):
             t.speed = body.speed
+            snapshot_tables()
         return t.view(body.pid, 0)
 
 
@@ -2146,7 +2245,10 @@ def table_state(code: str, pid: str, cursor: int = 0):
     t = _get_table(code)
     pid = resolve_pid(pid)
     with t.lock:
+        acted_n = t.n_actions
         t.check_timeout()
+        if t.n_actions != acted_n:
+            snapshot_tables()
         return t.view(pid, cursor)
 
 
@@ -2161,6 +2263,7 @@ def table_rematch(body: TableJoinBody):
         if t.state != 'playing' or not t.finished:
             raise HTTPException(409, 'rematch is only available after a match ends')
         t.rematch()
+        snapshot_tables()
         return t.view(body.pid, 0)
 
 
@@ -2175,6 +2278,7 @@ def table_close(body: TableJoinBody):
             raise HTTPException(403, 'only the host can close the table')
     with _tables_lock:
         _tables.pop(t.code, None)
+    snapshot_tables()
     return {'ok': True}
 
 
@@ -2198,6 +2302,7 @@ def table_leave(body: TableJoinBody):
     if all_gone:
         with _tables_lock:
             _tables.pop(t.code, None)
+    snapshot_tables()
     return {'ok': True, 'closed': all_gone}
 
 
@@ -2220,9 +2325,11 @@ def _reaper():
             if drop:
                 with _tables_lock:
                     _tables.pop(code, None)
+                snapshot_tables()
 
 
 threading.Thread(target=_reaper, daemon=True).start()
+_restore_tables()
 
 
 @app.post('/api/table/pass/{code}')
@@ -2243,6 +2350,7 @@ def table_pass(code: str, body: TableActBody):
             raise HTTPException(400, 'pass must be 3 distinct cards from your hand')
         t.pending_pass[seat] = list(cards)
         t.advance()
+        snapshot_tables()
         return t.view(body.pid, body.cursor)
 
 
@@ -2262,6 +2370,7 @@ def table_play(code: str, body: TableActBody):
             raise HTTPException(400, f'illegal card {body.card}')
         t._apply(seat, body.card)
         t.advance()
+        snapshot_tables()
         return t.view(body.pid, body.cursor)
 
 
