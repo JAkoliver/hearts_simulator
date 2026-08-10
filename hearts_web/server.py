@@ -1412,9 +1412,39 @@ def api_review(pid: str = None, sid: str = None, code: str = None,
 
 
 @app.get('/review')
-def review_page():
-    return FileResponse(os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                     'static', 'review.html'))
+def review_page(request: Request):
+    title, desc = ('Perilune match review',
+                   'Every card of a Hearts match, replayed with the '
+                   "AI's take on each decision.")
+    share = request.query_params.get('share')
+    if share:
+        try:
+            p = _share_parse(share)
+            if p is not None:
+                kind, ident, want, seat = p
+                if kind == 't':
+                    lines = [l for l in _log_lines_for(f'table:{ident}')
+                             if l.get('match_no', 1) == want]
+                else:
+                    lines = _log_lines_for(ident)
+                if lines:
+                    last = max(lines, key=lambda l: l['deal_no'])
+                    tot = last.get('totals') or []
+                    if len(tot) == 4:
+                        wseat = min(range(4), key=lambda s: tot[s])
+                        sp = lines[0].get('seat_pids') or {}
+                        wname = codename_of(sp[str(wseat)]) \
+                            if str(wseat) in sp else None
+                        title = (f'{wname} won this Hearts match'
+                                 if wname else 'Perilune match review')
+                        desc = (f"{len(lines)} deals · final "
+                                + ' / '.join(str(v) for v in tot)
+                                + " — watch every card with the AI's "
+                                  'verdict on each play.')
+        except Exception:
+            pass
+    return Response(content=_og_serve(request, 'review.html', title, desc),
+                    media_type='text/html')
 
 
 # ---- community search cache -------------------------------------------------
@@ -2723,16 +2753,82 @@ def about():
                                      'static', 'about.html'))
 
 
+# ---- Open Graph preview cards ---------------------------------------------
+# Link previews (Discord/iMessage/Slack/Twitter) fetch without JS, so
+# the meta tags are injected server-side at the <!--OG--> marker.
+# Three link shapes get specific cards: the site root, table invite
+# links (?join=CODE - live host name + open-seat count when the room
+# still exists), and match review share links (deal count + final
+# scores + winner). Codenames only - never credentials or seat keys.
+OG_DEFAULT = ('Perilune — a match-aware Hearts AI',
+              'Play Hearts against an AI that plays the match, not just '
+              'the deal. Free, no account — with full match reviews and '
+              'on-device deep-search analysis.')
+
+
+def _og_esc(s):
+    return (s or '').replace('&', '&amp;').replace('<', '&lt;') \
+                    .replace('>', '&gt;').replace('"', '&quot;')
+
+
+def _og_block(request, title, desc):
+    host = request.headers.get('host') or 'play.perilune.ai'
+    base = f'https://{host}'
+    q = request.url.query
+    url = base + request.url.path + (f'?{q}' if q else '')
+    img = base + '/static/og.png'
+    t, d = _og_esc(title), _og_esc(desc)
+    return f'''<meta property="og:site_name" content="Perilune">
+<meta property="og:type" content="website">
+<meta property="og:title" content="{t}">
+<meta property="og:description" content="{d}">
+<meta property="og:url" content="{_og_esc(url)}">
+<meta property="og:image" content="{img}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{t}">
+<meta name="twitter:description" content="{d}">
+<meta name="twitter:image" content="{img}">'''
+
+
+def _og_serve(request, fname, title, desc):
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                        'static', fname)
+    with open(path, encoding='utf-8') as f:
+        html = f.read()
+    return html.replace('<!--OG-->', _og_block(request, title, desc), 1)
+
+
 @app.get('/')
 def index(request: Request):
     """Serve the app; dev controls (reset button, ?player= identity
     override) are injected ONLY for direct localhost requests - anything
     arriving through the tunnel (CF-Connecting-IP present) or the LAN
     gets DEV_CONTROLS = false."""
-    path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                        'static', 'index.html')
-    with open(path, encoding='utf-8') as f:
-        html = f.read()
+    title, desc = OG_DEFAULT
+    join = (request.query_params.get('join') or '').strip().upper()[:8]
+    if join:
+        title = 'Join a Hearts table on Perilune'
+        desc = ('This invite seats you at a live Hearts table — '
+                'AI fills whatever stays empty.')
+        with _tables_lock:
+            t = _tables.get(join)
+            if t is not None:
+                # invites are shared from the LOBBY: humans live in
+                # t.lobby (join order, host first) until seats assign
+                humans = ([p['name'] for p in t.lobby]
+                          if getattr(t, 'lobby', None)
+                          else list(t.names.values()))
+                host_nm = humans[0] if humans else None
+                open_seats = max(0, 4 - len(humans))
+                title = (f'{host_nm} invites you to Hearts' if host_nm
+                         else title)
+                desc = (f'Table {join} on Perilune — '
+                        + (f'{open_seats} of 4 seats open'
+                           if open_seats > 0 else 'the table is full')
+                        + ', AI fills the rest. Click to take a seat.')
+    html = _og_serve(request, 'index.html', title, desc)
     local = (cfg.DEV_MODE == 'localhost'
              and request.headers.get('cf-connecting-ip') is None
              and request.client is not None
