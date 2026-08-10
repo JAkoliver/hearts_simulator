@@ -149,24 +149,70 @@ const ORD = ['', '1st', '2nd', '3rd', '4th'];
 
 // Tiny chart helpers: series drawn into a fixed 100x40 viewBox. `fmt`
 // enables hover: nearest match index -> tooltip html + a guide line.
-function spark(svg, seriesList, yMin, yMax, fmt) {
+//
+// Volume-adaptive: past BUCKET_AFTER points the OLD portion of every
+// series collapses into ~NBUCKETS equal-count buckets (mean line, and
+// for dotted series a faint min-max band) while the last RECENT
+// matches stay as individual dots - old data is trend, new data is
+// detail. Hover over the bucketed region shows the bucket aggregate
+// via `fmtBucket(i0, i1)` (falls back to fmt of the bucket midpoint).
+const BUCKET_AFTER = 80, RECENT = 13, NBUCKETS = 48;
+function spark(svg, seriesList, yMin, yMax, fmt, fmtBucket) {
   const W = 100, H = 40;
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
   svg.setAttribute('preserveAspectRatio', 'none');
+  const n = seriesList[0].vals.length;
+  const xOf = i => n < 2 ? W / 2 : i / (n - 1) * (W - 4) + 2;
+  const yOf = v => H - 3 - (v - yMin) / (yMax - yMin || 1) * (H - 8);
+  const bucketed = n > BUCKET_AFTER;
+  const oldN = bucketed ? n - RECENT : 0;
+  let buckets = [];
+  if (bucketed) {
+    const nb = Math.min(NBUCKETS, oldN);
+    for (let b = 0; b < nb; b++) {
+      const i0 = Math.floor(b * oldN / nb);
+      const i1 = Math.floor((b + 1) * oldN / nb) - 1;
+      if (i1 >= i0) buckets.push({i0, i1, x: xOf((i0 + i1) / 2)});
+    }
+  }
   let out = '';
   for (const {vals, color, width, dots} of seriesList) {
-    const pts = [];
-    vals.forEach((v, i) => {
-      if (v == null) return;
-      const x = vals.length < 2 ? W / 2 : i / (vals.length - 1) * (W - 4) + 2;
-      const y = H - 3 - (v - yMin) / (yMax - yMin || 1) * (H - 8);
-      pts.push([x, y]);
-    });
-    if (pts.length > 1)
-      out += `<polyline points="${pts.map(p => p.map(n => n.toFixed(1)).join(','))
-        .join(' ')}" fill="none" stroke="${color}" stroke-width="${width}"
-        vector-effect="non-scaling-stroke"/>`;
-    if (dots) out += pts.map(p => `<circle cx="${p[0].toFixed(1)}"
+    const bucketPts = [], rawPts = [];
+    let band = null;
+    if (bucketed) {
+      const lo = [], hi = [];
+      for (const b of buckets) {
+        const s = vals.slice(b.i0, b.i1 + 1).filter(v => v != null);
+        if (!s.length) continue;
+        bucketPts.push([b.x, yOf(s.reduce((a, c) => a + c, 0) / s.length)]);
+        if (dots) {
+          lo.push([b.x, yOf(Math.min(...s))]);
+          hi.push([b.x, yOf(Math.max(...s))]);
+        }
+      }
+      if (dots && lo.length > 1)
+        band = hi.concat(lo.reverse());
+      for (let i = oldN; i < n; i++)
+        if (vals[i] != null) rawPts.push([xOf(i), yOf(vals[i])]);
+    } else {
+      vals.forEach((v, i) => { if (v != null) rawPts.push([xOf(i), yOf(v)]); });
+    }
+    const line = (p, w) => p.length > 1
+      ? `<polyline points="${p.map(q => q.map(c => c.toFixed(1)).join(','))
+          .join(' ')}" fill="none" stroke="${color}" stroke-width="${w}"
+          vector-effect="non-scaling-stroke"/>` : '';
+    if (band) out += `<polygon points="${band.map(p =>
+      p.map(c => c.toFixed(1)).join(',')).join(' ')}" fill="${color}"
+      opacity="0.12"/>`;
+    if (bucketed) {
+      // aggregate line through the old buckets (even for dots-only
+      // series - it IS their old-region rendering), raw line through
+      // the recent tail only when the series draws a line at all
+      out += line(bucketPts.concat(rawPts.slice(0, 1)),
+                  Math.max(width, 1.1));
+      if (width > 0) out += line(rawPts, width);
+    } else if (width > 0) out += line(rawPts, width);
+    if (dots) out += rawPts.map(p => `<circle cx="${p[0].toFixed(1)}"
       cy="${p[1].toFixed(1)}" r="1.6" fill="${color}"/>`).join('');
   }
   out += `<line class="guide" x1="0" x2="0" y1="0" y2="${H}" stroke="#6B6B74"
@@ -174,18 +220,24 @@ function spark(svg, seriesList, yMin, yMax, fmt) {
     style="display:none"/>`;
   svg.innerHTML = out;
   if (!fmt) return;
-  const n = seriesList[0].vals.length;
   const guide = svg.querySelector('.guide');
   svg.onpointermove = e => {
     const r = svg.getBoundingClientRect();
     let i = Math.round((e.clientX - r.left) / r.width * (n - 1));
     i = Math.max(0, Math.min(n - 1, i));
-    const gx = n < 2 ? W / 2 : i / (n - 1) * (W - 4) + 2;
+    let gx = xOf(i), html;
+    if (bucketed && i < oldN) {
+      const b = buckets.find(b2 => i >= b2.i0 && i <= b2.i1)
+        || buckets[buckets.length - 1];
+      gx = b.x;
+      html = fmtBucket ? fmtBucket(b.i0, b.i1)
+                       : fmt(Math.round((b.i0 + b.i1) / 2));
+    } else html = fmt(i);
     guide.setAttribute('x1', gx);
     guide.setAttribute('x2', gx);
     guide.style.display = 'block';
     const tip = el('tip');
-    tip.innerHTML = fmt(i);
+    tip.innerHTML = html;
     tip.style.display = 'block';
     tip.style.left = Math.min(e.clientX + 12, innerWidth - 180) + 'px';
     tip.style.top = (e.clientY - 10) + 'px';
@@ -204,8 +256,8 @@ const roll = (vals, w) => vals.map((_, i) => {
   let M, pubName = null;
   try {
     const r = await fetch(PLAYER
-      ? `/api/progress?player=${encodeURIComponent(PLAYER)}`
-      : `/api/progress?pid=${encodeURIComponent(pid)}`);
+      ? `/api/progress?player=${encodeURIComponent(PLAYER)}&limit=300`
+      : `/api/progress?pid=${encodeURIComponent(pid)}&limit=300`);
     if (!r.ok) throw new Error(PLAYER && r.status === 404
       ? 'unknown player' : `error ${r.status}`);
     const d = await r.json();
@@ -350,6 +402,14 @@ const roll = (vals, w) => vals.map((_, i) => {
 
   // band 2: placement trend (y inverted: 1st on top)
   const what = m => m.mode === 'table' ? `Table ${esc(m.code)}` : 'vs AI';
+  // bucket-tooltip helper: mean of the non-null slice
+  const bavg = (arr, i0, i1) => {
+    const s = arr.slice(i0, i1 + 1).filter(v => v != null);
+    return s.length ? s.reduce((a, b) => a + b, 0) / s.length : null;
+  };
+  const brange = (i0, i1) =>
+    `${fmtDate(M[i0].ts)}&ndash;${fmtDate(M[i1].ts)} &middot; ${i1 - i0 + 1}
+     matches`;
   const places = M.map(m => m.place);
   const rollP = roll(places, 5);
   spark(el('placechart'),
@@ -358,14 +418,26 @@ const roll = (vals, w) => vals.map((_, i) => {
     1, 4,
     i => `${fmtDate(M[i].ts)} &middot; ${what(M[i])} &middot;
       <b>${ORD[M[i].place] || M[i].place}</b>
-      <span class="muted">&middot; rolling ${rollP[i].toFixed(2)}</span>`);
+      <span class="muted">&middot; rolling ${rollP[i].toFixed(2)}</span>`,
+    (i0, i1) => `${brange(i0, i1)} &middot;
+      <b>avg place ${bavg(places, i0, i1).toFixed(2)}</b>`);
 
-  // band 3: skill sparklines
+  // band 3: skill sparklines (raw = faded dots, trend = the line)
   const agreeV = M.map(m => m.agree_pct ?? null);
-  spark(el('sp-agree'), [{vals: agreeV, color: '#E8B923', width: 1.4, dots: true}],
+  const rollA = roll(agreeV, 10);
+  spark(el('sp-agree'),
+    [{vals: agreeV, color: '#8A7A3A', width: 0, dots: true},
+     {vals: rollA, color: '#E8B923', width: 1.5}],
     30, 100,
     i => `${fmtDate(M[i].ts)} &middot; ${what(M[i])} &middot;
-      <b>${agreeV[i] != null ? agreeV[i] + '%' : 'no data'}</b>`);
+      <b>${agreeV[i] != null ? agreeV[i] + '%' : 'no data'}</b>
+      ${rollA[i] != null ? `<span class="muted">&middot; rolling ${
+        rollA[i].toFixed(1)}%</span>` : ''}`,
+    (i0, i1) => {
+      const a = bavg(agreeV, i0, i1);
+      return `${brange(i0, i1)} &middot;
+        <b>${a != null ? 'avg agreement ' + a.toFixed(1) + '%' : 'no data'}</b>`;
+    });
   const la = agreeV.filter(v => v != null).slice(-5);
   el('t-agree').textContent = la.length
     ? `last 5: ${(la.reduce((a, b) => a + b, 0) / la.length).toFixed(1)}%` : 'no data';
@@ -378,7 +450,15 @@ const roll = (vals, w) => vals.map((_, i) => {
     i => `${fmtDate(M[i].ts)} &middot;
       ${PLAYER ? 'player' : 'you'} <b style="color:#A78BFA">${readV[i] != null ? readV[i] + '%' : '-'}</b>
       &middot; AI seats <span style="color:#8A8A93">${
-        readAI[i] != null ? readAI[i] + '%' : '-'}</span>`);
+        readAI[i] != null ? readAI[i] + '%' : '-'}</span>`,
+    (i0, i1) => {
+      const v = bavg(readV, i0, i1), a = bavg(readAI, i0, i1);
+      return `${brange(i0, i1)} &middot;
+        ${PLAYER ? 'player' : 'you'} <b style="color:#A78BFA">${
+          v != null ? v.toFixed(0) + '%' : '-'}</b>
+        &middot; AI seats <span style="color:#8A8A93">${
+          a != null ? a.toFixed(0) + '%' : '-'}</span>`;
+    });
   const lr = readV.filter(v => v != null).slice(-5),
         lra = readAI.filter(v => v != null).slice(-5);
   el('t-read').textContent = lr.length
@@ -485,8 +565,8 @@ const roll = (vals, w) => vals.map((_, i) => {
   const svServer = async () => {
     try {
       const r = await fetch(PLAYER
-        ? `/api/search/progress?player=${encodeURIComponent(PLAYER)}`
-        : `/api/search/progress?pid=${encodeURIComponent(pid)}`);
+        ? `/api/search/progress?player=${encodeURIComponent(PLAYER)}&limit=300`
+        : `/api/search/progress?pid=${encodeURIComponent(pid)}&limit=300`);
       if (!r.ok) return [];
       const byTs = {};
       for (const e of (await r.json()).entries || []) byTs[e.ts] = e;
@@ -512,14 +592,24 @@ const roll = (vals, w) => vals.map((_, i) => {
       `${searched.length} of ${M.length} matches fully searched`
       + (src === 'device' ? ' on this device' : ' (community pool)');
     const costV = searched.map(x => x.e.costSum * 100);
+    const rollC = roll(costV, 5);
     const sv = el('sp-cost');
     sv.style.display = 'block';
-    spark(sv, [{vals: costV, color: '#4CC2FF', width: 1.4, dots: true}],
+    spark(sv,
+      [{vals: costV, color: '#2A6E8F', width: 0, dots: true},
+       {vals: rollC, color: '#4CC2FF', width: 1.5}],
       0, Math.max(5, ...costV),
       i => `${fmtDate(searched[i].m.ts)} &middot; ${what(searched[i].m)} &middot;
         <b>&minus;${costV[i].toFixed(1)}% match</b> given up
         &middot; ${searched[i].e.costly} costly
-        <span class="muted">&middot; K=${searched[i].e.k}</span>`);
+        <span class="muted">&middot; K=${searched[i].e.k}</span>`,
+      (i0, i1) => {
+        const c = costV.slice(i0, i1 + 1);
+        return `${fmtDate(searched[i0].m.ts)}&ndash;${fmtDate(searched[i1].m.ts)}
+          &middot; ${i1 - i0 + 1} matches &middot;
+          <b>avg &minus;${(c.reduce((a, b) => a + b, 0) / c.length).toFixed(1)}%
+          match</b> given up`;
+      });
     const cats = ['pass', 'lead', 'follow', 'discard'];
     const agg = {};
     for (const c of cats) agg[c] = [0, 0, 0];

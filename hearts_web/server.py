@@ -1836,13 +1836,13 @@ def api_search_progress(pid: str = None, player: str = None,
         if canon is None:
             raise HTTPException(404, 'unknown player')
         pid = canon
-        limit = min(limit, 40)
+        limit = min(limit, 100)
     else:
         pid = resolve_pid(pid)
         if not pid:
             raise HTTPException(400, 'pid required')
     md5 = _model_md5()
-    hist = list(_idx_history.get(pid, ()))[-max(1, min(100, limit)):]
+    hist = list(_idx_history.get(pid, ()))[-max(1, min(300, limit)):]
     out = []
     for h in hist:
         if h['mode'] == 'table':
@@ -2411,10 +2411,12 @@ def api_progress(pid: str = None, player: str = None, limit: int = 60):
             raise HTTPException(404, 'unknown player')
         pid = canon
         public = True
-        limit = min(limit, 40)   # bound anonymous compute per request
+        limit = min(limit, 100)   # bound anonymous compute per request
     else:
         pid = resolve_pid(pid)
-    hist = list(_idx_history.get(pid, ()))[-max(1, min(100, limit)):]
+    # 300-match window: enough history for the bucketed graphs; per-match
+    # stats are cached so repeat loads are cheap
+    hist = list(_idx_history.get(pid, ()))[-max(1, min(300, limit)):]
     out = []
     for h in hist:
         if h['mode'] == 'table':
@@ -2431,7 +2433,7 @@ def api_progress(pid: str = None, player: str = None, limit: int = 60):
             except Exception:
                 st = {}
             _progress_cache[key] = st
-            while len(_progress_cache) > 200:
+            while len(_progress_cache) > 400:
                 _progress_cache.pop(next(iter(_progress_cache)))
         row = {**h, **st}
         if public:
