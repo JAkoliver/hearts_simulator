@@ -1,0 +1,9 @@
+{
+ "candidate": "cand_r3_probe005.pth",
+ "context": "lambda=0.05 side-probe, drift 7.77%",
+ "delta": -0.271875,
+ "se": 0.11227653578163183,
+ "ub95": -0.08716087614604087,
+ "bar": 0.3,
+ "within_guard": true
+}
