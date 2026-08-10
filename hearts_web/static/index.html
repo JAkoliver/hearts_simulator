@@ -845,8 +845,8 @@ async function submit(cards) {
 // overlap instead of cutting each other off; play() rejections
 // (autoplay policy before first interaction) are swallowed.
 const SND = {};
-for (const [n, v] of [['placing', .375], ['taking', .41],
-                      ['shuffling', .34], ['explosion', .3]]) {
+for (const [n, v] of [['placing', .28], ['taking', .31],
+                      ['shuffling', .25], ['explosion', .22]]) {
   SND[n] = new Audio('/static/sound/' + n + '.mp3');
   SND[n].preload = 'auto';
   SND[n].volume = v;
