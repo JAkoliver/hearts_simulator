@@ -1051,7 +1051,11 @@ function renderEval(st, deal) {
       b64s.dataset.kind = 'pass';
       const who = passSeat === R.viewer_seat && !SHARED ? 'your pass'
         : `seat ${passSeat + 1}'s pass`;
-      el('deep-pos').innerHTML = dp
+      const pfl = passFloor();
+      el('deep-pos').innerHTML = pfl != null
+        ? `all passes: analyzed at K≥${pfl}`
+          + (dp && dp.K > pfl ? ` (${kTag(dp)} here)` : '')
+        : dp
         ? `${who}: analyzed at ${kTag(dp)}${dp.K >= 256 ? ' (max)' : ''}`
         : `${who}: not yet analyzed`;
     } else {
@@ -1162,8 +1166,12 @@ function renderEval(st, deal) {
   b64.style.display = !forced ? 'inline-block' : 'none';
   b64.disabled = !!(dr && dr.K >= 256);
   b64.dataset.kind = 'play';
+  const dfl = forced ? null : deepFloor();
   el('deep-pos').innerHTML = forced
     ? 'this position: forced move (only one legal card)'
+    : dfl != null
+    ? `all positions: analyzed at K≥${dfl}`
+      + (dr && dr.K > dfl ? ` (${kTag(dr)} here)` : '')
     : dr
     ? `this position: analyzed at ${kTag(dr)}${dr.K >= 256 ? ' (max)' : ''}`
     : 'this position: not yet analyzed';
@@ -1996,6 +2004,33 @@ function deepMerged(st) {
 // averaged, noise ~1/sqrt(runs) tighter). Plain "K=64" = one run.
 const kTag = r => `K=${r.K}` + ((r.runs || 1) > 1 ? ` ×${r.runs}` : '');
 
+// Sweep floors: the minimum analyzed K across the whole match (null
+// while anything is missing). Drives the "all positions: analyzed at
+// K>=n" position line once a full sweep exists.
+function deepFloor() {
+  let f = Infinity;
+  for (const st of steps) {
+    if (st.type !== 'play' || isForced(st)) continue;
+    const dr = deepResults[deepKey(st.d, st.i)];
+    if (!dr || !dr.K) return null;
+    f = Math.min(f, dr.K);
+  }
+  return isFinite(f) ? f : null;
+}
+function passFloor() {
+  let f = Infinity, any = false;
+  for (let d = 0; d < R.deals.length; d++) {
+    if (R.deals[d].pass_direction === 'hold') continue;
+    for (const s of [0, 1, 2, 3]) {
+      const dp = deepResults[passKey(d, s)];
+      if (!dp || !dp.K) return null;
+      any = true;
+      f = Math.min(f, dp.K);
+    }
+  }
+  return any && isFinite(f) ? f : null;
+}
+
 // ---- search-verdict harvest (progress page; local device only) ------------
 // When the viewer's WHOLE game is searched (every non-forced decision of
 // their seat has a deep result), per-match cost stats are written to a
@@ -2205,6 +2240,12 @@ el('deep-btn').onclick = () => {
     deepWorker.postMessage({type: 'clear'});
     dstatus('stopped');
     deepDone();
+    // transient: fade the acknowledgment unless something else (a new
+    // sweep's progress, the all-done message) has already replaced it
+    setTimeout(() => {
+      if (el('deep-status').textContent.startsWith('stopped'))
+        el('deep-status').textContent = '';
+    }, 4000);
   } else deepStart();
 };
 
