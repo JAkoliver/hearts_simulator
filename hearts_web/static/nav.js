@@ -49,7 +49,7 @@
       <div id="sitenav-dd">
         <a href="/?menu=1">Play</a>
         <a href="/leaderboard">Leaderboard</a>
-        <a href="/progress">Your progress</a>
+        <a href="/profile">Your profile</a>
         <a href="/account">Account</a>
         <a href="/about">About</a>
       </div></div>`;

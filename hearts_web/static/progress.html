@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Perilune &mdash; Your progress</title>
+<title>Perilune &mdash; Profile</title>
 <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
 <style>
   @font-face { font-family:'Space Grotesk';
@@ -66,7 +66,7 @@
 </style>
 </head>
 <body>
-<h1>Your progress</h1>
+<h1>Your profile</h1>
 <div class="muted small" id="sub">loading&hellip;</div>
 <div class="muted small" id="filters" style="margin:-24px 0 6px; display:none; text-align:right">
   <select id="f-mode" class="fsel"></select>
@@ -282,6 +282,7 @@ const roll = (vals, w) => vals.map((_, i) => {
     const d = await r.json();
     M = d.matches;   // oldest -> newest
     pubName = d.name;
+    window._dstat = d.daily || null;   // daily career counters (server)
     window._prog_meta = {cur: d.current_model,
                          labels: d.model_labels || {}};
   } catch (e) {
@@ -289,7 +290,7 @@ const roll = (vals, w) => vals.map((_, i) => {
     return;
   }
   if (PLAYER && pubName) {
-    document.querySelector('h1').textContent = `${pubName} — progress`;
+    document.querySelector('h1').textContent = `${pubName} — profile`;
     el('h-read').innerHTML = '&middot; player vs AI seats (raw-net belief)';
     el('h-habits').textContent = 'Where this player and Perilune part ways '
       + 'most often - the practice list, not a verdict.';
@@ -321,7 +322,7 @@ const roll = (vals, w) => vals.map((_, i) => {
   if (!PLAYER)
     fetch(`/api/name?pid=${encodeURIComponent(pid)}`).then(r => r.json())
       .then(d => { document.querySelector('h1').textContent =
-        `${d.name} — your progress`; }).catch(() => {});
+        `${d.name} — your profile`; }).catch(() => {});
 
   // ---- filters -----------------------------------------------------
   // Taxonomy: All | vs AI (solo non-daily + tables where you were the
@@ -421,7 +422,15 @@ const roll = (vals, w) => vals.map((_, i) => {
     [dn ? (100 * dz / dn).toFixed(0) + '%' : '-', 'deals at 0'],
     [dn ? (100 * dh / dn).toFixed(0) + '%' : '-', 'deals at 25+'],
     [(totDeals * 13).toLocaleString(), 'tricks played'],
-  ].map(chip).join('');
+  ].map(chip).join('')
+  // daily career (server-side, filter-independent): completions, and
+  // top-10 finishes on CLOSED days only - today's board still moves
+  + (window._dstat && _dstat.completed
+     ? '<i class="vdiv"></i>' + [
+         [_dstat.completed, 'dailies played'],
+         [_dstat.top10, 'daily top 10s'],
+       ].map(chip).join('')
+     : '');
 
   // band 2: placement trend (y inverted: 1st on top)
   const what = m => m.daily ? 'Daily'

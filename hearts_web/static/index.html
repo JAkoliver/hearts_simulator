@@ -402,7 +402,7 @@
 <div id="menu-btn-wrap"><button id="menu-btn">Menu</button>
   <div id="menu-dd">
     <a href="/leaderboard">Leaderboard</a>
-    <a href="/progress">Your progress</a>
+    <a href="/profile">Your profile</a>
     <a href="/account">Account</a>
     <a href="/about">About</a>
   </div>
@@ -480,7 +480,7 @@
     href="#" onclick="attractToggle(true);return false">show demos</a></div>
   <div id="home-history" style="display:none">
     <h4>Recent matches <a id="home-progress" href="#"
-      style="float:right; font-size:.72rem; font-weight:400">your progress &rarr;</a></h4>
+      style="float:right; font-size:.72rem; font-weight:400">your profile &rarr;</a></h4>
     <div id="hist-list"></div>
   </div>
 </div><div id="attract-review" class="attract">
@@ -1510,7 +1510,7 @@ const esc = s => String(s).replace(/[&<>"']/g,
 // visit can't create a dead account a returning player's key would
 // orphan). Legacy client-generated pids remain valid keys.
 let pid = localStorage.getItem(K('hearts_pid')) || null;
-el('home-progress').href = '/progress';   // page reads the key itself
+el('home-progress').href = '/profile';   // page reads the key itself
 async function ensureIdentity() {
   if (pid) return pid;
   const d = await api('/api/identity/new', {method: 'POST'});

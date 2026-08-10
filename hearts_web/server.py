@@ -2575,10 +2575,27 @@ def api_progress(pid: str = None, player: str = None, limit: int = 60):
                             if h['mode'] == 'table'
                             else _share_make('s', h['sid'], 1, h['seat']))
         out.append(row)
-    return {'matches': out, 'public': public, 'name': pub_name}
+    # Daily-challenge career stats: completions across all days, and
+    # top-10 finishes counted only for FINISHED days (today's board is
+    # still moving, so it never counts until the day closes).
+    dcomp = dtop = 0
+    today = _daily_date()
+    for dday, board in _daily.items():
+        if pid not in board:
+            continue
+        dcomp += 1
+        if dday < today:
+            order = sorted(board.values(), key=lambda r: (r['score'], r['ts']))
+            rank = next((i for i, r in enumerate(order)
+                         if r['canon'] == pid), 99)
+            if rank < 10:
+                dtop += 1
+    return {'matches': out, 'public': public, 'name': pub_name,
+            'daily': {'completed': dcomp, 'top10': dtop}}
 
 
 @app.get('/progress')
+@app.get('/profile')     # renamed 2026-08-11; old links keep working
 def progress_page():
     return FileResponse(os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                      'static', 'progress.html'))
