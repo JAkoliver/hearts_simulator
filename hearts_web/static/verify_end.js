@@ -21,6 +21,11 @@
   const K = 64, MAX_POS = 3, CAP_MS = 25000;
   const AUTO_KEY = 'hearts_autoverify', SKIP_KEY = 'hearts_verify_skips';
   let worker = null, capTimer = null;
+  // Run-generation token: stop() bumps it, and run() re-checks after
+  // every await - otherwise a skip during the loading phase (review
+  // payload fetch) let the in-flight async run resume, create the
+  // worker, and 'pop the search back up' (user-reported 2026-08-10).
+  let runToken = 0;
 
   function rankVal(n) {
     const r = n.slice(0, -1);
@@ -41,6 +46,7 @@
     && !!navigator.gpu && !isMobileUA();
 
   function stop(finalHtml) {
+    runToken++;
     if (worker) { worker.terminate(); worker = null; }
     if (capTimer) { clearTimeout(capTimer); capTimer = null; }
     if (finalHtml !== undefined && area()) area().innerHTML = finalHtml;
@@ -90,6 +96,7 @@
 
   async function run(c) {
     ctx = c;
+    const tok = ++runToken;
     status('loading deep search engine…');
     let R, md5 = 'nomd5';
     try {
@@ -106,7 +113,8 @@
         const man = await (await fetch('/static/models/manifest.json')).json();
         md5 = (man.policy_onnx_md5 || '').slice(0, 8);
       } catch (e) {}
-    } catch (e) { abort(''); return; }
+    } catch (e) { if (tok === runToken) abort(''); return; }
+    if (tok !== runToken) return;   // skipped/cancelled while loading
 
     const ident = c.mode === 'table'
       ? `T${c.tcode}#${c.matchNo}` : (c.sid || '');
@@ -132,6 +140,7 @@
       if (c.onDone) c.onDone(results);
     };
 
+    if (tok !== runToken) return;   // skipped/cancelled while preparing
     worker = new Worker('/static/analysis_worker.js?v=19');
     capTimer = setTimeout(() => abort(
       `<span style="opacity:.7">deep verification stopped - too slow on
