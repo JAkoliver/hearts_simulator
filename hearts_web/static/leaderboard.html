@@ -52,6 +52,7 @@
 
 <h1 id="daily" style="margin-top:30px">Daily challenge</h1>
 <div class="muted small" id="dsub">loading&hellip;</div>
+<div class="muted small" id="dnav" style="margin-top:2px"></div>
 <div class="panel">
   <table id="dboard"></table>
   <div class="small muted" id="dempty" style="display:none">No completions
@@ -113,23 +114,46 @@ const q = new URLSearchParams(location.search);
 // ---- daily challenge board -------------------------------------------
 (async () => {
   const pid = localStorage.getItem('hearts_pid') || '';
+  const day = (q.get('day') || '').slice(0, 10);
   let d;
   try {
+    const ps = new URLSearchParams();
+    if (pid) ps.set('pid', pid);
+    if (day) ps.set('date', day);
     const r = await fetch('/api/daily/leaderboard'
-      + (pid ? `?pid=${encodeURIComponent(pid)}` : ''));
+      + (ps.toString() ? `?${ps}` : ''));
     if (!r.ok) throw new Error(`error ${r.status}`);
     d = await r.json();
   } catch (e) {
     el('dsub').textContent = 'could not load: ' + e.message;
     return;
   }
-  el('dsub').textContent = `${d.date} · ${d.rows.length} finished`
-    + (d.viewer_completed ? ' · you played today ✓' : '');
+  const isToday = d.date === d.today;
+  const total = d.total ?? d.rows.length;   // pre-restart API compat
+  el('dsub').textContent = `${d.date}${isToday ? ' (today)' : ''} · `
+    + (total > d.rows.length
+       ? `showing 1–${d.rows.length} of ${total} finished`
+       : `${total} finished`)
+    + (isToday && d.viewer_completed ? ' · you played today ✓' : '');
+  // day navigation: every past day keeps its board forever
+  const step = (date, days) => new Date(
+    Date.parse(date + 'T00:00:00Z') + days * 86400e3)
+    .toISOString().slice(0, 10);
+  const dlink = (dt, label) =>
+    `<a class="p" href="/leaderboard?day=${dt}#daily">${label}</a>`;
+  el('dnav').innerHTML = [
+    dlink(step(d.date, -1), '&lsaquo; previous day'),
+    isToday ? '' : dlink(step(d.date, 1), 'next day &rsaquo;'),
+    isToday ? '' : dlink(d.today, 'today'),
+  ].filter(Boolean).join(' &middot; ');
   el('dlock').innerHTML = d.unlocked
     ? 'click a score to watch the match'
     : `match reviews unlock once you finish today's challenge ·
        <a class="p" href="/?daily=1">play it now</a>`;
   if (!d.rows.length) {
+    el('dempty').textContent = isToday
+      ? 'No completions yet today — be the first.'
+      : `No completions on ${d.date}.`;
     el('dempty').style.display = 'block';
     return;
   }

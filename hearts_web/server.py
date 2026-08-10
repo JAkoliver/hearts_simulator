@@ -1279,6 +1279,7 @@ def daily_leaderboard(pid: str = None, date: str = None):
             row['share'] = _share_make('s', r['sid'], 1, r['seat'])
         rows.append(row)
     return {'date': d, 'today': today, 'rows': rows,
+            'total': len(entries),
             'viewer_completed': viewer_done, 'unlocked': unlocked,
             'attempted': bool(canon and (d, canon) in _daily_attempts)}
 
