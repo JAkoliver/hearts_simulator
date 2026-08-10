@@ -1249,7 +1249,7 @@ def daily_status(pid: str = None):
 
 
 @app.get('/api/daily/leaderboard')
-def daily_leaderboard(pid: str = None, date: str = None):
+def daily_leaderboard(pid: str = None, date: str = None, offset: int = 0):
     """Today's board by default. Review links (minted share tokens) are
     included ONLY for viewers who completed that day's challenge - the
     review payload carries the day's SEED, so an uncompleted viewer
@@ -1269,17 +1269,19 @@ def daily_leaderboard(pid: str = None, date: str = None):
                      key=lambda r: (r['score'], r['ts']))
     viewer_done = bool(canon and canon in _daily.get(d, {}))
     unlocked = viewer_done or d < today
+    offset = max(0, min(int(offset or 0), max(0, len(entries) - 1)))
+    offset -= offset % 100
     rows = []
-    for i, r in enumerate(entries[:100]):
+    for i, r in enumerate(entries[offset:offset + 100]):
         nm = codename_of(r['canon'])
-        row = {'rank': i + 1, 'name': nm, 'slug': _name_slug(nm),
+        row = {'rank': offset + i + 1, 'name': nm, 'slug': _name_slug(nm),
                'score': r['score'], 'place': r['place'],
                'deals': r['deals'], 'ts': r['ts']}
         if unlocked:
             row['share'] = _share_make('s', r['sid'], 1, r['seat'])
         rows.append(row)
     return {'date': d, 'today': today, 'rows': rows,
-            'total': len(entries),
+            'total': len(entries), 'offset': offset,
             'viewer_completed': viewer_done, 'unlocked': unlocked,
             'attempted': bool(canon and (d, canon) in _daily_attempts)}
 
@@ -2595,10 +2597,12 @@ def player_page(slug: str):
 
 
 @app.get('/api/leaderboard')
-def api_leaderboard(era: str = None):
+def api_leaderboard(era: str = None, offset: int = 0, find: str = None):
     """Current model-era board by default; archived eras by md5. Every
     row links its winning match via a minted share token - every score
-    is verifiable by inspection."""
+    is verifiable by inspection. Pages of 100 via `offset`; `find`
+    (codename or slug) jumps to the page containing that player and
+    reports their row regardless of rank."""
     cur_era = MODEL_MD5[:12]
     e = (era or cur_era)[:12]
     with _log_lock:
@@ -2607,15 +2611,29 @@ def api_leaderboard(era: str = None):
                  'latest': max(r['ts'] for r in v.values())}
                 for k, v in _lb.items() if v]
     entries.sort(key=lambda r: (r['score'], r['ts']))
+    offset = max(0, min(int(offset or 0), max(0, len(entries) - 1)))
+    offset -= offset % 100
+    found = None
+    if find:
+        want = (find or '').strip().lower()
+        for i, r in enumerate(entries):
+            nm = codename_of(r['canon'])
+            if nm.lower() == want or _name_slug(nm) == want:
+                found = {'rank': i + 1, 'slug': _name_slug(nm),
+                         'score': r['score']}
+                offset = i - i % 100
+                break
     rows = []
-    for i, r in enumerate(entries[:100]):
+    for i, r in enumerate(entries[offset:offset + 100]):
         nm = codename_of(r['canon'])
-        rows.append({'rank': i + 1, 'name': nm, 'slug': _name_slug(nm),
+        rows.append({'rank': offset + i + 1, 'name': nm,
+                     'slug': _name_slug(nm),
                      'score': r['score'], 'deals': r['deals'], 'ts': r['ts'],
                      'share': _share_make('s', r['sid'], 1, r['seat'])})
     eras.sort(key=lambda x: x['latest'], reverse=True)
     return {'era': e, 'current': e == cur_era, 'current_era': cur_era,
-            'eras': eras, 'rows': rows}
+            'eras': eras, 'rows': rows, 'total': len(entries),
+            'offset': offset, 'found': found}
 
 
 @app.get('/leaderboard')

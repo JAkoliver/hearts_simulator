@@ -302,16 +302,20 @@ const roll = (vals, w) => vals.map((_, i) => {
   }
   el('sub').textContent = `${M.length} finished match${M.length > 1 ? 'es' : ''}`
     + (!PLAYER && M.length < 5 ? ' · play more to see trends' : '');
-  // leaderboard chip: current-era rank, if any (matched by codename)
+  // leaderboard chip: current-era rank at ANY depth (the API's `find`
+  // reports the row even past the top 100), linking straight to the
+  // page containing the player, centered and flashed on arrival
   (async () => {
     try {
-      const lb = await (await fetch('/api/leaderboard')).json();
       const myName = PLAYER ? pubName
         : (await (await fetch(`/api/name?pid=${encodeURIComponent(pid)}`)).json()).name;
-      const row = lb.rows.find(r => r.name === myName);
+      if (!myName) return;
+      const lb = await (await fetch(
+        `/api/leaderboard?find=${encodeURIComponent(myName)}`)).json();
+      const row = lb.found || lb.rows.find(r => r.name === myName);
       if (row) el('sub').innerHTML +=
-        ` &middot; <a href="/leaderboard">leaderboard #${row.rank}
-         &middot; ${row.score} pts</a>`;
+        ` &middot; <a href="/leaderboard?find=${encodeURIComponent(myName)}">`
+        + `leaderboard #${row.rank} &middot; ${row.score} pts</a>`;
     } catch (e) {}
   })();
   if (!PLAYER)

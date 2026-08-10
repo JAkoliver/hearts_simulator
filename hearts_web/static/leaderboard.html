@@ -26,6 +26,9 @@
   td { padding:6px 8px 6px 0; border-top:1px solid #29292E; }
   td.rank { color:#A6A6AF; width:2.2em; }
   tr.top1 td.rank { color:#E8B923; font-weight:700; }
+  tr.flash { animation: lbflash 1.4s ease-in-out 2; }
+  @keyframes lbflash { 0%, 100% { background: transparent; }
+                       30%, 70% { background: #C8A24A3D; } }
   a.p { color:#ECECEC; text-decoration:none; }
   a.p:hover { color:#E8B923; }
   a.sc { font-weight:700; }
@@ -72,11 +75,49 @@ const esc = s => String(s).replace(/[&<>"']/g,
   c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const q = new URLSearchParams(location.search);
 
+// Pager link helper: preserves the other board's state (era/off for
+// this board, day/doff for the daily one live in the same URL space).
+function pageHref(changes) {
+  const ps = new URLSearchParams(location.search);
+  // paging away = leaving the jumped-to player: drop `find`, or the
+  // server would snap every page link back to their page
+  ps.delete('find');
+  for (const [k, v] of Object.entries(changes)) {
+    if (v === null) ps.delete(k);
+    else ps.set(k, v);
+  }
+  const s = ps.toString();
+  return '/leaderboard' + (s ? '?' + s : '') + (changes.doff !== undefined
+    || changes.day !== undefined ? '#daily' : '');
+}
+function pagerHtml(offset, shown, total, offKey) {
+  if (total <= 100) return '';
+  const lo = offset + 1, hi = offset + shown;
+  return `<div class="small muted" style="margin-top:6px">${[
+    offset > 0
+      ? `<a class="p" href="${pageHref({[offKey]: Math.max(0, offset - 100) || null})}">&lsaquo; previous 100</a>` : '',
+    `showing ${lo}&ndash;${hi} of ${total}`,
+    offset + 100 < total
+      ? `<a class="p" href="${pageHref({[offKey]: offset + 100})}">next 100 &rsaquo;</a>` : '',
+  ].filter(Boolean).join(' &middot; ')}</div>`;
+}
+// Jump-and-flash: progress pages link here with ?find=<name> - the API
+// returns the page CONTAINING that player; center and pulse their row.
+function flashRow(table, slug) {
+  const row = table.querySelector(`tr[data-slug="${CSS.escape(slug)}"]`);
+  if (!row) return;
+  row.scrollIntoView({block: 'center', behavior: 'smooth'});
+  row.classList.add('flash');
+}
+
 (async () => {
   let d;
   try {
-    const r = await fetch('/api/leaderboard'
-      + (q.get('era') ? `?era=${encodeURIComponent(q.get('era'))}` : ''));
+    const ps = new URLSearchParams();
+    if (q.get('era')) ps.set('era', q.get('era'));
+    if (q.get('off')) ps.set('offset', q.get('off'));
+    if (q.get('find')) ps.set('find', q.get('find'));
+    const r = await fetch('/api/leaderboard' + (ps.toString() ? `?${ps}` : ''));
     if (!r.ok) throw new Error(`error ${r.status}`);
     d = await r.json();
   } catch (e) {
@@ -91,7 +132,8 @@ const q = new URLSearchParams(location.search);
   } else {
     el('board').innerHTML =
       '<tr><th></th><th>player</th><th>score</th><th>deals</th><th>date</th></tr>'
-      + d.rows.map(r => `<tr${r.rank === 1 ? ' class="top1"' : ''}>
+      + d.rows.map(r => `<tr data-slug="${esc(r.slug)}"${
+          r.rank === 1 ? ' class="top1"' : ''}>
           <td class="rank">${r.rank}</td>
           <td><a class="p" href="/player/${encodeURIComponent(r.slug)}">${esc(r.name)}</a></td>
           <td><a class="sc" href="/review?share=${encodeURIComponent(r.share)}"
@@ -100,6 +142,9 @@ const q = new URLSearchParams(location.search);
           <td class="muted">${new Date(r.ts * 1000).toLocaleString(undefined,
             {month: 'short', day: 'numeric', hour: 'numeric',
              minute: '2-digit'})}</td></tr>`).join('');
+    el('board').insertAdjacentHTML('afterend',
+      pagerHtml(d.offset || 0, d.rows.length, d.total ?? d.rows.length, 'off'));
+    if (d.found) flashRow(el('board'), d.found.slug);
   }
   const others = d.eras.filter(e => e.era !== d.era);
   if (d.current && others.length)
@@ -120,6 +165,7 @@ const q = new URLSearchParams(location.search);
     const ps = new URLSearchParams();
     if (pid) ps.set('pid', pid);
     if (day) ps.set('date', day);
+    if (q.get('doff')) ps.set('offset', q.get('doff'));
     const r = await fetch('/api/daily/leaderboard'
       + (ps.toString() ? `?${ps}` : ''));
     if (!r.ok) throw new Error(`error ${r.status}`);
@@ -130,9 +176,10 @@ const q = new URLSearchParams(location.search);
   }
   const isToday = d.date === d.today;
   const total = d.total ?? d.rows.length;   // pre-restart API compat
+  const doff = d.offset || 0;
   el('dsub').textContent = `${d.date}${isToday ? ' (today)' : ''} · `
     + (total > d.rows.length
-       ? `showing 1–${d.rows.length} of ${total} finished`
+       ? `showing ${doff + 1}–${doff + d.rows.length} of ${total} finished`
        : `${total} finished`)
     + (isToday && d.viewer_completed ? ' · you played today ✓' : '');
   // day navigation: every past day keeps its board forever
@@ -172,6 +219,8 @@ const q = new URLSearchParams(location.search);
         <td class="muted">${r.deals}</td>
         <td class="muted">${new Date(r.ts * 1000).toLocaleString(undefined,
           {hour: 'numeric', minute: '2-digit'})}</td></tr>`).join('');
+  el('dboard').insertAdjacentHTML('afterend',
+    pagerHtml(doff, d.rows.length, total, 'doff'));
 })();
 </script>
 <script src="/static/nav.js?v=5"></script>
