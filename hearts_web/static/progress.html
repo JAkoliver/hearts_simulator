@@ -34,6 +34,8 @@
   svg { display:block; width:100%; }
   #sv-src a { color:#8B8B93; text-decoration:none; }
   #sv-src a:hover { color:#C8A24A; }
+  .axlab { position:absolute; right:6px; font-size:.6rem; color:#5C5C66;
+           pointer-events:none; }
   .cards3 { display:grid; grid-template-columns:repeat(3, 1fr); gap:12px;
             margin-top:12px; }
   @media (max-width:700px) { .cards3 { grid-template-columns:1fr; } }
@@ -79,9 +81,13 @@
 <div id="tip"></div>
 
 <div class="panel">
-  <h3>Placement per match <span class="muted">&middot; line = rolling
-    average of 5 &middot; oldest &rarr; newest</span></h3>
-  <svg id="placechart" height="130"></svg>
+  <h3>Placement per match <span class="muted" id="place-sub">&middot; line =
+    rolling average of 5 &middot; oldest &rarr; newest</span></h3>
+  <div style="position:relative">
+    <svg id="placechart" height="130"></svg>
+    <span class="axlab" style="top:1px">1st</span>
+    <span class="axlab" style="bottom:1px">4th</span>
+  </div>
 </div>
 
 <div class="cards3">
@@ -157,7 +163,15 @@ const ORD = ['', '1st', '2nd', '3rd', '4th'];
 // detail. Hover over the bucketed region shows the bucket aggregate
 // via `fmtBucket(i0, i1)` (falls back to fmt of the bucket midpoint).
 const BUCKET_AFTER = 80, RECENT = 13, NBUCKETS = 48;
-function spark(svg, seriesList, yMin, yMax, fmt, fmtBucket) {
+// The viewBox is stretched (preserveAspectRatio none), so anything
+// drawn with area distorts. Lines survive via non-scaling-stroke;
+// DOTS must be zero-length round-capped strokes - a real <circle>
+// renders as a smeared oval at page width (user report 2026-08-10).
+const dotMark = (x, y, color, px) =>
+  `<line x1="${x.toFixed(1)}" y1="${y.toFixed(1)}" x2="${x.toFixed(1)}"
+    y2="${y.toFixed(1)}" stroke="${color}" stroke-width="${px}"
+    stroke-linecap="round" vector-effect="non-scaling-stroke"/>`;
+function spark(svg, seriesList, yMin, yMax, fmt, fmtBucket, opts = {}) {
   const W = 100, H = 40;
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
   svg.setAttribute('preserveAspectRatio', 'none');
@@ -176,21 +190,29 @@ function spark(svg, seriesList, yMin, yMax, fmt, fmtBucket) {
     }
   }
   let out = '';
-  for (const {vals, color, width, dots} of seriesList) {
+  // faint horizontal reference lines (screen-space width, no distortion)
+  for (const g of opts.grid || [])
+    out += `<line x1="0" x2="${W}" y1="${yOf(g).toFixed(1)}"
+      y2="${yOf(g).toFixed(1)}" stroke="#33333B" stroke-width="1"
+      vector-effect="non-scaling-stroke"/>`;
+  for (const {vals, color, width, dots, dotSize} of seriesList) {
     const bucketPts = [], rawPts = [];
     let band = null;
+    const q = (s, f) => {   // quantile of a sorted sample
+      const t = (s.length - 1) * f, k = Math.floor(t);
+      return s[k] + (s[Math.min(k + 1, s.length - 1)] - s[k]) * (t - k);
+    };
     if (bucketed) {
       const lo = [], hi = [];
       for (const b of buckets) {
-        const s = vals.slice(b.i0, b.i1 + 1).filter(v => v != null);
+        const s = vals.slice(b.i0, b.i1 + 1).filter(v => v != null)
+          .sort((a, c) => a - c);
         if (!s.length) continue;
         bucketPts.push([b.x, yOf(s.reduce((a, c) => a + c, 0) / s.length)]);
-        if (dots) {
-          lo.push([b.x, yOf(Math.min(...s))]);
-          hi.push([b.x, yOf(Math.max(...s))]);
-        }
+        lo.push([b.x, yOf(q(s, 0.25))]);
+        hi.push([b.x, yOf(q(s, 0.75))]);
       }
-      if (dots && lo.length > 1)
+      if (width === 0 && lo.length > 1)
         band = hi.concat(lo.reverse());
       for (let i = oldN; i < n; i++)
         if (vals[i] != null) rawPts.push([xOf(i), yOf(vals[i])]);
@@ -198,22 +220,23 @@ function spark(svg, seriesList, yMin, yMax, fmt, fmtBucket) {
       vals.forEach((v, i) => { if (v != null) rawPts.push([xOf(i), yOf(v)]); });
     }
     const line = (p, w) => p.length > 1
-      ? `<polyline points="${p.map(q => q.map(c => c.toFixed(1)).join(','))
+      ? `<polyline points="${p.map(q2 => q2.map(c => c.toFixed(1)).join(','))
           .join(' ')}" fill="none" stroke="${color}" stroke-width="${w}"
           vector-effect="non-scaling-stroke"/>` : '';
     if (band) out += `<polygon points="${band.map(p =>
       p.map(c => c.toFixed(1)).join(',')).join(' ')}" fill="${color}"
-      opacity="0.12"/>`;
+      opacity="0.14"/>`;
     if (bucketed) {
-      // aggregate line through the old buckets (even for dots-only
-      // series - it IS their old-region rendering), raw line through
-      // the recent tail only when the series draws a line at all
-      out += line(bucketPts.concat(rawPts.slice(0, 1)),
-                  Math.max(width, 1.1));
+      // Old region: pure-scatter series (width 0) show a 25th-75th
+      // percentile band - their trend line is a SEPARATE series and
+      // drawing a second mean line here just fights it. Line series
+      // keep a bucket-mean line. Recent tail: raw values.
+      if (width > 0)
+        out += line(bucketPts.concat(rawPts.slice(0, 1)), Math.max(width, 1.1));
       if (width > 0) out += line(rawPts, width);
     } else if (width > 0) out += line(rawPts, width);
-    if (dots) out += rawPts.map(p => `<circle cx="${p[0].toFixed(1)}"
-      cy="${p[1].toFixed(1)}" r="1.6" fill="${color}"/>`).join('');
+    if (dots) out += rawPts.map(p =>
+      dotMark(p[0], p[1], color, dotSize || 4)).join('');
   }
   out += `<line class="guide" x1="0" x2="0" y1="0" y2="${H}" stroke="#6B6B74"
     stroke-width="0.8" vector-effect="non-scaling-stroke"
@@ -411,22 +434,29 @@ const roll = (vals, w) => vals.map((_, i) => {
     `${fmtDate(M[i0].ts)}&ndash;${fmtDate(M[i1].ts)} &middot; ${i1 - i0 + 1}
      matches`;
   const places = M.map(m => m.place);
-  const rollP = roll(places, 5);
+  // trend window widens with history - a rolling-5 line over 200
+  // matches is jitter, not trend
+  const rollW = places.length > BUCKET_AFTER ? 10 : 5;
+  const rollP = roll(places, rollW);
+  el('place-sub').innerHTML = `&middot; line = rolling average of ${rollW}
+    &middot; oldest &rarr; newest`;
   spark(el('placechart'),
-    [{vals: places.map(p => 5 - p), color: '#7CBF8E', width: 0, dots: true},
+    [{vals: places.map(p => 5 - p), color: '#7CBF8E', width: 0, dots: true,
+      dotSize: 5},
      {vals: rollP.map(p => 5 - p), color: '#E8B923', width: 1.6}],
     1, 4,
     i => `${fmtDate(M[i].ts)} &middot; ${what(M[i])} &middot;
       <b>${ORD[M[i].place] || M[i].place}</b>
       <span class="muted">&middot; rolling ${rollP[i].toFixed(2)}</span>`,
     (i0, i1) => `${brange(i0, i1)} &middot;
-      <b>avg place ${bavg(places, i0, i1).toFixed(2)}</b>`);
+      <b>avg place ${bavg(places, i0, i1).toFixed(2)}</b>`,
+    {grid: [1, 2, 3, 4]});
 
   // band 3: skill sparklines (raw = faded dots, trend = the line)
   const agreeV = M.map(m => m.agree_pct ?? null);
   const rollA = roll(agreeV, 10);
   spark(el('sp-agree'),
-    [{vals: agreeV, color: '#8A7A3A', width: 0, dots: true},
+    [{vals: agreeV, color: '#8A7A3A', width: 0, dots: true, dotSize: 3.5},
      {vals: rollA, color: '#E8B923', width: 1.5}],
     30, 100,
     i => `${fmtDate(M[i].ts)} &middot; ${what(M[i])} &middot;
@@ -437,7 +467,7 @@ const roll = (vals, w) => vals.map((_, i) => {
       const a = bavg(agreeV, i0, i1);
       return `${brange(i0, i1)} &middot;
         <b>${a != null ? 'avg agreement ' + a.toFixed(1) + '%' : 'no data'}</b>`;
-    });
+    }, {grid: [50, 75]});
   const la = agreeV.filter(v => v != null).slice(-5);
   el('t-agree').textContent = la.length
     ? `last 5: ${(la.reduce((a, b) => a + b, 0) / la.length).toFixed(1)}%` : 'no data';
@@ -446,7 +476,8 @@ const roll = (vals, w) => vals.map((_, i) => {
   const readAI = M.map(m => m.read_t6_ai ?? null);
   spark(el('sp-read'), [
     {vals: readAI, color: '#8A8A93', width: 1.2},
-    {vals: readV, color: '#A78BFA', width: 1.4, dots: true}], 25, 90,
+    {vals: readV, color: '#A78BFA', width: 1.4, dots: true,
+     dotSize: 3.5}], 25, 90,
     i => `${fmtDate(M[i].ts)} &middot;
       ${PLAYER ? 'player' : 'you'} <b style="color:#A78BFA">${readV[i] != null ? readV[i] + '%' : '-'}</b>
       &middot; AI seats <span style="color:#8A8A93">${
@@ -609,7 +640,7 @@ const roll = (vals, w) => vals.map((_, i) => {
           &middot; ${i1 - i0 + 1} matches &middot;
           <b>avg &minus;${(c.reduce((a, b) => a + b, 0) / c.length).toFixed(1)}%
           match</b> given up`;
-      });
+      }, {grid: [0]});
     const cats = ['pass', 'lead', 'follow', 'discard'];
     const agg = {};
     for (const c of cats) agg[c] = [0, 0, 0];
