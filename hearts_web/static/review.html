@@ -666,6 +666,13 @@ function evalBars(top, eq, name, p, verb, expanded, spellOut) {
   const main = [], tail = [];
   for (const it of merged)
     (it[1] * 100 >= 0.05 || it[0].includes(name) ? main : tail).push(it);
+  // "top 3" means top 3 BARS: when equivalence pooling leaves fewer
+  // than 3 material groups, promote the largest sub-threshold groups
+  // into the collapsed view - one fat pooled bar plus an expander that
+  // reveals a single near-zero move is worse than just showing it
+  // (user report 2026-08-11).
+  while (main.length < 3 && tail.length) main.push(tail.shift());
+  main.sort((a, b) => b[1] - a[1]);
   const shown = expanded ? main : main.slice(0, 3);
   let html = '';
   for (const [cs, cp] of shown)
@@ -1082,7 +1089,7 @@ function renderEval(st, deal) {
   html += bars.html;
   if (bars.more)
     html += `<button class="xbtn" id="ev-x">${evalExpanded
-      ? 'show top 3' : `show all ${bars.total} legal moves`}</button>`;
+      ? 'show top 3' : `show all ${top.length} legal moves`}</button>`;
   else if (top.length > 1)
     // No expander because nothing is hidden - SAY so, or its absence
     // reads as a missing button (follow-suit positions merge most of
