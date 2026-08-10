@@ -1,0 +1,34 @@
+{
+ "budgets": {
+  "200": {
+   "n_decisions": 380,
+   "n_paired": 380,
+   "median_top1_share": 0.692,
+   "onehot_frac": 0.087,
+   "spearman_visitgap_valuegap": 0.085,
+   "spearman_p": 0.0973703776562767
+  },
+  "400": {
+   "n_decisions": 416,
+   "n_paired": 416,
+   "median_top1_share": 0.697,
+   "onehot_frac": 0.089,
+   "spearman_visitgap_valuegap": 0.033,
+   "spearman_p": 0.5054501861541895
+  },
+  "800": {
+   "n_decisions": 423,
+   "n_paired": 423,
+   "median_top1_share": 0.726,
+   "onehot_frac": 0.104,
+   "spearman_visitgap_valuegap": 0.171,
+   "spearman_p": 0.00041827624327175775
+  }
+ },
+ "halts": [
+  "budget 200: Spearman 0.085 < 0.3 (amendable band)",
+  "budget 400: Spearman 0.033 < 0.3 (amendable band)",
+  "budget 800: Spearman 0.171 < 0.3 (amendable band)"
+ ],
+ "pass": false
+}
