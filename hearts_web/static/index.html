@@ -845,8 +845,11 @@ async function submit(cards) {
 // overlap instead of cutting each other off; play() rejections
 // (autoplay policy before first interaction) are swallowed.
 const SND = {};
-for (const [n, v] of [['placing', .28], ['taking', .31],
-                      ['shuffling', .25], ['explosion', .22]]) {
+// NOTE volume is linear AMPLITUDE - perceived loudness is log. A 25%
+// cut is ~-2.5dB (barely detectable); to sound clearly quieter, halve
+// (-6dB). Tune in halvings, not percentages.
+for (const [n, v] of [['placing', .14], ['taking', .155],
+                      ['shuffling', .125], ['explosion', .11]]) {
   SND[n] = new Audio('/static/sound/' + n + '.mp3');
   SND[n].preload = 'auto';
   SND[n].volume = v;
