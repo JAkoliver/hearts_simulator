@@ -88,6 +88,17 @@
   #menu-btn-wrap { position:absolute; top:8px; right:10px; z-index:5; }
   #menu-btn-wrap button { font-size:.75rem; padding:4px 12px;
     background:var(--tag-bg); color:var(--text); }
+  /* site-links dropdown: SAME look and link list as nav.js's #sitenav-dd
+     (the shared band on every other page) - keep the two in sync */
+  #menu-dd { display:none; position:absolute; right:0;
+             top:calc(100% + 6px); background:#1E1E21;
+             border:1px solid #2E2E33; border-radius:9px; min-width:150px;
+             padding:5px; box-shadow:0 6px 18px rgba(0,0,0,.5);
+             text-align:left; }
+  #menu-dd.open { display:block; }
+  #menu-dd a { display:block; padding:7px 12px; border-radius:6px;
+               color:#A6A6AF; text-decoration:none; font-size:.82rem; }
+  #menu-dd a:hover { background:#26262A; color:#E8B923; }
   #home-close:hover { color:var(--gold) !important; }
   header h1 { cursor:pointer; }
   header h1:hover { color:var(--gold); }
@@ -388,7 +399,14 @@
 <body>
 <header>
 <div id="theme-toggle"><button id="theme-btn"></button><button id="speed-btn" title="animation speed - cycle normal / fast / instant (at a table only the host can change it)"></button><button id="auto-btn" title="automatically play your card when only one is legal"></button><button id="help-btn" title="how Hearts works">?</button></div>
-<div id="menu-btn-wrap"><button id="menu-btn">Menu</button></div>
+<div id="menu-btn-wrap"><button id="menu-btn">Menu</button>
+  <div id="menu-dd">
+    <a href="/leaderboard">Leaderboard</a>
+    <a href="/progress">Your progress</a>
+    <a href="/account">Account</a>
+    <a href="/about">About</a>
+  </div>
+</div>
   <svg class="logo" width="20" height="20" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#00000055"/><path d="M11 27 V7 H17.5 a6.5 6.5 0 0 1 0 13 H11" fill="none" stroke="#ECECEC" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="25.2" cy="7.6" r="3.1" fill="#E5484D"/></svg>
   <h1>Perilune</h1>
   <span class="sub">&mdash; a match-aware Hearts AI &middot; match to 100 &middot; lowest score wins</span>
@@ -1171,6 +1189,7 @@ function hideHome() {
   el('home').style.display = 'none';
   document.body.classList.remove('nogame');
   document.body.classList.remove('menuopen');
+  el('menu-dd').classList.remove('open');
 }
 
 async function hostTable() {
@@ -1708,14 +1727,24 @@ el('home-daily').onclick = () => {
 };
 el('home-host').onclick = hostTable;
 el('home-join').onclick = joinTable;
-// Toggle: with the menu open over a LIVE game, the Menu button closes
-// it (same escape hatch as home-close); with no game behind, the menu
-// IS the screen - nothing to return to, so the click is a no-op.
-el('menu-btn').onclick = () => {
+// Menu = the centered game menu AND the site-links dropdown (the same
+// links every other page's Menu shows; no 'Play' entry - opening the
+// centered menu IS play here). Toggle: with the menu open over a LIVE
+// game a second click closes both; with no game behind, the menu IS
+// the screen, so the click just re-toggles the links.
+el('menu-btn').onclick = ev => {
+  ev.stopPropagation();
   const open = el('home').style.display === 'flex';
-  if (!open) showHome();
-  else if (el('home-close').style.display !== 'none') hideHome();
+  const dd = el('menu-dd');
+  if (!open) {
+    showHome();
+    dd.classList.add('open');
+  } else if (el('home-close').style.display !== 'none') {
+    hideHome();
+  } else dd.classList.toggle('open');
 };
+document.addEventListener('click', () =>
+  el('menu-dd').classList.remove('open'));
 document.querySelector('header h1').onclick = () => showHome();
 el('home-resume-btn').onclick = hideHome;
 if (DEV_CONTROLS) {

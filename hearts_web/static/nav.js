@@ -2,8 +2,10 @@
 // matching the game page's header) with ONE "Menu" control at the very
 // right - same spot, same styling, every page. The game page does NOT
 // include this file: its native header already is this band, and its
-// Menu button opens the richer in-game overlay. One source of truth so
-// per-page headers can't drift.
+// Menu button opens the richer in-game overlay PLUS a copy of this
+// dropdown (index.html #menu-dd - keep the link list and styling in
+// sync with #sitenav-dd below; the game page omits 'Play' because its
+// centered menu IS play).
 (() => {
   const css = `
   #siteband { position:fixed; top:0; left:0; right:0; z-index:55;
