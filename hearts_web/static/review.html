@@ -430,7 +430,9 @@
   <h4>Depth (K)</h4>
   <div class="hitem"><b>K</b> is how many imagined deals each move is
     played out over &mdash; higher is sharper and slower.
-    <b>Deep analysis</b> sweeps the whole match at the selected K;
+    <b>Deep analysis</b> sweeps the match at the selected K &mdash;
+    <b>All plays</b> covers every seat, <b>My plays</b> just your own
+    decisions (about a quarter of the work, remembered for next time);
     <b>K=N here</b> deepens just the position you are looking at
     (16 &rarr; 32 &rarr; 64 &rarr; 128 &rarr; 256), no sweep
     required.</div>
@@ -533,6 +535,11 @@
     <div id="deepbar">
       <div>
         <button id="deep-btn" class="xbtn">Deep analysis</button>
+        <select id="deep-scope" class="xbtn"
+                title="sweep every seat's decisions, or only yours">
+          <option value="all" selected>All plays</option>
+          <option value="mine">My plays</option>
+        </select>
         <select id="deep-k" class="xbtn" title="rollouts per move: higher = sharper values, slower">
           <option value="16" selected>K=16</option>
           <option value="32">K=32</option>
@@ -1628,7 +1635,11 @@ function deepAccept(v) {
   if (!deepResults[k] || v.K >= deepResults[k].K) deepResults[k] = v;
 }
 
-function deepJobs(K, skipDone) {
+// scope 'mine' = the viewer's own decisions (their plays + their pass)
+// plus the cheap per-deal par playouts the deal display needs; skips the
+// other seats and the whole-match cards rerun. 'all' = everything.
+function deepJobs(K, skipDone, scope = 'all') {
+  const mine = scope === 'mine';
   const disIdx = new Set();
   steps.forEach((st, idx) => {
     if (st.type !== 'play') return;
@@ -1647,7 +1658,7 @@ function deepJobs(K, skipDone) {
   });
   // Pass decisions: the viewer's pass on every passing deal (the last
   // unjudged decision class - rewound-pass search, same currency).
-  if (!skipDone || !deepResults[deepKey('M', 'cards')])
+  if (!mine && (!skipDone || !deepResults[deepKey('M', 'cards')]))
     jobs.push({prio: -0.5, kind: 'cards', key: deepKey('M', 'cards'),
                d: 'M', i: 'cards', deal: 0, actionIdx: 0, K: 24});
   // Every seat's pass on every passing deal (viewer's first). Pass
@@ -1656,7 +1667,8 @@ function deepJobs(K, skipDone) {
   R.deals.forEach((deal, d) => {
     if (deal.pass_direction === 'hold') return;
     const view = R.viewer_seat ?? 0;
-    for (const seat of [view, ...[0, 1, 2, 3].filter(s => s !== view)]) {
+    for (const seat of mine ? [view]
+                            : [view, ...[0, 1, 2, 3].filter(s => s !== view)]) {
       const have = deepResults[passKey(d, seat)];
       if (skipDone && have && have.K >= passK) continue;
       jobs.push({prio: seat === view ? 0.5 : 2.5, kind: 'pass',
@@ -1670,6 +1682,7 @@ function deepJobs(K, skipDone) {
     const have = deepResults[deepKey(st.d, st.i)];
     if (skipDone && have && have.K >= K) return;   // already this deep
     const [s, name] = R.deals[st.d].plays[st.i];
+    if (mine && s !== R.viewer_seat) return;
     const prio = (disIdx.has(idx) && s === R.viewer_seat) ? 0
                : disIdx.has(idx) ? 1 : (s === R.viewer_seat) ? 2 : 3;
     jobs.push({prio, key: deepKey(st.d, st.i), d: st.d, i: st.i,
@@ -1693,9 +1706,10 @@ function ensureEngine(cb) {
 async function deepStart() {
   if (!R.replay) { dstatus('no replay data for this match'); return; }
   el('deep-k').disabled = true;
+  el('deep-scope').disabled = true;
   ensureEngine(() => {
     // Queue what's below the selected depth - never spawn a second worker.
-    const jobs = deepJobs(+el('deep-k').value, true);
+    const jobs = deepJobs(+el('deep-k').value, true, deepScope());
     if (!jobs.length) { updateDeepBtn(); deepDone(); return; }
     deepRunning = true;
     el('deep-btn').textContent = 'Stop';
@@ -1964,15 +1978,18 @@ function costlyPlays() {
   return out;
 }
 
-function deepAllDone() {
+function deepAllDone(scope = 'all') {
+  const mine = scope === 'mine';
   const K = +el('deep-k').value, passK = Math.max(8, K / 2);
   const playsDone = steps.every(st => {
     if (st.type !== 'play' || isForced(st)) return true;
+    if (mine && R.deals[st.d].plays[st.i][0] !== R.viewer_seat) return true;
     const dr = deepResults[deepKey(st.d, st.i)];
     return dr && dr.K >= K;
   });
+  const seats = mine ? [R.viewer_seat ?? 0] : [0, 1, 2, 3];
   const passesDone = R.deals.every((deal, d) =>
-    deal.pass_direction === 'hold' || [0, 1, 2, 3].every(s => {
+    deal.pass_direction === 'hold' || seats.every(s => {
       const dp = deepResults[passKey(d, s)];
       return dp && dp.K >= passK;
     }));
@@ -2006,12 +2023,31 @@ function updateKOptions() {
     .join('');
 }
 
+// Sweep scope: many players only care about their own decisions - a
+// 'My plays' sweep is ~1/4 the positions. Persisted per browser; hidden
+// when the review has no viewer seat (spectator / cards-only).
+const SCOPE_KEY = 'hearts_deep_scope';
+try {
+  if (localStorage.getItem(SCOPE_KEY) === 'mine')
+    el('deep-scope').value = 'mine';
+} catch (e) {}
+const deepScope = () =>
+  (R && R.viewer_seat != null && el('deep-scope').value === 'mine')
+    ? 'mine' : 'all';
+el('deep-scope').onchange = () => {
+  try { localStorage.setItem(SCOPE_KEY, el('deep-scope').value); }
+  catch (e) {}
+  updateDeepBtn();
+};
+
 function updateDeepBtn() {
   updateKOptions();
+  if (R) el('deep-scope').style.display = R.viewer_seat == null ? 'none' : '';
   if (deepRunning) return;
-  const done = deepWorker && deepAllDone();
+  const done = deepWorker && deepAllDone(deepScope());
   el('deep-btn').disabled = !!done;
-  if (done) dstatus(`all positions analyzed at K≥${el('deep-k').value}`);
+  if (done) dstatus(`${deepScope() === 'mine' ? 'your' : 'all'} positions `
+                    + `analyzed at K≥${el('deep-k').value}`);
 }
 el('deep-k').onchange = () => updateDeepBtn();
 
@@ -2020,6 +2056,7 @@ function deepDone() {
   el('deep-btn').textContent = 'Deep analysis';
   el('deep-btn').disabled = false;
   el('deep-k').disabled = false;
+  el('deep-scope').disabled = false;
   updateDeepBtn();
 }
 
