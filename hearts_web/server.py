@@ -1324,11 +1324,13 @@ def api_share(pid: str, sid: str = None, code: str = None,
     raise HTTPException(400, 'sid or code required')
 
 
-@app.get('/api/review')
-def api_review(pid: str = None, sid: str = None, code: str = None,
-               match_no: int = None, share: str = None):
-    pid = resolve_pid(pid)
-    if share:
+# Shared access resolution for review-shaped endpoints (/api/review and
+# the community search cache). Returns (key, lines, viewer_seat). pid
+# must already be resolved. write=True is the cache-contribution rule:
+# share tokens are read-only - only an authenticated PARTICIPANT
+# (table seat or solo owner) may write.
+def _review_access(pid, sid, code, match_no, share, write=False):
+    if share and not write:
         p = _share_parse(share)
         if p is None:
             raise HTTPException(403, 'invalid share link')
@@ -1366,9 +1368,18 @@ def api_review(pid: str = None, sid: str = None, code: str = None,
         seat = lines[0]['human_seat']
         key = (sid, 1)
     else:
-        raise HTTPException(400, 'sid or code required')
+        raise HTTPException(400, 'sid or code required'
+                            if not share else 'share links are read-only here')
     if key not in _finished_matches:
         raise HTTPException(409, 'the review opens when the match ends')
+    return key, lines, seat
+
+
+@app.get('/api/review')
+def api_review(pid: str = None, sid: str = None, code: str = None,
+               match_no: int = None, share: str = None):
+    pid = resolve_pid(pid)
+    key, lines, seat = _review_access(pid, sid, code, match_no, share)
     cached = _review_cache.get(key)
     if cached is None or cached['n_deals'] != len(lines):
         cached = {'n_deals': len(lines),
@@ -1399,6 +1410,260 @@ def api_review(pid: str = None, sid: str = None, code: str = None,
 def review_page():
     return FileResponse(os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                      'static', 'review.html'))
+
+
+# ---- community search cache -------------------------------------------------
+# One player's completed deep-search results, shared with every viewer of
+# that match's review (design 2026-08-10). Trust model, proportionate to
+# the stakes (mis-colored bars at worst):
+#   - WRITES are pid-gated to match PARTICIPANTS (share tokens read-only).
+#   - Every record is structurally validated against the replay: a play's
+#     action set must equal the ACTUAL legal set at that position, a
+#     pass's combos must come from that seat's dealt hand. Junk dies here.
+#   - Contributions are stored PER CONTRIBUTOR (audit trail, bounded
+#     influence): one record per (position, K, pid), replace-not-append,
+#     max 4 contributors per position/tier. Pooling happens at READ time
+#     (equal-weight mean, se/sqrt(n)) and never destroys source data.
+SEARCH_SHARE_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                 'search_uploads.jsonl')
+_srch_lock = threading.Lock()
+_srch = {}          # mkey -> md5 -> "K|d|i" -> pid -> rec
+_SRCH_CONTRIB_CAP = 4
+_SRCH_RECS_CAP = 400          # per request
+PLAY_KS = {16, 32, 64, 128, 256}
+PASS_KS = {8, 16, 32, 64, 128}
+
+
+def _srch_load():
+    try:
+        with open(SEARCH_SHARE_PATH, encoding='utf-8') as f:
+            for line in f:
+                try:
+                    e = json.loads(line)
+                    _srch.setdefault(e['m'], {}) \
+                         .setdefault(e['md5'], {}) \
+                         .setdefault(e['k'], {})[e['pid']] = e['rec']
+                except Exception:
+                    continue
+    except OSError:
+        pass
+
+
+_srch_load()
+
+
+def _model_md5():
+    if not hasattr(_model_md5, 'v'):
+        try:
+            man = json.load(open(os.path.join(
+                os.path.dirname(os.path.abspath(__file__)),
+                'static', 'models', 'manifest.json'), encoding='utf-8'))
+            _model_md5.v = (man.get('policy_onnx_md5') or '')[:8]
+        except Exception:
+            _model_md5.v = ''
+    return _model_md5.v
+
+
+# Legal-set replay cache: per match, per deal, the legal card set at
+# every action step plus the dealt hands - the validation oracle. Same
+# replay contract the review itself is built on.
+_legalcache = {}
+
+
+def _legal_deals(key, lines):
+    hit = _legalcache.get(key)
+    if hit is not None:
+        return hit
+    lines = sorted(lines, key=lambda d: d['deal_no'])
+    menv = MatchEnv(seed=lines[0]['seed'])
+    deals = []
+    for d in lines:
+        start = [frozenset(hand_of(menv, s)) for s in range(4)]
+        steps = []
+        for s, card, ms in d['actions']:
+            steps.append(frozenset(
+                a for a in menv.get_legal_actions() if a != -1))
+            menv.step(card)
+        deals.append({'start': start, 'steps': steps,
+                      'passing': len(steps) > 52})
+    _legalcache[key] = deals
+    while len(_legalcache) > 8:
+        _legalcache.pop(next(iter(_legalcache)))
+    return deals
+
+
+def _nums_ok(xs, lo, hi, n):
+    return (isinstance(xs, list) and len(xs) == n
+            and all(isinstance(x, (int, float)) and lo <= x <= hi
+                    for x in xs))
+
+
+def _validate_srch(deals, rec):
+    """Returns (kindkey, cleaned) or None if the record is inadmissible."""
+    try:
+        d, i, K = rec.get('d'), rec.get('i'), rec.get('K')
+        if i == 'cards' and d == 'M':
+            cards = rec.get('cards')
+            if not (isinstance(cards, list) and cards
+                    and len(cards) % 6 == 0 and len(cards) <= 64 * 6
+                    and all(isinstance(c, int) and 0 <= c <= 2000
+                            for c in cards)):
+                return None
+            return ('24|M|cards', {'d': 'M', 'i': 'cards', 'K': 24,
+                                   'cards': cards})
+        if not isinstance(d, int) or not 0 <= d < len(deals):
+            return None
+        dl = deals[d]
+        if i == 'po':
+            po = rec.get('playout')
+            if not (_nums_ok(po, 0, 26, 4) and sum(po) == 26):
+                return None
+            return (f'0|{d}|po', {'d': d, 'i': 'po', 'K': 0,
+                                  'playout': [int(x) for x in po]})
+        if isinstance(i, str) and i.startswith('ps'):
+            seat = int(i[2:])
+            if not (0 <= seat < 4 and dl['passing'] and K in PASS_KS):
+                return None
+            combos, mean, se = rec.get('combos'), rec.get('mean'), rec.get('se')
+            if not (isinstance(combos, list) and combos
+                    and len(combos) % 3 == 0 and len(combos) <= 900
+                    and all(isinstance(c, int) and c in dl['start'][seat]
+                            for c in combos)):
+                return None
+            n = len(combos) // 3
+            if not (_nums_ok(mean, -0.05, 1.05, n) and _nums_ok(se, 0, 1, n)):
+                return None
+            out = {'d': d, 'i': i, 'K': K, 'seat': seat, 'combos': combos,
+                   'mean': mean, 'se': se}
+            if _nums_ok(rec.get('pts'), -35, 35, n):
+                out['pts'] = rec['pts']
+            return (f'{K}|{d}|{i}', out)
+        if not isinstance(i, int) or K not in PLAY_KS:
+            return None
+        idx = (12 if dl['passing'] else 0) + i
+        if not 0 <= idx < len(dl['steps']):
+            return None
+        legal = dl['steps'][idx]
+        acts = rec.get('actions')
+        if not (isinstance(acts, list) and len(legal) > 1
+                and all(isinstance(a, int) for a in acts)
+                and set(acts) == set(legal)):
+            return None
+        n = len(acts)
+        mean, se = rec.get('mean'), rec.get('se')
+        if not (_nums_ok(mean, -0.05, 1.05, n) and _nums_ok(se, 0, 1, n)):
+            return None
+        out = {'d': d, 'i': i, 'K': K, 'actions': acts,
+               'mean': mean, 'se': se}
+        if _nums_ok(rec.get('pts'), -35, 35, n):
+            out['pts'] = rec['pts']
+        return (f'{K}|{d}|{i}', out)
+    except Exception:
+        return None
+
+
+@app.post('/api/search/upload')
+def search_upload(body: dict):
+    pid = resolve_pid(body.get('pid'))
+    if not pid:
+        raise HTTPException(400, 'pid required')
+    key, lines, seat = _review_access(
+        pid, body.get('sid'), body.get('code'),
+        body.get('match_no'), None, write=True)
+    md5 = body.get('md5') or ''
+    if not md5 or md5 != _model_md5():
+        raise HTTPException(409, 'results are for a different model version')
+    recs = body.get('recs')
+    if not isinstance(recs, list) or len(recs) > _SRCH_RECS_CAP:
+        raise HTTPException(400, 'bad records')
+    deals = _legal_deals(key, lines)
+    mkey = f'{key[0]}#{key[1]}'
+    accepted = rejected = 0
+    with _srch_lock:
+        slot = _srch.setdefault(mkey, {}).setdefault(md5, {})
+        appends = []
+        for rec in recs:
+            v = _validate_srch(deals, rec)
+            if v is None:
+                rejected += 1
+                continue
+            kk, clean = v
+            by_pid = slot.setdefault(kk, {})
+            if pid not in by_pid and len(by_pid) >= _SRCH_CONTRIB_CAP:
+                rejected += 1
+                continue
+            by_pid[pid] = clean
+            appends.append({'m': mkey, 'md5': md5, 'k': kk, 'pid': pid,
+                            'rec': clean, 'ts': int(time.time())})
+            accepted += 1
+        if appends:
+            with open(SEARCH_SHARE_PATH, 'a', encoding='utf-8') as f:
+                for e in appends:
+                    f.write(json.dumps(e) + '\n')
+    return {'accepted': accepted, 'rejected': rejected}
+
+
+def _pool_srch(by_pid):
+    recs = list(by_pid.values())
+    first = recs[0]
+    if first['i'] in ('po', 'cards'):
+        return dict(first, runs=1)
+    if len(recs) == 1:
+        return dict(first, runs=1)
+    if 'actions' in first:
+        # plays: every contributor passed the same legality check, so the
+        # action sets are identical - align by card id
+        agg = {a: [] for a in first['actions']}
+        pts_ok = all('pts' in r for r in recs)
+        for r in recs:
+            for j, a in enumerate(r['actions']):
+                agg[a].append((r['mean'][j], r['se'][j],
+                               r['pts'][j] if pts_ok else 0.0))
+        acts = first['actions']
+        n = len(recs)
+        out = {'d': first['d'], 'i': first['i'], 'K': first['K'],
+               'actions': acts, 'runs': n,
+               'mean': [sum(v[0] for v in agg[a]) / len(agg[a])
+                        for a in acts],
+               'se': [(sum(v[1] ** 2 for v in agg[a]) ** 0.5) / len(agg[a])
+                      for a in acts]}
+        if pts_ok:
+            out['pts'] = [sum(v[2] for v in agg[a]) / len(agg[a])
+                          for a in acts]
+        return out
+    # passes: contributors may have searched different candidate combos
+    # (sampled) - pool per combo triple, keep every combo anyone searched
+    agg = {}
+    pts_ok = all('pts' in r for r in recs)
+    for r in recs:
+        for j in range(len(r['mean'])):
+            tri = tuple(sorted(r['combos'][j * 3:j * 3 + 3]))
+            agg.setdefault(tri, []).append(
+                (r['mean'][j], r['se'][j], r['pts'][j] if pts_ok else 0.0))
+    combos, mean, se, pts = [], [], [], []
+    for tri, vs in agg.items():
+        combos.extend(tri)
+        mean.append(sum(v[0] for v in vs) / len(vs))
+        se.append((sum(v[1] ** 2 for v in vs) ** 0.5) / len(vs))
+        pts.append(sum(v[2] for v in vs) / len(vs))
+    out = {'d': first['d'], 'i': first['i'], 'K': first['K'],
+           'seat': first['seat'], 'combos': combos, 'mean': mean, 'se': se,
+           'runs': max(len(v) for v in agg.values())}
+    if pts_ok:
+        out['pts'] = pts
+    return out
+
+
+@app.get('/api/search/shared')
+def search_shared(pid: str = None, sid: str = None, code: str = None,
+                  match_no: int = None, share: str = None):
+    pid = resolve_pid(pid)
+    key, lines, seat = _review_access(pid, sid, code, match_no, share)
+    md5 = _model_md5()
+    with _srch_lock:
+        slot = (_srch.get(f'{key[0]}#{key[1]}') or {}).get(md5) or {}
+        return {'md5': md5,
+                'results': [_pool_srch(by_pid) for by_pid in slot.values()]}
 
 
 @app.get('/sw.js')

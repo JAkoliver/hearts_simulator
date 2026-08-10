@@ -66,7 +66,8 @@
     area().innerHTML = `<div class="vline"><span class="vring"></span>
         <span>${msg}</span> &middot;
         <a href="#" id="verify-skip" class="qlink">skip</a></div>
-      <div class="vsub">runs on your device &middot; nothing is uploaded</div>`;
+      <div class="vsub">runs on your device &middot; results shared with
+        this match's viewers</div>`;
     el('verify-skip').onclick = e => { e.preventDefault(); skip(); };
   }
 
@@ -79,6 +80,23 @@
                    + (dpts != null && dpts > 0.05
                       ? ` (~${dpts.toFixed(1)} pts)` : '')};
     return {icon: '·', cls: '#A6A6AF', txt: 'inconclusive at K=64'};
+  }
+
+  // Community search cache: the end-screen verification's results seed
+  // the shared pool too (participants only; server validates against
+  // the replay). Fire-and-forget - the lesson card never waits on it.
+  function shareUp(c, md5, recs) {
+    if (!c.pid || !recs.length) return;
+    const body = {pid: c.pid, md5, recs};
+    if (c.mode === 'table') {
+      body.code = c.tcode;
+      body.match_no = +c.matchNo || undefined;
+    } else body.sid = c.sid;
+    try {
+      fetch('/api/search/upload', {method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(body)}).catch(() => {});
+    } catch (e) {}
   }
 
   async function idbPut(ident, md5, v) {
@@ -133,10 +151,12 @@
     try { fp16Bad = localStorage.getItem('perilune-fp16-bad') === 'v16'; }
     catch (e) {}
     const results = [];
+    const shareRecs = [];
     const finish = () => {
       // rendering belongs to the caller (the unified lesson panel);
       // this line vanishes and onDone draws everything
       stop('');
+      shareUp(c, md5, shareRecs);
       if (c.onDone) c.onDone(results);
     };
 
@@ -169,6 +189,8 @@
         }
         idbPut(ident, md5, {d: m.d, i: m.i, K: m.K, actions: m.actions,
                             mean: m.mean, se: m.se, pts: m.pts});
+        shareRecs.push({d: m.d, i: m.i, K: m.K, actions: m.actions,
+                        mean: m.mean, se: m.se, pts: m.pts});
         const ip = m.actions.indexOf(job.playedId);
         let ib = 0;
         m.actions.forEach((a, k) => { if (m.mean[k] > m.mean[ib]) ib = k; });

@@ -444,9 +444,16 @@
   <div class="hitem"><b>Pre-analyzed moments</b> &mdash; if the match's
     end screen verified your top disagreements, those positions arrive
     here already searched.</div>
-  <div class="hitem"><b>On your device</b> &mdash; the search runs in
-    your browser (GPU when available, multi-core CPU otherwise; the
-    status line names the engine in use). Nothing is uploaded.</div>
+  <div class="hitem"><b>On your device, shared with this match</b>
+    &mdash; the search runs in your browser (GPU when available,
+    multi-core CPU otherwise; the status line names the engine in use).
+    Completed results are shared with this match's other viewers, so
+    one person's sweep pre-searches the review for everyone. Search
+    values only &mdash; never your hand, name, or anything personal.</div>
+  <div class="hitem"><b>K=64 &times;2</b> &mdash; two players searched
+    the same position at the same depth: their independent runs pool
+    into one sharper estimate (only match participants can contribute,
+    and every upload is validated against the match replay).</div>
 
   <h4>Passing</h4>
   <div class="hitem">The deal-start step is the <b>passing station</b>:
@@ -921,7 +928,7 @@ function renderEval(st, deal) {
       html += `<div class="deep-h" style="margin-top:10px">${
         dp.seat === R.viewer_seat && !SHARED ? 'Your pass'
           : esc(seatLabel(dp.seat)) + "'s pass"},
-        deep search &middot; K=${dp.K}</div>`;
+        deep search &middot; ${kTag(dp)}</div>`;
       for (const i of shown) {
         const cards = dp.combos.slice(i * 3, i * 3 + 3).map(idName);
         const isMine = i === mineIdx;
@@ -1045,7 +1052,7 @@ function renderEval(st, deal) {
       const who = passSeat === R.viewer_seat && !SHARED ? 'your pass'
         : `seat ${passSeat + 1}'s pass`;
       el('deep-pos').innerHTML = dp
-        ? `${who}: analyzed at K=${dp.K}${dp.K >= 256 ? ' (max)' : ''}`
+        ? `${who}: analyzed at ${kTag(dp)}${dp.K >= 256 ? ' (max)' : ''}`
         : `${who}: not yet analyzed`;
     } else {
       b64s.style.display = 'none';
@@ -1158,7 +1165,7 @@ function renderEval(st, deal) {
   el('deep-pos').innerHTML = forced
     ? 'this position: forced move (only one legal card)'
     : dr
-    ? `this position: analyzed at K=${dr.K}${dr.K >= 256 ? ' (max)' : ''}`
+    ? `this position: analyzed at ${kTag(dr)}${dr.K >= 256 ? ' (max)' : ''}`
     : 'this position: not yet analyzed';
   updateDeepBtn();
   const x = el('ev-x');
@@ -1529,7 +1536,13 @@ el('d-gap').onclick = () => { disSort = 'gap';
     const man = await (await fetch('/static/models/manifest.json')).json();
     deepMd5 = (man.policy_onnx_md5 || '').slice(0, 8);
   } catch (e) { deepMd5 = 'nomd5'; }
-  for (const v of await idbLoadCached()) deepAccept(v);
+  const cachedLocal = await idbLoadCached();
+  cachedLocal.forEach(v => deepAccept(v));
+  // community pool: merge, then backfill positions this device searched
+  // in past sessions that the pool doesn't know about yet
+  const pooled = await sharedFetch();
+  for (const v of cachedLocal)
+    if (!pooled[`${v.K}|${v.d}|${v.i}`]) queueUpload(v);
   scheduleHarvest();
   // Position deep link: open scrubbed to the shared moment.
   if (q.get('pos') !== null && q.get('pos') !== undefined && q.get('pos') !== '') {
@@ -1630,9 +1643,78 @@ async function idbSave(v) {
     .put(v, `${DEEP_SCHEMA}|${matchIdent()}|${deepMd5}|${v.K}|${v.d}|${v.i}`);
 }
 
+// myDepth = the deepest K THIS device actually computed per position.
+// Sweep skip logic runs on it, not on the community pool: a shared
+// result should not stop your sweep from adding an independent run to
+// the pool (that's how pooling deepens), but your own past work should.
+const myDepth = {};
 function deepAccept(v) {
   const k = deepKey(v.d, v.i);
-  if (!deepResults[k] || v.K >= deepResults[k].K) deepResults[k] = v;
+  if (!v.shared) myDepth[k] = Math.max(myDepth[k] || 0, v.K);
+  const cur = deepResults[k];
+  // display preference: sharper native K wins; same K -> more runs wins
+  if (!cur || v.K > cur.K
+      || (v.K === cur.K && (v.runs || 1) >= (cur.runs || 1)))
+    deepResults[k] = v;
+}
+
+// ---- community search cache (server-pooled, per-match) --------------------
+// Completed searches upload to the server (participants only, validated
+// against the replay) and every viewer of this review downloads the
+// pooled view: independent runs at the same K average together, so
+// "K=64 x2" carries sqrt(2) sharper values. Read-only viewers (share
+// links) still benefit; they just can't contribute.
+let _upQ = [], _upT = null;
+let _upOk = !SHARED && !!q.get('pid') && (!!q.get('sid') || !!q.get('code'));
+function queueUpload(v) {
+  if (!_upOk || v.shared || v.i === 'tr') return;
+  const r = {d: v.d, i: v.i, K: v.K, actions: v.actions, mean: v.mean,
+             se: v.se, pts: v.pts, combos: v.combos, seat: v.seat,
+             playout: v.playout, cards: v.cards};
+  _upQ.push(r);
+  if (_upQ.length >= 50) flushUploads();
+  else { clearTimeout(_upT); _upT = setTimeout(flushUploads, 3000); }
+}
+async function flushUploads() {
+  clearTimeout(_upT); _upT = null;
+  if (!_upOk || !_upQ.length) return;
+  const recs = _upQ.splice(0, 300);
+  try {
+    const body = {pid: q.get('pid'), md5: deepMd5, recs};
+    if (q.get('code')) {
+      body.code = q.get('code');
+      if (q.get('match_no')) body.match_no = +q.get('match_no');
+    } else body.sid = q.get('sid');
+    const r = await fetch('/api/search/upload', {method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body)});
+    if (!r.ok && r.status !== 429) _upOk = false;   // not eligible: stop
+  } catch (e) { /* transient - the next flush retries what's left */ }
+  if (_upQ.length) _upT = setTimeout(flushUploads, 3000);
+}
+async function sharedFetch() {
+  try {
+    const ps = new URLSearchParams();
+    if (q.get('share')) ps.set('share', q.get('share'));
+    else {
+      ps.set('pid', q.get('pid') || '');
+      if (q.get('code')) {
+        ps.set('code', q.get('code'));
+        if (q.get('match_no')) ps.set('match_no', q.get('match_no'));
+      } else ps.set('sid', q.get('sid') || '');
+    }
+    const r = await fetch('/api/search/shared?' + ps);
+    if (!r.ok) return {};
+    const j = await r.json();
+    if (j.md5 && deepMd5 && j.md5 !== deepMd5) return {};
+    const have = {};
+    for (const v of j.results || []) {
+      have[`${v.K}|${v.d}|${v.i}`] = true;
+      v.shared = true;
+      deepAccept(v);
+    }
+    return have;
+  } catch (e) { return {}; }
 }
 
 // scope 'mine' = the viewer's own decisions (their plays + their pass)
@@ -1670,7 +1752,11 @@ function deepJobs(K, skipDone, scope = 'all') {
     for (const seat of mine ? [view]
                             : [view, ...[0, 1, 2, 3].filter(s => s !== view)]) {
       const have = deepResults[passKey(d, seat)];
-      if (skipDone && have && have.K >= passK) continue;
+      // skip when THIS device already searched it, or the community
+      // pool is full at this depth - otherwise run and add to the pool
+      if (skipDone && ((myDepth[passKey(d, seat)] || 0) >= passK
+                       || (have && have.K >= passK && (have.runs || 1) >= 4)))
+        continue;
       jobs.push({prio: seat === view ? 0.5 : 2.5, kind: 'pass',
                  key: passKey(d, seat), d, i: 'ps' + seat, deal: d, seat,
                  actionIdx: 0, K: passK});
@@ -1680,7 +1766,9 @@ function deepJobs(K, skipDone, scope = 'all') {
     if (st.type !== 'play') return;
     if (isForced(st)) return;   // one legal card: nothing to evaluate
     const have = deepResults[deepKey(st.d, st.i)];
-    if (skipDone && have && have.K >= K) return;   // already this deep
+    if (skipDone && ((myDepth[deepKey(st.d, st.i)] || 0) >= K
+                     || (have && have.K >= K && (have.runs || 1) >= 4)))
+      return;   // mine already this deep, or pool full at this depth
     const [s, name] = R.deals[st.d].plays[st.i];
     if (mine && s !== R.viewer_seat) return;
     const prio = (disIdx.has(idx) && s === R.viewer_seat) ? 0
@@ -1767,6 +1855,7 @@ async function bootEngine() {
            mean: m.mean, se: m.se, pts: m.pts};
       deepAccept(v);
       idbSave(v);
+      queueUpload(v);
       const st = steps[cur];
       if (st && ((st.type === 'play' && st.d === v.d)
                  || (st.type === 'start')
@@ -1846,8 +1935,12 @@ function deepMerged(st) {
     if (it.pts != null) it.pts /= it.m;
     it.names = it.ids.map(idName);
   }
-  return {items, K: dr.K};
+  return {items, K: dr.K, runs: dr.runs || 1};
 }
+
+// "K=64 ×2" = two independent community runs pooled at K=64 (values
+// averaged, noise ~1/sqrt(runs) tighter). Plain "K=64" = one run.
+const kTag = r => `K=${r.K}` + ((r.runs || 1) > 1 ? ` ×${r.runs}` : '');
 
 // ---- search-verdict harvest (progress page; local device only) ------------
 // When the viewer's WHOLE game is searched (every non-forced decision of
@@ -1978,22 +2071,10 @@ function costlyPlays() {
   return out;
 }
 
+// "Done" = a sweep would be a no-op: everything is either already
+// searched by this device or community-pooled to the cap.
 function deepAllDone(scope = 'all') {
-  const mine = scope === 'mine';
-  const K = +el('deep-k').value, passK = Math.max(8, K / 2);
-  const playsDone = steps.every(st => {
-    if (st.type !== 'play' || isForced(st)) return true;
-    if (mine && R.deals[st.d].plays[st.i][0] !== R.viewer_seat) return true;
-    const dr = deepResults[deepKey(st.d, st.i)];
-    return dr && dr.K >= K;
-  });
-  const seats = mine ? [R.viewer_seat ?? 0] : [0, 1, 2, 3];
-  const passesDone = R.deals.every((deal, d) =>
-    deal.pass_direction === 'hold' || seats.every(s => {
-      const dp = deepResults[passKey(d, s)];
-      return dp && dp.K >= passK;
-    }));
-  return playsDone && passesDone;
+  return deepJobs(+el('deep-k').value, true, scope).length === 0;
 }
 // Gray out 'Deep analysis' once every play position is at or above the
 // SELECTED K (raising the dropdown re-arms the pass for the remainder).
@@ -2058,6 +2139,11 @@ function deepDone() {
   el('deep-k').disabled = false;
   el('deep-scope').disabled = false;
   updateDeepBtn();
+  // push the tail of the sweep, then pull the refreshed pool (now
+  // including this device's runs, and anyone else's since page load)
+  flushUploads();
+  setTimeout(() => sharedFetch().then(() => { render(); renderDis(); }),
+             1500);
 }
 
 el('deep-btn').onclick = () => {
