@@ -2761,8 +2761,8 @@ def about():
 # still exists), and match review share links (deal count + final
 # scores + winner). Codenames only - never credentials or seat keys.
 OG_DEFAULT = ('Perilune — a match-aware Hearts AI',
-              'Play Hearts against an AI that plays the match, not just '
-              'the deal. Free, no account — with full match reviews and '
+              'Play Hearts against Perilune, a match-aware AI, or your '
+              'friends. Free, no account. Full match reviews with '
               'on-device deep-search analysis.')
 
 
