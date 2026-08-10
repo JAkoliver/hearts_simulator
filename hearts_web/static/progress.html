@@ -31,6 +31,21 @@
               font-variant-numeric:tabular-nums; }
   #hdr .lbl { font-size:.68rem; color:#A6A6AF; text-transform:uppercase; }
   #hdr .vdiv { width:1px; align-self:stretch; background:#33333A; }
+  #hdr .rowbreak { flex-basis:100%; height:0; }
+  /* narrow panels: the subtitle is a DELIBERATE second line - never a
+     mid-phrase wrap. Wide panels keep one line on desktop and get the
+     same two-line treatment on phones. The separator dot is CSS so it
+     exists inline and vanishes when the subtitle owns its line. */
+  .panel h3 .muted::before { content:'\00B7  '; }
+  .cards3 h3 .muted { display:block; margin-top:2px; }
+  .cards3 h3 .muted::before { content:''; }
+  @media (max-width:700px) {
+    .panel h3 .muted { display:block; margin-top:2px; }
+    .panel h3 .muted::before { content:''; }
+    /* the filter row overlapped the title's sub-line on phones - give
+       it its own line instead of pulling up beside the heading */
+    #filters { margin:4px 0 6px !important; text-align:left !important; }
+  }
   svg { display:block; width:100%; }
   .axlab { position:absolute; right:6px; font-size:.6rem; color:#5C5C66;
            pointer-events:none; }
@@ -79,7 +94,7 @@
 <div id="tip"></div>
 
 <div class="panel">
-  <h3>Placement per match <span class="muted" id="place-sub">&middot; line =
+  <h3>Placement per match <span class="muted" id="place-sub">line =
     rolling average of 5 &middot; oldest &rarr; newest</span></h3>
   <div style="position:relative">
     <svg id="placechart" height="130"></svg>
@@ -90,13 +105,13 @@
 
 <div class="cards3">
   <div class="panel"><h3>Perilune agreement
-    <span class="muted">&middot; habit, not ground truth</span></h3>
+    <span class="muted">habit, not ground truth</span></h3>
     <svg id="sp-agree" height="60"></svg><div class="small muted" id="t-agree"></div></div>
   <div class="panel"><h3>Readability
-    <span class="muted" id="h-read">&middot; you vs AI seats (raw-net belief)</span></h3>
+    <span class="muted" id="h-read">you vs AI seats (raw-net belief)</span></h3>
     <svg id="sp-read" height="60"></svg><div class="small muted" id="t-read"></div></div>
   <div class="panel"><h3>Score shape
-    <span class="muted">&middot; your deals by points taken</span></h3>
+    <span class="muted">your deals by points taken</span></h3>
     <div id="shape"></div><div class="small muted" id="t-shape"
       style="margin-top:4px"></div></div>
 </div>
@@ -108,8 +123,8 @@
 </div>
 
 <div class="panel">
-  <h3>Search verdicts <span class="muted">&middot; deep-search costs
-    &middot; community pool</span></h3>
+  <h3>Search verdicts <span class="muted">deep-search costs &middot;
+    community pool</span></h3>
   <div id="sv-cover" class="small muted" style="margin-bottom:6px"></div>
   <svg id="sp-cost" height="70" style="display:none"></svg>
   <table id="sv-cats" style="margin-top:8px"></table>
@@ -117,7 +132,7 @@
 </div>
 
 <div class="panel">
-  <h3>Habits &middot; agreement by decision type</h3>
+  <h3>Habits <span class="muted">agreement by decision type</span></h3>
   <table id="habits"></table>
   <div class="small muted" id="h-habits" style="margin-top:6px">Where you and
     Perilune part ways most often - the practice list, not a verdict.</div>
@@ -291,7 +306,7 @@ const roll = (vals, w) => vals.map((_, i) => {
   }
   if (PLAYER && pubName) {
     document.querySelector('h1').textContent = `${pubName} — profile`;
-    el('h-read').innerHTML = '&middot; player vs AI seats (raw-net belief)';
+    el('h-read').innerHTML = 'player vs AI seats (raw-net belief)';
     el('h-habits').textContent = 'Where this player and Perilune part ways '
       + 'most often - the practice list, not a verdict.';
   }
@@ -424,9 +439,11 @@ const roll = (vals, w) => vals.map((_, i) => {
     [(totDeals * 13).toLocaleString(), 'tricks played'],
   ].map(chip).join('')
   // daily career (server-side, filter-independent): completions, and
-  // top-10 finishes on CLOSED days only - today's board still moves
+  // top-10 finishes on CLOSED days only - today's board still moves.
+  // Own DELIBERATE second row - a mid-row flex wrap left an orphaned
+  // divider dangling at the end of line one.
   + (window._dstat && _dstat.completed
-     ? '<i class="vdiv"></i>' + [
+     ? '<span class="rowbreak"></span>' + [
          [_dstat.completed, 'dailies played'],
          [_dstat.top10, 'daily top 10s'],
        ].map(chip).join('')
@@ -448,7 +465,7 @@ const roll = (vals, w) => vals.map((_, i) => {
   // matches is jitter, not trend
   const rollW = places.length > BUCKET_AFTER ? 10 : 5;
   const rollP = roll(places, rollW);
-  el('place-sub').innerHTML = `&middot; line = rolling average of ${rollW}
+  el('place-sub').innerHTML = `line = rolling average of ${rollW}
     &middot; oldest &rarr; newest`;
   spark(el('placechart'),
     [{vals: places.map(p => 5 - p), color: '#7CBF8E', width: 0, dots: true,
@@ -502,9 +519,12 @@ const roll = (vals, w) => vals.map((_, i) => {
     });
   const lr = readV.filter(v => v != null).slice(-5),
         lra = readAI.filter(v => v != null).slice(-5);
-  el('t-read').textContent = lr.length
-    ? `mapped by trick 6, last 5: ${PLAYER ? 'player' : 'you'} ${(lr.reduce((a,b)=>a+b,0)/lr.length).toFixed(0)}%`
-      + (lra.length ? ` · AI seats ${(lra.reduce((a,b)=>a+b,0)/lra.length).toFixed(0)}%` : '')
+  // two deliberate lines: what the number is, then the numbers
+  el('t-read').innerHTML = lr.length
+    ? `mapped by trick 6<br>last 5: ${PLAYER ? 'player' : 'you'}
+       ${(lr.reduce((a, b) => a + b, 0) / lr.length).toFixed(0)}%`
+      + (lra.length ? ` &middot; AI seats ${
+          (lra.reduce((a, b) => a + b, 0) / lra.length).toFixed(0)}%` : '')
     : 'no data (all-human tables have no AI reference)';
 
   // Score shape: your deals bucketed by points taken, AI seats' deals
@@ -544,10 +564,10 @@ const roll = (vals, w) => vals.map((_, i) => {
     el('shape').onpointerleave = () => { el('tip').style.display = 'none'; };
     const qe = M.reduce((a, m) => a + (m.qs_eaten || 0), 0);
     const qf = M.reduce((a, m) => a + (m.qs_fed || 0), 0);
-    el('t-shape').innerHTML = `green = ${PLAYER ? 'player' : 'you'}, gray =
-      AI seats &middot; <span style="color:#E8B923">Q&spades;</span> eaten in
-      ${n ? (100 * qe / n).toFixed(0) : 0}% of deals &middot; unloaded
-      ${qf} time${qf === 1 ? '' : 's'}`;
+    el('t-shape').innerHTML = `green = ${PLAYER ? 'player' : 'you'},
+      gray = AI seats<br><span style="color:#E8B923">Q&spades;</span>
+      eaten in ${n ? (100 * qe / n).toFixed(0) : 0}% of deals
+      &middot; unloaded ${qf} time${qf === 1 ? '' : 's'}`;
   }
 
   // Records: the moments worth remembering
