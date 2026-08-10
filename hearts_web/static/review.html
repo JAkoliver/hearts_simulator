@@ -1543,6 +1543,7 @@ el('d-gap').onclick = () => { disSort = 'gap';
   const pooled = await sharedFetch();
   for (const v of cachedLocal)
     if (!pooled[`${v.K}|${v.d}|${v.i}`]) queueUpload(v);
+  idbJanitor();
   scheduleHarvest();
   // Position deep link: open scrubbed to the shared moment.
   if (q.get('pos') !== null && q.get('pos') !== undefined && q.get('pos') !== '') {
@@ -1643,6 +1644,54 @@ async function idbSave(v) {
     .put(v, `${DEEP_SCHEMA}|${matchIdent()}|${deepMd5}|${v.K}|${v.d}|${v.i}`);
 }
 
+// Cache janitor: the local store is a PERFORMANCE cache now - the
+// community pool holds the durable copy (uploaded by the backfill on
+// every open). Keep the 50 most-recently-opened matches; prune older
+// ones, but ONLY matches with a recorded open under the upload-era
+// code - an ident we've never seen opened here may hold results the
+// pool lacks, so it is never deleted.
+async function idbJanitor() {
+  try {
+    const KEEP = 50;
+    const cur = matchIdent();
+    let opens = {};
+    try { opens = JSON.parse(localStorage.getItem('hearts_rvopen') || '{}'); }
+    catch (e) {}
+    opens[cur] = Date.now();
+    try { localStorage.setItem('hearts_rvopen', JSON.stringify(opens)); }
+    catch (e) {}
+    const db = await idbOpen();
+    const idents = new Set();
+    await new Promise(res => {
+      const c = db.transaction('evals').objectStore('evals').openKeyCursor();
+      c.onsuccess = () => {
+        if (c.result) {
+          idents.add(String(c.result.key).split('|')[1]);
+          c.result.continue();
+        } else res();
+      };
+      c.onerror = () => res();
+    });
+    if (idents.size <= KEEP) return;
+    const stale = [...idents]
+      .filter(i => i !== cur && opens[i])
+      .sort((a, b) => opens[a] - opens[b])
+      .slice(0, idents.size - KEEP);
+    if (!stale.length) return;
+    const drop = new Set(stale);
+    for (const i of stale) delete opens[i];
+    try { localStorage.setItem('hearts_rvopen', JSON.stringify(opens)); }
+    catch (e) {}
+    const st = db.transaction('evals', 'readwrite').objectStore('evals');
+    st.openKeyCursor().onsuccess = ev => {
+      const c2 = ev.target.result;
+      if (!c2) return;
+      if (drop.has(String(c2.key).split('|')[1])) st.delete(c2.key);
+      c2.continue();
+    };
+  } catch (e) { /* hygiene is best-effort */ }
+}
+
 // myDepth = the deepest K THIS device actually computed per position.
 // Sweep skip logic runs on it, not on the community pool: a shared
 // result should not stop your sweep from adding an independent run to
@@ -1665,7 +1714,12 @@ function deepAccept(v) {
 // "K=64 x2" carries sqrt(2) sharper values. Read-only viewers (share
 // links) still benefit; they just can't contribute.
 let _upQ = [], _upT = null;
-let _upOk = !SHARED && !!q.get('pid') && (!!q.get('sid') || !!q.get('code'));
+// identity resolves like everywhere else on this page: URL param, then
+// the browser's stored key (menu/progress links don't carry ?pid=) -
+// using the raw param alone silently disabled uploads for every
+// normally-navigated review (live bug 2026-08-11)
+const MYPID = q.get('pid') || (localStorage.getItem('hearts_pid') || '');
+let _upOk = !SHARED && !!MYPID && (!!q.get('sid') || !!q.get('code'));
 function queueUpload(v) {
   if (!_upOk || v.shared || v.i === 'tr') return;
   const r = {d: v.d, i: v.i, K: v.K, actions: v.actions, mean: v.mean,
@@ -1680,7 +1734,7 @@ async function flushUploads() {
   if (!_upOk || !_upQ.length) return;
   const recs = _upQ.splice(0, 300);
   try {
-    const body = {pid: q.get('pid'), md5: deepMd5, recs};
+    const body = {pid: MYPID, md5: deepMd5, recs};
     if (q.get('code')) {
       body.code = q.get('code');
       if (q.get('match_no')) body.match_no = +q.get('match_no');
@@ -1697,7 +1751,7 @@ async function sharedFetch() {
     const ps = new URLSearchParams();
     if (q.get('share')) ps.set('share', q.get('share'));
     else {
-      ps.set('pid', q.get('pid') || '');
+      ps.set('pid', MYPID);
       if (q.get('code')) {
         ps.set('code', q.get('code'));
         if (q.get('match_no')) ps.set('match_no', q.get('match_no'));
