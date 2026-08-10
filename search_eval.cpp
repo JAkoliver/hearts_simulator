@@ -818,6 +818,10 @@ int main(int argc, char** argv) {
         tcfg.c_puct = tree_c_puct;
         tcfg.seed = seed + 1000;
         tcfg.pass_cfg = cfg;  // sampler/pass search inherit device, K, belief settings
+        // match-aware tree (556 trace) needs the equity leaves here too -
+        // without this the deal-scoring driver can't host the Stage C
+        // teacher config (P2 strength screen, 2026-08-10)
+        tcfg.equity_model = cfg.equity_model;
         sp = std::make_unique<TreeSearchPlayer>(search_model, sdim, tcfg);
     } else {
         sp = std::make_unique<SearchPlayer>(search_model, sdim, cfg);

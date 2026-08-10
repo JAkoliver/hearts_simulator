@@ -196,3 +196,34 @@ Also authorized 2026-08-10: defense gate on cand_r3_probe005.pth
 (trace via export_b2_trace.py, r2 defense-gate harness, r1 base arm
 reused). Exploratory curve point; candidate eligibility remains
 subject to the r3 prereg's separate-authorization clause.
+
+## Stage C rider: strength screen + launch (SIGNED 2026-08-10, pre-data)
+
+USER DECISION (post defense-gate): Stage B-2 judgment zone resolved as
+PROCEED, via a pre-launch strength screen the user approved ("proceed
+via strength check"). Registered here before any screen data:
+
+Screen: the Stage C teacher config (tree, 200 iters, k=24 sampler,
+match-aware equity leaves, hearts_ai_search_match.pt) vs the deployed
+flat searcher (K=64, same trace/equity) on CRN-paired deals - 1 search
+seat vs 3 neutral-anchor raw seats, the standing guard geometry.
+n=800 deals (2 shards x 400), seeds 213,000,000 + shard*1,000,000
+(audited free). BAND (binding, halt-default): one-sided 95% UB of
+(tree - flat) per-deal score <= +1.0 pt. This is a GROSS-failure
+screen only - the teacher must not be materially weaker than the
+deployed searcher at generation config; it does not claim superiority.
+Required one-line harness fix recorded: the --deals driver now passes
+the equity model to the tree config (previously unhostable).
+
+On PASS, generation launches immediately (user pre-authorized budget
+200 local): 2 shards x 170 matches, seeds 210,000,000 and 210,500,000
+(inside the registered 210M block; per-match stride 1000), --k 24,
+every decision recorded, trailer-bounded records, target >= 150k play
+records (~3,000 deals). Quote: ~26 s/deal single-process => ~14h wall
+2-sharded at BelowNormal priority. On FAIL, chain halts before any
+generation spend.
+
+Defense-gate datum recorded same morning: cand_r3_probe005 moons
+delta +0.016 (p=0.56) - NULL. The lambda=0.05 anchored-PPO lead is
+search-substrate-only; league round 4 on it would target the standard
+gates and waits behind Phase 2.
