@@ -195,6 +195,11 @@
              align-items:center; justify-content:center; z-index:10; }
   #home { position:fixed; inset:0; background:rgba(0,0,0,.72); display:none;
           align-items:center; justify-content:center; z-index:9; }
+  /* menu open: the header (opaque bg) rises above the dim layer - site
+     identity and the Menu button stay bright and CLICKABLE while the
+     game below keeps its dim. Deal-end overlay (also z10 but later in
+     the DOM) still wins if both are up. */
+  body.menuopen header { z-index:10; }
   #home .opanel { background:var(--overlay-panel); border-radius:14px;
                   padding:24px 32px; text-align:center; min-width:300px; }
   #home h2 { color:var(--banner); margin-bottom:14px; }
@@ -1088,6 +1093,7 @@ function showHome(err) {
 
   tableDeadline = null;
   el('home').style.display = 'flex';
+  document.body.classList.add('menuopen');
   el('home-err').textContent = err || '';
   // Opening the menu never destroys a game: solo sessions park at your
   // turn server-side, tables keep polling. Offer the way back.
@@ -1164,6 +1170,7 @@ async function loadHistory() {
 function hideHome() {
   el('home').style.display = 'none';
   document.body.classList.remove('nogame');
+  document.body.classList.remove('menuopen');
 }
 
 async function hostTable() {
@@ -1701,7 +1708,14 @@ el('home-daily').onclick = () => {
 };
 el('home-host').onclick = hostTable;
 el('home-join').onclick = joinTable;
-el('menu-btn').onclick = () => showHome();
+// Toggle: with the menu open over a LIVE game, the Menu button closes
+// it (same escape hatch as home-close); with no game behind, the menu
+// IS the screen - nothing to return to, so the click is a no-op.
+el('menu-btn').onclick = () => {
+  const open = el('home').style.display === 'flex';
+  if (!open) showHome();
+  else if (el('home-close').style.display !== 'none') hideHome();
+};
 document.querySelector('header h1').onclick = () => showHome();
 el('home-resume-btn').onclick = hideHome;
 if (DEV_CONTROLS) {
