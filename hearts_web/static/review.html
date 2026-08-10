@@ -1296,7 +1296,9 @@ function renderDis() {
     // over all decisions is dominated by max-selection bias (the 'best'
     // of ~13 noisy estimates sits systematically above truth) - it
     // rendered -200%+ phantom totals and is not shown.
-    scHtml = `<div class="deep-h" style="margin-bottom:2px; white-space:nowrap">Decision costs (deep search)</div>`
+    // (+= : plain assignment here silently ERASED the cards-only block
+    // above whenever any decisions were analyzed - i.e. always.)
+    scHtml += `<div class="deep-h" style="margin-bottom:2px; white-space:nowrap">Decision costs (deep search)</div>`
       + sc.map(r =>
       `<div style="font-size:.72rem; margin:3px 0">
         <div style="white-space:nowrap">${esc(seatLabel(r.s))}: ${r.mat
