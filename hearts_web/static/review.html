@@ -811,11 +811,17 @@ function render() {
 
 // Highlight the disagreement/costly-play line for the CURRENT step so the
 // side panel shows at a glance which entry you are on while scrubbing.
+// Auto-scroll fires ONLY when the selection changes: renders repeat for
+// many reasons (deep results landing, etc.) and re-yanking the list to
+// a constant selection made scrolling away impossible.
+let _disScrolledTo = -1;
 function updateDisHighlight() {
   document.querySelectorAll('.dline').forEach(n => {
     const on = +n.dataset.idx === cur;
     n.classList.toggle('on', on);
     if (!on) return;
+    if (cur === _disScrolledTo) return;
+    _disScrolledTo = cur;
     if (MOBILE) {
       // scroll only the list, never the page: scrollIntoView would yank
       // the viewport up to the panel on every scrub step (and does
