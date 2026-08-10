@@ -140,3 +140,59 @@ approval.
   sequencing (scale inside the loop) and the league round-4 rider
   (visit targets on the defended corpus, r2's recorded reopening)
   both unlock, each behind its own prereg.
+
+## Stage B-2 addendum (SIGNED 2026-08-10, before any B-2 data)
+
+Stage B outcome: both hard HALTs passed decisively (one-hot 8.7-10.4%
+vs 80% bar; top-1 medians 0.69-0.73 vs 0.35 uniformity bar). The
+registered cross-pair Spearman (0.085/0.033/0.171) missed the guessed
+0.3 band at every budget. Pre-unblinding exploration on the recorded
+CSVs found the cross-pair construction flawed (compares gaps on
+DIFFERENT move pairs; reference gap known mostly-noise from the
+flip-SNR work) and measured same-pair Spearman 0.278/0.212/0.285 (all
+p<=1.3e-5), confident-third sign agreement 62.5%/53.6%/64.5%.
+
+USER DECISION (2026-08-10 morning): do NOT spend the one amendment on
+re-banding to the observed numbers. Run one sharper validity
+instrument first; the amendment (or halt) is decided by ITS bands,
+registered here before the run.
+
+Instrument (Stage B-2): rerun the budget-200 probe at the SAME seed
+(212000200; self-play deterministic, A/A verified) with flat-compare
+K=256 on an independent stream (--compare-seed-off 6000), plus a
+second fresh-seed match (212001200, same config) to tighten n.
+The flat K=256 reference has 2x less noise (SE ~ 1/sqrt(K)).
+
+Registered quantities:
+ 1. PRIMARY - Spearman(tree visit gap, flat-K256 same-pair value gap),
+    pooled over both matches, non-forced play decisions.
+ 2. RELIABILITY DATUM - Spearman(flat-K64 gap, flat-K256 gap) on the
+    row-paired seed-212000200 decisions (independent streams). This is
+    the measurement ceiling: no teacher can correlate with the K=64
+    reference beyond its own reliability.
+ 3. SECONDARY - sign agreement of flat-K256 with the tree's top-1-over-
+    top-2 ordering among the confident third (top tercile of visit gap).
+
+Decision bands (binding):
+ - PRIMARY >= 0.30: validity DEMONSTRATED against the cleaner
+   reference. The one amendment is signed as a construction fix
+   (same-pair, K256-validated); proceed to Stage C at budget 200
+   local (user pre-authorized this venue/budget contingent on B-2).
+ - PRIMARY in [0.20, 0.30): judgment zone - present with the
+   reliability datum; user decides proceed/halt. If PRIMARY >= 0.8 *
+   sqrt(reliability datum) the attenuation account is confirmed and
+   the recommendation is proceed.
+ - PRIMARY < 0.20: recommend HALT of Phase 2 (signal weak even
+   against a clean reference); user confirms.
+ - SECONDARY < 0.55 at budget 200: flags the confident-decision story
+   regardless of PRIMARY; reported, blocks nothing alone.
+
+Pairing validity check (must pass before any band is read): the tree
+columns (match,deal,seat,legal_n,tree_top1,tree_top2,pi1,pi2) of the
+seed-212000200 rerun must be identical to stageb_200.csv. If they are
+not, determinism is broken: HALT the analysis, no unblinding.
+
+Also authorized 2026-08-10: defense gate on cand_r3_probe005.pth
+(trace via export_b2_trace.py, r2 defense-gate harness, r1 base arm
+reused). Exploratory curve point; candidate eligibility remains
+subject to the r3 prereg's separate-authorization clause.

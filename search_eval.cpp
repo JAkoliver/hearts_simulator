@@ -420,6 +420,7 @@ int main(int argc, char** argv) {
     bool tree_selfplay = false;
     std::string flat_compare;
     int compare_k = 64;
+    int compare_seed_off = 5000;
     bool search_defenders = false;
     bool resume_flag = false;
     std::string attacker_path;
@@ -455,6 +456,7 @@ int main(int argc, char** argv) {
         else if (a == "--tree-selfplay") tree_selfplay = true;
         else if (a == "--flat-compare") flat_compare = next();
         else if (a == "--compare-k") compare_k = std::stoi(next());
+        else if (a == "--compare-seed-off") compare_seed_off = std::stoi(next());
         else if (a == "--iterations") tree_iterations = std::stoi(next());
         else if (a == "--c-puct") tree_c_puct = std::stof(next());
         else if (a == "--uniform-sampling") uniform = true;
@@ -575,7 +577,11 @@ int main(int argc, char** argv) {
             }
             SearchPlayer::Config pc2 = pc;
             pc2.determinizations = compare_k;
-            pc2.seed = seed + 5000;
+            // Stage B-2: the K=256 rerun must draw an INDEPENDENT
+            // determinization stream from the K=64 run (same base seed,
+            // shared prefix would correlate the two references' noise
+            // and inflate the reliability estimate).
+            pc2.seed = seed + compare_seed_off;
             pc2.pass_search = false;
             cmp = std::make_unique<SearchPlayer>(std::move(m2), 556, pc2);
             cmp_out.open(flat_compare);
