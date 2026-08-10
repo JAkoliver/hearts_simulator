@@ -418,6 +418,8 @@ int main(int argc, char** argv) {
     bool uniform = false, selftest = false, pass_search = false, use_cuda = false;
     bool oracle_leaves = false, use_tree = false, use_bf16 = false;
     bool tree_selfplay = false;
+    std::string flat_compare;
+    int compare_k = 64;
     bool search_defenders = false;
     bool resume_flag = false;
     std::string attacker_path;
@@ -451,6 +453,8 @@ int main(int argc, char** argv) {
         else if (a == "--oracle-leaves") oracle_leaves = true;
         else if (a == "--tree") use_tree = true;
         else if (a == "--tree-selfplay") tree_selfplay = true;
+        else if (a == "--flat-compare") flat_compare = next();
+        else if (a == "--compare-k") compare_k = std::stoi(next());
         else if (a == "--iterations") tree_iterations = std::stoi(next());
         else if (a == "--c-puct") tree_c_puct = std::stof(next());
         else if (a == "--uniform-sampling") uniform = true;
@@ -553,6 +557,33 @@ int main(int argc, char** argv) {
         tc.pass_cfg = pc;
         TreeSearchPlayer tsp(std::move(search_model), 556, tc);
 
+        // Stage B dual probe (--flat-compare): the FLAT search evaluates
+        // the SAME live position after the tree; per-decision CSV pairs
+        // the tree's visit-share gap with the flat value gap - the
+        // prereg's preference-strength validity check.
+        std::unique_ptr<SearchPlayer> cmp;
+        std::ofstream cmp_out;
+        if (!flat_compare.empty()) {
+            torch::jit::script::Module m2;
+            try {
+                m2 = torch::jit::load(search_path);
+                m2.eval();
+            } catch (const c10::Error& e) {
+                std::cerr << "flat-compare model reload failed: "
+                          << e.what() << "\n";
+                return 1;
+            }
+            SearchPlayer::Config pc2 = pc;
+            pc2.determinizations = compare_k;
+            pc2.seed = seed + 5000;
+            pc2.pass_search = false;
+            cmp = std::make_unique<SearchPlayer>(std::move(m2), 556, pc2);
+            cmp_out.open(flat_compare);
+            cmp_out << "match,deal,seat,legal_n,tree_top1,tree_top2,"
+                       "pi1,pi2,flat_best_v,flat_second_v,"
+                       "flat_v_tree1,flat_v_tree2\n";
+        }
+
         int mi0 = 0;
         if (resume_flag) {
             mi0 = TreeResumeTrim(record_path);
@@ -628,6 +659,38 @@ int main(int argc, char** argv) {
                                 vis, (uint8_t)p, 0,
                                 (uint16_t)mi, (uint8_t)deals, z4, zf);
                         total_plays++;
+                        if (cmp && legal_n > 1) {
+                            cmp->SetMatchContext(totals, deals);
+                            cmp->ChooseAction(env);
+                            const auto& st2 = cmp->LastStats();
+                            if (st2.valid && st2.actions.size() > 1) {
+                                int t1 = -1, t2 = -1;
+                                float p1 = -1, p2v = -1;
+                                for (int a2 = 0; a2 < 52; ++a2) {
+                                    if (pi[a2] > p1) {
+                                        p2v = p1; t2 = t1;
+                                        p1 = pi[a2]; t1 = a2;
+                                    } else if (pi[a2] > p2v) {
+                                        p2v = pi[a2]; t2 = a2;
+                                    }
+                                }
+                                float b1 = -1e9f, b2 = -1e9f;
+                                float vt1 = 0, vt2 = 0;
+                                for (size_t ai = 0; ai < st2.actions.size(); ++ai) {
+                                    float v = st2.mean[ai];
+                                    if (v > b1) { b2 = b1; b1 = v; }
+                                    else if (v > b2) b2 = v;
+                                    if (st2.actions[ai] == t1) vt1 = v;
+                                    if (st2.actions[ai] == t2) vt2 = v;
+                                }
+                                cmp_out << mi << ',' << deals << ',' << p
+                                        << ',' << legal_n << ',' << t1
+                                        << ',' << t2 << ',' << p1 << ','
+                                        << p2v << ',' << b1 << ',' << b2
+                                        << ',' << vt1 << ',' << vt2 << '\n';
+                                cmp_out.flush();
+                            }
+                        }
                     }
                     done = env.Step(action).done;
                 }
