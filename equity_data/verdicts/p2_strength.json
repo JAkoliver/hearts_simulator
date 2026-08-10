@@ -1,0 +1,8 @@
+{
+ "n": 800,
+ "mean_tree_minus_flat": -0.2075,
+ "se": 0.2735,
+ "ub95": 0.2429,
+ "band": "+1.0",
+ "pass": true
+}
