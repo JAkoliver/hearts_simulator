@@ -191,6 +191,8 @@
      the felt), so no collisions at any viewport */
   #subline { position:absolute; top:6px; left:10px; text-align:left;
              font-size:.72rem; pointer-events:none; z-index:2; }
+  #trickctr { color:#8A8A93; margin-right:10px;
+              font-variant-numeric:tabular-nums; }
   #tierline { color:#8A8A93; margin-right:10px; }
   #turnclock { color:#E8B923; font-variant-numeric:tabular-nums; }
   #status { position:absolute; bottom:38px; left:0; width:100%; text-align:center;
@@ -421,7 +423,7 @@
     <div id="trick"></div>
     <div id="banner"></div>
     <div id="status"></div>
-    <div id="subline"><span id="tierline"></span><span id="turnclock"></span></div>
+    <div id="subline"><span id="trickctr"></span><span id="tierline"></span><span id="turnclock"></span></div>
     <div id="hb-badge">&hearts; hearts broken</div>
   </div>
   <div id="side">
@@ -670,12 +672,30 @@ function setStatus(msg, thinking=false) {
   lastStatusHTML = html;
   el('status').innerHTML = html;
 }
+// Trick counter: derived from YOUR hand (13 - cards left = tricks
+// you've fed), corrected for whether your card is in the live trick.
+// Hidden during passing (the deal hasn't started) and when finished.
+// Only updated by the steady render - during an animation batch it
+// keeps the pre-batch number instead of jumping to the server's
+// already-advanced state.
+function updateTrickCtr() {
+  const n = el('trickctr');
+  if (!state || state.finished || state.passing || !state.hand
+      || !state.hand.length && !(state.trick || []).length) {
+    n.textContent = '';
+    return;
+  }
+  const mine = (state.trick || []).some(t => t.seat === state.your_seat);
+  const done = 13 - state.hand.length - (mine ? 1 : 0);
+  n.textContent = `trick ${Math.min(13, Math.max(1, done + 1))}/13`;
+}
 function render() {
   renderSeats(state.your_turn && !state.finished ? state.your_seat : null);
   renderTrick(state.trick);
   renderSide();
   renderHand();
   updateTierline();
+  updateTrickCtr();
   el('banner').textContent = '';
   if (state.finished) return showMatchEnd();
   // A card queued mid-animation: play it now if it's legal, drop it if not.
