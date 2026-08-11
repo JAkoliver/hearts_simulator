@@ -199,15 +199,17 @@
   .spec-hand { margin:6px 0; }
   .spec-hand .sh-name { font-size:.72rem; color:var(--muted);
                         display:block; margin-bottom:2px; }
-  /* one line per spectator: name truncates with an ellipsis before
-     anything wraps; the checkbox label never breaks */
-  .specrow { display:flex; align-items:center; gap:8px; margin:5px 0;
-             font-size:.82rem; }
-  .specrow .sname { flex:1; min-width:0; white-space:nowrap;
-                    overflow:hidden; text-overflow:ellipsis; }
+  /* two deliberate lines per spectator: the FULL name (codenames are
+     the site's identity - never truncated) with kick at right, then
+     the share control underneath */
+  .specrow { margin:7px 0; font-size:.82rem; }
+  .specrow .srtop { display:flex; align-items:baseline; gap:8px; }
+  .specrow .sname { flex:1; }
   .specrow label { font-size:.7rem; color:var(--muted); cursor:pointer;
                    display:flex; align-items:center; gap:4px;
-                   white-space:nowrap; flex:none; }
+                   margin-top:2px; }
+  body.spectate #speed-btn, body.spectate #auto-btn
+    { display:none !important; }
   #spec-link { background:var(--tag-bg); color:var(--muted); }
   #spec-link:hover { color:var(--text); }
   .specrow .skick { color:#D98A8A; text-decoration:none; font-size:1rem;
@@ -756,12 +758,14 @@ function renderSpectators() {
   p.style.display = '';
   el('spec-list').innerHTML = rows.length ? rows.map(r =>
     `<div class="specrow">
-       <span class="sname">${esc(r.name)}</span>
+       <div class="srtop">
+         <span class="sname" title="${esc(r.name)}">${esc(r.name)}</span>
+         ${creator ? `<a href="#" class="skick" data-spec="${r.id}"
+            title="remove this spectator">&times;</a>` : ''}
+       </div>
        <label title="let this spectator see your hand">
          <input type="checkbox" data-spec="${r.id}"${r.shared ? ' checked' : ''}>
          share hand</label>
-       ${creator ? `<a href="#" class="skick" data-spec="${r.id}"
-          title="remove this spectator">&times;</a>` : ''}
      </div>`).join('')
     : '<div class="small muted">no one watching yet</div>';
   const ident = mode === 'table' ? {code: tcode} : {sid};
@@ -1887,37 +1891,49 @@ async function startSpectate(tok) {
   await poll();
   if (SPECTATE) _specTimer = setInterval(poll, 1500);
 }
+// Adaptive pace: replay at a watchable speed while close to live, and
+// compress toward instant as the backlog grows (a fast/instant game
+// produces events far faster than normal playback - without this the
+// spectator drifts unboundedly behind; user report).
+function specPace() {
+  const n = _specQ.length;
+  return n <= 4 ? 1 : n <= 12 ? 0.45 : n <= 30 ? 0.18 : 0;
+}
 async function pumpSpec() {
   if (_specPumping) return;
   _specPumping = true;
   while (_specQ.length) {
     const ev = _specQ.shift();
+    const f = specPace();
+    const zip = f === 0;   // deep backlog: render, skip theater
     const names = (_specLast && _specLast.seat_names) || {};
     if (ev.type === 'play') {
-      sfx(ev.name === 'QS' ? 'explosion' : 'placing');
+      if (!zip) sfx(ev.name === 'QS' ? 'explosion' : 'placing');
       _specTrick.push({seat: ev.seat, name: ev.name});
       renderTrick(_specTrick);
-      await sleep(450);
+      if (!zip) await sleep(450 * f);
     } else if (ev.type === 'trick_end') {
       renderTrick(ev.cards);
-      if (ev.winner !== null) {
+      if (ev.winner !== null && !zip) {
         el('banner').textContent = `${names[String(ev.winner)]} took the trick`;
         sfx('taking');
         const p2 = pos(ev.winner);
-        await sleep(420);
+        await sleep(420 * f);
         document.querySelectorAll('#trick .tcard').forEach(n =>
           n.classList.add(`sweep${p2}`));
-        await sleep(320);
+        await sleep(320 * f);
       }
       el('banner').textContent = '';
       _specTrick = [];
       renderTrick([]);
     } else if (ev.type === 'deal_end') {
-      sfx('shuffling');
-      el('banner').textContent = ev.moon_by !== null
-        ? `${names[String(ev.moon_by)]} shot the moon!` : 'Deal complete';
-      await sleep(1400);
-      el('banner').textContent = '';
+      if (!zip) {
+        sfx('shuffling');
+        el('banner').textContent = ev.moon_by !== null
+          ? `${names[String(ev.moon_by)]} shot the moon!` : 'Deal complete';
+        await sleep(1400 * f);
+        el('banner').textContent = '';
+      }
     }
   }
   _specPumping = false;
