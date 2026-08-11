@@ -200,8 +200,6 @@
   .spec-hand .sh-name { font-size:.72rem; color:var(--muted);
                         display:block; margin-bottom:2px; }
   .spec-hand .card.recvmark { outline:2px solid var(--gold); }
-  .spec-hand .sh-recv { font-size:.62rem; color:var(--gold);
-                        opacity:.75; margin-left:8px; }
   /* two deliberate lines per spectator: the FULL name (codenames are
      the site's identity - never truncated) with kick at right, then
      the share control underneath */
@@ -213,6 +211,10 @@
                    margin-top:2px; }
   body.spectate #speed-btn, body.spectate #auto-btn
     { display:none !important; }
+  /* watcher sidebar: only Last trick + Spectators are meaningful -
+     "This deal" and "You received" describe the player, not the view */
+  body.spectate #side .panel:nth-child(1),
+  body.spectate #side .panel:nth-child(3) { display:none !important; }
   #spec-link { background:var(--tag-bg); color:var(--muted); }
   #spec-link:hover { color:var(--text); }
   .specrow .skick { color:#D98A8A; text-decoration:none; font-size:1rem;
@@ -1986,9 +1988,7 @@ function renderSpectateChrome(st) {
               cardHTML(n, 'mini')).join('')}`
           : ''}</span>
       ${(info.cards || []).map(n =>
-        cardHTML(n, 'mini' + (recv.has(n) ? ' recvmark' : ''))).join('')}${
-      recv.size ? `<span class="sh-recv">gold = received in the pass</span>`
-                : ''}</div>`;
+        cardHTML(n, 'mini' + (recv.has(n) ? ' recvmark' : ''))).join('')}</div>`;
   }).join('');
   // fellow spectators, names only
   const p = el('spec-panel');
