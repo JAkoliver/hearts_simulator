@@ -357,9 +357,15 @@ def hand_of(menv, seat):
 
 
 class Session:
-    def __init__(self, pid=None, ua='', tier='full', daily=None):
+    def __init__(self, pid=None, ua='', tier='full', daily=None,
+                 practice=False):
         self.sid = secrets.token_urlsafe(12)
         self.daily = daily          # 'YYYY-MM-DD' for the daily challenge
+        # PRACTICE: never logged (which also keeps it out of history,
+        # profile stats, the leaderboard and the community pool - the
+        # log is the single source for all of them), with full-match
+        # undo/redo (rebuild from seed + action prefix) and open-book.
+        self.practice = practice
         self.seed = _daily_seed(daily) if daily else secrets.randbits(31)
         self.menv = MatchEnv(seed=self.seed)
         # Daily: the SEAT is fixed too - same seed + same seat = the
@@ -387,6 +393,17 @@ class Session:
         self.spec_share = set()
         self.spec_kicked = set()
         self.spec_events = []     # cumulative public stream (cursor)
+        # practice-mode timeline: every action since match start, deal
+        # boundaries into it, per-deal start hands, and the redo stack
+        self.all_actions = []       # [(seat, action)]
+        self.deal_offsets = [0]     # index into all_actions per deal
+        self.deal_hands_hist = [[sorted(hand_of(self.menv, s))
+                                 for s in range(4)]]
+        # per deal: did it open with a pass phase? (positions 0-11 of a
+        # passing deal are picks - undo treats the human's 3 as ONE act)
+        self.deal_pass_flags = [bool(self.menv.is_passing())]
+        self.redo_stack = []
+        self.played_this_deal = set()   # visible plays (equivalence)
 
     def _stamp(self, kind):
         return {'v': LOG_V, 'kind': kind, 'sid': self.sid, 'pid': self.pid,
@@ -418,9 +435,11 @@ class Session:
         # (client animations inflate it).
         self.deal_actions.append((seat, int(action),
                                   int((time.time() - self.t0) * 1000)))
+        self.all_actions.append((seat, int(action)))
         self.n_actions += 1
         if in_play:
             self.trick.append((seat, action))
+            self.played_this_deal.add(int(action))
             self._emit({'type': 'play', 'seat': seat,
                         'name': card_name(action)})
         deal_done, match_done, round_scores = self.menv.step(action)
@@ -445,23 +464,32 @@ class Session:
                             if srt[0] == 0 and all(v == 26 for v in srt[1:])
                             else None)})
             self.passed_cards = []
+            self.played_this_deal = set()
             # Flush one line per completed deal: abandoned matches keep
             # every finished deal (only the in-progress one is lost).
-            log_line({**self._stamp('deal'), 'deal_no': self.deal_no,
-                      'actions': self.deal_actions,
-                      'round_scores': list(map(int, round_scores)),
-                      'totals': list(map(int, self.menv.match_scores))})
+            # PRACTICE never logs - which is the whole no-recording story.
+            if not self.practice:
+                log_line({**self._stamp('deal'), 'deal_no': self.deal_no,
+                          'actions': self.deal_actions,
+                          'round_scores': list(map(int, round_scores)),
+                          'totals': list(map(int, self.menv.match_scores))})
             self.deal_actions = []
             self.deal_no += 1
+            if not match_done:
+                self.deal_offsets.append(len(self.all_actions))
+                self.deal_hands_hist.append(
+                    [sorted(hand_of(self.menv, s)) for s in range(4)])
+                self.deal_pass_flags.append(bool(self.menv.is_passing()))
         if match_done:
             self.finished = True
-            log_line({**self._stamp('match'), 'deals': self.deal_no - 1,
-                      'n_actions': self.n_actions,
-                      'final': list(map(int, self.menv.match_scores)),
-                      'placements': list(self.menv.placements()),
-                      'duration_s': round(time.time() - self.t0, 1),
-                      'ua': self.ua})
-            _pstats_kick(self.sid, 1)
+            if not self.practice:
+                log_line({**self._stamp('match'), 'deals': self.deal_no - 1,
+                          'n_actions': self.n_actions,
+                          'final': list(map(int, self.menv.match_scores)),
+                          'placements': list(self.menv.placements()),
+                          'duration_s': round(time.time() - self.t0, 1),
+                          'ua': self.ua})
+                _pstats_kick(self.sid, 1)
 
     def run_ai_turns(self):
         while (not self.finished
@@ -511,7 +539,99 @@ class Session:
             'spectators': (_spec_prune(self) or
                            _spec_rows(self, self.human_seat)),
             'spec_creator': True,
+            **({'practice': True,
+                'can_undo': any(s == self.human_seat
+                                for s, _ in self.all_actions),
+                'can_redo': bool(self.redo_stack),
+                'actions_in_deal': len(self.deal_actions),
+                # open-book: practice is a sandbox - the client's
+                # toggle decides whether to SHOW these
+                'ai_hands': {str(s): [card_name(c) for c in
+                                      sorted(hand_of(self.menv, s))]
+                             for s in range(4) if s != self.human_seat}
+                if not self.finished else {}}
+               if self.practice else {}),
         }
+
+    # -- practice-mode timeline surgery -------------------------------------
+    def _rebuild(self, prefix):
+        """Reset to match start and re-apply `prefix` actions. Only for
+        practice sessions (nothing is logged either way, but the replay
+        stamps junk timings)."""
+        self.menv = MatchEnv(seed=self.seed)
+        self.trick = []
+        self.last_trick = None
+        self.last_deal = None
+        self.deal_no = 1
+        self.passed_cards = []
+        self.events = []
+        self.deal_actions = []
+        self.all_actions = []
+        self.deal_offsets = [0]
+        self.deal_hands_hist = [[sorted(hand_of(self.menv, s))
+                                 for s in range(4)]]
+        self.deal_pass_flags = [bool(self.menv.is_passing())]
+        self.played_this_deal = set()
+        self.finished = False
+        self.n_actions = 0
+        for s, a in prefix:
+            if self.menv.is_passing() and s == self.human_seat:
+                self.passed_cards.append(a)
+            self._apply(s, a)
+        self.events = []
+        self.spec_events = []
+
+    def practice_undo(self):
+        """Rewind to the human's PREVIOUS decision point: drop trailing
+        AI actions and the last human action; the dropped tail goes to
+        the redo stack (oldest first). The 3-card pass is ONE decision:
+        undoing any pick rewinds to 'select 3 cards to pass'."""
+        idx = max((i for i, (s, _) in enumerate(self.all_actions)
+                   if s == self.human_seat), default=None)
+        if idx is None:
+            raise HTTPException(409, 'nothing to undo')
+        d = max(i for i, off in enumerate(self.deal_offsets) if off <= idx)
+        if self.deal_pass_flags[d] and idx - self.deal_offsets[d] < 12:
+            # a pass pick (picks are the first 12 actions, seat-major):
+            # rewind to the human's FIRST pick of the triple
+            idx = self.deal_offsets[d] + self.human_seat * 3
+        self.redo_stack = self.all_actions[idx:] + self.redo_stack
+        self._rebuild(self.all_actions[:idx])
+
+    def practice_redo(self):
+        """Re-apply one human decision + the AI block that followed it,
+        from the stored timeline (never re-rolled). Symmetric with undo:
+        a pass triple (consecutive human picks while the env is still in
+        the pass phase) re-applies as ONE decision."""
+        if not self.redo_stack:
+            raise HTTPException(409, 'nothing to redo')
+        took_human = False
+        prev = None
+        while self.redo_stack:
+            s, a = self.redo_stack[0]
+            if (s == self.human_seat and took_human
+                    and not (prev == self.human_seat
+                             and self.menv.is_passing())):
+                break
+            self.redo_stack.pop(0)
+            if self.menv.is_passing() and s == self.human_seat:
+                self.passed_cards.append(a)
+                took_human = True
+            elif s == self.human_seat:
+                took_human = True
+            self._apply(s, a)
+            prev = s
+        self.events = []
+
+    def practice_retry_deal(self):
+        """Restart the CURRENT deal from its first action, then run the
+        AI up to the human's turn (the human rarely acts first: seats
+        are random, and state() only serves a hand ON the human's turn -
+        without this the client showed no cards and the game froze)."""
+        self.redo_stack = []
+        self._rebuild(self.all_actions[:self.deal_offsets[-1]])
+        self.run_ai_turns()
+        self.events = []
 
 
 # ---------------------------------------------------------------------------
@@ -930,6 +1050,7 @@ class PlayBody(BaseModel):
 class NewBody(BaseModel):
     pid: str | None = None
     tier: str | None = None
+    practice: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -2870,7 +2991,8 @@ def index(request: Request):
 def new_session(body: NewBody | None = None, request: Request = None):
     pid = (resolve_pid(body.pid) if body and body.pid else None)
     ua = request.headers.get('user-agent', '') if request else ''
-    s = Session(pid=pid, ua=ua, tier=(body.tier if body else None) or 'full')
+    s = Session(pid=pid, ua=ua, tier=(body.tier if body else None) or 'full',
+                practice=bool(body and body.practice))
     with _sessions_lock:
         _sessions[s.sid] = s
         # Drop oldest sessions past a sane cap
@@ -3486,6 +3608,8 @@ def play(sid: str, body: PlayBody):
             raise HTTPException(409, 'not your turn')
         if body.card not in s._legal():
             raise HTTPException(400, f'illegal card {body.card}')
+        # a fresh decision abandons the stored future (practice redo)
+        s.redo_stack = []
         s.events = []
         if s.menv.is_passing():
             s.passed_cards.append(body.card)
@@ -3494,3 +3618,128 @@ def play(sid: str, body: PlayBody):
         out = s.state()
         out['events'] = s.events
         return out
+
+
+# ---- practice mode --------------------------------------------------------
+def _practice_session(body):
+    s = _get(body.get('sid') or '')
+    canon = resolve_pid(body.get('pid'))
+    if s.pid and (not canon or canon != s.pid):
+        raise HTTPException(403, 'not your session')
+    if not s.practice:
+        raise HTTPException(409, 'not a practice session')
+    return s
+
+
+@app.post('/api/practice/undo')
+def practice_undo(body: dict):
+    s = _practice_session(body)
+    with s.lock:
+        s.practice_undo()
+        return s.state()
+
+
+@app.post('/api/practice/redo')
+def practice_redo(body: dict):
+    s = _practice_session(body)
+    with s.lock:
+        s.practice_redo()
+        return s.state()
+
+
+@app.post('/api/practice/retry')
+def practice_retry(body: dict):
+    s = _practice_session(body)
+    with s.lock:
+        s.practice_retry_deal()
+        return s.state()
+
+
+@app.get('/api/practice/eval')
+def practice_eval(sid: str, pid: str = None):
+    """Raw-network view of the CURRENT decision, in the review's
+    currency: equivalence-pooled groups with summed probabilities.
+    Always the served FULL-STRENGTH net, regardless of the practice
+    opponents' tier."""
+    s = _get(sid)
+    _own_session(s, pid)
+    if not s.practice:
+        raise HTTPException(409, 'not a practice session')
+    with s.lock:
+        if s.finished or s.menv.get_current_player() != s.human_seat:
+            return {'top': [], 'eq': [], 'n_legal': 0, 'passing': False}
+        obs = np.asarray(s.menv.observe(), dtype=np.float32)
+        legal = s._legal()
+        mask = np.zeros(52, dtype=bool)
+        mask[legal] = True
+        hand = set(np.flatnonzero(obs[:52] > 0).tolist())
+        passing = bool(s.menv.is_passing())
+        eq = _equiv_groups(hand, set() if passing else s.played_this_deal,
+                           legal)
+        with _net_lock, torch.no_grad():
+            logits = _net.forward_all(
+                torch.from_numpy(obs).unsqueeze(0),
+                torch.from_numpy(mask).unsqueeze(0))[0][0]
+            probs = torch.softmax(logits, dim=0).numpy()
+        gid = {}
+        for i, g in enumerate(eq):
+            for c in g:
+                gid[c] = i
+        groups, seen = [], set()
+        for c in legal:
+            g = gid.get(c)
+            if g is None:
+                groups.append({'names': [card_name(c)],
+                               'p': float(probs[c])})
+            elif g not in seen:
+                seen.add(g)
+                groups.append({'names': [card_name(x) for x in eq[g]],
+                               'p': float(sum(probs[x] for x in eq[g]))})
+        groups.sort(key=lambda r: -r['p'])
+        return {'top': groups,
+                'eq': [[card_name(c) for c in g] for g in eq],
+                'n_legal': len(legal), 'passing': passing}
+
+
+@app.get('/api/practice/replay')
+def practice_replay(sid: str, pid: str = None):
+    """The live match in the analysis worker's load format (seed +
+    per-deal start hands and action lists) - the client's HINT engine
+    replays it to search the current position on the user's hardware.
+    Practice-only: this reveals the deal to the client by construction
+    (open-book sandbox)."""
+    s = _get(sid)
+    _own_session(s, pid)
+    if not s.practice:
+        raise HTTPException(409, 'not a practice session')
+    with s.lock:
+        deals = []
+        offs = s.deal_offsets + [len(s.all_actions)]
+        for d in range(len(s.deal_offsets)):
+            deals.append({
+                'start_hands': s.deal_hands_hist[d],
+                'actions': [a for _, a in
+                            s.all_actions[offs[d]:offs[d + 1]]]})
+        # the engine analyzes positions AT recorded actions - the live
+        # pending decision is one past the record, so append a legal
+        # SENTINEL the analyzer can anchor on (it only replays the
+        # prefix BEFORE the analyzed index; the sentinel never plays)
+        if (not s.finished and not s.menv.is_passing()
+                and s.menv.get_current_player() == s.human_seat):
+            legal = s._legal()
+            if legal:
+                deals[-1]['actions'].append(int(legal[0]))
+        # pass analysis gates on a COMPLETE 64-action deal, but its
+        # root seek stops BEFORE the human's picks: pad the unmade
+        # picks with each seat's lowest cards (legal, distinct - the
+        # human's pad merely becomes one extra candidate combo) and the
+        # unplayed tricks with zeros the engine never replays
+        elif (not s.finished and s.menv.is_passing()
+                and s.menv.get_current_player() == s.human_seat):
+            acts = deals[-1]['actions']
+            for p in range(len(acts), 12):
+                t = p // 3
+                hand = sorted(hand_of(s.menv, t))
+                acts.append(int(hand[p - t * 3]))
+            acts.extend(0 for _ in range(64 - len(acts)))
+        return {'seed': s.seed, 'deals': deals}

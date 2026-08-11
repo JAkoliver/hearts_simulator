@@ -85,7 +85,8 @@
      and #side relocates on narrow screens; !important beats the inline
      display toggles on pass-controls) */
   body.nogame #layout, body.nogame #hand, body.nogame #pass-controls,
-  body.nogame #side, body.nogame #theme-toggle, body.nogame footer
+  body.nogame #side, body.nogame #theme-toggle, body.nogame footer,
+  body.nogame #hint-side, body.nogame #practice-controls
     { display:none !important; }
   #menu-btn-wrap { position:absolute; top:8px; right:10px; z-index:5; }
   #menu-btn-wrap button { font-size:.75rem; padding:4px 12px;
@@ -290,6 +291,77 @@
   @keyframes embub { 0% { opacity:0; translate:0 6px; }
                      8%, 82% { opacity:1; translate:0 0; }
                      100% { opacity:0; } }
+  /* practice mode: info panels pinned to the LEFT edge, Perilune's
+     view full-height on the RIGHT edge - both exactly as the match
+     review teaches them. Open-book hands own the felt's flanks. */
+  body.practice #side { position:fixed; left:12px; top:70px; width:170px;
+                        margin:0; display:flex; flex-direction:column;
+                        gap:12px; z-index:4; }
+  #hint-side { position:fixed; right:12px; top:70px; bottom:12px;
+               width:300px; background:var(--panel-bg);
+               border-radius:10px; padding:12px 14px; z-index:5;
+               display:flex; flex-direction:column; }
+  #hint-side h3 { font-size:.72rem; color:var(--muted);
+                  text-transform:uppercase; margin-bottom:8px; }
+  #hint-scroll { flex:1; min-height:0; overflow-y:auto; }
+  #practice-controls { margin-top:8px; display:flex; gap:6px;
+                       justify-content:center; align-items:center; }
+  #practice-controls button { font-size:.78rem; padding:4px 12px;
+                              background:var(--tag-bg); color:var(--text); }
+  #practice-controls button:disabled { opacity:.4; }
+  #pr-open { font-size:.72rem; color:var(--muted); margin-left:6px;
+             cursor:pointer; display:inline-flex; align-items:center;
+             gap:4px; }
+  /* the review's eval-panel conventions, VERBATIM from review.html
+     (keep in sync): raw net = gray probability bars with the pick in
+     gold, deep search = cyan VALUE bars, inline card text via .ct.
+     The review page is dark-only, so these are its literal colors. */
+  #hint-side .muted { color:#A6A6AF; }
+  #hint-side .bar { background:#26262A; border-radius:5px; height:21px;
+                    position:relative; margin:3px 0; overflow:hidden;
+                    display:flex; align-items:center; }
+  #hint-side .bar .fill { position:absolute; inset:0 auto 0 0;
+                          background:#3E3E46; }
+  #hint-side .bar.played .fill { background:#7A5A17; }
+  #hint-side .bar > span { position:relative; font-size:.72rem;
+                           padding-left:6px;
+                           font-variant-numeric:tabular-nums; }
+  #hint-side .bar.tail { height:auto; min-height:21px; }
+  #hint-side .bar.tail > span { display:flex; flex-wrap:wrap; gap:0 6px;
+                                padding:2px 6px; line-height:1.4; }
+  #hint-side .bar.tail .zc { white-space:nowrap; }
+  #hint-side .ct { font-weight:700; }
+  #hint-side .ct.cr { color:#FF7A7A; }
+  #hint-side .dbar { position:relative; height:18px; margin:2px 0;
+                     background:#20262B; border-radius:4px;
+                     overflow:hidden; font-size:.72rem; }
+  #hint-side .dbar .fill { position:absolute; inset:0 auto 0 0;
+                           background:#194A5E; }
+  #hint-side .dbar.played .fill { background:#1F6B85; }
+  #hint-side .dbar span { position:relative; padding-left:6px;
+                          line-height:18px; }
+  #hint-side .dbar.pb { height:auto; min-height:18px; }
+  #hint-side .dbar.pb > span { flex:1 1 auto; min-width:0; display:flex;
+                               flex-wrap:wrap; gap:0 6px; padding:2px 6px;
+                               line-height:1.32; }
+  #hint-side .dbar.pb .pc, #hint-side .dbar.pb .pm { white-space:nowrap; }
+  #hint-side .dbar.pb .pm { font-style:normal; }
+  #hint-side .deep-h { color:#4CC2FF; font-size:.7rem; margin:8px 0 2px; }
+  #hint-side .allmoves { font-size:.65rem; color:#8A8A93;
+                         margin:1px 0 3px; }
+  #hint-side .xbtn { background:#26262A; color:#ECECEC; border:0;
+                     border-radius:6px; padding:3px 9px; font-size:.68rem;
+                     cursor:pointer; margin-top:5px; }
+  #hint-side .xbtn:hover { background:#33333A; }
+  #hint-deepbar { margin-top:8px; padding-top:6px;
+                  border-top:1px solid #2E2E33; }
+  #hint-note { margin-top:8px; padding-top:8px;
+               border-top:1px solid #2E2E33; font-size:.68rem;
+               color:#8A8A93; line-height:1.45; }
+  /* open-book hands reuse the spectate out-hand geometry */
+  body.practice #layout { display:flex; flex-direction:column;
+                          align-items:center; gap:10px; }
+  body.practice #table { width:min(56vw, 950px); }
   .specrow label { font-size:.7rem; color:var(--muted); cursor:pointer;
                    display:flex; align-items:center; gap:4px;
                    margin-top:2px; }
@@ -581,6 +653,40 @@
 
 <div id="hand"></div>
 <div id="pass-controls" style="display:none"><button id="pass-btn" disabled></button></div>
+<div id="hint-side" style="display:none">
+  <h3>Perilune's view <span style="font-weight:400; text-transform:none">&middot; full-strength</span></h3>
+  <div id="hint-scroll">
+    <div id="hint-raw"></div>
+    <div id="hint-out"></div>
+  </div>
+  <div id="hint-deepbar">
+    <div>
+      <button id="hint-btn" class="xbtn">Search here</button>
+      <select id="hint-k" class="xbtn"
+              title="rollouts per move: higher = sharper values, slower">
+        <option value="16">K=16</option>
+        <option value="32" selected>K=32</option>
+        <option value="64">K=64</option>
+        <option value="128">K=128</option>
+        <option value="256">K=256</option>
+      </select>
+    </div>
+    <div id="hint-status" class="muted"
+         style="font-size:.68rem; margin-top:4px"></div>
+    <div id="hint-note" style="font-size:.66rem; color:#C8A24A;
+         display:none"></div>
+    <div id="hint-pos" style="font-size:.68rem; color:#4CC2FF"></div>
+  </div>
+  <div id="hint-note">Evals are information-honest: judged only on what
+    you can see. Deep search runs on your device. Perilune is a work in
+    progress &mdash; its pick is not necessarily the best move.</div>
+</div>
+<div id="practice-controls" style="display:none">
+  <button id="pr-undo" title="rewind to your previous decision">&#10554; undo</button>
+  <button id="pr-redo" title="replay your decision and what followed">redo &#10555;</button>
+  <button id="pr-retry" title="restart this deal from the top">retry deal</button>
+  <label id="pr-open"><input type="checkbox" id="pr-openbook"> show AI hands</label>
+</div>
 
 <div id="overlay"><div class="opanel">
   <h2 id="o-title"></h2>
@@ -612,6 +718,9 @@
     </select>
   </div>
   <div class="hrow"><button id="home-solo">Play vs AI</button></div>
+  <div class="hrow"><button id="home-practice"
+    title="unrecorded sandbox: live search hints, undo, retry deal, open book">
+    Practice with hints</button></div>
   <div class="hrow"><button id="home-daily"
     title="one attempt per day - the identical deal for every player; compare on the daily leaderboard">Daily challenge</button></div>
   <div class="hrow"><button id="home-host">Host a table</button></div>
@@ -940,6 +1049,7 @@ function updateTrickCtr() {
 function renderSpectators() {
   const p = el('spec-panel');
   if (SPECTATE) return;   // spectator view fills this panel itself
+  if (state && state.practice) { p.style.display = 'none'; return; }
   const rows = (state && state.spectators) || [];
   const creator = !!(state && state.spec_creator);
   if (!rows.length && !creator) { p.style.display = 'none'; return; }
@@ -997,6 +1107,412 @@ el('spec-link').onclick = async () => {
   } catch (e) {}
 };
 
+// ---- practice mode --------------------------------------------------------
+// Unrecorded sandbox (the server never logs practice sessions, so
+// nothing reaches history/profile/leaderboard/pool): undo to your
+// previous decision, redo the stored timeline, retry the deal,
+// open-book AI hands, and on-device search hints - ALWAYS with the
+// full-strength served model regardless of the opponents' tier.
+const ID2NAME = c =>
+  ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'][c % 13]
+  + 'CDSH'[Math.floor(c / 13)];
+function buildOuthands() {
+  if (el('spec-mid')) return;
+  const lay = el('layout');
+  const north = document.createElement('div');
+  north.id = 'spec-north';
+  north.className = 'spec-outhand';
+  const mid = document.createElement('div');
+  mid.id = 'spec-mid';
+  const west = document.createElement('div');
+  west.id = 'spec-west';
+  west.className = 'spec-outhand';
+  const east = document.createElement('div');
+  east.id = 'spec-east';
+  east.className = 'spec-outhand';
+  lay.insertBefore(north, el('table'));
+  lay.insertBefore(mid, el('table'));
+  mid.appendChild(west);
+  mid.appendChild(el('table'));
+  mid.appendChild(east);
+}
+function renderPracticeExtras() {
+  const pr = !!(state && state.practice) && mode === 'solo' && !SPECTATE;
+  document.body.classList.toggle('practice', pr);
+  el('practice-controls').style.display =
+    pr && !state.finished ? 'flex' : 'none';
+  el('hint-side').style.display = pr && !state.finished ? '' : 'none';
+  if (!pr) return;
+  refreshRawEval();
+  buildOuthands();
+  el('pr-undo').disabled = !state.can_undo;
+  el('pr-redo').disabled = !state.can_redo;
+  const on = el('pr-openbook').checked;
+  const slots = {1: el('spec-west'), 2: el('spec-north'),
+                 3: el('spec-east')};
+  for (const d of Object.values(slots)) if (d) d.innerHTML = '';
+  if (on && state.ai_hands && !state.finished) {
+    for (const [s, cards] of Object.entries(state.ai_hands)) {
+      const d = slots[pos(Number(s))];
+      if (!d) continue;
+      d.innerHTML = `<div class="sh-label">${seatName(Number(s))}</div>
+        <div class="cds">${cards.map(n => cardHTML(n)).join('')}</div>`;
+    }
+  }
+}
+async function prAct(path) {
+  if (busy) return;   // no timeline surgery while a play is in flight
+  try {
+    const r = await api(path, POSTJSON({sid, pid}));
+    state = r;
+    passSelection = [];
+    preselect = null;
+    lastHandHTML = null;
+    shownTrick = state.trick ? state.trick.slice() : [];
+    el('hint-out').innerHTML = '';
+    el('hint-status').textContent = '';
+    el('hint-pos').textContent = '';
+    el('banner').textContent = '';
+    render();   // timeline surgery renders as a snap, not an animation
+  } catch (e) { setStatus('Error: ' + e.message); }
+}
+el('pr-undo').onclick = () => prAct('/api/practice/undo');
+el('pr-redo').onclick = () => prAct('/api/practice/redo');
+el('pr-retry').onclick = () => prAct('/api/practice/retry');
+el('pr-openbook').onchange = () => render();
+
+// Raw-network layer: auto-refreshes at each of YOUR decisions, in the
+// review's exact currency (equivalence-pooled probability bars, top 3
+// + expander, pick in gold). Server-computed with the served
+// full-strength net.
+let _rawKey = null, _rawData = null, _rawExpanded = false, _hintEq = [];
+// Inline textual cards - the review's exact vocabulary (review.html,
+// keep in sync): "Q♠" red-tinted; same-suit groups "J/Q♠"; pass picks
+// spelled out card by card ("10♥ or J♥") because each pick is ONE card.
+const cardVal = n => RANKS.indexOf(n.slice(0, -1));
+function ct(n) {
+  const suit = n.slice(-1), red = (suit === 'D' || suit === 'H') ? ' cr' : '';
+  return `<span class="ct${red}">${n.slice(0, -1)}${SUIT_CHAR[suit]}</span>`;
+}
+function ctG(cards) {
+  if (cards.length === 1) return ct(cards[0]);
+  const suit = cards[0].slice(-1),
+        red = (suit === 'D' || suit === 'H') ? ' cr' : '';
+  const ranks = cards.slice().sort((a, b) => cardVal(a) - cardVal(b))
+    .map(c => c.slice(0, -1)).join('/');
+  return `<span class="ct${red}">${ranks}${SUIT_CHAR[suit]}</span>`;
+}
+const ctOr = cards => cards.slice().sort((a, b) => cardVal(a) - cardVal(b))
+  .map(ct).join(' <span class="muted">or</span> ');
+// Never a bare 0: softmax mass is never exactly zero (review.html).
+const pctTxt = cp => cp * 100 < 0.05 ? '&lt;0.1%' : (cp * 100).toFixed(1) + '%';
+function renderRawBars() {
+  const out = el('hint-raw');
+  // review convention: a forced move carries no decision - no search
+  // offer, the review's cyan note in its place
+  const forced = !!(_rawData && !_rawData.passing && _rawData.n_legal < 2);
+  el('hint-btn').style.display = forced ? 'none' : '';
+  el('hint-k').style.display = forced ? 'none' : '';
+  if (forced)   // the review's #deep-pos wording, in its cyan line
+    el('hint-pos').textContent =
+      'this position: forced move (only one legal card)';
+  if (!_rawData || !_rawData.top.length) {
+    out.innerHTML = `<div class="muted" style="font-size:.72rem">
+      waiting for your turn&hellip;</div>`;
+    return;
+  }
+  const passing = _rawData.passing;
+  const lbl = passing ? ctOr : ctG;
+  // the review's main/tail split: groups that would display as 0.0%
+  // collapse into one wrapping row, promoted back while fewer than 3
+  // material bars exist
+  const main = [], tail = [];
+  for (const g of _rawData.top)
+    (g.p * 100 >= 0.05 ? main : tail).push(g);
+  while (main.length < 3 && tail.length) main.push(tail.shift());
+  const shown = _rawExpanded ? main : main.slice(0, 3);
+  let html = `<div style="font-size:.85rem; margin-bottom:4px">
+    Deal ${state.deal_no}${passing
+      ? ` &middot; passing ${state.pass_direction ?? ''}` : ''}</div>`;
+  html += `<div class="muted" style="font-size:.72rem; margin-bottom:4px">${
+    passing
+      ? `raw policy &middot; pick ${Math.min(3,
+          (state.passed_so_far ? state.passed_so_far.length : 0) + 1)} of 3:`
+      : 'raw policy, this decision:'}</div>`;
+  html += shown.map((g, i) =>
+    `<div class="bar${i === 0 ? ' played' : ''}">
+       <div class="fill" style="width:${g.p * 100}%"></div>
+       <span>${lbl(g.names)} &middot; ${pctTxt(g.p)}${
+         i === 0 ? ' &larr; pick' : ''}</span></div>`).join('');
+  if (_rawExpanded && tail.length) {
+    const sum = tail.reduce((a, g) => a + g.p, 0);
+    html += `<div class="bar tail"><div class="fill" style="width:${sum * 100}%"></div>
+      <span>${tail.map(g => `<span class="zc">${lbl(g.names)}</span>`).join('')}
+      <span class="zc muted">&middot; ${pctTxt(sum)}${
+        tail.length > 1 ? ' combined' : ''}</span></span></div>`;
+  }
+  if (main.length > 3 || tail.length)
+    html += `<button class="xbtn" id="raw-x">${_rawExpanded
+      ? 'show top 3' : `show all ${_rawData.n_legal} legal moves`}</button>`;
+  else if (_rawData.n_legal > 1)
+    html += `<div class="allmoves">all ${_rawData.n_legal} legal moves shown${
+      main.length < _rawData.n_legal ? ' (equivalent cards pooled)' : ''}</div>`;
+  out.innerHTML = html;
+  const x = el('raw-x');
+  if (x) x.onclick = () => { _rawExpanded = !_rawExpanded; renderRawBars(); };
+}
+async function refreshRawEval() {
+  if (!(state && state.practice && state.your_turn && !state.finished)) {
+    _rawData = null;
+    renderRawBars();
+    return;
+  }
+  const key = `${sid}|${state.deal_no}|${state.actions_in_deal}`;
+  if (key === _rawKey) return;
+  _rawKey = key;
+  // a deep result describes ONE position: never let it outlive it.
+  // _rawExpanded/_hintExpanded deliberately survive - "show all" is a
+  // sticky preference until the button is pressed again.
+  el('hint-out').innerHTML = '';
+  el('hint-status').textContent = '';
+  el('hint-pos').textContent = '';
+  _lastHint = null;
+  try {
+    const ev2 = await api(`/api/practice/eval?sid=${
+      encodeURIComponent(sid)}&pid=${encodeURIComponent(pid)}`);
+    _rawData = ev2;
+    _hintEq = ev2.eq || [];
+    renderRawBars();
+  } catch (e) {}
+}
+
+// hint engine: single-flight worker, review-grade search of the LIVE
+// position; the worker always loads the served full-strength model.
+// Status/note/method handling mirrors the review (review.html - keep
+// in sync): every status line carries the execution tier so which
+// method the engine landed on is always visible, warnings are STICKY
+// amber notes, fp16 failures are remembered per browser.
+let hintWorker = null, hintReady = false, hintBusy = false, _hres = {};
+let hintEp = '';
+const hintStatus = s => { el('hint-status').textContent =
+  s + (hintEp ? ` · ${hintEp}` : ''); };
+const hintNote = msg => {
+  const n = el('hint-note');
+  n.textContent = '⚠ ' + msg;
+  n.style.display = 'block';
+};
+function ensureHintWorker() {
+  return new Promise((res, rej) => {
+    if (hintWorker && hintReady) return res();
+    _hres = {ready: () => { hintReady = true; res(); }, fail: rej};
+    hintWorker = new Worker('/static/analysis_worker.js?v=20');
+    hintWorker.onmessage = ev => {
+      const m = ev.data;
+      if (m.type === 'ready') {
+        // re-fired mid-run on an fp16->fp32 downgrade: always track the
+        // tier; the boot-time text only belongs to the first arrival
+        hintEp = m.ep || '';
+        if (_hres.ready) { hintStatus('engine ready'); _hres.ready(); }
+      }
+      else if (m.type === 'loaded') { if (_hres.loaded) _hres.loaded(); }
+      else if (m.type === 'result') { if (_hres.result) _hres.result(m); }
+      else if (m.type === 'progress') {
+        if (m.done >= m.total) hintStatus(`done (${m.total} positions)`);
+      }
+      else if (m.type === 'note') {
+        hintNote(m.message);
+        // remember per-browser fp16 failures so future sessions (and
+        // the review page - SAME key) skip the doomed attempt
+        if (m.message.startsWith('fp16 failed'))
+          try { localStorage.setItem('perilune-fp16-bad', 'v16'); }
+          catch (e) {}
+      }
+      else if (m.type === 'fatal') {
+        hintNote(m.message || 'engine failed');
+        const f = _hres.fail; _hres = {};
+        if (f) f(new Error(m.message || 'engine failed'));
+      }
+    };
+    hintWorker.onerror = e => {
+      hintNote((e && e.message) || 'analysis worker crashed');
+      const f = _hres.fail; _hres = {};
+      hintWorker = null; hintReady = false;
+      hintEp = '';
+      if (f) f(new Error('analysis worker crashed'));
+    };
+    let fp16Bad = false;
+    try { fp16Bad = localStorage.getItem('perilune-fp16-bad') === 'v16'; }
+    catch (e) {}
+    hintWorker.postMessage({type: 'init', skipFp16: fp16Bad,
+      mobile: /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent),
+      forceWasm: _q.get('an_ep') === 'wasm'});
+  });
+}
+const hintLoad = rep => new Promise((res, rej) => {
+  _hres = {loaded: res, fail: rej};
+  const t = setTimeout(() => rej(new Error('engine load timed out')),
+                       30000);
+  _hres.loaded = () => { clearTimeout(t); res(); };
+  hintWorker.postMessage({type: 'load', seed: rep.seed,
+    dealActions: rep.deals.map(d => d.actions),
+    startHands: rep.deals.map(d => d.start_hands)});
+});
+const hintJob = job => new Promise((res, rej) => {
+  _hres = {result: res, fail: rej};
+  // generous: single-thread wasm on a loaded machine can be slow
+  const t = setTimeout(() => rej(new Error('search timed out')), 300000);
+  _hres.result = m => { clearTimeout(t); res(m); };
+  hintWorker.postMessage({type: 'queue', jobs: [job]});
+});
+// Deep-search layer, in the review's exact conventions: cyan value
+// bars, strictly-equivalent cards POOLED (one estimate, never two
+// conflicting numbers), points + "-x% match" vs the best move, and
+// the "match win here" line.
+let _lastHint = null, _hintExpanded = false;
+function renderHint(m, passing, K) {
+  _lastHint = {m, passing, K};
+  if (m.desync || (!m.actions && !m.combos)) {
+    el('hint-out').innerHTML =
+      `<div class="muted" style="font-size:.72rem">search unavailable here</div>`;
+    return;
+  }
+  let rows = [];
+  if (passing && m.combos) {
+    for (let i = 0; i < m.mean.length; i++)
+      rows.push({names: [...m.combos.slice(i * 3, i * 3 + 3)]
+                   .map(ID2NAME),
+                 mean: m.mean[i], v: m.se[i] ** 2, m: 1,
+                 pts: m.pts ? m.pts[i] : null});
+  } else {
+    // pool by the eval endpoint's equivalence groups (deepMerged math)
+    const gid = {};
+    _hintEq.forEach((g, i) => g.forEach(nm => { gid[nm] = i; }));
+    const byG = {};
+    m.actions.forEach((a, i) => {
+      const nm = ID2NAME(a);
+      const g = gid[nm];
+      if (g === undefined) {
+        rows.push({names: [nm], mean: m.mean[i], v: m.se[i] ** 2,
+                   pts: m.pts ? m.pts[i] : null, m: 1});
+      } else if (byG[g]) {
+        const it = byG[g];
+        it.names.push(nm);
+        it.mean += m.mean[i];
+        it.v += m.se[i] ** 2;
+        if (it.pts != null && m.pts) it.pts += m.pts[i];
+        it.m++;
+      } else {
+        byG[g] = {names: [nm], mean: m.mean[i], v: m.se[i] ** 2,
+                  pts: m.pts ? m.pts[i] : null, m: 1};
+        rows.push(byG[g]);
+      }
+    });
+    for (const r of rows) {
+      r.mean /= r.m;
+      if (r.pts != null) r.pts /= r.m;
+    }
+  }
+  const maxMean = Math.max(...rows.map(r => r.mean));
+  const minMean = Math.min(...rows.map(r => r.mean));
+  const spread = maxMean - minMean;
+  // Within the materiality bar the equity ordering is pure noise - sort
+  // by the VISIBLE number (points) and render equal fills: tied means
+  // LOOKING tied (review.html).
+  const tied = spread < 0.01;
+  rows.sort(tied && rows[0].pts != null
+    ? (a, b) => a.pts - b.pts : (a, b) => b.mean - a.mean);
+  const shown = _hintExpanded ? rows : rows.slice(0, 3);
+  const fillW = r => tied ? 15
+    : 15 + 85 * Math.max(0, (r.mean - minMean) / spread);
+  const statTxt = r => {
+    const dloss = maxMean - r.mean;
+    return `${r.pts != null ? r.pts.toFixed(1) + ' pts' : ''}${
+      !tied && dloss >= 0.0005
+        ? ` &middot; &minus;${(100 * dloss).toFixed(1)}% match` : ''}`;
+  };
+  let html = '';
+  if (passing) {
+    // pass = ONE decision: the review's wrapping pass bars, judged as
+    // whole 3-card candidates
+    html += `<div class="deep-h">Your pass, deep search &middot; K=${K}</div>`;
+    html += shown.map(r => `<div class="dbar pb">
+      <div class="fill" style="width:${fillW(r)}%"></div>
+      <span><b class="pc">${r.names.map(ct).join(' ')}</b><i class="pm">${
+        statTxt(r)}</i></span></div>`).join('');
+  } else {
+    html += `<div class="deep-h">deep search &middot; K=${K}</div>`;
+    html += shown.map(r => `<div class="dbar"
+      title="Played out ${K} times on this device (equivalent cards pooled): average penalty points this deal; '&minus;x% match' = match-win chance given up vs the best move. Bar length shows relative value.">
+      <div class="fill" style="width:${fillW(r)}%"></div>
+      <span>${ctG(r.names)} &middot; ${statTxt(r)}</span></div>`).join('');
+  }
+  if (rows.length > 3)
+    html += `<button class="xbtn" id="hint-x">${_hintExpanded
+      ? 'show top 3' : `show all ${rows.length} ${
+        passing ? 'candidate passes' : 'moves'}`}</button>`;
+  html += `<div class="muted" style="font-size:.68rem; margin-top:3px">
+    your match win here: <span style="color:#4CC2FF">${
+    (maxMean * 100).toFixed(1)}%</span></div>`;
+  if (tied)
+    html += `<div class="muted" style="font-size:.68rem; margin-top:3px">
+      All moves are worth about the same here${maxMean < 0.03
+        ? ' (the match is effectively out of reach)' : maxMean > 0.97
+        ? ' (the match is effectively won)' : ''} &mdash; any raw-policy
+      preference above is habit, not value.</div>`;
+  el('hint-out').innerHTML = html;
+  const x = el('hint-x');
+  if (x) x.onclick = () => {
+    _hintExpanded = !_hintExpanded;
+    renderHint(_lastHint.m, _lastHint.passing, _lastHint.K);
+  };
+}
+el('hint-btn').onclick = async () => {
+  if (hintBusy || !state || !state.practice || state.finished) return;
+  hintBusy = true;
+  el('hint-btn').disabled = true;
+  const hs = hintStatus;
+  try {
+    const K = +el('hint-k').value;
+    const passing = state.your_turn && state.passing;
+    const dealIdx = state.deal_no - 1;
+    const actIdx = state.actions_in_deal;
+    // the review's status vocabulary, verbatim (review.html dstatus)
+    const checking = () => hs(`deep-checking ${
+      passing ? 'your pass' : 'this position'} (K=${K})…`);
+    if (hintReady) checking();
+    else hs('loading engine + model…');
+    const rep = await api(`/api/practice/replay?sid=${
+      encodeURIComponent(sid)}&pid=${encodeURIComponent(pid)}`);
+    await ensureHintWorker();
+    await hintLoad(rep);
+    checking();
+    const useK = K;   // pass and play both honor the selected K
+    const job = passing
+      ? {kind: 'pass', deal: dealIdx, seat: state.your_seat,
+         actionIdx: 0, K: useK, d: dealIdx, i: 'ps'}
+      : {deal: dealIdx, actionIdx: actIdx, K, d: dealIdx, i: actIdx};
+    // NOT resetting _hintExpanded: re-searching the same position at a
+    // new K keeps the user's expanded view (position changes reset it)
+    const startKey = _rawKey;
+    const res = await hintJob(job);
+    if (_rawKey !== startKey) {   // position moved on: discard quietly
+      el('hint-status').textContent = '';
+      hintBusy = false;
+      el('hint-btn').disabled = false;
+      return;
+    }
+    renderHint(res, passing, useK);
+    // the review's #deep-pos line: cyan, states what was analyzed at
+    // what K, on-device ("done (N positions)" lands in hint-status via
+    // the worker's progress message, method suffix included)
+    el('hint-pos').textContent = `${
+      passing ? 'your pass' : 'this position'}: analyzed at K=${
+      useK} on your device`;
+  } catch (e) { hs('analysis failed: ' + (e.message || e)); }
+  hintBusy = false;
+  el('hint-btn').disabled = false;
+};
+
 function render() {
   renderSeats(state.your_turn && !state.finished ? state.your_seat : null);
   renderTrick(state.trick);
@@ -1005,6 +1521,7 @@ function render() {
   updateTierline();
   updateTrickCtr();
   renderSpectators();
+  renderPracticeExtras();
   el('emote-wrap').style.display =
     (mode === 'table' && !SPECTATE && !state.finished) ? '' : 'none';
   el('banner').textContent = '';
@@ -1350,6 +1867,32 @@ function showMatchEnd() {
   const endKey = mode === 'table' ? `${tcode}:${state.match_no}` : sid;
   if (_endShownFor === endKey) return;   // finished-poll re-renders: keep
   _endShownFor = endKey;                 // the built overlay, no refetch
+  // practice: plain summary, no lesson/verify/share - none of it exists
+  // for an unrecorded game
+  if (state.practice) {
+    const p2 = state.placements[state.your_seat];
+    el('o-title').textContent = `Practice over — you placed ${
+      ['', '1st', '2nd', '3rd', '4th'][Math.round(p2)] || p2}`;
+    el('o-body').innerHTML =
+      '<table><tr><th>Player</th><th>Total</th></tr>'
+      + [0, 1, 2, 3].map(s2 => `<tr><td>${seatName(s2)}</td>
+          <td>${state.match_scores[s2]}</td></tr>`).join('') + '</table>'
+      + `<p style="margin-top:12px">
+           <button id="pr-again">Practice again</button>
+           <button id="pr-tomenu">Menu</button></p>`;
+    el('o-btn').style.display = 'none';
+    el('overlay').style.display = 'flex';
+    el('pr-again').onclick = () => {
+      el('overlay').style.display = 'none';
+      newMatch(true).catch(e => showHome(e.message));
+    };
+    el('pr-tomenu').onclick = () => {
+      el('overlay').style.display = 'none';
+      abandonCurrent();
+      showHome();
+    };
+    return;
+  }
   maybeKeyNudge();
   const order = [0,1,2,3].sort((a,b) => state.placements[a] - state.placements[b]);
   const p = state.placements[state.your_seat];
@@ -1559,6 +2102,7 @@ function showHome(err) {
   // No game behind the menu -> hide the felt, hand, corner settings and
   // footer entirely instead of showing them dimmed underneath.
   document.body.classList.toggle('nogame', !active);
+  if (!active) document.body.classList.remove('practice');
   el('home-resume').style.display = active ? 'block' : 'none';
   el('home-close').style.display = active ? 'block' : 'none';
   // hosts can end the room from here too - lobby or mid-game; every
@@ -1863,6 +2407,8 @@ async function tablePass(cards) {
 const sideMq = matchMedia('(max-width:1300px)');
 function placeSide() {
   const side = el('side');
+  // (practice pins #side to the left edge via position:fixed CSS -
+  // its DOM slot is irrelevant there)
   if (sideMq.matches) el('pass-controls').after(side);
   else el('layout').appendChild(side);
 }
@@ -2058,12 +2604,16 @@ setInterval(() => {
   n.textContent = s >= 0 && s <= 20 ? `⏱ ${s}s` : '';
 }, 500);
 function updateTierline() {
+  // practice ALWAYS names the opponents' difficulty (the hints run
+  // full-strength regardless - the panel header says so)
   el('tierline').textContent =
-    state && state.tier_label && state.tier !== 'full'
-      ? `vs ${state.tier_label}` : '';
+    state && state.practice
+      ? `PRACTICE · vs ${state.tier_label || 'full strength'}`
+      : state && state.tier_label && state.tier !== 'full'
+        ? `vs ${state.tier_label}` : '';
 }
 
-async function newMatch() {
+async function newMatch(practice = false) {
   await ensureIdentity();
   abandonCurrent();
   passSelection = [];
@@ -2072,9 +2622,12 @@ async function newMatch() {
   hideHome();
   tableDeadline = null;
   state = await api('/api/new',
-    POSTJSON({pid, tier: el('home-tier').value}));
+    POSTJSON({pid, tier: el('home-tier').value, practice}));
   sid = state.sid;
   localStorage.setItem(K('hearts_sid'), sid);
+  el('hint-out').innerHTML = '';
+  el('hint-status').textContent = '';
+  el('hint-pos').textContent = '';
   render();
 }
 // Refreshing resumes the ongoing game (solo session or table); the reset
@@ -2349,6 +2902,8 @@ async function init() {
   showHome();
 }
 el('home-solo').onclick = () => newMatch().catch(e => showHome(e.message));
+el('home-practice').onclick = () =>
+  newMatch(true).catch(e => showHome(e.message));
 // Daily challenge: one seeded attempt/day; server enforces and resumes.
 async function dailyStart() {
   try {
