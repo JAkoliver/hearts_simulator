@@ -509,9 +509,7 @@ class Session:
             'tier': self.tier,
             'tier_label': TIERS[self.tier]['label'],
             'spectators': (_spec_prune(self) or
-                           [{'id': k, 'name': v['name'],
-                             'shared': (self.human_seat, k) in self.spec_share}
-                            for k, v in self.spectators.items()]),
+                           _spec_rows(self, self.human_seat)),
             'spec_creator': True,
         }
 
@@ -819,9 +817,7 @@ class Table:
                 'series_wins': list(self.series_wins),
                 'series_played': self.series_played,
                 'spectators': (_spec_prune(self) or
-                               [{'id': k, 'name': v['name'],
-                                 'shared': (seat, k) in self.spec_share}
-                                for k, v in self.spectators.items()]),
+                               _spec_rows(self, seat)),
                 'spec_creator': pid == self.host_pid,
                 'events': self.events[cursor:], 'cursor': len(self.events)}
 
@@ -3182,7 +3178,7 @@ def _specid_of(canon):
 
 
 def _spec_rows(obj, my_seat=None):
-    return [{'id': k, 'name': v['name'],
+    return [{'id': k, 'name': v['name'], 'status': _spec_status(v),
              **({'shared': (my_seat, k) in obj.spec_share}
                 if my_seat is not None else {})}
             for k, v in obj.spectators.items()]
@@ -3223,16 +3219,29 @@ def spectate_new(body: dict):
     raise HTTPException(400, 'sid or code required')
 
 
-SPEC_AWAY_S = 8   # ~5 missed 1.5s polls = the spectator left
+SPEC_STALE_S = 8    # visible tab, ~5 missed 1.5s polls: treat as left
+SPEC_HIDDEN_S = 90  # hidden tabs throttle to ~1 poll/min: keep them
+SPEC_BYE_S = 4      # 'left' shows dark red this long, then the row goes
 
 
 def _spec_prune(obj):
-    """Drop spectators whose polls stopped. Share grants stay: the
-    specid is deterministic, so a refresh/rejoin keeps its grant."""
+    """Three-state presence. Tab-out (explicit visibilitychange signal)
+    -> 'away', kept while throttled heartbeats arrive. Close (pagehide
+    beacon) or silent death -> 'left' for SPEC_BYE_S, then removed.
+    Share grants stay: the specid is deterministic, so a refresh/rejoin
+    keeps its grant."""
     now = time.time()
-    for k in [k for k, v in obj.spectators.items()
-              if now - v.get('seen', 0) > SPEC_AWAY_S]:
-        obj.spectators.pop(k, None)
+    for k, v in list(obj.spectators.items()):
+        silent = now - v.get('seen', 0)
+        if v.get('bye'):
+            if now - v['bye'] > SPEC_BYE_S:
+                obj.spectators.pop(k, None)
+        elif silent > (SPEC_HIDDEN_S if v.get('away') else SPEC_STALE_S):
+            v['bye'] = now   # silence = a close we never heard about
+
+
+def _spec_status(v):
+    return 'left' if v.get('bye') else 'away' if v.get('away') else 'here'
 
 
 def _spec_admit(obj, canon):
@@ -3250,7 +3259,9 @@ def _spec_admit(obj, canon):
             raise HTTPException(409, f'this game already has {SPEC_CAP} '
                                      'spectators')
         obj.spectators[spec] = {'canon': canon, 'name': codename_of(canon)}
-    obj.spectators[spec]['seen'] = time.time()
+    v = obj.spectators[spec]
+    v['seen'] = time.time()
+    v.pop('bye', None)   # polling again = demonstrably back
     return spec
 
 
@@ -3353,6 +3364,45 @@ def _spec_game_for_player(body):
     if seat is None:
         raise HTTPException(403, 'not seated at this table')
     return obj, lock, canon, seat
+
+
+def _spec_find(body):
+    """(spectator entry, lock) for presence signals; None if unknown -
+    lifecycle beacons must never error-spam."""
+    try:
+        p = _spec_parse(body.get('token') or '')
+        if p is None:
+            return None, None
+        obj, lock = _spec_target(*p)
+        if obj is None:
+            return None, None
+        canon = resolve_pid(body.get('pid'))
+        return obj.spectators.get(_specid_of(canon)), lock
+    except Exception:
+        return None, None
+
+
+@app.post('/api/spectate/presence')
+def spectate_presence(body: dict):
+    """visibilitychange: hidden tabs mark themselves 'away' (kept, gray)
+    instead of being mistaken for gone when throttling slows polls."""
+    v, lock = _spec_find(body)
+    if v is not None:
+        with lock:
+            v['away'] = bool(body.get('away'))
+            v['seen'] = time.time()
+    return {'ok': True}
+
+
+@app.post('/api/spectate/bye')
+def spectate_bye(body: dict):
+    """pagehide beacon: an explicit goodbye - the row shows 'left' (dark
+    red) briefly, then goes. A bounced navigation just re-registers."""
+    v, lock = _spec_find(body)
+    if v is not None:
+        with lock:
+            v['bye'] = time.time()
+    return {'ok': True}
 
 
 @app.post('/api/spectate/share')

@@ -247,6 +247,9 @@
   .specrow .srtop { display:flex; align-items:baseline; gap:8px; }
   .specrow .sname { flex:1; }
   .specrow .sname.you { color:var(--gold); }
+  .specrow .sname.away { color:#73737C; }
+  .specrow .sname .awaytag { font-size:.68rem; opacity:.85; }
+  .specrow .sname.left { color:#B04A50; }
   .specrow label { font-size:.7rem; color:var(--muted); cursor:pointer;
                    display:flex; align-items:center; gap:4px;
                    margin-top:2px; }
@@ -820,10 +823,18 @@ function renderSpectators() {
   if (!rows.length && !creator) { p.style.display = 'none'; return; }
   p.style.display = '';
   el('spec-count').textContent = `${rows.length}/8`;   // = server SPEC_CAP
+  const snameHTML = r =>
+    `<span class="sname${r.status === 'away' ? ' away'
+       : r.status === 'left' ? ' left' : ''}" title="${esc(r.name)}">${
+       esc(r.name)}${r.status === 'away'
+         ? ' <span class="awaytag">(away)</span>' : ''}</span>`;
   el('spec-list').innerHTML = rows.length ? rows.map(r =>
-    `<div class="specrow">
+    r.status === 'left'
+      // a ghost on its way out: name only, no controls
+      ? `<div class="specrow"><div class="srtop">${snameHTML(r)}</div></div>`
+      : `<div class="specrow">
        <div class="srtop">
-         <span class="sname" title="${esc(r.name)}">${esc(r.name)}</span>
+         ${snameHTML(r)}
          ${creator ? `<a href="#" class="skick" data-spec="${r.id}"
             title="remove this spectator">&times;</a>` : ''}
        </div>
@@ -1967,6 +1978,29 @@ async function startSpectate(tok) {
   mid.appendChild(east);
   document.body.appendChild(side);   // edge-fixed, out of flow
   await ensureIdentity();
+  // presence lifecycle: tab-out -> explicit 'away' (gray, kept);
+  // close/navigate -> pagehide beacon (sendBeacon survives teardown) ->
+  // 'left' (dark red, then gone). Silence with no signals is treated
+  // as a close by the server.
+  const beacon = (path, obj) => {
+    try {
+      const body = JSON.stringify(obj);
+      if (navigator.sendBeacon)
+        navigator.sendBeacon(path,
+          new Blob([body], {type: 'application/json'}));
+      else fetch(path, {method: 'POST', keepalive: true,
+                        headers: {'Content-Type': 'application/json'},
+                        body});
+    } catch (e) {}
+  };
+  document.addEventListener('visibilitychange', () => {
+    if (SPECTATE)
+      beacon('/api/spectate/presence',
+             {token: tok, pid, away: document.hidden ? 1 : 0});
+  });
+  window.addEventListener('pagehide', () => {
+    if (SPECTATE) beacon('/api/spectate/bye', {token: tok, pid});
+  });
   const poll = async () => {
     try {
       const st = await api(`/api/spectate/state?token=${
@@ -2091,7 +2125,10 @@ function renderSpectateChrome(st) {
     `${(st.spectators || []).length}/8`;   // = server SPEC_CAP
   el('spec-watchlist').innerHTML = (st.spectators || []).map(r =>
     `<div class="specrow"><span class="sname${
-       r.id === st.you ? ' you' : ''}">${esc(r.name)}</span></div>`)
+       r.id === st.you ? ' you' : ''}${
+       r.status === 'away' ? ' away' : r.status === 'left' ? ' left' : ''}">${
+       esc(r.name)}${r.status === 'away'
+         ? ' <span class="awaytag">(away)</span>' : ''}</span></div>`)
     .join('') || '<div class="small muted">just you</div>';
   setStatus(st.finished ? 'Match over' : 'Spectating &middot; live');
   if (st.finished && st.placements && !_specQ.length) {
