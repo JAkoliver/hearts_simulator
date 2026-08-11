@@ -68,11 +68,17 @@ if (!pid) {
         <button id="key-hide">hide</button></div>
       <div class="small muted" style="margin-top:4px">Keep it private.
       Restore it on another device from the home menu.</div>`;
+    // either action marks the key saved so the game page's one-time
+    // backup nudge never fires for a user who already did this
+    const markSaved = () => {
+      try { localStorage.setItem('hearts_key_saved', '1'); } catch (e) {}
+    };
     el('key-copy').onclick = async () => {
       try { await navigator.clipboard.writeText(k);
-            el('key-copy').textContent = 'copied!'; } catch (e) {}
+            el('key-copy').textContent = 'copied!'; markSaved(); } catch (e) {}
     };
     el('key-dl').onclick = () => {
+      markSaved();
       const blob = new Blob(
         [`Perilune identity key - keep this file private.\nkey: ${k}\n`],
         {type: 'text/plain'});

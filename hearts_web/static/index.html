@@ -303,6 +303,23 @@
                    text-align:right; font-variant-numeric:tabular-nums; }
   @media (max-width:1150px) { .attract { display:none; } }
   /* game-side help modal */
+  /* key-backup nudge: once, over the FIRST match-end screen (the first
+     moment there are stats to lose) */
+  #keynudge { position:fixed; inset:0; background:rgba(0,0,0,.55);
+              display:none; align-items:center; justify-content:center;
+              z-index:12; }
+  #keynudge .opanel { background:var(--overlay-panel); border-radius:14px;
+                      padding:22px 28px; max-width:360px; text-align:center;
+                      position:relative; }
+  #keynudge h2 { font-size:1.05rem; margin-bottom:10px; }
+  #keynudge p { font-size:.85rem; color:var(--muted); line-height:1.5;
+                margin:0 0 14px; }
+  #keynudge-x { position:absolute; top:8px; right:12px; background:none;
+                border:none; color:var(--muted); font-size:1.1rem;
+                cursor:pointer; padding:2px 6px; }
+  #keynudge-x:hover { color:var(--gold); }
+  #keynudge .row { display:flex; gap:10px; justify-content:center; }
+  #keynudge-copy { display:inline-block; margin-top:10px; font-size:.75rem; }
   #help-modal { position:fixed; inset:0; background:rgba(0,0,0,.72);
                 display:none; align-items:center; justify-content:center;
                 z-index:11; }
@@ -494,6 +511,19 @@
     <a href="#" onclick="attractToggle(false);return false">hide</a></div>
 </div></div>
 
+<div id="keynudge"><div class="opanel">
+  <button id="keynudge-x" title="close">&times;</button>
+  <h2>Save your key</h2>
+  <p>Your identity here is a key stored only in this browser &mdash;
+    there is no account or password. Save it now to keep your match
+    history and stats if this browser's data is ever cleared, and to
+    sign in on other devices.</p>
+  <div class="row">
+    <button id="keynudge-dl">Download key</button>
+    <button id="keynudge-close">Later</button>
+  </div>
+  <a href="#" id="keynudge-copy" class="qlink">copy key instead</a>
+</div></div>
 <div id="help-modal"><div class="opanel">
   <button id="help-close" title="close (Esc)" style="position:absolute; top:8px;
     right:10px; background:none; border:0; color:#A6A6AF; font-size:1.25rem;
@@ -968,11 +998,56 @@ function showDealEnd(ev) {
   });
 }
 
+// Key-backup nudge: ONCE per browser, over the first match-end screen
+// (the first moment there are stats worth keeping). Never again after
+// dismissal; never at all if the key was already saved here or on the
+// account page (shared hearts_key_saved flag).
+function maybeKeyNudge() {
+  if (!pid) return;
+  try {
+    if (localStorage.getItem('hearts_keynudge')
+        || localStorage.getItem('hearts_key_saved')) return;
+    localStorage.setItem('hearts_keynudge', '1');
+  } catch (e) { return; }
+  setTimeout(() => { el('keynudge').style.display = 'flex'; }, 700);
+}
+{
+  const dismiss = () => { el('keynudge').style.display = 'none'; };
+  const saved = () => {
+    try { localStorage.setItem('hearts_key_saved', '1'); } catch (e) {}
+    dismiss();
+  };
+  el('keynudge-x').onclick = dismiss;
+  el('keynudge-close').onclick = dismiss;
+  el('keynudge-dl').onclick = () => {
+    const blob = new Blob(
+      [`Perilune identity key - keep this file private.\nkey: ${pid}\n\n`
+       + 'Restore it from the home menu ("restore key") or the Account '
+       + 'page at play.perilune.ai/account\n'],
+      {type: 'text/plain'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'perilune-key.txt';
+    a.click();
+    URL.revokeObjectURL(a.href);
+    saved();
+  };
+  el('keynudge-copy').onclick = async e2 => {
+    e2.preventDefault();
+    try {
+      await navigator.clipboard.writeText(pid);
+      el('keynudge-copy').textContent = 'copied ✓';
+      setTimeout(saved, 700);
+    } catch (e) {}
+  };
+}
+
 let _endShownFor = null;
 function showMatchEnd() {
   const endKey = mode === 'table' ? `${tcode}:${state.match_no}` : sid;
   if (_endShownFor === endKey) return;   // finished-poll re-renders: keep
   _endShownFor = endKey;                 // the built overlay, no refetch
+  maybeKeyNudge();
   const order = [0,1,2,3].sort((a,b) => state.placements[a] - state.placements[b]);
   const p = state.placements[state.your_seat];
   el('o-title').textContent = p === 1 ? 'You won the match!' :
