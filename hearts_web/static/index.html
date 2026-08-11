@@ -194,6 +194,19 @@
              font-size:.72rem; pointer-events:none; z-index:2; }
   #trickctr { color:#8A8A93; margin-right:10px;
               font-variant-numeric:tabular-nums; }
+  /* spectator mode + players' spectator panel */
+  body.spectate #pass-controls { display:none !important; }
+  .spec-hand { margin:6px 0; }
+  .spec-hand .sh-name { font-size:.72rem; color:var(--muted);
+                        display:block; margin-bottom:2px; }
+  .specrow { display:flex; align-items:center; gap:8px; margin:5px 0;
+             font-size:.82rem; }
+  .specrow .sname { flex:1; }
+  .specrow label { font-size:.7rem; color:var(--muted); cursor:pointer;
+                   display:flex; align-items:center; gap:4px; }
+  .specrow .skick { color:#D98A8A; text-decoration:none; font-size:1rem;
+                    padding:0 4px; }
+  .specrow .skick:hover { color:#E5484D; }
   #tierline { color:#8A8A93; margin-right:10px; }
   #turnclock { color:#E8B923; font-variant-numeric:tabular-nums; }
   #status { position:absolute; bottom:38px; left:0; width:100%; text-align:center;
@@ -448,6 +461,11 @@
     <div class="panel"><h3>This deal</h3><div id="deal-info"></div></div>
     <div class="panel"><h3>Last trick</h3><div id="last-trick">None yet</div></div>
     <div class="panel"><h3>You received</h3><div id="received">&mdash;</div></div>
+    <div class="panel" id="spec-panel" style="display:none">
+      <h3>Spectators</h3>
+      <div id="spec-list"></div>
+      <button id="spec-link" style="margin-top:8px; font-size:.75rem">copy watch link</button>
+    </div>
   </div>
   <div id="dev-controls" style="display:none"><button id="reset-btn">Reset match (dev)</button></div>
 </div>
@@ -594,7 +612,7 @@ function pos(seat) { return (seat - state.your_seat + 4) % 4; }
 const SEAT_IDS = ['seat-bottom', 'seat-left', 'seat-top', 'seat-right'];
 
 function seatName(s) {
-  if (s === state.your_seat) return 'You';
+  if (!SPECTATE && s === state.your_seat) return 'You';
   if (state.roster) return esc(state.roster[s].name);
   return `Player ${s + 1} (AI)`;
 }
@@ -720,6 +738,58 @@ function updateTrickCtr() {
   const done = 13 - state.hand.length - (mine ? 1 : 0);
   n.textContent = `trick ${Math.min(13, Math.max(1, done + 1))}/13`;
 }
+// Players' spectator panel: who's watching, a share-my-hand checkbox
+// per spectator (each player grants only their OWN seat), kick for the
+// creator, and the copy-watch-link button (creator only).
+function renderSpectators() {
+  const p = el('spec-panel');
+  if (SPECTATE) return;   // spectator view fills this panel itself
+  const rows = (state && state.spectators) || [];
+  const creator = !!(state && state.spec_creator);
+  if (!rows.length && !creator) { p.style.display = 'none'; return; }
+  p.style.display = '';
+  el('spec-list').innerHTML = rows.length ? rows.map(r =>
+    `<div class="specrow">
+       <span class="sname">${esc(r.name)}</span>
+       <label title="let this spectator see your hand">
+         <input type="checkbox" data-spec="${r.id}"${r.shared ? ' checked' : ''}>
+         share hand</label>
+       ${creator ? `<a href="#" class="skick" data-spec="${r.id}"
+          title="remove this spectator">&times;</a>` : ''}
+     </div>`).join('')
+    : '<div class="small muted">no one watching yet</div>';
+  const ident = mode === 'table' ? {code: tcode} : {sid};
+  el('spec-list').querySelectorAll('input[type=checkbox]').forEach(cb => {
+    cb.onchange = async () => {
+      try {
+        await api('/api/spectate/share',
+                  POSTJSON({pid, ...ident, spec: cb.dataset.spec,
+                            on: cb.checked}));
+      } catch (e) { cb.checked = !cb.checked; }
+    };
+  });
+  el('spec-list').querySelectorAll('.skick').forEach(a => {
+    a.onclick = async ev => {
+      ev.preventDefault();
+      try { await api('/api/spectate/kick',
+                      POSTJSON({pid, ...ident, spec: a.dataset.spec})); }
+      catch (e) {}
+    };
+  });
+  el('spec-link').style.display = creator ? '' : 'none';
+}
+el('spec-link').onclick = async () => {
+  try {
+    const ident = mode === 'table' ? {code: tcode} : {sid};
+    const r = await api('/api/spectate/new', POSTJSON({pid, ...ident}));
+    await navigator.clipboard.writeText(
+      `${location.origin}/?watch=${r.token}`);
+    el('spec-link').textContent = 'link copied ✓';
+    setTimeout(() => { el('spec-link').textContent = 'copy watch link'; },
+               1800);
+  } catch (e) {}
+};
+
 function render() {
   renderSeats(state.your_turn && !state.finished ? state.your_seat : null);
   renderTrick(state.trick);
@@ -727,6 +797,7 @@ function render() {
   renderHand();
   updateTierline();
   updateTrickCtr();
+  renderSpectators();
   el('banner').textContent = '';
   if (state.finished) return showMatchEnd();
   // A card queued mid-animation: play it now if it's legal, drop it if not.
@@ -1771,6 +1842,62 @@ async function newMatch() {
 }
 // Refreshing resumes the ongoing game (solo session or table); the reset
 // button, a finished match, or a lost session returns to the menu.
+// ---- spectator mode -------------------------------------------------------
+let SPECTATE = false, _specTimer = null;
+async function startSpectate(tok) {
+  SPECTATE = true;
+  document.body.classList.add('spectate');
+  hideHome();
+  await ensureIdentity();
+  const poll = async () => {
+    try {
+      const st = await api(`/api/spectate/state?token=${
+        encodeURIComponent(tok)}&pid=${encodeURIComponent(pid)}`);
+      renderSpectate(st);
+    } catch (e) {
+      clearInterval(_specTimer);
+      SPECTATE = false;
+      document.body.classList.remove('spectate');
+      showHome(e.message || 'spectating ended');
+    }
+  };
+  await poll();
+  if (SPECTATE) _specTimer = setInterval(poll, 1500);
+}
+function renderSpectate(st) {
+  state = {
+    your_seat: st.perspective, your_turn: false, finished: st.finished,
+    passing: false, deal_no: st.deal_no, pass_direction: null,
+    roster: [0, 1, 2, 3].map(s => ({name: st.seat_names[String(s)]})),
+    trick: st.trick, last_trick: st.last_trick,
+    round_scores: st.round_scores, match_scores: st.match_scores,
+    received: [], hand: [], legal: [], placements: st.placements,
+    target: st.target,
+  };
+  renderSeats(null);
+  renderTrick(state.trick);
+  renderSide();
+  // shared hands (per-seat player consent) render in the hand strip
+  el('hand').innerHTML = Object.entries(st.shared || {}).map(([s, cards]) =>
+    `<div class="spec-hand"><span class="sh-name">${
+       esc(st.seat_names[s])}'s hand (shared with you)</span>
+     ${cards.map(c => cardHTML(c.name, 'mini')).join('')}</div>`).join('');
+  // fellow spectators, names only
+  const p = el('spec-panel');
+  p.style.display = '';
+  el('spec-link').style.display = 'none';
+  el('spec-list').innerHTML = (st.spectators || []).map(r =>
+    `<div class="specrow"><span class="sname">${esc(r.name)}</span></div>`)
+    .join('') || '<div class="small muted">just you</div>';
+  setStatus(st.finished
+    ? 'Match over'
+    : 'Spectating &middot; live');
+  if (st.finished && st.placements) {
+    const w = st.placements.indexOf(Math.min(...st.placements));
+    el('banner').textContent = `${st.seat_names[String(w)]} won the match`;
+  }
+}
+
 const _wantMenu = _q.get('menu') === '1';
 if (_wantMenu) history.replaceState(null, '', '/');
 const _joinCode = (_q.get('join') || '').trim().toUpperCase();
@@ -1778,6 +1905,8 @@ if (_joinCode) history.replaceState(null, '', '/');  // no re-join on refresh
 const _wantDaily = _q.get('daily') === '1';
 if (_wantDaily) history.replaceState(null, '', '/');
 async function init() {
+  const watch = _q.get('watch');
+  if (watch) { startSpectate(watch); return; }
   if (_wantDaily) { dailyStart(); return; }
   // Invite link (/?join=CODE): join that table directly, before any
   // saved-session resume - clicking an invite states your intent.

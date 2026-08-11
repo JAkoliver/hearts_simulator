@@ -380,6 +380,12 @@ class Session:
         self.n_actions = 0
         self.finished = False
         self.lock = threading.Lock()
+        # spectator mode: specid -> {'canon', 'name'}; hand-share grants
+        # (seat, specid) - each PLAYER controls only their own seat;
+        # kicked canonical ids are banned for the session's lifetime
+        self.spectators = {}
+        self.spec_share = set()
+        self.spec_kicked = set()
 
     def _stamp(self, kind):
         return {'v': LOG_V, 'kind': kind, 'sid': self.sid, 'pid': self.pid,
@@ -493,6 +499,10 @@ class Session:
             'target': TARGET,
             'tier': self.tier,
             'tier_label': TIERS[self.tier]['label'],
+            'spectators': [{'id': k, 'name': v['name'],
+                            'shared': (self.human_seat, k) in self.spec_share}
+                           for k, v in self.spectators.items()],
+            'spec_creator': True,
         }
 
 
@@ -537,6 +547,10 @@ class Table:
         self.series_wins = [0, 0, 0, 0]  # per-seat wins across rematches
         self.series_played = 0           # completed matches at this table
         self.t0 = time.time()
+        # spectator mode (same shape as Session's)
+        self.spectators = {}
+        self.spec_share = set()
+        self.spec_kicked = set()
         self.created = time.time()
         self.last_seen = {host_pid: time.time()}   # pid -> last poll (heartbeat)
         self.departed = set()                      # pids that explicitly left
@@ -792,6 +806,10 @@ class Table:
                                if self.finished else None),
                 'series_wins': list(self.series_wins),
                 'series_played': self.series_played,
+                'spectators': [{'id': k, 'name': v['name'],
+                                'shared': (seat, k) in self.spec_share}
+                               for k, v in self.spectators.items()],
+                'spec_creator': pid == self.host_pid,
                 'events': self.events[cursor:], 'cursor': len(self.events)}
 
 
@@ -3100,6 +3118,206 @@ def table_play(code: str, body: TableActBody):
         t.advance()
         snapshot_tables()
         return t.view(body.pid, body.cursor)
+
+
+# ---- spectator mode -------------------------------------------------------
+# The game's creator (solo player / table host) mints an unguessable
+# signed watch link. Spectators see the public board; hands appear ONLY
+# per-seat, per-spectator, by that seat's player's explicit grant. Kick
+# bans the identity for the game's lifetime (the link itself stays
+# valid for everyone else). Daily games gate spectating on having
+# completed that day's challenge - the board would reveal the shared
+# deal to someone who hasn't played it yet.
+SPEC_CAP = 8
+
+
+def _spec_token(kind, ident):
+    payload = f'w|{kind}|{ident}'
+    tok = base64.urlsafe_b64encode(payload.encode()).decode().rstrip('=')
+    return f'{tok}.{_share_sign(payload)}'
+
+
+def _spec_parse(token):
+    try:
+        tok, sig = token.rsplit('.', 1)
+        payload = base64.urlsafe_b64decode(tok + '=' * (-len(tok) % 4)).decode()
+        if not hmac.compare_digest(sig, _share_sign(payload)):
+            return None
+        w, kind, ident = payload.split('|', 2)
+        if w != 'w' or kind not in ('s', 't'):
+            return None
+        return kind, ident
+    except Exception:
+        return None
+
+
+def _spec_target(kind, ident):
+    """(game object, lock) or (None, None). Table must be past lobby."""
+    if kind == 's':
+        with _sessions_lock:
+            s = _sessions.get(ident)
+        return (s, s.lock) if s is not None else (None, None)
+    with _tables_lock:
+        t = _tables.get(ident)
+    if t is None or t.state == 'lobby':
+        return (None, None)
+    return t, t.lock
+
+
+def _specid_of(canon):
+    return hashlib.sha256(('spec|' + canon).encode()).hexdigest()[:8]
+
+
+def _spec_rows(obj, my_seat=None):
+    return [{'id': k, 'name': v['name'],
+             **({'shared': (my_seat, k) in obj.spec_share}
+                if my_seat is not None else {})}
+            for k, v in obj.spectators.items()]
+
+
+def _spec_seat_names(obj):
+    if isinstance(obj, Session):
+        nm = codename_of(obj.pid) if obj.pid else 'Player'
+        return {str(s): (nm if s == obj.human_seat else f'Seat {s + 1} (AI)')
+                for s in range(4)}
+    return {str(s): obj.names.get(s, f'Seat {s + 1} (AI)') for s in range(4)}
+
+
+def _spec_human_seats(obj):
+    if isinstance(obj, Session):
+        return [obj.human_seat]
+    return sorted(obj.seat_of.values())
+
+
+@app.post('/api/spectate/new')
+def spectate_new(body: dict):
+    canon = resolve_pid(body.get('pid'))
+    if not canon:
+        raise HTTPException(400, 'pid required')
+    sid, code = body.get('sid'), (body.get('code') or '').upper()
+    if sid:
+        obj, lock = _spec_target('s', sid)
+        if obj is None or obj.pid != canon:
+            raise HTTPException(403, 'only the player can create a watch link')
+        return {'token': _spec_token('s', sid)}
+    if code:
+        obj, lock = _spec_target('t', code)
+        if obj is None:
+            raise HTTPException(409, 'the game has not started')
+        if obj.host_pid != canon:
+            raise HTTPException(403, 'only the host can create a watch link')
+        return {'token': _spec_token('t', code)}
+    raise HTTPException(400, 'sid or code required')
+
+
+def _spec_admit(obj, canon):
+    """Register (or re-find) a spectator; raises on ban/gate/cap."""
+    if canon in obj.spec_kicked:
+        raise HTTPException(403, 'the host removed you from this game')
+    daily = getattr(obj, 'daily', None)
+    if daily and canon not in _daily.get(daily, {}):
+        raise HTTPException(403, 'finish the daily challenge first - '
+                                 'watching would reveal the shared deal')
+    spec = _specid_of(canon)
+    if spec not in obj.spectators:
+        if len(obj.spectators) >= SPEC_CAP:
+            raise HTTPException(409, f'this game already has {SPEC_CAP} '
+                                     'spectators')
+        obj.spectators[spec] = {'canon': canon, 'name': codename_of(canon)}
+    return spec
+
+
+@app.get('/api/spectate/state')
+def spectate_state(token: str, pid: str = None):
+    canon = resolve_pid(pid)
+    if not canon:
+        raise HTTPException(400, 'pid required')
+    p = _spec_parse(token)
+    if p is None:
+        raise HTTPException(403, 'invalid watch link')
+    obj, lock = _spec_target(*p)
+    if obj is None:
+        raise HTTPException(404, 'this game is no longer running')
+    with lock:
+        spec = _spec_admit(obj, canon)
+        shared = {}
+        for seat in _spec_human_seats(obj):
+            if (seat, spec) in obj.spec_share and obj.menv is not None:
+                shared[str(seat)] = [
+                    {'card': c, 'name': card_name(c)}
+                    for c in sorted(hand_of(obj.menv, seat))]
+        return {
+            'mode': p[0], 'ident': p[1],
+            'finished': obj.finished,
+            'deal_no': obj.deal_no,
+            'trick': [{'seat': s, 'name': card_name(c)}
+                      for s, c in obj.trick],
+            'last_trick': (None if obj.last_trick is None else {
+                'cards': [{'seat': s, 'name': card_name(c)}
+                          for s, c in obj.last_trick['cards']],
+                'winner': obj.last_trick['winner']}),
+            'round_scores': list(map(int, obj.menv.env.get_round_scores()))
+                if obj.menv is not None else [0, 0, 0, 0],
+            'match_scores': list(map(int, obj.menv.match_scores))
+                if obj.menv is not None else [0, 0, 0, 0],
+            'placements': (list(obj.menv.placements())
+                           if obj.finished and obj.menv is not None else None),
+            'seat_names': _spec_seat_names(obj),
+            'human_seats': _spec_human_seats(obj),
+            'perspective': _spec_human_seats(obj)[0],
+            'target': TARGET,
+            'spectators': _spec_rows(obj),
+            'shared': shared,
+        }
+
+
+def _spec_game_for_player(body):
+    canon = resolve_pid(body.get('pid'))
+    if not canon:
+        raise HTTPException(400, 'pid required')
+    sid, code = body.get('sid'), (body.get('code') or '').upper()
+    if sid:
+        obj, lock = _spec_target('s', sid)
+        if obj is None or obj.pid != canon:
+            raise HTTPException(403, 'not your game')
+        return obj, lock, canon, obj.human_seat
+    obj, lock = _spec_target('t', code)
+    if obj is None:
+        raise HTTPException(404, 'no such game')
+    seat = obj.seat_of.get(canon)
+    if seat is None:
+        raise HTTPException(403, 'not seated at this table')
+    return obj, lock, canon, seat
+
+
+@app.post('/api/spectate/share')
+def spectate_share(body: dict):
+    obj, lock, canon, seat = _spec_game_for_player(body)
+    spec = str(body.get('spec') or '')
+    with lock:
+        if spec not in obj.spectators:
+            raise HTTPException(404, 'no such spectator')
+        if body.get('on'):
+            obj.spec_share.add((seat, spec))
+        else:
+            obj.spec_share.discard((seat, spec))
+        return {'shared': (seat, spec) in obj.spec_share}
+
+
+@app.post('/api/spectate/kick')
+def spectate_kick(body: dict):
+    obj, lock, canon, seat = _spec_game_for_player(body)
+    creator = (obj.pid if isinstance(obj, Session) else obj.host_pid)
+    if canon != creator:
+        raise HTTPException(403, 'only the creator can remove spectators')
+    spec = str(body.get('spec') or '')
+    with lock:
+        v = obj.spectators.pop(spec, None)
+        if v is None:
+            raise HTTPException(404, 'no such spectator')
+        obj.spec_kicked.add(v['canon'])
+        obj.spec_share = {(s2, k) for s2, k in obj.spec_share if k != spec}
+        return {'ok': True}
 
 
 @app.post('/api/play/{sid}')
