@@ -3329,6 +3329,7 @@ def spectate_state(token: str, pid: str = None, cursor: int = None):
                                 obj.host_pid, _spec_human_seats(obj)[0])),
             'target': TARGET,
             'spectators': _spec_rows(obj),
+            'you': spec,   # this watcher's own row (client golds it)
             'shared': shared,
             'events': events,
             'cursor': len(stream),

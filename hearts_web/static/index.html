@@ -246,6 +246,7 @@
   .specrow { margin:7px 0; font-size:.82rem; }
   .specrow .srtop { display:flex; align-items:baseline; gap:8px; }
   .specrow .sname { flex:1; }
+  .specrow .sname.you { color:var(--gold); }
   .specrow label { font-size:.7rem; color:var(--muted); cursor:pointer;
                    display:flex; align-items:center; gap:4px;
                    margin-top:2px; }
@@ -2082,9 +2083,10 @@ function renderSpectateChrome(st) {
            cardHTML(n, recv.has(n) ? 'recvmark' : '')).join('')}</div>`;
     }
   }
-  // fellow spectators, far-left panel
+  // fellow spectators, far-left panel - your own name in gold
   el('spec-watchlist').innerHTML = (st.spectators || []).map(r =>
-    `<div class="specrow"><span class="sname">${esc(r.name)}</span></div>`)
+    `<div class="specrow"><span class="sname${
+       r.id === st.you ? ' you' : ''}">${esc(r.name)}</span></div>`)
     .join('') || '<div class="small muted">just you</div>';
   setStatus(st.finished ? 'Match over' : 'Spectating &middot; live');
   if (st.finished && st.placements && !_specQ.length) {
