@@ -207,30 +207,34 @@
   #hand .sh-label { flex-basis:100%; text-align:center; font-size:.72rem;
                     color:var(--muted); }
   #hand .card.recvmark { outline:3px solid var(--gold); }
-  /* spectate layout, review-style: [spectators][west hand][felt with
-     the north hand above][east hand], everything OUTSIDE the felt -
-     the table stays a clean stage. Empty hand slots collapse. */
-  body.spectate #layout { display:flex; align-items:center;
-                          justify-content:center; gap:14px; }
+  /* spectate layout, matched to the match review: the north hand rides
+     its own row above; then [left PANEL column | west hand | felt |
+     east hand]. Every shared hand lives OUTSIDE the felt at bottom-hand
+     card size; side hands wrap ~4 cards per row exactly like the
+     review's flanking hands. Empty slots collapse. */
+  body.spectate #layout { display:flex; flex-direction:column;
+                          align-items:center; gap:10px; }
+  #spec-row { display:flex; align-items:flex-start;
+              justify-content:center; gap:14px; }
   body.spectate #table { width:min(56vw, 950px); }
   body.spectate #spec-panel { display:none !important; }
-  #spec-watchpanel { align-self:flex-start; margin-top:8px;
-                     min-width:118px; }
-  #spec-center { display:flex; flex-direction:column; align-items:center;
-                 gap:10px; }
+  body.spectate #side { display:none !important; }
+  #spec-side { width:170px; flex:none; display:flex;
+               flex-direction:column; gap:12px; align-self:flex-start; }
+  #spec-west, #spec-east { align-self:center; }
   .spec-outhand { text-align:center; }
   .spec-outhand:empty { display:none; }
-  .spec-outhand .sh-label { font-size:.62rem; color:var(--muted);
+  .spec-outhand .sh-label { font-size:.72rem; color:var(--muted);
                             margin-bottom:3px; white-space:nowrap; }
-  .spec-outhand .card.recvmark { outline:2px solid var(--gold); }
+  .spec-outhand .card { width:64px; height:92px; font-size:1.15rem;
+                        border-radius:8px; padding:5px 6px; }
+  .spec-outhand .card .suit { font-size:1.5rem; }
+  .spec-outhand .card.recvmark { outline:3px solid var(--gold); }
   #spec-west .cds, #spec-east .cds
-    { display:flex; flex-direction:column; align-items:center; }
-  #spec-west .cds .card, #spec-east .cds .card { margin-top:-30px; }
-  #spec-west .cds .card:first-child,
-  #spec-east .cds .card:first-child { margin-top:0; }
-  #spec-north .cds { display:flex; justify-content:center; }
-  #spec-north .cds .card { margin-left:-12px; }
-  #spec-north .cds .card:first-child { margin-left:0; }
+    { display:flex; flex-wrap:wrap; gap:3px; justify-content:center;
+      max-width:272px; }
+  #spec-north .cds { display:flex; gap:3px; flex-wrap:wrap;
+                     justify-content:center; }
   /* two deliberate lines per spectator: the FULL name (codenames are
      the site's identity - never truncated) with kick at right, then
      the share control underneath */
@@ -1921,30 +1925,38 @@ async function startSpectate(tok) {
   SPECTATE = true;
   document.body.classList.add('spectate');
   hideHome();
-  // review-style scaffolding: spectators panel far left, hand slots
-  // flanking the felt, north slot above it - built once, filled per poll
+  // review-matched scaffolding: north hand row above, then the row
+  // [side panels | west hand | felt | east hand]. The LEFT column is a
+  // real panel stack (Spectators + Last trick - the game's #last-trick
+  // node MOVES there so renderSide keeps writing to it); the game's
+  // right sidebar hides entirely in this mode.
   const lay = el('layout');
-  const wp = document.createElement('div');
-  wp.className = 'panel';
-  wp.id = 'spec-watchpanel';
-  wp.innerHTML = '<h3>Spectators</h3><div id="spec-watchlist"></div>';
+  const north = document.createElement('div');
+  north.id = 'spec-north';
+  north.className = 'spec-outhand';
+  const row = document.createElement('div');
+  row.id = 'spec-row';
+  const side = document.createElement('div');
+  side.id = 'spec-side';
+  side.innerHTML = '<div class="panel"><h3>Spectators</h3>'
+    + '<div id="spec-watchlist"></div></div>';
+  const ltPanel = document.createElement('div');
+  ltPanel.className = 'panel';
+  ltPanel.innerHTML = '<h3>Last trick</h3>';
+  ltPanel.appendChild(el('last-trick'));
+  side.appendChild(ltPanel);
   const west = document.createElement('div');
   west.id = 'spec-west';
   west.className = 'spec-outhand';
   const east = document.createElement('div');
   east.id = 'spec-east';
   east.className = 'spec-outhand';
-  const center = document.createElement('div');
-  center.id = 'spec-center';
-  const north = document.createElement('div');
-  north.id = 'spec-north';
-  north.className = 'spec-outhand';
-  lay.insertBefore(center, el('table'));
-  center.appendChild(north);
-  center.appendChild(el('table'));
-  lay.insertBefore(wp, center);
-  lay.insertBefore(west, center);
-  lay.appendChild(east);
+  lay.insertBefore(north, el('table'));
+  lay.insertBefore(row, el('table'));
+  row.appendChild(side);
+  row.appendChild(west);
+  row.appendChild(el('table'));
+  row.appendChild(east);
   await ensureIdentity();
   const poll = async () => {
     try {
@@ -2062,7 +2074,7 @@ function renderSpectateChrome(st) {
       slots[p2].innerHTML =
         `<div class="sh-label">${esc(st.seat_names[s])}${passTxt}</div>
          <div class="cds">${(info.cards || []).map(n =>
-           cardHTML(n, 'mini' + (recv.has(n) ? ' recvmark' : ''))).join('')}</div>`;
+           cardHTML(n, recv.has(n) ? 'recvmark' : '')).join('')}</div>`;
     }
   }
   // fellow spectators, far-left panel
