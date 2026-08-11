@@ -380,12 +380,13 @@ class Session:
         self.n_actions = 0
         self.finished = False
         self.lock = threading.Lock()
-        # spectator mode: specid -> {'canon', 'name'}; hand-share grants
-        # (seat, specid) - each PLAYER controls only their own seat;
-        # kicked canonical ids are banned for the session's lifetime
+        # spectator mode: specid -> {'canon', 'name', 'seen'}; hand-share
+        # grants (seat, specid) - each PLAYER controls only their own
+        # seat; kicked canonical ids are banned for the session's life
         self.spectators = {}
         self.spec_share = set()
         self.spec_kicked = set()
+        self.spec_events = []     # cumulative public stream (cursor)
 
     def _stamp(self, kind):
         return {'v': LOG_V, 'kind': kind, 'sid': self.sid, 'pid': self.pid,
@@ -395,6 +396,14 @@ class Session:
                 **({'daily': self.daily} if self.daily else {})}
 
     # -- engine helpers -----------------------------------------------------
+    def _emit(self, e):
+        """Public game event: the per-request client batch AND the
+        cumulative spectator stream (solo resolves whole AI rounds
+        inside one request, so snapshot-polling spectators never see
+        the plays - they consume this log by cursor instead)."""
+        self.events.append(e)
+        self.spec_events.append(e)   # bounded by match length (~800)
+
     def _legal(self):
         return [a for a in self.menv.get_legal_actions() if a != -1]
 
@@ -412,23 +421,23 @@ class Session:
         self.n_actions += 1
         if in_play:
             self.trick.append((seat, action))
-            self.events.append({'type': 'play', 'seat': seat,
-                                'name': card_name(action)})
+            self._emit({'type': 'play', 'seat': seat,
+                        'name': card_name(action)})
         deal_done, match_done, round_scores = self.menv.step(action)
         if in_play and len(self.trick) == 4:
             # The next current player is the trick winner (they lead next),
             # unless the deal just ended (then round_scores tell the story)
             winner = None if deal_done else self.menv.get_current_player()
             self.last_trick = {'cards': list(self.trick), 'winner': winner}
-            self.events.append({'type': 'trick_end', 'winner': winner,
-                                'cards': [{'seat': s, 'name': card_name(c)}
-                                          for s, c in self.last_trick['cards']]})
+            self._emit({'type': 'trick_end', 'winner': winner,
+                        'cards': [{'seat': s, 'name': card_name(c)}
+                                  for s, c in self.last_trick['cards']]})
             self.trick = []
         if deal_done:
             self.trick = []
             self.last_deal = list(map(int, round_scores))
             srt = sorted(round_scores)
-            self.events.append({
+            self._emit({
                 'type': 'deal_end',
                 'round_scores': list(map(int, round_scores)),
                 'totals': list(map(int, self.menv.match_scores)),
@@ -499,9 +508,10 @@ class Session:
             'target': TARGET,
             'tier': self.tier,
             'tier_label': TIERS[self.tier]['label'],
-            'spectators': [{'id': k, 'name': v['name'],
-                            'shared': (self.human_seat, k) in self.spec_share}
-                           for k, v in self.spectators.items()],
+            'spectators': (_spec_prune(self) or
+                           [{'id': k, 'name': v['name'],
+                             'shared': (self.human_seat, k) in self.spec_share}
+                            for k, v in self.spectators.items()]),
             'spec_creator': True,
         }
 
@@ -806,9 +816,10 @@ class Table:
                                if self.finished else None),
                 'series_wins': list(self.series_wins),
                 'series_played': self.series_played,
-                'spectators': [{'id': k, 'name': v['name'],
-                                'shared': (seat, k) in self.spec_share}
-                               for k, v in self.spectators.items()],
+                'spectators': (_spec_prune(self) or
+                               [{'id': k, 'name': v['name'],
+                                 'shared': (seat, k) in self.spec_share}
+                                for k, v in self.spectators.items()]),
                 'spec_creator': pid == self.host_pid,
                 'events': self.events[cursor:], 'cursor': len(self.events)}
 
@@ -3210,6 +3221,18 @@ def spectate_new(body: dict):
     raise HTTPException(400, 'sid or code required')
 
 
+SPEC_AWAY_S = 8   # ~5 missed 1.5s polls = the spectator left
+
+
+def _spec_prune(obj):
+    """Drop spectators whose polls stopped. Share grants stay: the
+    specid is deterministic, so a refresh/rejoin keeps its grant."""
+    now = time.time()
+    for k in [k for k, v in obj.spectators.items()
+              if now - v.get('seen', 0) > SPEC_AWAY_S]:
+        obj.spectators.pop(k, None)
+
+
 def _spec_admit(obj, canon):
     """Register (or re-find) a spectator; raises on ban/gate/cap."""
     if canon in obj.spec_kicked:
@@ -3218,17 +3241,19 @@ def _spec_admit(obj, canon):
     if daily and canon not in _daily.get(daily, {}):
         raise HTTPException(403, 'finish the daily challenge first - '
                                  'watching would reveal the shared deal')
+    _spec_prune(obj)
     spec = _specid_of(canon)
     if spec not in obj.spectators:
         if len(obj.spectators) >= SPEC_CAP:
             raise HTTPException(409, f'this game already has {SPEC_CAP} '
                                      'spectators')
         obj.spectators[spec] = {'canon': canon, 'name': codename_of(canon)}
+    obj.spectators[spec]['seen'] = time.time()
     return spec
 
 
 @app.get('/api/spectate/state')
-def spectate_state(token: str, pid: str = None):
+def spectate_state(token: str, pid: str = None, cursor: int = None):
     canon = resolve_pid(pid)
     if not canon:
         raise HTTPException(400, 'pid required')
@@ -3240,6 +3265,11 @@ def spectate_state(token: str, pid: str = None):
         raise HTTPException(404, 'this game is no longer running')
     with lock:
         spec = _spec_admit(obj, canon)
+        # event stream by cursor: solo resolves whole AI rounds inside
+        # one request, so snapshots alone skip most plays (user report)
+        stream = (obj.spec_events if isinstance(obj, Session)
+                  else obj.events)
+        events = [] if cursor is None else stream[cursor:]
         shared = {}
         for seat in _spec_human_seats(obj):
             if (seat, spec) in obj.spec_share and obj.menv is not None:
@@ -3268,6 +3298,8 @@ def spectate_state(token: str, pid: str = None):
             'target': TARGET,
             'spectators': _spec_rows(obj),
             'shared': shared,
+            'events': events,
+            'cursor': len(stream),
         }
 
 

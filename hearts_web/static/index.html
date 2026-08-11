@@ -199,11 +199,17 @@
   .spec-hand { margin:6px 0; }
   .spec-hand .sh-name { font-size:.72rem; color:var(--muted);
                         display:block; margin-bottom:2px; }
+  /* one line per spectator: name truncates with an ellipsis before
+     anything wraps; the checkbox label never breaks */
   .specrow { display:flex; align-items:center; gap:8px; margin:5px 0;
              font-size:.82rem; }
-  .specrow .sname { flex:1; }
+  .specrow .sname { flex:1; min-width:0; white-space:nowrap;
+                    overflow:hidden; text-overflow:ellipsis; }
   .specrow label { font-size:.7rem; color:var(--muted); cursor:pointer;
-                   display:flex; align-items:center; gap:4px; }
+                   display:flex; align-items:center; gap:4px;
+                   white-space:nowrap; flex:none; }
+  #spec-link { background:var(--tag-bg); color:var(--muted); }
+  #spec-link:hover { color:var(--text); }
   .specrow .skick { color:#D98A8A; text-decoration:none; font-size:1rem;
                     padding:0 4px; }
   .specrow .skick:hover { color:#E5484D; }
@@ -1843,7 +1849,13 @@ async function newMatch() {
 // Refreshing resumes the ongoing game (solo session or table); the reset
 // button, a finished match, or a lost session returns to the menu.
 // ---- spectator mode -------------------------------------------------------
-let SPECTATE = false, _specTimer = null;
+// Snapshot for the static parts (scores, side panels, names, shared
+// hands), EVENT STREAM for the felt: solo games resolve whole AI
+// rounds inside one request, so between two polls entire tricks come
+// and go - snapshots alone showed almost no cards (user report). The
+// pump replays play/trick_end/deal_end at a watchable pace.
+let SPECTATE = false, _specTimer = null, _specCursor = null;
+let _specQ = [], _specPumping = false, _specTrick = [], _specLast = null;
 async function startSpectate(tok) {
   SPECTATE = true;
   document.body.classList.add('spectate');
@@ -1852,8 +1864,19 @@ async function startSpectate(tok) {
   const poll = async () => {
     try {
       const st = await api(`/api/spectate/state?token=${
-        encodeURIComponent(tok)}&pid=${encodeURIComponent(pid)}`);
-      renderSpectate(st);
+        encodeURIComponent(tok)}&pid=${encodeURIComponent(pid)}`
+        + (_specCursor === null ? '' : `&cursor=${_specCursor}`));
+      const first = _specCursor === null;
+      _specCursor = st.cursor;
+      _specLast = st;
+      renderSpectateChrome(st);
+      if (first) {
+        _specTrick = st.trick.slice();
+        renderTrick(_specTrick);
+      } else if (st.events && st.events.length) {
+        _specQ.push(...st.events);
+        pumpSpec();
+      }
     } catch (e) {
       clearInterval(_specTimer);
       SPECTATE = false;
@@ -1864,18 +1887,52 @@ async function startSpectate(tok) {
   await poll();
   if (SPECTATE) _specTimer = setInterval(poll, 1500);
 }
-function renderSpectate(st) {
+async function pumpSpec() {
+  if (_specPumping) return;
+  _specPumping = true;
+  while (_specQ.length) {
+    const ev = _specQ.shift();
+    const names = (_specLast && _specLast.seat_names) || {};
+    if (ev.type === 'play') {
+      sfx(ev.name === 'QS' ? 'explosion' : 'placing');
+      _specTrick.push({seat: ev.seat, name: ev.name});
+      renderTrick(_specTrick);
+      await sleep(450);
+    } else if (ev.type === 'trick_end') {
+      renderTrick(ev.cards);
+      if (ev.winner !== null) {
+        el('banner').textContent = `${names[String(ev.winner)]} took the trick`;
+        sfx('taking');
+        const p2 = pos(ev.winner);
+        await sleep(420);
+        document.querySelectorAll('#trick .tcard').forEach(n =>
+          n.classList.add(`sweep${p2}`));
+        await sleep(320);
+      }
+      el('banner').textContent = '';
+      _specTrick = [];
+      renderTrick([]);
+    } else if (ev.type === 'deal_end') {
+      sfx('shuffling');
+      el('banner').textContent = ev.moon_by !== null
+        ? `${names[String(ev.moon_by)]} shot the moon!` : 'Deal complete';
+      await sleep(1400);
+      el('banner').textContent = '';
+    }
+  }
+  _specPumping = false;
+}
+function renderSpectateChrome(st) {
   state = {
     your_seat: st.perspective, your_turn: false, finished: st.finished,
     passing: false, deal_no: st.deal_no, pass_direction: null,
     roster: [0, 1, 2, 3].map(s => ({name: st.seat_names[String(s)]})),
-    trick: st.trick, last_trick: st.last_trick,
+    trick: _specTrick, last_trick: st.last_trick,
     round_scores: st.round_scores, match_scores: st.match_scores,
     received: [], hand: [], legal: [], placements: st.placements,
     target: st.target,
   };
   renderSeats(null);
-  renderTrick(state.trick);
   renderSide();
   // shared hands (per-seat player consent) render in the hand strip
   el('hand').innerHTML = Object.entries(st.shared || {}).map(([s, cards]) =>
@@ -1889,10 +1946,8 @@ function renderSpectate(st) {
   el('spec-list').innerHTML = (st.spectators || []).map(r =>
     `<div class="specrow"><span class="sname">${esc(r.name)}</span></div>`)
     .join('') || '<div class="small muted">just you</div>';
-  setStatus(st.finished
-    ? 'Match over'
-    : 'Spectating &middot; live');
-  if (st.finished && st.placements) {
+  setStatus(st.finished ? 'Match over' : 'Spectating &middot; live');
+  if (st.finished && st.placements && !_specQ.length) {
     const w = st.placements.indexOf(Math.min(...st.placements));
     el('banner').textContent = `${st.seat_names[String(w)]} won the match`;
   }
