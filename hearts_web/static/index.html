@@ -207,21 +207,26 @@
   #hand .sh-label { flex-basis:100%; text-align:center; font-size:.72rem;
                     color:var(--muted); }
   #hand .card.recvmark { outline:3px solid var(--gold); }
-  /* spectate layout, matched to the match review: the north hand rides
-     its own row above; then [left PANEL column | west hand | felt |
-     east hand]. Every shared hand lives OUTSIDE the felt at bottom-hand
-     card size; side hands wrap ~4 cards per row exactly like the
-     review's flanking hands. Empty slots collapse. */
+  /* spectate layout, matched to the match review: the panel column
+     HUGS the far-left screen edge OUT OF FLOW (review's disagreements
+     panel), and the felt centers on the viewport regardless of what's
+     shared - west/east hands are absolute flanks of the centered felt,
+     taking no layout space. North/bottom hands center with the felt. */
   body.spectate #layout { display:flex; flex-direction:column;
                           align-items:center; gap:10px; }
-  #spec-row { display:flex; align-items:flex-start;
-              justify-content:center; gap:14px; }
   body.spectate #table { width:min(56vw, 950px); }
   body.spectate #spec-panel { display:none !important; }
   body.spectate #side { display:none !important; }
-  #spec-side { width:170px; flex:none; display:flex;
-               flex-direction:column; gap:12px; align-self:flex-start; }
-  #spec-west, #spec-east { align-self:center; }
+  #spec-side { position:fixed; left:12px; top:70px; width:170px;
+               display:flex; flex-direction:column; gap:12px;
+               z-index:4; }
+  #spec-mid { position:relative; }
+  /* absolute flanks shrink-to-fit against the wrong edge without an
+     explicit width - they collapsed into 1-card towers */
+  #spec-west, #spec-east { position:absolute; top:50%;
+                           transform:translateY(-50%); width:272px; }
+  #spec-west { right:calc(100% + 16px); }
+  #spec-east { left:calc(100% + 16px); }
   .spec-outhand { text-align:center; }
   .spec-outhand:empty { display:none; }
   .spec-outhand .sh-label { font-size:.72rem; color:var(--muted);
@@ -1934,8 +1939,6 @@ async function startSpectate(tok) {
   const north = document.createElement('div');
   north.id = 'spec-north';
   north.className = 'spec-outhand';
-  const row = document.createElement('div');
-  row.id = 'spec-row';
   const side = document.createElement('div');
   side.id = 'spec-side';
   side.innerHTML = '<div class="panel"><h3>Spectators</h3>'
@@ -1945,6 +1948,8 @@ async function startSpectate(tok) {
   ltPanel.innerHTML = '<h3>Last trick</h3>';
   ltPanel.appendChild(el('last-trick'));
   side.appendChild(ltPanel);
+  const mid = document.createElement('div');
+  mid.id = 'spec-mid';
   const west = document.createElement('div');
   west.id = 'spec-west';
   west.className = 'spec-outhand';
@@ -1952,11 +1957,11 @@ async function startSpectate(tok) {
   east.id = 'spec-east';
   east.className = 'spec-outhand';
   lay.insertBefore(north, el('table'));
-  lay.insertBefore(row, el('table'));
-  row.appendChild(side);
-  row.appendChild(west);
-  row.appendChild(el('table'));
-  row.appendChild(east);
+  lay.insertBefore(mid, el('table'));
+  mid.appendChild(west);
+  mid.appendChild(el('table'));
+  mid.appendChild(east);
+  document.body.appendChild(side);   // edge-fixed, out of flow
   await ensureIdentity();
   const poll = async () => {
     try {
