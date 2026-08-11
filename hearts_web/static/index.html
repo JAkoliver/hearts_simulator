@@ -199,6 +199,9 @@
   .spec-hand { margin:6px 0; }
   .spec-hand .sh-name { font-size:.72rem; color:var(--muted);
                         display:block; margin-bottom:2px; }
+  .spec-hand .card.recvmark { outline:2px solid var(--gold); }
+  .spec-hand .sh-recv { font-size:.62rem; color:var(--gold);
+                        opacity:.75; margin-left:8px; }
   /* two deliberate lines per spectator: the FULL name (codenames are
      the site's identity - never truncated) with kick at right, then
      the share control underneath */
@@ -691,13 +694,16 @@ function renderHand(showLegal = true) {
   if (state.received && state.received.length && !inPassing
       && _recvFlashKey !== recvKey) {
     _recvFlashKey = recvKey;
-    _recvFlashUntil = Date.now() + 2400;
+    _recvFlashUntil = Date.now() + 2200;   // = the animation's duration
   }
   const flashNow = _recvFlashKey === recvKey && Date.now() < _recvFlashUntil;
+  // The flash class is applied POST-render with a negative
+  // animation-delay: baked into the HTML it restarted from zero on
+  // every rebuild, so fast plays made the highlight repeat (user
+  // report). A resumed animation is invisible across rebuilds.
   const html = state.hand.map(h => {
     let cls = (dim && !legal.has(h.card)) ? 'illegal' : '';
     if (passSelection.includes(h.card) || h.card === preselect) cls += ' selected';
-    if (flashNow && state.received.includes(h.name)) cls += ' recvflash';
     return cardHTML(h.name, cls);
   }).join('');
   // Rebuild only on real change: the table-mode poll re-renders every
@@ -709,6 +715,16 @@ function renderHand(showLegal = true) {
     document.querySelectorAll('#hand .card:not(.illegal)').forEach(node => {
       const card = state.hand.find(h => h.name === node.dataset.name).card;
       node.onclick = () => onCardClick(card);
+    });
+  }
+  if (flashNow) {
+    const elapsed = 2200 - (_recvFlashUntil - Date.now());
+    document.querySelectorAll('#hand .card').forEach(node => {
+      if (state.received.includes(node.dataset.name)
+          && !node.classList.contains('recvflash')) {
+        node.style.animationDelay = `-${elapsed}ms`;
+        node.classList.add('recvflash');
+      }
     });
   }
   const passing = mode === 'table' ? state.passing
@@ -1879,6 +1895,7 @@ async function startSpectate(tok) {
         renderTrick(_specTrick);
       } else if (st.events && st.events.length) {
         _specQ.push(...st.events);
+        _specPeak = Math.max(_specPeak, _specQ.length);
         pumpSpec();
       }
     } catch (e) {
@@ -1894,9 +1911,13 @@ async function startSpectate(tok) {
 // Adaptive pace: replay at a watchable speed while close to live, and
 // compress toward instant as the backlog grows (a fast/instant game
 // produces events far faster than normal playback - without this the
-// spectator drifts unboundedly behind; user report).
+// spectator drifts unboundedly behind; user report). Pace derives from
+// the PEAK backlog of the current catch-up run, not the live queue
+// length - otherwise the final tricks of a drain decelerate as the
+// queue shrinks and the spectator falls behind again (user report).
+let _specPeak = 0;
 function specPace() {
-  const n = _specQ.length;
+  const n = _specPeak;
   return n <= 4 ? 1 : n <= 12 ? 0.45 : n <= 30 ? 0.18 : 0;
 }
 async function pumpSpec() {
@@ -1936,6 +1957,7 @@ async function pumpSpec() {
       }
     }
   }
+  _specPeak = 0;   // fully drained = live again: watchable pace resumes
   _specPumping = false;
 }
 function renderSpectateChrome(st) {
@@ -1950,11 +1972,24 @@ function renderSpectateChrome(st) {
   };
   renderSeats(null);
   renderSide();
-  // shared hands (per-seat player consent) render in the hand strip
-  el('hand').innerHTML = Object.entries(st.shared || {}).map(([s, cards]) =>
-    `<div class="spec-hand"><span class="sh-name">${
-       esc(st.seat_names[s])}'s hand (shared with you)</span>
-     ${cards.map(c => cardHTML(c.name, 'mini')).join('')}</div>`).join('');
+  // shared hands (per-seat player consent) render in the hand strip;
+  // during passing the picks-so-far show beside the hand, after it the
+  // received cards carry a steady gold mark (steady, not the player's
+  // one-shot flash - a watcher may look over at any moment)
+  el('hand').innerHTML = Object.entries(st.shared || {}).map(([s, info]) => {
+    if (Array.isArray(info)) info = {cards: info.map(c => c.name)};
+    const recv = new Set(info.received || []);
+    return `<div class="spec-hand"><span class="sh-name">${
+        esc(st.seat_names[s])}'s hand (shared with you)${
+        info.passing && (info.passed || []).length
+          ? ` &middot; passing: ${info.passed.map(n =>
+              cardHTML(n, 'mini')).join('')}`
+          : ''}</span>
+      ${(info.cards || []).map(n =>
+        cardHTML(n, 'mini' + (recv.has(n) ? ' recvmark' : ''))).join('')}${
+      recv.size ? `<span class="sh-recv">gold = received in the pass</span>`
+                : ''}</div>`;
+  }).join('');
   // fellow spectators, names only
   const p = el('spec-panel');
   p.style.display = '';

@@ -3271,11 +3271,37 @@ def spectate_state(token: str, pid: str = None, cursor: int = None):
                   else obj.events)
         events = [] if cursor is None else stream[cursor:]
         shared = {}
+        passing_now = (obj.menv is not None and not obj.finished
+                       and bool(obj.menv.is_passing()))
         for seat in _spec_human_seats(obj):
             if (seat, spec) in obj.spec_share and obj.menv is not None:
-                shared[str(seat)] = [
-                    {'card': c, 'name': card_name(c)}
-                    for c in sorted(hand_of(obj.menv, seat))]
+                entry = {'cards': [card_name(c)
+                                   for c in sorted(hand_of(obj.menv, seat))],
+                         'passing': passing_now}
+                # pass picks so far (server-known: applied/queued cards)
+                if isinstance(obj, Session):
+                    picks = obj.passed_cards
+                else:
+                    picks = (obj.passed_by.get(seat)
+                             or obj.pending_pass.get(seat) or [])
+                entry['passed'] = [card_name(c) for c in picks] \
+                    if passing_now else []
+                # cards this seat received in the pass (post-pass phase)
+                recv = []
+                if not passing_now:
+                    if isinstance(obj, Session):
+                        try:
+                            ob = np.asarray(obj.menv.observe_for(seat),
+                                            dtype=np.float32)
+                            recv = [card_name(int(c)) for c in
+                                    np.flatnonzero(ob[238:290] > 0)]
+                        except Exception:
+                            recv = []
+                    else:
+                        recv = [card_name(c)
+                                for c in obj.received.get(seat, [])]
+                entry['received'] = recv
+                shared[str(seat)] = entry
         return {
             'mode': p[0], 'ident': p[1],
             'finished': obj.finished,
