@@ -767,6 +767,8 @@ class Table:
                 raise HTTPException(403, 'not seated at this table')
             return {**base,
                     'players': [p['name'] for p in self.lobby],
+                    'you_name': next((p['name'] for p in self.lobby
+                                      if p['pid'] == pid), None),
                     'you_host': pid == self.host_pid}
         seat = self.seat_of.get(pid)
         if seat is None:
@@ -3320,7 +3322,11 @@ def spectate_state(token: str, pid: str = None, cursor: int = None):
                            if obj.finished and obj.menv is not None else None),
             'seat_names': _spec_seat_names(obj),
             'human_seats': _spec_human_seats(obj),
-            'perspective': _spec_human_seats(obj)[0],
+            # bottom of the watcher's screen = the game's creator (solo
+            # player / table host), never just the lowest-numbered seat
+            'perspective': (obj.human_seat if isinstance(obj, Session)
+                            else obj.seat_of.get(
+                                obj.host_pid, _spec_human_seats(obj)[0])),
             'target': TARGET,
             'spectators': _spec_rows(obj),
             'shared': shared,

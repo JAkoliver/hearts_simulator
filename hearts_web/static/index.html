@@ -63,9 +63,10 @@
   /* lobby: player chips, a settings card with aligned label:control
      rows, compact selects, and a shared quiet-danger button style */
   #lobby-players { margin:6px 0 2px; }
-  .pchip { display:inline-block; background:var(--tag-bg);
-           border-radius:999px; padding:3px 13px; margin:3px;
+  .pchip { display:block; width:fit-content; background:var(--tag-bg);
+           border-radius:999px; padding:3px 13px; margin:5px auto;
            font-size:.9rem; }
+  .pchip.you { color:var(--gold); }
   .lobby-set { background:var(--tag-bg); border-radius:10px;
                padding:10px 14px; margin:10px auto 2px; max-width:270px;
                text-align:left; display:flex; flex-direction:column;
@@ -200,6 +201,29 @@
   .spec-hand .sh-name { font-size:.72rem; color:var(--muted);
                         display:block; margin-bottom:2px; }
   .spec-hand .card.recvmark { outline:2px solid var(--gold); }
+  /* spectator shared hands sit AT their seats, review-style: bottom
+     seat full-size in the hand strip, across as a mini row above the
+     felt, left/right as overlapped mini columns flanking it */
+  #hand .sh-label { flex-basis:100%; text-align:center; font-size:.72rem;
+                    color:var(--muted); }
+  #hand .card.recvmark { outline:3px solid var(--gold); }
+  .spec-poshand { position:absolute; z-index:1; text-align:center; }
+  body.spectate .seat { z-index:3; }
+  .spec-poshand .sh-label { font-size:.62rem; color:var(--muted);
+                            margin-bottom:2px; white-space:nowrap; }
+  .spec-poshand .card.recvmark { outline:2px solid var(--gold); }
+  .spec-poshand.pos2 { top:36px; left:50%; transform:translateX(-50%); }
+  .spec-poshand.pos2 .cds { display:flex; }
+  .spec-poshand.pos2 .cds .card { margin-left:-12px; }
+  .spec-poshand.pos2 .cds .card:first-child { margin-left:0; }
+  .spec-poshand.pos1 { left:10px; top:50%; transform:translateY(-50%); }
+  .spec-poshand.pos3 { right:10px; top:50%; transform:translateY(-50%); }
+  .spec-poshand.pos1 .cds, .spec-poshand.pos3 .cds
+    { display:flex; flex-direction:column; align-items:center; }
+  .spec-poshand.pos1 .cds .card, .spec-poshand.pos3 .cds .card
+    { margin-top:-30px; }
+  .spec-poshand.pos1 .cds .card:first-child,
+  .spec-poshand.pos3 .cds .card:first-child { margin-top:0; }
   /* two deliberate lines per spectator: the FULL name (codenames are
      the site's identity - never truncated) with kick at right, then
      the share control underneath */
@@ -1507,10 +1531,15 @@ function renderLobby(ts) {
   el('o-body').innerHTML =
     '<p class="sub" style="opacity:.75">Share this code with up to 3 friends'
     + ' &middot; AI fills empty seats.</p>'
-    + '<p style="margin:2px 0 6px"><button id="lobby-invite">Copy invite link'
-    + '</button></p>'
+    // the invite link is the HOST's to hand out - guests just arrived
+    // through it
+    + (ts.you_host
+       ? '<p style="margin:2px 0 6px"><button id="lobby-invite">Copy invite'
+         + ' link</button></p>' : '')
     + '<div id="lobby-players">'
-    + ts.players.map(n => `<span class="pchip">${esc(n)}</span>`).join('')
+    // one player per line, your own name in gold
+    + ts.players.map(n => `<div class="pchip${
+        n === ts.you_name ? ' you' : ''}">${esc(n)}</div>`).join('')
     + '</div>'
     + (ts.you_host
       ? `<div class="lobby-set">
@@ -1534,7 +1563,7 @@ function renderLobby(ts) {
       : (ts.tier_label
           ? `<p style="opacity:.7">AI difficulty: ${esc(ts.tier_label)}</p>` : '')
         + '<p style="opacity:.7">Waiting for the host to start&hellip;</p>');
-  el('lobby-invite').onclick = async () => {
+  if (el('lobby-invite')) el('lobby-invite').onclick = async () => {
     const url = `${location.origin}/?join=${ts.code}`;
     const b = el('lobby-invite');
     try { await navigator.clipboard.writeText(url); }
@@ -1974,22 +2003,34 @@ function renderSpectateChrome(st) {
   };
   renderSeats(null);
   renderSide();
-  // shared hands (per-seat player consent) render in the hand strip;
-  // during passing the picks-so-far show beside the hand, after it the
-  // received cards carry a steady gold mark (steady, not the player's
-  // one-shot flash - a watcher may look over at any moment)
-  el('hand').innerHTML = Object.entries(st.shared || {}).map(([s, info]) => {
+  // shared hands render AT their seats (review-style): the perspective
+  // seat full-size in the hand strip, others as mini rows/columns on
+  // the felt. Received cards carry a steady gold mark (steady, not the
+  // player's one-shot flash - a watcher may look over at any moment).
+  document.querySelectorAll('.spec-poshand').forEach(n => n.remove());
+  el('hand').innerHTML = '';
+  for (let [s, info] of Object.entries(st.shared || {})) {
     if (Array.isArray(info)) info = {cards: info.map(c => c.name)};
     const recv = new Set(info.received || []);
-    return `<div class="spec-hand"><span class="sh-name">${
-        esc(st.seat_names[s])}'s hand (shared with you)${
-        info.passing && (info.passed || []).length
-          ? ` &middot; passing: ${info.passed.map(n =>
-              cardHTML(n, 'mini')).join('')}`
-          : ''}</span>
-      ${(info.cards || []).map(n =>
-        cardHTML(n, 'mini' + (recv.has(n) ? ' recvmark' : ''))).join('')}</div>`;
-  }).join('');
+    const passTxt = info.passing && (info.passed || []).length
+      ? ` &middot; passing ${info.passed.join(' ')}` : '';
+    const p2 = (Number(s) - st.perspective + 4) % 4;
+    if (p2 === 0) {
+      el('hand').innerHTML =
+        `<div class="sh-label">${esc(st.seat_names[s])}'s hand `
+        + `(shared with you)${passTxt}</div>`
+        + (info.cards || []).map(n =>
+            cardHTML(n, recv.has(n) ? 'recvmark' : '')).join('');
+    } else {
+      const d = document.createElement('div');
+      d.className = 'spec-poshand pos' + p2;
+      d.innerHTML = `<div class="sh-label">${esc(st.seat_names[s])}${
+          passTxt}</div>
+        <div class="cds">${(info.cards || []).map(n =>
+          cardHTML(n, 'mini' + (recv.has(n) ? ' recvmark' : ''))).join('')}</div>`;
+      el('table').appendChild(d);
+    }
+  }
   // fellow spectators, names only
   const p = el('spec-panel');
   p.style.display = '';
