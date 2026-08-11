@@ -108,7 +108,7 @@
     <span class="muted">habit, not ground truth</span></h3>
     <svg id="sp-agree" height="60"></svg><div class="small muted" id="t-agree"></div></div>
   <div class="panel"><h3>Readability
-    <span class="muted" id="h-read">you vs AI seats (raw-net belief)</span></h3>
+    <span class="muted" id="h-read">you vs AI seats (instinct read)</span></h3>
     <svg id="sp-read" height="60"></svg><div class="small muted" id="t-read"></div></div>
   <div class="panel"><h3>Score shape
     <span class="muted">your deals by points taken</span></h3>
@@ -144,8 +144,8 @@
 </div>
 
 <p class="small muted" style="margin-top:14px">agreement and readability
-are the raw net's opinions; deep-search verdicts live in each match
-review.</p>
+are Perilune's instinct opinions; deep-search verdicts live in each
+match review.</p>
 
 <script>
 const q = new URLSearchParams(location.search);
@@ -306,7 +306,7 @@ const roll = (vals, w) => vals.map((_, i) => {
   }
   if (PLAYER && pubName) {
     document.querySelector('h1').textContent = `${pubName} — profile`;
-    el('h-read').innerHTML = 'player vs AI seats (raw-net belief)';
+    el('h-read').innerHTML = 'player vs AI seats (instinct read)';
     el('h-habits').textContent = 'Where this player and Perilune part ways '
       + 'most often - the practice list, not a verdict.';
   }

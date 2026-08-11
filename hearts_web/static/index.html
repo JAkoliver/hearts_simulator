@@ -712,14 +712,14 @@
       Close room for everyone</button></div>
   <div class="hrow">
     <select id="home-tier" title="AI difficulty - applies to Play vs AI and to the AI seats of a table you host">
-      <option value="casual">Casual &middot; v3</option>
-      <option value="standard">Standard &middot; v4</option>
+      <option value="casual">Casual</option>
+      <option value="standard">Standard</option>
       <option value="full" selected>Perilune &middot; v5 (full strength)</option>
     </select>
   </div>
   <div class="hrow"><button id="home-solo">Play vs AI</button></div>
   <div class="hrow"><button id="home-practice"
-    title="unrecorded sandbox: live search hints, undo, retry deal, open book">
+    title="unrecorded sandbox: live search hints, undo, retry deal, see the AI's cards">
     Practice with hints</button></div>
   <div class="hrow"><button id="home-daily"
     title="one attempt per day - the identical deal for every player; compare on the daily leaderboard">Daily challenge</button></div>
@@ -743,7 +743,7 @@
   <h3>Review Matches</h3>
   <div id="attract-rev-head" class="af-cap"></div>
   <div id="attract-rev-body"></div>
-  <div class="af-demo">demo &middot; the net's top-3 each play &middot;
+  <div class="af-demo">demo &middot; Perilune's top-3 picks each play &middot;
     <a href="#" onclick="attractToggle(false);return false">hide</a></div>
 </div></div>
 
@@ -1236,9 +1236,9 @@ function renderRawBars() {
       ? ` &middot; passing ${state.pass_direction ?? ''}` : ''}</div>`;
   html += `<div class="muted" style="font-size:.72rem; margin-bottom:4px">${
     passing
-      ? `raw policy &middot; pick ${Math.min(3,
+      ? `instinct &middot; pick ${Math.min(3,
           (state.passed_so_far ? state.passed_so_far.length : 0) + 1)} of 3:`
-      : 'raw policy, this decision:'}</div>`;
+      : `Perilune's instinct (before search):`}</div>`;
   html += shown.map((g, i) =>
     `<div class="bar${i === 0 ? ' played' : ''}">
        <div class="fill" style="width:${g.p * 100}%"></div>
@@ -1457,7 +1457,7 @@ function renderHint(m, passing, K) {
     html += `<div class="muted" style="font-size:.68rem; margin-top:3px">
       All moves are worth about the same here${maxMean < 0.03
         ? ' (the match is effectively out of reach)' : maxMean > 0.97
-        ? ' (the match is effectively won)' : ''} &mdash; any raw-policy
+        ? ' (the match is effectively won)' : ''} &mdash; any instinct
       preference above is habit, not value.</div>`;
   el('hint-out').innerHTML = html;
   const x = el('hint-x');

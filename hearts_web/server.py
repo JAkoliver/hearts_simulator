@@ -99,10 +99,10 @@ def _load_tiers():
                       'net': _TierNet(_net, 556), 'md5': MODEL_MD5}}
     root = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
     for key, label, rel, dim in getattr(cfg, 'TIERS', [
-            ('casual', 'Casual · v3',
+            ('casual', 'Casual',
              os.path.join('legacy_v3_pass238',
                           'hearts_ai_grandmaster_v3_milestone7.pt'), 238),
-            ('standard', 'Standard · v4',
+            ('standard', 'Standard',
              'hearts_ai_grandmaster_v4m10.pt', 550)]):
         path = rel if os.path.isabs(rel) else os.path.join(root, rel)
         try:

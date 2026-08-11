@@ -41,15 +41,16 @@
 
 <div class="panel">
   <table id="board"></table>
-  <div class="small muted" id="empty" style="display:none">No qualifying
-    wins yet in this era - the first sole victory in Play vs AI at full
-    strength claims the top spot.</div>
+  <div class="small muted" id="empty" style="display:none">Nobody has
+    beaten this Perilune yet &mdash; the first outright win in Play vs AI
+    at full strength claims the top spot.</div>
 </div>
 
 <div class="small muted" style="margin-top:10px" id="rules">
-  Play vs AI &middot; full strength &middot; sole first place only &middot;
-  lowest winning total ranks first, earliest win breaks ties &middot; one
-  entry per player (your best) &middot; click a score to watch the match.
+  Wins from Play vs AI at full strength, finishing alone in first.
+  Ranked by winning score &mdash; lower is better; the earlier win breaks
+  ties. One entry per player (your best). Click a score to watch the
+  match.
 </div>
 <div class="small muted eras" style="margin-top:8px" id="eras"></div>
 
@@ -62,7 +63,7 @@
     yet today &mdash; be the first.</div>
 </div>
 <div class="small muted" style="margin-top:10px">
-  One attempt per player per UTC day &middot; the identical deal for
+  One attempt per player per day (UTC) &middot; the identical deal for
   everyone &middot; lowest final score wins, earliest finish breaks ties
   &middot; <span id="dlock"></span>
 </div>
@@ -125,8 +126,8 @@ function flashRow(table, slug) {
     return;
   }
   el('sub').textContent = d.current
-    ? `vs the current Perilune (model ${d.era})`
-    : `ARCHIVED era · model ${d.era} · this Perilune has been superseded`;
+    ? `wins against the current Perilune · model ${d.era}`
+    : `Archived · model ${d.era} · an earlier Perilune, since retired`;
   if (!d.rows.length) {
     el('empty').style.display = 'block';
   } else {
@@ -148,12 +149,12 @@ function flashRow(table, slug) {
   }
   const others = d.eras.filter(e => e.era !== d.era);
   if (d.current && others.length)
-    el('eras').innerHTML = 'archived eras: ' + others.map(e =>
+    el('eras').innerHTML = 'older leaderboards: ' + others.map(e =>
       `<a href="/leaderboard?era=${encodeURIComponent(e.era)}">model ${esc(e.era)}
-       (${e.n})</a>`).join('');
+       (${e.n} win${e.n === 1 ? '' : 's'})</a>`).join('');
   else if (!d.current)
     el('eras').innerHTML =
-      `<a href="/leaderboard">&larr; current era leaderboard</a>`;
+      `<a href="/leaderboard">&larr; current leaderboard</a>`;
 })();
 
 // ---- daily challenge board -------------------------------------------
