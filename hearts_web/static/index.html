@@ -1043,7 +1043,7 @@ for (const [n, v] of [['placing', .14], ['taking', .155],
 }
 let soundOn = localStorage.getItem('hearts_sound') !== '0';
 function sfx(name) {
-  if (!soundOn) return;
+  if (!soundOn || document.hidden) return;   // no sounds from hidden tabs
   try {
     const a = SND[name].cloneNode();
     a.volume = SND[name].volume;
@@ -1061,6 +1061,24 @@ el('sound-btn').onclick = () => {
   updateSoundBtn();
   if (soundOn) sfx('placing');   // audible confirmation
 };
+
+// Theater is for eyes that are open: while the tab is HIDDEN every
+// animation sleep is zero (the client renders each batch instantly and
+// stays at live state - nothing to catch up on at refocus), and a
+// short window after refocus flushes anything that arrived in the
+// handoff. Applies to players (table batches) and the spectator pump.
+let _ffwdUntil = 0;
+const theaterOff = () => document.hidden || Date.now() < _ffwdUntil;
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) {
+    _ffwdUntil = Date.now() + 2000;
+    if (SPECTATE) {   // throttling may have starved polls entirely:
+      _specQ = [];    // drop the replay backlog and re-snapshot live
+      _specPeak = 0;
+      _specCursor = null;
+    }
+  }
+});
 
 async function animate(events, preTrick = []) {
   let shown = preTrick.map(t => ({seat: t.seat, name: t.name}));
@@ -1094,8 +1112,8 @@ async function animate(events, preTrick = []) {
         if (n) n.remove();
       }
       if (!dimmed && i > lastTE && canDim()) { dimmed = true; applyLegality(); }
-      await sleep(ev.seat === state.your_seat
-        ? Math.min(120, pace().ai) : pace().ai);
+      await sleep(theaterOff() ? 0 : (ev.seat === state.your_seat
+        ? Math.min(120, pace().ai) : pace().ai));
     } else if (ev.type === 'trick_end') {
       renderTrick(ev.cards);
       el('banner').textContent = ev.winner === null ? '' :
@@ -1106,14 +1124,14 @@ async function animate(events, preTrick = []) {
         dimmed = true;
         applyLegality();   // you lead next: lead legality is known now
       }
-      await sleep(Math.max(0, pace().trick - pace().sweep));
+      await sleep(theaterOff() ? 0 : Math.max(0, pace().trick - pace().sweep));
       // Sweep the trick toward the winner, then clear.
       if (ev.winner !== null) {
         sfx('taking');
         const p = pos(ev.winner);
         document.querySelectorAll('#trick .tcard').forEach(n =>
           n.classList.add(`sweep${p}`));
-        await sleep(pace().sweep);
+        await sleep(theaterOff() ? 0 : pace().sweep);
       }
       el('banner').textContent = '';
       shown = [];
@@ -1124,7 +1142,7 @@ async function animate(events, preTrick = []) {
       el('banner').textContent = ev.what === 'pass'
         ? `${seatName(ev.seat)} ran out of time - lowest cards passed`
         : `${seatName(ev.seat)} ran out of time - ${ev.name} auto-played`;
-      await sleep(1400);
+      await sleep(theaterOff() ? 0 : 1400);
       el('banner').textContent = '';
     } else if (ev.type === 'deal_end') {
       preselect = null;   // the hand is about to change entirely
@@ -1132,13 +1150,16 @@ async function animate(events, preTrick = []) {
       if (state.finished) continue;   // match over: skip the deal popup,
                                       // only the end-game screen shows
       await showDealEnd(ev);
-      await sleep(pace().deal);
+      await sleep(theaterOff() ? 0 : pace().deal);
     }
   }
 }
 
 function showDealEnd(ev) {
   return new Promise(resolve => {
+    // hidden tab: nobody to click "Next deal", and a stale popup on
+    // refocus would block the fast-forwarded backlog - skip the stop
+    if (document.hidden) { resolve(); return; }
     sfx('shuffling');
     el('o-title').textContent = ev.moon_by !== null
       ? (ev.moon_by === state.your_seat ? 'You shot the moon!'
@@ -2046,7 +2067,9 @@ async function pumpSpec() {
   while (_specQ.length) {
     const ev = _specQ.shift();
     const f = specPace();
-    const zip = f === 0;   // deep backlog: render, skip theater
+    // zip: deep backlog, hidden tab, or the refocus flush window -
+    // render without theater
+    const zip = f === 0 || theaterOff();
     const names = (_specLast && _specLast.seat_names) || {};
     if (ev.type === 'play') {
       if (!zip) sfx(ev.name === 'QS' ? 'explosion' : 'placing');
