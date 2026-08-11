@@ -250,6 +250,46 @@
   .specrow .sname.away { color:#73737C; }
   .specrow .sname .awaytag { font-size:.68rem; opacity:.85; }
   .specrow .sname.left { color:#B04A50; }
+  /* canned emotes: corner trigger, popover palette, seat bubbles */
+  #emote-wrap { position:absolute; bottom:8px; right:10px; z-index:5; }
+  #emote-btn { background:var(--tag-bg); border:0; border-radius:9px;
+               padding:5px 7px 3px; cursor:pointer; color:var(--muted); }
+  #emote-btn:hover { color:var(--text); }
+  #emote-btn svg { display:block; }
+  #emote-btn:disabled { opacity:.45; cursor:default; }
+  #emote-pal { display:none; position:absolute; right:0;
+               bottom:calc(100% + 8px); background:var(--overlay-panel);
+               border:1px solid #2E2E33; border-radius:11px;
+               padding:9px 10px; width:212px;
+               box-shadow:0 6px 18px rgba(0,0,0,.5); }
+  #emote-pal.open { display:block; }
+  #emote-pal .erow { display:flex; flex-wrap:wrap; gap:5px;
+                     justify-content:center; }
+  #emote-pal .eb { background:var(--tag-bg); border:0; border-radius:8px;
+                   padding:5px 6px 3px; cursor:pointer; }
+  #emote-pal .eb:hover { background:#3A3A42; }
+  #emote-pal .eb img { width:22px; height:22px; }
+  #emote-pal .et { background:var(--tag-bg); border:0; border-radius:999px;
+                   color:var(--text); font-size:.72rem; padding:4px 10px;
+                   cursor:pointer; }
+  #emote-pal .et:hover { background:#3A3A42; }
+  #emote-pal .ehide { display:block; text-align:center; margin-top:8px;
+                      font-size:.68rem; }
+  .emote-bubble { position:absolute;
+                  transform:translate(-50%, -100%); background:#3A3A42;
+                  color:#ECECEC; border-radius:11px; padding:5px 10px;
+                  font-size:.82rem; font-weight:600; white-space:nowrap;
+                  z-index:6; box-shadow:0 3px 10px rgba(0,0,0,.4);
+                  pointer-events:none;
+                  animation:embub 3s ease forwards; }
+  .emote-bubble::after { content:''; position:absolute; top:100%;
+                         left:50%; transform:translateX(-50%);
+                         border:6px solid transparent;
+                         border-top-color:#3A3A42; }
+  .emote-bubble img { width:26px; height:26px; display:block; }
+  @keyframes embub { 0% { opacity:0; translate:0 6px; }
+                     8%, 82% { opacity:1; translate:0 0; }
+                     100% { opacity:0; } }
   .specrow label { font-size:.7rem; color:var(--muted); cursor:pointer;
                    display:flex; align-items:center; gap:4px;
                    margin-top:2px; }
@@ -516,6 +556,14 @@
     <div id="status"></div>
     <div id="subline"><span id="trickctr"></span><span id="tierline"></span><span id="turnclock"></span></div>
     <div id="hb-badge">&hearts; hearts broken</div>
+    <div id="emote-wrap" style="display:none">
+      <button id="emote-btn" title="send an emote"><svg width="20"
+        height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2" stroke-linejoin="round" stroke-linecap="round">
+        <path d="M21 12a8 8 0 0 1-8 8H5l-2 2V12a8 8 0 0 1 8-8h2a8 8 0 0 1 8 8z"/>
+      </svg></button>
+      <div id="emote-pal"></div>
+    </div>
   </div>
   <div id="side">
     <div class="panel"><h3>This deal</h3><div id="deal-info"></div></div>
@@ -671,6 +719,80 @@ function setHeartsBroken(v) {
 }
 function pos(seat) { return (seat - state.your_seat + 4) % 4; }
 const SEAT_IDS = ['seat-bottom', 'seat-left', 'seat-top', 'seat-right'];
+
+// ---- canned emotes (tables) -----------------------------------------------
+// KEEP IN SYNC with server.py's EMOTES whitelist. Ids -> Twemoji SVG
+// codepoints (self-hosted, CC-BY 4.0 - credited on the about page) or
+// text chips.
+const EMOTES = {
+  clap: '1f44f', fire: '1f525', scream: '1f631', sweat: '1f605',
+  heartbreak: '1f494', party: '1f389', turtle: '1f422', moon: '1f319',
+  wp: 'Well played', ouch: 'Ouch', oops: 'Oops',
+  ty: 'Thanks', close: 'Close one', gg: 'gg',
+};
+const emoteHidden = () =>
+  localStorage.getItem('hearts_hide_emotes') === '1';
+const _emoteTimers = {};
+function showEmote(seat, id) {
+  const v = EMOTES[id];
+  if (!v || emoteHidden()) return;
+  const seatEl = el(SEAT_IDS[pos(seat)]);
+  if (!seatEl) return;
+  // anchor to the FELT at the seat's coordinates - a child of the seat
+  // element would be wiped by renderSeats' innerHTML rebuild each poll
+  const tr = el('table').getBoundingClientRect();
+  const sr = seatEl.getBoundingClientRect();
+  const old = el('table').querySelector(
+    `.emote-bubble[data-seat="${seat}"]`);
+  if (old) old.remove();
+  clearTimeout(_emoteTimers[seat]);
+  const b = document.createElement('div');
+  b.className = 'emote-bubble';
+  b.dataset.seat = seat;
+  b.style.left = `${sr.left + sr.width / 2 - tr.left}px`;
+  b.style.top = `${sr.top - tr.top - 6}px`;
+  b.innerHTML = /^[0-9a-f]/.test(v)
+    ? `<img src="/static/emotes/${v}.svg" alt="">` : esc(v);
+  el('table').appendChild(b);
+  _emoteTimers[seat] = setTimeout(() => b.remove(), 3100);
+}
+function buildEmotePal() {
+  const pics = [], texts = [];
+  for (const [id, v] of Object.entries(EMOTES))
+    (/^[0-9a-f]/.test(v) ? pics : texts).push([id, v]);
+  el('emote-pal').innerHTML =
+    `<div class="erow">${pics.map(([id, cp]) =>
+      `<button class="eb" data-e="${id}"><img
+         src="/static/emotes/${cp}.svg" alt="${id}"></button>`).join('')}</div>
+     <div class="erow" style="margin-top:7px">${texts.map(([id, t]) =>
+      `<button class="et" data-e="${id}">${t}</button>`).join('')}</div>
+     <a href="#" id="emote-hide" class="qlink ehide">${
+       emoteHidden() ? 'show emotes' : 'hide emotes'}</a>`;
+  el('emote-pal').querySelectorAll('[data-e]').forEach(btn => {
+    btn.onclick = async () => {
+      el('emote-pal').classList.remove('open');
+      const eb = el('emote-btn');
+      eb.disabled = true;                       // felt cooldown
+      setTimeout(() => { eb.disabled = false; }, 2600);
+      try { await api('/api/table/emote',
+                      POSTJSON({code: tcode, pid, emote: btn.dataset.e})); }
+      catch (e) {}
+    };
+  });
+  el('emote-hide').onclick = ev => {
+    ev.preventDefault();
+    localStorage.setItem('hearts_hide_emotes', emoteHidden() ? '0' : '1');
+    document.querySelectorAll('.emote-bubble').forEach(n => n.remove());
+    buildEmotePal();
+  };
+}
+el('emote-btn').onclick = ev => {
+  ev.stopPropagation();
+  buildEmotePal();
+  el('emote-pal').classList.toggle('open');
+};
+document.addEventListener('click', () =>
+  el('emote-pal').classList.remove('open'));
 
 function seatName(s) {
   if (!SPECTATE && s === state.your_seat) return 'You';
@@ -883,6 +1005,8 @@ function render() {
   updateTierline();
   updateTrickCtr();
   renderSpectators();
+  el('emote-wrap').style.display =
+    (mode === 'table' && !SPECTATE && !state.finished) ? '' : 'none';
   el('banner').textContent = '';
   if (state.finished) return showMatchEnd();
   // A card queued mid-animation: play it now if it's legal, drop it if not.
@@ -1138,6 +1262,8 @@ async function animate(events, preTrick = []) {
       renderTrick([]);
       if (events.some((e, j) => j > i && e.type === 'play'))
         setStatus(mode === 'table' ? 'Playing&hellip;' : 'AI is thinking', true);
+    } else if (ev.type === 'emote') {
+      showEmote(ev.seat, ev.e);   // non-blocking: rides over the theater
     } else if (ev.type === 'timeout') {
       el('banner').textContent = ev.what === 'pass'
         ? `${seatName(ev.seat)} ran out of time - lowest cards passed`
@@ -1705,7 +1831,7 @@ async function pumpEvents() {
   try {
     while (evq.length) {
       const batch = evq.splice(0, evq.length)
-        .filter(e => ['play', 'trick_end', 'deal_end', 'timeout']
+        .filter(e => ['play', 'trick_end', 'deal_end', 'timeout', 'emote']
           .includes(e.type));
       if (batch.length) await animate(batch, shownTrick);
       shownTrick = state.trick ? state.trick.slice() : [];
@@ -1978,7 +2104,16 @@ async function startSpectate(tok) {
   side.id = 'spec-side';
   side.innerHTML = '<div class="panel"><h3>Spectators <span '
     + 'id="spec-wcount" style="color:var(--muted); font-weight:400">'
-    + '</span></h3><div id="spec-watchlist"></div></div>';
+    + '</span></h3><div id="spec-watchlist"></div>'
+    + '<a href="#" id="spec-hideem" class="qlink" style="font-size:.68rem">'
+    + (emoteHidden() ? 'show emotes' : 'hide emotes') + '</a></div>';
+  side.querySelector('#spec-hideem').onclick = ev2 => {
+    ev2.preventDefault();
+    localStorage.setItem('hearts_hide_emotes', emoteHidden() ? '0' : '1');
+    document.querySelectorAll('.emote-bubble').forEach(n => n.remove());
+    side.querySelector('#spec-hideem').textContent =
+      emoteHidden() ? 'show emotes' : 'hide emotes';
+  };
   const ltPanel = document.createElement('div');
   ltPanel.className = 'panel';
   ltPanel.innerHTML = '<h3>Last trick</h3>';
@@ -2098,6 +2233,8 @@ async function pumpSpec() {
         await sleep(1400 * f);
         el('banner').textContent = '';
       }
+    } else if (ev.type === 'emote') {
+      if (!zip) showEmote(ev.seat, ev.e);   // stale emotes don't replay
     }
   }
   _specPeak = 0;   // fully drained = live again: watchable pace resumes

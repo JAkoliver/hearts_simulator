@@ -3405,6 +3405,46 @@ def spectate_bye(body: dict):
     return {'ok': True}
 
 
+# ---- canned emotes (tables only) ------------------------------------------
+# Whitelisted ids ONLY - no free text ever crosses the wire. Seated
+# players only (spectators are seatless -> inherently rejected).
+# Delivery rides the public event stream, so players' polling,
+# spectator playback, and catch-up pacing all handle emotes for free.
+# KEEP IN SYNC with index.html's EMOTES mirror.
+EMOTES = {
+    'clap': '1f44f', 'fire': '1f525', 'scream': '1f631',
+    'sweat': '1f605', 'heartbreak': '1f494', 'party': '1f389',
+    'turtle': '1f422', 'moon': '1f319',
+    'wp': 'Well played', 'ouch': 'Ouch', 'oops': 'Oops',
+    'ty': 'Thanks', 'close': 'Close one', 'gg': 'gg',
+}
+EMOTE_GAP_S = 2.5
+
+
+@app.post('/api/table/emote')
+def table_emote(body: dict):
+    canon = resolve_pid(body.get('pid'))
+    t = _get_table((body.get('code') or ''))
+    with t.lock:
+        if t.state == 'lobby':
+            raise HTTPException(409, 'emotes start with the game')
+        seat = t.seat_of.get(canon)
+        if seat is None:
+            raise HTTPException(403, 'not seated at this table')
+        if body.get('emote') not in EMOTES:
+            raise HTTPException(400, 'unknown emote')
+        now = time.time()
+        last = getattr(t, 'emote_ts', None)
+        if last is None:
+            last = t.emote_ts = {}
+        if now - last.get(canon, 0) < EMOTE_GAP_S:
+            raise HTTPException(429, 'one emote at a time')
+        last[canon] = now
+        t.events.append({'type': 'emote', 'seat': seat,
+                         'e': body['emote']})
+        return {'ok': True}
+
+
 @app.post('/api/spectate/share')
 def spectate_share(body: dict):
     obj, lock, canon, seat = _spec_game_for_player(body)
