@@ -64,8 +64,8 @@
      rows, compact selects, and a shared quiet-danger button style */
   #lobby-players { margin:6px 0 2px; }
   .pchip { display:block; width:fit-content; background:var(--tag-bg);
-           border-radius:999px; padding:3px 13px; margin:5px auto;
-           font-size:.9rem; }
+           border-radius:999px; padding:7px 18px; margin:7px auto;
+           font-size:.9rem; line-height:1.25; }
   .pchip.you { color:var(--gold); }
   .lobby-set { background:var(--tag-bg); border-radius:10px;
                padding:10px 14px; margin:10px auto 2px; max-width:270px;
@@ -207,23 +207,30 @@
   #hand .sh-label { flex-basis:100%; text-align:center; font-size:.72rem;
                     color:var(--muted); }
   #hand .card.recvmark { outline:3px solid var(--gold); }
-  .spec-poshand { position:absolute; z-index:1; text-align:center; }
-  body.spectate .seat { z-index:3; }
-  .spec-poshand .sh-label { font-size:.62rem; color:var(--muted);
-                            margin-bottom:2px; white-space:nowrap; }
-  .spec-poshand .card.recvmark { outline:2px solid var(--gold); }
-  .spec-poshand.pos2 { top:36px; left:50%; transform:translateX(-50%); }
-  .spec-poshand.pos2 .cds { display:flex; }
-  .spec-poshand.pos2 .cds .card { margin-left:-12px; }
-  .spec-poshand.pos2 .cds .card:first-child { margin-left:0; }
-  .spec-poshand.pos1 { left:10px; top:50%; transform:translateY(-50%); }
-  .spec-poshand.pos3 { right:10px; top:50%; transform:translateY(-50%); }
-  .spec-poshand.pos1 .cds, .spec-poshand.pos3 .cds
+  /* spectate layout, review-style: [spectators][west hand][felt with
+     the north hand above][east hand], everything OUTSIDE the felt -
+     the table stays a clean stage. Empty hand slots collapse. */
+  body.spectate #layout { display:flex; align-items:center;
+                          justify-content:center; gap:14px; }
+  body.spectate #table { width:min(56vw, 950px); }
+  body.spectate #spec-panel { display:none !important; }
+  #spec-watchpanel { align-self:flex-start; margin-top:8px;
+                     min-width:118px; }
+  #spec-center { display:flex; flex-direction:column; align-items:center;
+                 gap:10px; }
+  .spec-outhand { text-align:center; }
+  .spec-outhand:empty { display:none; }
+  .spec-outhand .sh-label { font-size:.62rem; color:var(--muted);
+                            margin-bottom:3px; white-space:nowrap; }
+  .spec-outhand .card.recvmark { outline:2px solid var(--gold); }
+  #spec-west .cds, #spec-east .cds
     { display:flex; flex-direction:column; align-items:center; }
-  .spec-poshand.pos1 .cds .card, .spec-poshand.pos3 .cds .card
-    { margin-top:-30px; }
-  .spec-poshand.pos1 .cds .card:first-child,
-  .spec-poshand.pos3 .cds .card:first-child { margin-top:0; }
+  #spec-west .cds .card, #spec-east .cds .card { margin-top:-30px; }
+  #spec-west .cds .card:first-child,
+  #spec-east .cds .card:first-child { margin-top:0; }
+  #spec-north .cds { display:flex; justify-content:center; }
+  #spec-north .cds .card { margin-left:-12px; }
+  #spec-north .cds .card:first-child { margin-left:0; }
   /* two deliberate lines per spectator: the FULL name (codenames are
      the site's identity - never truncated) with kick at right, then
      the share control underneath */
@@ -416,6 +423,9 @@
   .histline:hover { background:var(--tag-bg); }
   .histline .muted2 { color:var(--muted); }
   #lobby-players div { padding:2px; }
+  /* the id+element rule above outranks .pchip's class selector - the
+     name pills need their room restated at equal-or-higher specificity */
+  #lobby-players .pchip { padding:7px 18px; margin:7px auto; }
   #overlay .opanel { background:var(--overlay-panel); border-radius:14px; padding:24px 32px;
                      text-align:center; max-width:440px; }
   #overlay h2 { color:var(--banner); margin-bottom:10px; }
@@ -1911,6 +1921,30 @@ async function startSpectate(tok) {
   SPECTATE = true;
   document.body.classList.add('spectate');
   hideHome();
+  // review-style scaffolding: spectators panel far left, hand slots
+  // flanking the felt, north slot above it - built once, filled per poll
+  const lay = el('layout');
+  const wp = document.createElement('div');
+  wp.className = 'panel';
+  wp.id = 'spec-watchpanel';
+  wp.innerHTML = '<h3>Spectators</h3><div id="spec-watchlist"></div>';
+  const west = document.createElement('div');
+  west.id = 'spec-west';
+  west.className = 'spec-outhand';
+  const east = document.createElement('div');
+  east.id = 'spec-east';
+  east.className = 'spec-outhand';
+  const center = document.createElement('div');
+  center.id = 'spec-center';
+  const north = document.createElement('div');
+  north.id = 'spec-north';
+  north.className = 'spec-outhand';
+  lay.insertBefore(center, el('table'));
+  center.appendChild(north);
+  center.appendChild(el('table'));
+  lay.insertBefore(wp, center);
+  lay.insertBefore(west, center);
+  lay.appendChild(east);
   await ensureIdentity();
   const poll = async () => {
     try {
@@ -2003,11 +2037,14 @@ function renderSpectateChrome(st) {
   };
   renderSeats(null);
   renderSide();
-  // shared hands render AT their seats (review-style): the perspective
-  // seat full-size in the hand strip, others as mini rows/columns on
-  // the felt. Received cards carry a steady gold mark (steady, not the
-  // player's one-shot flash - a watcher may look over at any moment).
-  document.querySelectorAll('.spec-poshand').forEach(n => n.remove());
+  // shared hands render AT their seats (review-style), all OUTSIDE the
+  // felt: perspective seat full-size in the hand strip, across in the
+  // north slot above the table, left/right in the flanking columns.
+  // Received cards carry a steady gold mark (steady, not the player's
+  // one-shot flash - a watcher may look over at any moment).
+  const slots = {1: el('spec-west'), 2: el('spec-north'),
+                 3: el('spec-east')};
+  for (const d2 of Object.values(slots)) d2.innerHTML = '';
   el('hand').innerHTML = '';
   for (let [s, info] of Object.entries(st.shared || {})) {
     if (Array.isArray(info)) info = {cards: info.map(c => c.name)};
@@ -2021,21 +2058,15 @@ function renderSpectateChrome(st) {
         + `(shared with you)${passTxt}</div>`
         + (info.cards || []).map(n =>
             cardHTML(n, recv.has(n) ? 'recvmark' : '')).join('');
-    } else {
-      const d = document.createElement('div');
-      d.className = 'spec-poshand pos' + p2;
-      d.innerHTML = `<div class="sh-label">${esc(st.seat_names[s])}${
-          passTxt}</div>
-        <div class="cds">${(info.cards || []).map(n =>
-          cardHTML(n, 'mini' + (recv.has(n) ? ' recvmark' : ''))).join('')}</div>`;
-      el('table').appendChild(d);
+    } else if (slots[p2]) {
+      slots[p2].innerHTML =
+        `<div class="sh-label">${esc(st.seat_names[s])}${passTxt}</div>
+         <div class="cds">${(info.cards || []).map(n =>
+           cardHTML(n, 'mini' + (recv.has(n) ? ' recvmark' : ''))).join('')}</div>`;
     }
   }
-  // fellow spectators, names only
-  const p = el('spec-panel');
-  p.style.display = '';
-  el('spec-link').style.display = 'none';
-  el('spec-list').innerHTML = (st.spectators || []).map(r =>
+  // fellow spectators, far-left panel
+  el('spec-watchlist').innerHTML = (st.spectators || []).map(r =>
     `<div class="specrow"><span class="sname">${esc(r.name)}</span></div>`)
     .join('') || '<div class="small muted">just you</div>';
   setStatus(st.finished ? 'Match over' : 'Spectating &middot; live');
