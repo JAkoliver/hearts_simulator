@@ -519,7 +519,8 @@
     <div class="panel"><h3>Last trick</h3><div id="last-trick">None yet</div></div>
     <div class="panel"><h3>You received</h3><div id="received">&mdash;</div></div>
     <div class="panel" id="spec-panel" style="display:none">
-      <h3>Spectators</h3>
+      <h3>Spectators <span id="spec-count"
+        style="color:var(--muted); font-weight:400"></span></h3>
       <div id="spec-list"></div>
       <button id="spec-link" style="margin-top:8px; font-size:.75rem">copy watch link</button>
     </div>
@@ -818,6 +819,7 @@ function renderSpectators() {
   const creator = !!(state && state.spec_creator);
   if (!rows.length && !creator) { p.style.display = 'none'; return; }
   p.style.display = '';
+  el('spec-count').textContent = `${rows.length}/8`;   // = server SPEC_CAP
   el('spec-list').innerHTML = rows.length ? rows.map(r =>
     `<div class="specrow">
        <div class="srtop">
@@ -1942,8 +1944,9 @@ async function startSpectate(tok) {
   north.className = 'spec-outhand';
   const side = document.createElement('div');
   side.id = 'spec-side';
-  side.innerHTML = '<div class="panel"><h3>Spectators</h3>'
-    + '<div id="spec-watchlist"></div></div>';
+  side.innerHTML = '<div class="panel"><h3>Spectators <span '
+    + 'id="spec-wcount" style="color:var(--muted); font-weight:400">'
+    + '</span></h3><div id="spec-watchlist"></div></div>';
   const ltPanel = document.createElement('div');
   ltPanel.className = 'panel';
   ltPanel.innerHTML = '<h3>Last trick</h3>';
@@ -2084,6 +2087,8 @@ function renderSpectateChrome(st) {
     }
   }
   // fellow spectators, far-left panel - your own name in gold
+  el('spec-wcount').textContent =
+    `${(st.spectators || []).length}/8`;   // = server SPEC_CAP
   el('spec-watchlist').innerHTML = (st.spectators || []).map(r =>
     `<div class="specrow"><span class="sname${
        r.id === st.you ? ' you' : ''}">${esc(r.name)}</span></div>`)
