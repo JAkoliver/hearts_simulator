@@ -227,3 +227,28 @@ Defense-gate datum recorded same morning: cand_r3_probe005 moons
 delta +0.016 (p=0.56) - NULL. The lambda=0.05 anchored-PPO lead is
 search-substrate-only; league round 4 on it would target the standard
 gates and waits behind Phase 2.
+
+## Stage D amendment (SIGNED 2026-08-11, before any gate data)
+
+The freeze produced ZERO picks under the written entropy diagnostic:
+all six candidates sit at ~1.0 entropy vs the 2x-of-baseline band
+[0.22, 0.87] (baseline milestone entropy 0.434). Analysis presented
+to the user: the band was anchored to the wrong reference. Successful
+distillation must move the student's entropy TOWARD THE TEACHER'S,
+and the teacher's holdout entropy is 0.847 mean - candidates sit at
+1.18x their teacher, textbook soft-target softening, far from both
+failure modes the diagnostic exists to catch (argmax collapse ~0,
+uniform mush ~1.5).
+
+USER-SIGNED RE-BAND (the one freeze amendment, v2 pattern): entropy
+diagnostic re-anchored to the TEACHER's holdout mean entropy, same 2x
+both-directions rule -> band [0.42, 1.69]. All six candidates in-band.
+Freeze picks by holdout teacher-KL: cand_p2_lr3e-05_ep3 (KL 0.1530)
+and cand_p2_lr3e-05_ep2 (KL 0.1576). Baseline KL 0.8635 (5.6x
+reduction). Registered deviation stands: policy-head-only
+distillation (no belief labels in the bank; value head GAE scale not
+reconstructible).
+
+Stage E per the signed prereg, both picks, sequential: match gate
+n=3200 alpha=0.05 placement superiority + search guard n=4800 K=32
+UB <= +0.3.
