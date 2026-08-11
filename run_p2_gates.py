@@ -20,8 +20,11 @@ def main():
     out = {'candidate': cand, 'baseline': BASELINE}
 
     print(f'=== P2 GATE 1: match superiority ({cand}) ===', flush=True)
+    # workers=6, not the orchestrator's 12: each CUDA worker takes
+    # ~2.3GB of commit charge and 12 blew past the pagefile ceiling
+    # (WinError 1455, 2026-08-11)
     _, m, se, p = evaluate_candidate_match(cand, BASELINE,
-                                           matches=3200, workers=12)
+                                           matches=3200, workers=6)
     g1 = bool(p < 0.05 and m < 0)
     out['match'] = {'dplace_mean': m, 'se': se, 'p': p, 'pass': g1}
     print(f'GATE1 dplace {m:+.4f} (SE {se:.4f}) p={p:.4f} '
