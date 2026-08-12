@@ -13,7 +13,8 @@ Contract for everything in this directory:
 - Updated as eras complete, not reconstructed at release time.
 
 Reading order for an outside observer:
-1. README_RELEASE.md - front door: what, headline results, build, play.
+1. The repository root README.md - front door: what, headline results,
+   build, play, models (added at the 2026-08-12 release-prep pass).
 2. JOURNEY.md - the narrative: eras, experiments, failures, pivots.
 3. ARCHITECTURE.md - the system: engine, net, search, training, gates,
    data formats, cloud, web app.

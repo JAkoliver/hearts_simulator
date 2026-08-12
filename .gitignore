@@ -97,3 +97,7 @@ hearts_web/search_uploads.jsonl
 hearts_web/progress_stats.jsonl
 hearts_web/supporters.json
 moon images/
+
+# NVIDIA-licensed CUDA runtime headers: fetched locally, never tracked
+# (scripts/fetch_cuda_headers.py; RELEASE_PLAN sec. 4.3)
+third_party/cuda_include/

@@ -24,6 +24,20 @@ endif()
 # ships - we compile no .cu code. Works for both CPU-only and CUDA libtorch
 # drops (the CUDA bits are added only when torch_cuda.lib is present).
 set(TORCH_ROOT ${CMAKE_SOURCE_DIR}/libtorch)
+
+# The CUDA runtime headers are NVIDIA-licensed and are NOT tracked in
+# this repository (RELEASE_PLAN sec. 4.3). Fetch them once, explicitly:
+#   python scripts/fetch_cuda_headers.py
+# (downloads pip wheel nvidia-cuda-runtime-cu12==12.6.77 and extracts
+# its include/ tree into third_party/cuda_include). The check is
+# deliberately not an auto-download: builds stay offline-safe and the
+# license boundary stays a conscious step.
+if(NOT EXISTS ${CMAKE_SOURCE_DIR}/third_party/cuda_include/cuda_runtime_api.h)
+  message(FATAL_ERROR
+    "third_party/cuda_include is missing (NVIDIA CUDA runtime headers, "
+    "not tracked in git). Run:  python scripts/fetch_cuda_headers.py")
+endif()
+
 add_library(torch_manual INTERFACE)
 target_include_directories(torch_manual INTERFACE
   ${TORCH_ROOT}/include
