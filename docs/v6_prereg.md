@@ -1,6 +1,7 @@
-# v6 pre-registration — capacity + structure, DRAFT (unsigned)
+# v6 pre-registration — capacity + structure
 
-Status: DRAFT for user review — NOT signed, nothing executes.
+Status: SIGNED — user sign-off 2026-08-11 evening ("I sign off,
+start"). Binding as written; Stage 2 venue reserved to quote time.
 Baseline: 8a89da90 (5th match-era promotion, unchanged since 07-29).
 House rules bind throughout (docs/experiment_rules.md; halt-default,
 telemetry informs never gates, one pre-unblinding amendment per stage,
@@ -189,6 +190,6 @@ without a specific approved rental.
 
 ## Signature
 
-USER SIGNATURE LINE: __________________ (date, scope: stages 0-5 as
+SIGNED by user 2026-08-11 ("I sign off, start"). Scope: stages 0-5 as
 written; venue decision for Stage 2 reserved to quote time; any
-band change after data = the registered one-amendment path only).
+band change after data = the registered one-amendment path only.

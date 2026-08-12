@@ -79,6 +79,14 @@ class MatchEnv:
         obs = np.asarray(self.env.observe(), dtype=np.float32)
         return np.concatenate([obs, self.match_ctx(self.get_current_player())])
 
+    def observe_v2(self):
+        """882-dim obs v2 (docs/v6_prereg.md stage 0): the 556-dim v1
+        observation as an exact prefix + the 326-dim capture extension
+        (position/led/taken-by/seat aggregates). v1 consumers keep using
+        observe(); only v6-era recorders/trainers request this."""
+        ext = np.asarray(self.env.observe_ext(), dtype=np.float32)
+        return np.concatenate([self.observe(), ext])
+
     def observe_for(self, seat):
         """Any seat's info-honest observation at the current state (what
         that seat could see right now), with its own match context."""

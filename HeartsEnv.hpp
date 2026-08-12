@@ -70,6 +70,14 @@ private:
     std::array<std::array<bool, 52>, 4> played_by; // [absolute seat][card]
     std::array<int, 52> played_trick;              // trick index card was played on, -1 = unseen
 
+    // Obs-v2 capture tracking (docs/v6_prereg.md stage 0): within-trick
+    // position, capturing seat per card, tricks won per seat. All PUBLIC
+    // information a human at the table tracks; Observe() is untouched -
+    // these feed only ObserveExt().
+    std::array<int, 52> played_pos;  // 0-3 position within its trick, -1 unseen
+    std::array<int, 52> taken_by;    // seat that captured the card, -1 until its trick resolves
+    std::array<int, 4> tricks_won;   // tricks captured per seat this deal
+
     int CardToActionId(const Card& c) const {
         return (static_cast<int>(c.suit) * 13) + (c.rank - 2);
     }
@@ -158,6 +166,9 @@ public:
         // Wipe per-round play history
         for (auto& pb : played_by) pb.fill(false);
         played_trick.fill(-1);
+        played_pos.fill(-1);
+        taken_by.fill(-1);
+        tricks_won.fill(0);
 
         // Passing phase setup: direction cycles Left, Right, Across, Hold
         for (auto& picks : pass_picks) picks.clear();
@@ -224,6 +235,8 @@ public:
         // Record play history: who played this card, and on which trick
         played_by[player][action_id] = true;
         played_trick[action_id] = state.tricks_played;
+        // (current_trick doesn't hold this card yet: leader records pos 0)
+        played_pos[action_id] = static_cast<int>(state.current_trick.size());
 
         // Check for broken hearts
         if (played_card.suit == Suit::Hearts) {
@@ -256,8 +269,14 @@ public:
                 if (pc.card.suit == Suit::Spades && pc.card.rank == 12) penalty_points += 13;
             }
 
+            // Capture attribution (obs v2): the winner takes all four cards
+            for (const auto& pc : state.current_trick) {
+                taken_by[CardToActionId(pc.card)] = trick_winner;
+            }
+            tricks_won[trick_winner]++;
+
             state.round_scores[trick_winner] += penalty_points;
-            
+
             // Assign reward to the trick winner (negative of penalty points)
             if (trick_winner == player) {
                 result.reward = -static_cast<double>(penalty_points);
@@ -478,6 +497,61 @@ public:
         }
 
         return obs;
+    }
+
+    // Obs v2 extension (docs/v6_prereg.md stage 0): 326 dims appended past
+    // the 556-dim v1 observation by the match wrapper, relative to `player`,
+    // all PUBLIC information. Layout (offsets within this array):
+    //   [0..51]    within-trick position ((pos+1)/4; 0 = unseen)
+    //   [52..103]  led-the-trick flag
+    //   [104..311] taken-by, 4x52 planes in RELATIVE seats
+    //   [312..315] tricks won per relative seat (/13)
+    //   [316..319] moon-alive per relative seat (no OTHER seat has points)
+    //   [320]      hearts still unseen (/13)
+    //   [321..325] QS one-hot (uncaptured / captured by rel seat 0-3)
+    // NOTE: after the deal ends, round_scores are moon-adjusted, so the
+    // moon-alive flags are only meaningful on non-terminal states (the
+    // validator skips terminal reads; nets never observe terminal states).
+    std::array<float, 326> ObserveExt() const {
+        return ObserveExtFor(state.current_player);
+    }
+
+    std::array<float, 326> ObserveExtFor(int player) const {
+        std::array<float, 326> ext;
+        ext.fill(0.0f);
+        for (int c = 0; c < 52; ++c) {
+            if (played_pos[c] >= 0) {
+                ext[c] = static_cast<float>(played_pos[c] + 1) / 4.0f;
+                if (played_pos[c] == 0) ext[52 + c] = 1.0f;
+            }
+        }
+        for (int k = 0; k < 4; ++k) {
+            int seat = (player + k) % 4;
+            for (int c = 0; c < 52; ++c) {
+                if (taken_by[c] == seat) ext[104 + k * 52 + c] = 1.0f;
+            }
+            ext[312 + k] = static_cast<float>(tricks_won[seat]) / 13.0f;
+            bool alive = true;
+            for (int t = 0; t < 4; ++t) {
+                if (t != seat && state.round_scores[t] > 0) {
+                    alive = false;
+                    break;
+                }
+            }
+            ext[316 + k] = alive ? 1.0f : 0.0f;
+        }
+        int hearts_seen = 0;
+        for (int c = 39; c < 52; ++c) {   // hearts occupy action ids 39-51
+            if (played_trick[c] >= 0) hearts_seen++;
+        }
+        ext[320] = static_cast<float>(13 - hearts_seen) / 13.0f;
+        constexpr int QS = 2 * 13 + (12 - 2);   // Spades queen = action id 36
+        if (taken_by[QS] < 0) {
+            ext[321] = 1.0f;
+        } else {
+            ext[322 + ((taken_by[QS] - player + 4) % 4)] = 1.0f;
+        }
+        return ext;
     }
 
     // Ground-truth labels for the auxiliary belief head (training only):
