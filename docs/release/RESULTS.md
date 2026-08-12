@@ -129,6 +129,40 @@ marked [NEEDS CITATION] rather than guessed.
 | **Teacher check: search defenders halve moon concessions vs raw** | **1.208 vs 2.417 moons/match**; +13 counter-moons/440 deals | CRN-paired, gate seed block | t=-8.3, p<1e-5 | 08-08 | exploiter_r2_teacher_check.json; 92e62e0 |
 | Round 2 (anchored defense distillation): pre-registered, corpus in flight | volume condition met early: 38,029/30,000 moon-alive decisions at SEL ~30% | live read | HALT checks all clean (non-binding until corpus complete) | 08-09 | docs/exploiter_league_r2_prereg.md; validate_r2_corpus.py (cea23a4) |
 
+## League rounds 2-3 close; visit-count distillation (era 10)
+
+| Claim | Number | N | CI / p | Date | Citation |
+|---|---|---|---|---|---|
+| Round 2 (anchored defense distillation): corpus validated, first grid fails drift screen, KL-anchored regrid passes screen, both picks dead-null at the defense gate | best +0.016 moons/match | 64 CRN matches/pick | p=0.56 / p=0.80 | 08-09 | docs/exploiter_league_r2_results.md (c9e45cd) |
+| Round 2 pass-region diagnostic: the drift screen's >=97% bar excludes the known defense-pass region ~7x; teacher-match is a dead currency | r1_t3 changed 22.4% of ordinary decisions; play-match 0.537 vs 0.540 | replay analysis | decisive (registered diagnostic) | 08-09 | diag_pass_region.py table in r2 results (58685d1) |
+| Round 3 (anchored PPO): dose not controllable at trial scale, stage-0 HALT | drift 2.84% (lambda 1.0), 3.85% (lambda 0.4) vs [5, 15]% band | 2 calibration trainings | band missed twice | 08-09 | docs/exploiter_league_r3_results.md (c3c6b3b) |
+| Phase 2 teacher-signal validity (Stage B-2, K=256 reference) | same-pair Spearman in judgment zone; proceed via strength screen | 2 matches pooled | user-adjudicated per prereg | 08-10 | verdicts/p2_stageb2.json; prereg addendum |
+| Phase 2 Stage C strength screen: tree teacher not materially weaker than deployed flat searcher | screen PASS (band UB <= +1.0) | n=800 CRN deals | pass | 08-10 | verdicts/p2_strength.json |
+| Phase 2 Stage D distillation hits its objective | teacher-KL 0.8635 → 0.153 (**5.6x reduction**) | 188k records, holdout by match | freeze picks ep3/ep2 | 08-11 | verdicts/p2_stageD_freeze.json |
+| **Phase 2 Stage E: faithful visit-count imitation makes the net WORSE (both picks HALT; direction closed)** | ep3 match **+0.083** placement (p~1.0), guard UB **+0.427**; ep2 match **+0.042** (p=0.997), guard UB **+0.318** vs +0.3 | n=3,200 matches + n=4,800 deals per pick | conjunctive gates, dose-response ep3>ep2 | 08-11 | verdicts/p2_gates_ep3.json, p2_gates_ep2.json; docs/phase2_visitcount_results.md |
+
+Registered meaning of the era-10 close: with equity-ordering targets
+(era 8) and visit-count targets (era 10) both measured non-improving,
+BOTH available encodings of the searched teacher's knowledge are
+closed for the 7.6M net. The capacity conversation (v6) proceeds under
+its own preregistration.
+
+## v6 — capacity + structure (era 11, in progress)
+
+| Claim | Number | N | CI / p | Date | Citation |
+|---|---|---|---|---|---|
+| Prereg signed: obs v2 + seat-token net + fresh bank with defense pressure + control arms + standard gates | stages 0-5 registered | - | binding | 08-11 | docs/v6_prereg.md |
+| Stage 0 obs v2 verified vs independent winner recursion; v1 consumers bit-identical | 17,940 decisions / 32 matches all-pass; 8a89da90 identical on 556 vs 882 inputs | 512 states | hard asserts | 08-11 | validate_obs_v2.py (3e01864) |
+| Stage 1 HeartsNetV6 (57 tokens: +4 seat tokens, moon/points aux heads) | **19.37M params, 2.55x v5-M** | - | validator all-pass | 08-11 | validate_v6_net.py (53b82cd) |
+| Stage 2 recorder (HMR3) A/A byte-identical incl. CUDA; queue-certified locally | 6,154-record instrument check | 9 matches | byte-compare pass | 08-11 | validate_v3_records.py (e44e9fb, 0087d4d) |
+| Stage 2 generation: 2,304-match bank on 4x H100 (cloud), 1/8 shooter-clone matches, attacker never recorded | ~25.3k deals targeted; measured ~4.0-4.5 s/deal effective | 24 chunks x 96 | in flight at doc time | 08-12 | v6_prereg.md stage 2; queue state in expert_data/v6_bank_cloud/ |
+
+A discovered representation wart is recorded with Stage 0: the v1
+observation's score/void context blocks are absolute-seat while the
+net never receives its own seat index, so per-opponent deal points
+were structurally unattributable before obs v2's relative-frame
+capture planes (class docstring, hearts_net.py).
+
 ### Note on the flip/SNR figures
 
 The ledger entry (2026-07-25) quotes tension flip 36.8%, SNR 0.41,

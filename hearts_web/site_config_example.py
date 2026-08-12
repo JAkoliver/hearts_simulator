@@ -43,7 +43,8 @@ DEV_MODE = 'localhost'
 # dumb so idling never recruits the strong AI to play for you.
 TURN_TIMER_S = 60
 
-# Patreon supporter perks (ops-light): JSON array of codenames as patrons
-# send them, or "pid:<canonical>" entries. Hot-reloaded on mtime, so adding
+# Community supporter perks (ops-light): JSON array of codenames as
+# supporters send them, or "pid:<canonical>" entries. Hot-reloaded on
+# mtime, so adding
 # a patron never needs a restart.
 # SUPPORTERS_PATH = os.path.join(os.path.dirname(__file__), 'supporters.json')

@@ -646,6 +646,42 @@ decides.
 
 ## Meta — how the project was run
 
+**Era 10 (08-09..08-11): the last teacher signal closes.** League
+rounds 2 and 3 ended the same week: supervised imitation of search
+defenders was dead-null at the defense gate even after a KL-anchored
+containment redesign (and a registered diagnostic showed the drift
+screen excluded the very pass-region where defense lives), and
+anchored PPO could not be dosed into its target drift band in two
+calibration shots. Phase 2 then asked the roadmap's own make-or-break
+question with tree-search visit counts as distillation targets: the
+pipeline succeeded at every stage (validity probe adjudicated, strength
+screen passed, 188k records generated, teacher-KL cut 5.6x) and the
+faithful student was WORSE, with a clean dose-response (the more
+distilled pick failed harder: match +0.083 vs +0.042 placement, guard
+UB +0.427 vs +0.318). The mechanism reads plainly: a search's visit
+distribution encodes where it had to LOOK, not what it endorsed;
+imitating attention softens the policy onto explored-but-rejected
+moves. With era 8's equity-ordering targets and era 10's visit counts
+both measured non-improving, every available encoding of the searched
+teacher is closed at 7.6M — the strongest evidence yet that the
+network, not the signal, is the constraint
+(docs/phase2_visitcount_results.md).
+
+**Era 11 (08-11..): capacity and structure, together.** The v6
+preregistration (docs/v6_prereg.md) treats the moon-defense hole and
+the capacity question as one design: an observation extension whose
+capture channels make trick winners and point flow OBSERVABLE instead
+of a 13-step recursion (and which exposed a long-standing wart — the
+old context blocks were absolute-seat while the net never knew its own
+seat); a seat-token architecture where moon threat and match targeting
+live on entities that exist; auxiliary heads that force a threat
+representation the way the belief head forced hidden-hand inference;
+a fresh search-teacher bank generated with certified shooter clones at
+one table in eight (defenders recorded, attacker never); and control
+arms that finally isolate scale from structure from data. Promotion
+runs the same gates as every era, with moon defense as a registered
+secondary outcome that reports but never gates.
+
 **The AI-assisted workflow, and its evolution.** The project had two
 toolchains: Antigravity IDE + Gemini 3.1 Pro built the engine, the
 first nets, and the automation loop (07-04..07-09); Claude Code + the

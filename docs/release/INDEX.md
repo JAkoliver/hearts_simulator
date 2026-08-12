@@ -26,7 +26,11 @@ Reading order for an outside observer:
 
 Status: drafts 2026-08-01; update pass 2026-08-09 (era 8 closed —
 expert-iter v2 decisive negative; era 9 exploiter league round 1 +
-round 2 in flight). Scope rule from the same pass: these docs narrate
+round 2 in flight); update pass 2026-08-12 (era 9 closed — league
+rounds 2-3 halted; era 10 closed — visit-count distillation both
+picks HALT, docs/phase2_visitcount_results.md; era 11 v6 opened —
+prereg signed, stages 0-2 verified, stage-2 bank generation in
+flight). Scope rule from the 08-09 pass: these docs narrate
 the AI's development; the web app appears only as a user tool with its
 use cases (ARCHITECTURE sec. 8) — its own development history is not
 release-doc material.

@@ -2312,7 +2312,7 @@ def codename_of(pid, hash_era=False):
         return name
 
 
-# ---- supporters (Patreon perks, ops-light) --------------------------------
+# ---- community supporters (ops-light) -------------------------------------
 # supporters.json (gitignored, lives with the other player stores): a JSON
 # array of CODENAMES as patrons send them ("Crimson Gadwall" or the slug),
 # or "pid:<canonical>" for edge cases. Hot-reloaded on mtime so adding a
@@ -3684,7 +3684,7 @@ EMOTES = {
     'turtle': '1f422', 'moon': '1f319',
     'wp': 'Well played', 'ouch': 'Ouch', 'oops': 'Oops',
     'ty': 'Thanks', 'close': 'Close one', 'gg': 'gg',
-    # supporter pack (Patreon perk): visible to everyone, SENDABLE only
+    # supporter pack: visible to everyone, SENDABLE only
     # by supporters - enforced server-side below, never just in the UI
     'fullmoon': '1f315', 'newmoon': '1f31a', 'rocket': '1f680',
     'comet': '2604', 'star': '2b50',
