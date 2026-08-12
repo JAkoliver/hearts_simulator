@@ -138,7 +138,12 @@ PYBIND11_MODULE(hearts_env, m) {
         .def("get_current_player", &HeartsEnv::GetCurrentPlayer)
         .def("is_passing", &HeartsEnv::IsPassing)
         .def("get_pass_direction", &HeartsEnv::GetPassDirection)
-        .def("observe_opponent_hands", &HeartsEnv::ObserveOpponentHands);
+        .def("observe_opponent_hands", &HeartsEnv::ObserveOpponentHands)
+        // Cross-toolchain replay: seed-based dealing is stdlib-shuffle
+        // implementation-bound (see HeartsEnv.hpp SetDeal comment), so
+        // replays of logs produced by a different build install the
+        // logged hands instead of trusting the seed.
+        .def("set_deal", &HeartsEnv::SetDeal, py::arg("hand_ids"));
 
     // 3. Batched environment pool (numpy in/out; see class comment)
     py::class_<HeartsVecEnv>(m, "HeartsVecEnv")

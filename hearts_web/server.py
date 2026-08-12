@@ -522,6 +522,9 @@ class Session:
             if not self.practice:
                 log_line({**self._stamp('deal'), 'deal_no': self.deal_no,
                           'actions': self.deal_actions,
+                          # dealt hands: makes the line replayable on any
+                          # toolchain (seed dealing is shuffle-impl-bound)
+                          'hands': self.deal_hands_hist[self.deal_no - 1],
                           'round_scores': list(map(int, round_scores)),
                           'totals': list(map(int, self.menv.match_scores))})
             self.deal_actions = []
@@ -893,6 +896,8 @@ class Table:
                       'timeouts': list(self.timeouts),
                       'ts': round(time.time(), 3),
                       'deal_no': self.deal_no, 'actions': self.deal_actions,
+                      'hands': [sorted(self.deal_start_hands[s])
+                                for s in range(4)],
                       'round_scores': list(map(int, round_scores)),
                       'totals': list(map(int, self.menv.match_scores))})
             self.deal_actions = []
@@ -1201,6 +1206,17 @@ def _equiv_groups(hand_set, played_set, legal):
 _review_cache = {}   # (sid_key, match_no) -> seat-independent payload
 
 
+def _apply_logged_hands(menv, d):
+    """Cross-toolchain replay: seed-based dealing differs between MSVC /
+    libstdc++ / libc++ (std::shuffle is implementation-bound), so deal
+    lines that carry their dealt hands install them via set_deal instead
+    of trusting the seed. Lines without 'hands' fall back to the seed,
+    which is only valid on the toolchain that wrote them."""
+    h = d.get('hands')
+    if h:
+        menv.env.set_deal([[int(c) for c in hh] for hh in h])
+
+
 def compute_review(deal_lines, viewer_seat):
     # PASS 1: replay once, collecting every play-state observation; then
     # ONE batched net forward (sequential per-play forwards took minutes
@@ -1211,6 +1227,7 @@ def compute_review(deal_lines, viewer_seat):
     win0 = _win_probs([0, 0, 0, 0], 0)
     all_obs, all_mask, all_ref = [], [], []   # ref -> (deal_idx, play_idx)
     for di, d in enumerate(deal_lines):
+        _apply_logged_hands(menv, d)
         start_hands = [sorted(hand_of(menv, s)) for s in range(4)]
         try:
             pdir = int(menv.env.get_pass_direction())
@@ -2146,6 +2163,7 @@ def compute_insight(deal_lines, seat):
     menv = MatchEnv(seed=deal_lines[0]['seed'])
     obs_l, mask_l, meta = [], [], []
     for d in deal_lines:
+        _apply_logged_hands(menv, d)
         plays = 0
         played_deal = set()
         for s, card, ms in d['actions']:
@@ -2546,6 +2564,7 @@ def compute_match_stats(deal_lines, seat):
     max_deficit = 0         # worst points-behind-the-leader moment
     _bucket = lambda v: 0 if v == 0 else 1 if v <= 5 else         2 if v <= 12 else 3 if v <= 24 else 4
     for di, d in enumerate(deal_lines):
+        _apply_logged_hands(menv, d)
         plays = 0
         played_deal = set()
         trick = []
