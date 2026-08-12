@@ -1,0 +1,17 @@
+{
+ "candidate": "cand_p2_lr3e-05_ep3.pth",
+ "baseline": "Hall_of_Fame/hearts_model_milestone_1785322724.pth",
+ "match": {
+  "dplace_mean": 0.0828125,
+  "se": 0.015246344755302697,
+  "p": 0.9999999699906672,
+  "pass": false
+ },
+ "search": {
+  "delta": 0.23583333333333334,
+  "se": 0.1161984366368755,
+  "ub95": 0.42699965554980146,
+  "pass": false
+ },
+ "all_pass": false
+}
