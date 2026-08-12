@@ -24,3 +24,6 @@ What that means in practice:
 
 If you reproduce a result, or fail to, that is genuinely interesting -
 open an issue with your numbers and environment.
+
+The live site and the GPU rentals behind these experiments are funded
+by players: [play.perilune.ai/support](https://play.perilune.ai/support).
