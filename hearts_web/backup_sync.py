@@ -38,6 +38,11 @@ import urllib.parse
 import urllib.request
 
 _DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Introspection for the admin page: current backup state, updated by the
+# thread. Read-only elsewhere.
+STATUS = {'enabled': False, 'last_cycle': None, 'uploads': {}, 'errors': {}}
+
 DATA_FILES = [
     'match_logs.jsonl',
     'daily_attempts.jsonl',
@@ -123,11 +128,17 @@ class BackupThread(threading.Thread):
                 status = _put(self.cfg, prefix + name, payload)
                 if 200 <= status < 300:
                     self._seen[path] = sig
+                    STATUS['uploads'][name] = {'ts': time.time(),
+                                               'bytes': st.st_size}
+                    STATUS['errors'].pop(name, None)
                     print(f'[backup] {name}: {st.st_size} bytes uploaded')
                 else:
+                    STATUS['errors'][name] = f'HTTP {status}'
                     print(f'[backup] {name}: HTTP {status}')
             except Exception as e:                      # log, never crash
+                STATUS['errors'][name] = str(e)[:200]
                 print(f'[backup] {name} failed: {e}')
+        STATUS['last_cycle'] = time.time()
 
     def run(self):
         interval = self.cfg.get('interval_s', 3600)
@@ -143,6 +154,7 @@ def start_from_config(cfg_module):
     cfg = getattr(cfg_module, 'BACKUP_S3', None)
     if not cfg:
         return None
+    STATUS['enabled'] = True
     t = BackupThread(cfg)
     t.start()
     print(f"[backup] enabled: {cfg['endpoint']}/{cfg['bucket']} "

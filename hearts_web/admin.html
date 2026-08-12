@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Perilune ops</title>
+<style>
+  body { font-family: ui-monospace, Consolas, monospace; background:#121212;
+         color:#ECECEC; max-width:900px; margin:0 auto; padding:24px 16px;
+         font-size:.85rem; line-height:1.5; }
+  h1 { font-size:1.1rem; color:#FFD97A; margin-bottom:2px; }
+  .sub { color:#A6A6AF; margin-bottom:18px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(260px,1fr));
+          gap:12px; }
+  .card { background:#1E1E21; border-radius:10px; padding:12px 14px; }
+  .card h2 { font-size:.75rem; color:#A6A6AF; text-transform:uppercase;
+             margin-bottom:8px; letter-spacing:.05em; }
+  .kv { display:flex; justify-content:space-between; gap:10px; }
+  .kv b { color:#ECECEC; font-weight:600; }
+  .kv span { color:#A6A6AF; }
+  .big { font-size:1.5rem; color:#E8B923; font-weight:700; }
+  .ok { color:#6BCB77; } .warn { color:#E5484D; }
+  table { width:100%; border-collapse:collapse; }
+  td { padding:2px 6px 2px 0; color:#C9C9CF; }
+  .muted { color:#6d6d75; }
+  #err { color:#E5484D; margin:10px 0; display:none; }
+</style>
+</head>
+<body>
+<h1>Perilune ops</h1>
+<div class="sub">localhost-only status &middot; auto-refresh 10s &middot;
+  <span id="stamp" class="muted"></span></div>
+<div id="err"></div>
+<div class="grid" id="grid"></div>
+<script>
+const fmtAgo = s => s == null ? '—' :
+  s < 90 ? Math.round(s) + 's' : s < 5400 ? Math.round(s/60) + 'm'
+  : s < 129600 ? (s/3600).toFixed(1) + 'h' : Math.round(s/86400) + 'd';
+const fmtB = b => b == null ? '—' :
+  b < 1e4 ? b + ' B' : b < 1e6 ? (b/1e3).toFixed(1) + ' kB'
+  : (b/1e6).toFixed(2) + ' MB';
+const kv = (k, v, cls='') =>
+  `<div class="kv"><span>${k}</span><b class="${cls}">${v}</b></div>`;
+
+async function tick() {
+  let d;
+  try {
+    d = await (await fetch('/api/admin/status')).json();
+    document.getElementById('err').style.display = 'none';
+  } catch (e) {
+    const el = document.getElementById('err');
+    el.textContent = 'fetch failed: ' + e; el.style.display = 'block';
+    return;
+  }
+  const now = d.ts;
+  const cards = [];
+
+  const liveTables = d.now.tables.filter(t => !t.finished);
+  cards.push(`<div class="card"><h2>Right now</h2>
+    <div class="big">${d.now.solo_live + liveTables.length}</div>
+    ${kv('live solo sessions', d.now.solo_live)}
+    ${kv('live tables', liveTables.length)}
+    ${kv('humans at tables', liveTables.reduce((a,t)=>a+(t.humans||0),0))}
+    ${kv('spectators', liveTables.reduce((a,t)=>a+(t.spectators||0),0))}
+    ${kv('sessions in memory', d.now.solo_total)}</div>`);
+
+  cards.push(`<div class="card"><h2>Last 24 h</h2>
+    ${kv('matches finished', d.logs.day.matches)}
+    ${kv('deals played', d.logs.day.deals)}
+    ${kv('unique players', d.logs.day.pids)}
+    ${kv('daily-challenge attempts', d.logs.day.daily_attempts)}</div>`);
+
+  const lf = d.logs.files || {};
+  cards.push(`<div class="card"><h2>Data files</h2>
+    ${Object.entries(lf).map(([n, f]) =>
+      kv(n, fmtB(f.bytes) + ' · ' + fmtAgo(now - f.mtime) + ' ago')).join('')}
+    ${kv('log lines scanned', d.logs.total_lines)}</div>`);
+
+  const up = d.backup.uploads || {}, errs = d.backup.errors || {};
+  cards.push(`<div class="card"><h2>Off-host backup</h2>
+    ${kv('enabled', d.backup.enabled ? 'yes' : 'NO', d.backup.enabled ? 'ok' : 'warn')}
+    ${kv('last cycle', d.backup.last_cycle ? fmtAgo(now - d.backup.last_cycle) + ' ago' : '—')}
+    ${Object.entries(up).map(([n, u]) =>
+      kv(n, fmtB(u.bytes) + ' · ' + fmtAgo(now - u.ts) + ' ago', 'ok')).join('')}
+    ${Object.entries(errs).map(([n, e]) => kv(n, e, 'warn')).join('')}</div>`);
+
+  cards.push(`<div class="card"><h2>System</h2>
+    ${kv('uptime', fmtAgo(d.system.uptime_s))}
+    ${kv('server RSS', d.system.rss_mb ? d.system.rss_mb + ' MB' : '—')}
+    ${kv('disk free', d.system.disk_free_gb + ' GB')}
+    ${kv('serving model', d.system.model_md5)}
+    ${Object.entries(d.system.tiers).map(([k, m]) =>
+      kv('tier ' + k, m, m ? 'ok' : 'warn')).join('')}</div>`);
+
+  const sup = Object.entries(d.supporters || {});
+  cards.push(`<div class="card"><h2>Supporters (${sup.length})</h2>
+    ${sup.map(([n]) => `<div>${n}</div>`).join('') || '<span class="muted">none yet</span>'}</div>`);
+
+  if (liveTables.length) {
+    cards.push(`<div class="card"><h2>Tables</h2><table>${liveTables.map(t =>
+      `<tr><td>${t.code}</td><td>${t.humans} players</td>
+       <td>${t.spectators} watching</td><td>match ${t.match_no ?? '—'}</td></tr>`
+    ).join('')}</table></div>`);
+  }
+
+  document.getElementById('grid').innerHTML = cards.join('');
+  document.getElementById('stamp').textContent =
+    'updated ' + new Date(d.ts * 1000).toLocaleTimeString();
+}
+tick();
+setInterval(tick, 10000);
+</script>
+</body>
+</html>

@@ -3932,3 +3932,136 @@ def practice_replay(sid: str, pid: str = None):
                 acts.append(int(hand[p - t * 3]))
             acts.extend(0 for _ in range(64 - len(acts)))
         return {'seed': s.seed, 'deals': deals}
+
+
+# ---------------------------------------------------------------------------
+# Admin status page: LOCALHOST-ONLY (rules out all tunnel traffic - it
+# always carries cf-connecting-ip). Access from the operator's machine
+# via SSH port-forward: ssh -L 8642:localhost:8642 <host>, then open
+# http://localhost:8642/admin. Read-only by design; no tokens or
+# secrets, so the whole feature is publishable-by-construction
+# (docs/site_security_design.md).
+_BOOT_TS = time.time()
+
+
+def _is_local_admin(request: Request):
+    return (request.client and request.client.host in ('127.0.0.1', '::1')
+            and request.headers.get('cf-connecting-ip') is None)
+
+
+def _log_stats():
+    """Cheap scan of the newest slice of the data files (bounded read)."""
+    out = {'files': {}, 'day': {'matches': 0, 'deals': 0, 'pids': set(),
+                                'daily_attempts': 0},
+           'total_lines': 0}
+    cutoff = time.time() - 86400
+    try:
+        size = os.path.getsize(LOG_PATH)
+        out['files']['match_logs.jsonl'] = {
+            'bytes': size, 'mtime': os.path.getmtime(LOG_PATH)}
+        with open(LOG_PATH, encoding='utf-8', errors='replace') as f:
+            if size > 4 * 1024 * 1024:          # bounded: newest ~4MB
+                f.seek(size - 4 * 1024 * 1024)
+                f.readline()
+            for ln in f:
+                out['total_lines'] += 1
+                try:
+                    d = json.loads(ln)
+                except Exception:
+                    continue
+                if d.get('ts', 0) < cutoff:
+                    continue
+                k = d.get('kind')
+                if k == 'deal':
+                    out['day']['deals'] += 1
+                elif k == 'match':
+                    out['day']['matches'] += 1
+                p = d.get('pid')
+                if p:
+                    out['day']['pids'].add(p)
+                for p in (d.get('seat_pids') or {}).values():
+                    if p:
+                        out['day']['pids'].add(p)
+    except FileNotFoundError:
+        pass
+    for name in ('daily_attempts.jsonl', 'player_names.jsonl',
+                 'progress_stats.jsonl'):
+        p = os.path.join(os.path.dirname(os.path.abspath(__file__)), name)
+        if os.path.exists(p):
+            out['files'][name] = {'bytes': os.path.getsize(p),
+                                  'mtime': os.path.getmtime(p)}
+    try:
+        with open(DAILY_ATT_PATH, encoding='utf-8') as f:
+            for ln in f:
+                try:
+                    if json.loads(ln).get('ts', 0) >= cutoff:
+                        out['day']['daily_attempts'] += 1
+                except Exception:
+                    pass
+    except Exception:
+        pass
+    out['day']['pids'] = len(out['day']['pids'])
+    return out
+
+
+@app.get('/api/admin/status')
+def admin_status(request: Request):
+    if not _is_local_admin(request):
+        raise HTTPException(403, 'admin is localhost-only')
+    with _sessions_lock:
+        solo_live = sum(1 for s in _sessions.values()
+                        if not getattr(s, 'finished', True))
+        solo_total = len(_sessions)
+    tables = []
+    with _tables_lock:
+        for code, t in _tables.items():
+            try:
+                tables.append({
+                    'code': code,
+                    'humans': len(t.humans()),
+                    'spectators': len(getattr(t, 'spectators', {}) or {}),
+                    'finished': bool(getattr(t, 'finished', False)),
+                    'match_no': getattr(t, 'match_no', None)})
+            except Exception:
+                tables.append({'code': code, 'error': True})
+    rss_mb = None
+    try:
+        with open('/proc/self/status') as f:
+            for ln in f:
+                if ln.startswith('VmRSS'):
+                    rss_mb = round(int(ln.split()[1]) / 1024)
+                    break
+    except Exception:
+        pass
+    import shutil as _sh
+    du = _sh.disk_usage(os.path.dirname(os.path.abspath(__file__)))
+    try:
+        from hearts_web.backup_sync import STATUS as _bk
+    except ImportError:
+        from backup_sync import STATUS as _bk
+    sup = {}
+    try:
+        sup = json.load(open(os.path.join(_cfg_dir, 'supporters.json'),
+                             encoding='utf-8'))
+    except Exception:
+        pass
+    return {
+        'now': {'solo_live': solo_live, 'solo_total': solo_total,
+                'tables': tables},
+        'logs': _log_stats(),
+        'system': {'uptime_s': round(time.time() - _BOOT_TS),
+                   'rss_mb': rss_mb,
+                   'disk_free_gb': round(du.free / 1e9, 1),
+                   'model_md5': MODEL_MD5,
+                   'tiers': {k: v['md5'] for k, v in TIERS.items()}},
+        'backup': _bk,
+        'supporters': sup,
+        'ts': time.time()}
+
+
+@app.get('/admin')
+def admin_page(request: Request):
+    if not _is_local_admin(request):
+        raise HTTPException(403, 'admin is localhost-only')
+    return FileResponse(os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), 'admin.html'))
