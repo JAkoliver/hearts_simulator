@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How Perilune is built</title>
+<meta name="description" content="The pipeline behind Perilune: match-aware self-play, search-guided training, belief over hidden cards, and preregistered gates that decide what ships.">
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<meta property="og:site_name" content="Perilune">
+<meta property="og:type" content="article">
+<meta property="og:title" content="How Perilune is built">
+<meta property="og:description" content="Match-aware self-play, search-guided training, belief over hidden cards — and preregistered gates that decide what ships.">
+<meta property="og:image" content="https://play.perilune.ai/static/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+  @font-face { font-family:'Space Grotesk';
+    src:url('/static/fonts/space-grotesk.woff2') format('woff2');
+    font-weight:300 700; font-display:swap; }
+  body { font-family:system-ui, sans-serif; background:#121212; color:#ECECEC;
+         max-width:680px; margin:0 auto; padding:32px 20px; line-height:1.6; }
+  h1 { font-family:'Space Grotesk', system-ui, sans-serif; color:#FFD97A;
+       font-size:1.8rem; margin-bottom:2px; }
+  h2 { font-family:'Space Grotesk', system-ui, sans-serif; color:#A6A6AF;
+       font-size:1.05rem; margin:26px 0 6px; }
+  .tag { color:#A6A6AF; font-style:italic; margin-bottom:18px; }
+  a { color:#E8B923; }
+  p { margin:10px 0; }
+  b { color:#ECECEC; }
+  .gold { color:#E8B923; }
+  .cyan { color:#4CC2FF; }
+  .aside { font-size:.85rem; color:#A6A6AF; background:#1E1E21;
+           border-radius:10px; padding:10px 14px; margin:12px 0; }
+  .aside b { color:#D2D2D8; }
+</style>
+</head>
+<body>
+<h1>How Perilune is built</h1>
+<div class="tag">the pipeline, the yardsticks, and why the yardsticks
+are strict</div>
+
+<p>Perilune is a neural network that taught itself Hearts by playing
+millions of matches against itself. This page explains how that works
+&mdash; not the day-to-day training history, but the machinery: what the
+network learns, how it improves, and how we decide whether a new
+version is actually better.</p>
+
+<h2>The shape of the problem</h2>
+<p>Two things make Hearts interesting to a machine. First, it is a game
+of <b>hidden information</b> &mdash; you see 13 of 52 cards, and every
+good decision has to reason about where the rest sit. Second, Hearts is
+really a <b>match</b>: deals repeat until someone reaches 100, and the
+same play can be right at 0&ndash;0 and badly wrong when you're
+protecting a lead at 95&ndash;80. Most card AIs optimize each deal in
+isolation. Perilune is trained on whole matches, and everything it
+values is denominated in one currency: <b>chance of winning the
+match</b>.</p>
+
+<h2>One network, three heads</h2>
+<p>The network reads the full visible situation &mdash; cards, scores,
+history, what each opponent has shown &mdash; and answers three
+questions at once:</p>
+<p><b class="gold">Instinct</b> &mdash; a ranking over legal plays: what
+would I play here, before any deliberate thought?<br>
+<b class="cyan">Equity</b> &mdash; from this exact position, what is
+each player's chance of winning the match?<br>
+<b>Belief</b> &mdash; for every unseen card, where is it likely to
+be?</p>
+<div class="aside">Each head exists because training needs it &mdash;
+and each one surfaces on this site as a tool. Instinct is the gray bars
+in every review, equity is the "match win here" number, and belief is
+the review's lens that paints what Perilune suspects about hidden
+hands. Nothing you see is a separate demo model; it is the training
+machinery itself, exposed.</div>
+
+<h2>The improvement loop</h2>
+<p>A network alone has habits. To improve, it plays against itself with
+<b>search</b>: at a decision, the engine imagines many complete worlds
+consistent with everything visible &mdash; hidden hands dealt out the
+way the belief head suggests &mdash; and plays each candidate move out
+to the end of the deal, in every imagined world, with the network
+playing all four seats. Average the outcomes in match-win terms and you
+get a judgment that is sharper than instinct alone. The improved
+decisions become training targets, the network learns them, and the
+loop repeats: <b>the net is forever chasing its own searched
+self</b>.</p>
+
+<h2>Never peeking</h2>
+<p>One rule holds everywhere, in training and on this site: evaluations
+are <b>information-honest</b>. A seat is judged only on what that seat
+could see. The engine never scores a decision using knowledge the
+player couldn't have had &mdash; hindsight is cheap, and an AI trained
+on peeking learns lines that only work if the cards are known. The same
+rule is why your match reviews will sometimes say a "wrong-looking"
+play was fine: given what you could see, it was.</p>
+
+<h2>The yardstick problem</h2>
+<p>Self-improvement is easy to imagine and easy to fake. Training
+curves go down, agreement scores go up, and none of it proves the new
+network wins more. So promotion is decided by one thing only: a
+<b>gate battery</b> against the current champion.</p>
+<p>Before a candidate is trained, the experiment is <b>preregistered</b>
+&mdash; what will be measured, on how many matches, and exactly what
+numbers count as passing are written down and signed before any data
+exists. A typical battery: thousands of head-to-head matches against
+the frozen incumbent demanding a statistically significant improvement
+in placement, plus a guard that the candidate hasn't gotten worse when
+used inside search, plus behavior probes on situations that matter
+(moon defense, endgame urgency). The default on any ambiguity is
+<b>halt</b>: a candidate that merely ties, or wins unconvincingly, is
+not shipped.</p>
+<div class="aside"><b>Dead ends are the point.</b> Most of what this
+pipeline produces is evidence that something plausible doesn't work.
+Several training directions have hit every intermediate target &mdash;
+learned exactly what they were designed to learn &mdash; and still
+failed the gates, and were closed with their verdicts on file. That is
+the system working. The model you play is the one that survived.</div>
+<p>Each promoted model gets a permanent fingerprint (the
+<b>model hash</b> you see on the <a href="/leaderboard">leaderboard</a>).
+When a stronger model ships, the old boards are archived under the old
+hash &mdash; a win against a specific Perilune stays a win against that
+Perilune, forever.</p>
+
+<h2>The same brain in your browser</h2>
+<p>The deep search in match reviews and practice mode is not a service
+&mdash; it is the same network and the same search, exported to run
+<b>on your device</b>: GPU where the browser offers it, multi-core CPU
+otherwise, with the engine tier always named in the status line. Cards
+that are strictly equivalent share one estimate instead of two noisy
+ones, and completed searches are shared with the other viewers of the
+same match &mdash; after being validated against the match replay
+&mdash; so one person's effort pre-searches the review for everyone.
+Search values only; nothing personal leaves your device.</p>
+
+<h2>What the games are for</h2>
+<p>Matches on this site are recorded anonymously &mdash; cards, timing,
+outcomes, tied to a random browser identifier; no accounts, no personal
+information. Human games matter because people find weaknesses
+self-play never does. The <a href="/about">about page</a> has the full
+story of what is stored.</p>
+
+<h2>What's next</h2>
+<p>The current frontier is capacity &mdash; a larger network trained
+with the same loop and judged by the same gates. If it earns promotion,
+it becomes a new model era: a new hash, a fresh leaderboard, and the
+old boards preserved. An open-source release of the engine, models,
+and methodology is planned.</p>
+
+<p style="margin-top:22px"><a id="back-link" href="/">&larr; back to the
+table</a></p>
+<script>
+// Arrived from the perilune.ai landing page: "back" means home, not
+// the game table.
+if (new URLSearchParams(location.search).get('from') === 'home') {
+  const b = document.getElementById('back-link');
+  b.href = 'https://perilune.ai/';
+  b.innerHTML = '&larr; back to home';
+}
+</script>
+<script src="/static/nav.js?v=6"></script>
+</body>
+</html>

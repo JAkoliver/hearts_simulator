@@ -47,6 +47,24 @@ LOG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                         'match_logs.jsonl')
 
 app = FastAPI(title="Perilune - Hearts vs AI")
+
+
+@app.middleware('http')
+async def _force_https(request, call_next):
+    """HTTPS always, enforced at the origin (independent of any
+    Cloudflare zone toggle): tunnel traffic that arrived as plain http
+    is 301'd to https, and https responses carry HSTS. Direct local
+    requests (dev, scratch servers) have no CF headers and pass
+    through untouched."""
+    via_tunnel = request.headers.get('cf-connecting-ip') is not None
+    if via_tunnel and request.headers.get('x-forwarded-proto') == 'http':
+        url = request.url.replace(scheme='https')
+        return Response(status_code=301, headers={'Location': str(url)})
+    resp = await call_next(request)
+    if via_tunnel:
+        resp.headers['Strict-Transport-Security'] = 'max-age=31536000'
+    return resp
+
 app.mount('/static', StaticFiles(directory=os.path.join(
     os.path.dirname(os.path.abspath(__file__)), 'static')), name='static')
 
@@ -2901,6 +2919,12 @@ def about():
                                      'static', 'about.html'))
 
 
+@app.get('/how')
+def how_page():
+    return FileResponse(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                     'static', 'how.html'))
+
+
 # ---- Open Graph preview cards ---------------------------------------------
 # Link previews (Discord/iMessage/Slack/Twitter) fetch without JS, so
 # the meta tags are injected server-side at the <!--OG--> marker.
@@ -2948,12 +2972,29 @@ def _og_serve(request, fname, title, desc):
     return html.replace('<!--OG-->', _og_block(request, title, desc), 1)
 
 
+# Apex landing: perilune.ai is the front door (static pitch page, its
+# own OG tags inline); play.perilune.ai stays the app. Same server,
+# routed by Host - the tunnel just needs an ingress rule for the apex.
+LANDING_HOSTS = {'perilune.ai', 'www.perilune.ai'}
+_LANDING_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                             'static', 'landing.html')
+
+
+@app.get('/landing')
+def landing_preview():
+    """The apex page, previewable from any host (incl. localhost)."""
+    return FileResponse(_LANDING_PATH, media_type='text/html')
+
+
 @app.get('/')
 def index(request: Request):
     """Serve the app; dev controls (reset button, ?player= identity
     override) are injected ONLY for direct localhost requests - anything
     arriving through the tunnel (CF-Connecting-IP present) or the LAN
     gets DEV_CONTROLS = false."""
+    host = (request.headers.get('host') or '').split(':')[0].lower()
+    if host in LANDING_HOSTS:
+        return FileResponse(_LANDING_PATH, media_type='text/html')
     title, desc = OG_DEFAULT
     join = (request.query_params.get('join') or '').strip().upper()[:8]
     if join:

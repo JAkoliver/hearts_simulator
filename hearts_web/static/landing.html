@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Perilune — a match-aware Hearts AI</title>
+<meta name="description" content="Play Hearts against Perilune, a match-aware AI, or your friends. Free, no account. Full match reviews with on-device deep-search analysis.">
+<link rel="canonical" href="https://perilune.ai/">
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<meta property="og:site_name" content="Perilune">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Perilune — a match-aware Hearts AI">
+<meta property="og:description" content="Play Hearts against Perilune, a match-aware AI, or your friends. Free, no account. Full match reviews with on-device deep-search analysis.">
+<meta property="og:url" content="https://perilune.ai/">
+<meta property="og:image" content="https://play.perilune.ai/static/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Perilune — a match-aware Hearts AI">
+<meta name="twitter:description" content="Play Hearts against Perilune, a match-aware AI, or your friends. Free, no account. Full match reviews with on-device deep-search analysis.">
+<meta name="twitter:image" content="https://play.perilune.ai/static/og.png">
+<style>
+  @font-face { font-family:'Space Grotesk';
+    src:url('/static/fonts/space-grotesk.woff2') format('woff2');
+    font-weight:300 700; font-display:swap; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:system-ui, sans-serif; background:#121212; color:#ECECEC;
+         line-height:1.55; -webkit-font-smoothing:antialiased; }
+  a { color:#E8B923; }
+  .wrap { max-width:1060px; margin:0 auto; padding:0 22px; }
+  .sg { font-family:'Space Grotesk', system-ui, sans-serif; }
+  .muted { color:#A6A6AF; }
+
+  header { display:flex; align-items:center; justify-content:space-between;
+           padding:18px 0 6px; }
+  .mark { font-size:1.25rem; font-weight:700; color:#FFD97A;
+          text-decoration:none; }
+  .mark i { color:#E5484D; font-style:normal; }
+  header nav a { color:#A6A6AF; text-decoration:none; margin-left:18px;
+                 font-size:.9rem; }
+  header nav a:hover { color:#ECECEC; }
+  header nav a.play { color:#E8B923; }
+
+  /* ---- hero ---- */
+  .hero { display:grid; grid-template-columns:1fr 1fr; gap:36px;
+          align-items:center; padding:44px 0 30px; }
+  .hero h1 { font-size:2.1rem; line-height:1.2; color:#FFD97A;
+             margin-bottom:14px; }
+  .hero .sub { font-size:1.02rem; color:#D2D2D8; margin-bottom:22px;
+               max-width:44ch; }
+  .cta { display:inline-block; background:#E8B923; color:#222;
+         font-weight:700; font-size:1.05rem; padding:12px 30px;
+         border-radius:10px; text-decoration:none; }
+  .cta:hover { background:#FFD97A; }
+  .cta2 { display:inline-block; margin-left:14px; color:#A6A6AF;
+          font-size:.9rem; text-decoration:none;
+          border-bottom:1px dotted #A6A6AF; }
+  .cta2:hover { color:#ECECEC; }
+  .freeline { margin-top:12px; font-size:.8rem; color:#8A8A93; }
+
+  /* ---- live felt demo ---- */
+  #felt { position:relative; height:330px; background:#1E1E21;
+          border-radius:14px; overflow:hidden;
+          background:radial-gradient(ellipse at 50% 42%, #26262C 0%, #1B1B1F 75%); }
+  .ftag { position:absolute; background:rgba(255,255,255,.08);
+          padding:3px 12px; border-radius:10px; font-size:.74rem;
+          color:#B9B9C2; white-space:nowrap; transition:color .3s; }
+  .ftag.on { color:#E8B923; }
+  .ftag small { opacity:.75; }
+  .ft0 { bottom:8%; left:50%; transform:translateX(-50%); }
+  .ft1 { left:3%; top:50%; transform:translateY(-50%); }
+  .ft2 { top:8%; left:50%; transform:translateX(-50%); }
+  .ft3 { right:3%; top:50%; transform:translateY(-50%); }
+  #ftrick { position:absolute; inset:0; }
+  .tc { position:absolute; width:44px; height:62px; background:#F6F3EC;
+        color:#222; border-radius:6px; font-weight:700; font-size:1rem;
+        display:flex; align-items:center; justify-content:center;
+        box-shadow:0 3px 9px rgba(0,0,0,.45);
+        transition:transform .55s ease, opacity .5s ease; }
+  .tc.red { color:#C0392B; }
+  .tc span { text-align:center; line-height:1.1; }
+  .p0 { left:calc(50% - 22px); top:calc(50% + 12px); }
+  .p1 { left:calc(50% - 74px); top:calc(50% - 30px); }
+  .p2 { left:calc(50% - 22px); top:calc(50% - 74px); }
+  .p3 { left:calc(50% + 30px); top:calc(50% - 30px); }
+  @keyframes drop { from { opacity:0; transform:translateY(-9px) scale(1.06); }
+                    to { opacity:1; transform:none; } }
+  .tc { animation:drop .3s ease; }
+  .sw0 { transform:translateY(120px); opacity:0; }
+  .sw1 { transform:translateX(-160px); opacity:0; }
+  .sw2 { transform:translateY(-120px); opacity:0; }
+  .sw3 { transform:translateX(160px); opacity:0; }
+  .fscores { position:absolute; left:50%; top:50%;
+             transform:translate(-50%,-50%); background:rgba(20,20,23,.92);
+             border-radius:10px; padding:12px 18px; font-size:.82rem; }
+  .fscores div { display:flex; gap:12px; justify-content:space-between; }
+  .fscores b { color:#E5484D; min-width:34px; text-align:right; }
+  .fscores i { font-style:normal; color:#ECECEC; min-width:30px;
+               text-align:right; }
+  .fscores span { color:#A6A6AF; }
+  #fcap { text-align:center; font-size:.74rem; color:#8A8A93;
+          margin-top:8px; }
+
+  /* ---- watch-it-think strip ---- */
+  section { padding:34px 0; }
+  section h2 { font-size:1.3rem; color:#FFD97A; margin-bottom:6px; }
+  .lede { color:#D2D2D8; max-width:66ch; margin-bottom:20px; }
+  .think { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+  .panel { background:#1E1E21; border-radius:12px; padding:14px 16px; }
+  .panel h3 { font-size:.72rem; color:#A6A6AF; text-transform:uppercase;
+              margin-bottom:8px; letter-spacing:.03em; }
+  .bar { background:#26262A; border-radius:5px; height:22px; position:relative;
+         margin:4px 0; overflow:hidden; display:flex; align-items:center; }
+  .bar .fill { position:absolute; inset:0 auto 0 0; background:#3E3E46; }
+  .bar.pick .fill { background:#7A5A17; }
+  .bar > span { position:relative; font-size:.76rem; padding-left:8px; }
+  .dbar { position:relative; height:20px; margin:4px 0; background:#20262B;
+          border-radius:4px; overflow:hidden; font-size:.76rem; }
+  .dbar .fill { position:absolute; inset:0 auto 0 0; background:#194A5E; }
+  .dbar span { position:relative; padding-left:8px; line-height:20px; }
+  .ct { font-weight:700; }
+  .ct.cr { color:#FF7A7A; }
+  .cyan { color:#4CC2FF; }
+  .winline { font-size:.72rem; color:#A6A6AF; margin-top:6px; }
+  .caption { font-size:.7rem; color:#8A8A93; margin-top:14px; }
+  .verdict { margin-top:16px; color:#D2D2D8; max-width:70ch; }
+
+  /* ---- proof points ---- */
+  .points { display:grid; grid-template-columns:repeat(3, 1fr); gap:18px; }
+  .points .panel p { font-size:.86rem; color:#C9C9D0; }
+  .points .panel b { display:block; color:#ECECEC; margin-bottom:6px;
+                     font-size:.95rem; }
+
+  /* ---- hooks ---- */
+  .hooks { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+  .hooks .panel p { font-size:.88rem; color:#C9C9D0; }
+  .hooks .panel b { color:#ECECEC; }
+  .hooks a.go { display:inline-block; margin-top:10px; font-size:.86rem; }
+  #lb-top { margin:8px 0 2px; font-size:.9rem; }
+  #lb-top .score { color:#E8B923; font-weight:700; }
+
+  footer { padding:26px 0 40px; font-size:.78rem; color:#77777F; }
+  footer a { color:#A6A6AF; text-decoration:none; margin-right:16px; }
+  footer a:hover { color:#ECECEC; }
+  .provenance { margin-top:8px; }
+
+  @media (max-width: 880px) {
+    .hero { grid-template-columns:1fr; padding-top:26px; }
+    .think, .points, .hooks { grid-template-columns:1fr; }
+    .hero h1 { font-size:1.7rem; }
+    #felt { height:290px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <a class="mark sg" href="https://perilune.ai/">Perilune<i>.</i></a>
+  <nav>
+    <a href="https://play.perilune.ai/about">about</a>
+    <a href="https://play.perilune.ai/leaderboard">leaderboard</a>
+    <a class="play" href="https://play.perilune.ai/">play &rarr;</a>
+  </nav>
+</header>
+
+<div class="hero">
+  <div>
+    <h1 class="sg">A Hearts AI that plays the match, not just the hand.</h1>
+    <div class="sub">Play it free &mdash; no account, no install, it runs
+      in your browser. Then review every decision you made against its
+      deep search.</div>
+    <a class="cta" href="https://play.perilune.ai/">Play now</a>
+    <a class="cta2" id="watch-link" href="https://play.perilune.ai/leaderboard"
+       style="display:none">watch the record win &rarr;</a>
+    <div class="freeline">free &middot; no account &middot; solo, daily
+      challenge, or a table with friends</div>
+  </div>
+  <div>
+    <div id="felt"></div>
+    <div id="fcap">demo &middot; Perilune vs itself &middot; baked from
+      real self-play</div>
+  </div>
+</div>
+
+<section>
+  <h2 class="sg">Watch it think</h2>
+  <div class="lede">Every reviewed match shows two opinions and never
+    mixes them: Perilune's <b>instinct</b> &mdash; its snap ranking
+    before any search &mdash; and <b>deep search</b>, where each card is
+    played out to the end of the deal dozens of times, on your device.</div>
+  <div class="think">
+    <div class="panel">
+      <h3>Instinct &middot; before search</h3>
+      <div class="bar pick"><div class="fill" style="width:47%"></div>
+        <span><span class="ct">J&spades;</span> &middot; 46.8% &larr; pick</span></div>
+      <div class="bar"><div class="fill" style="width:31%"></div>
+        <span><span class="ct">9&spades;</span> &middot; 31.0%</span></div>
+      <div class="bar"><div class="fill" style="width:12%"></div>
+        <span><span class="ct">Q&spades;</span> &middot; 12.4%</span></div>
+    </div>
+    <div class="panel">
+      <h3><span class="cyan">Deep search &middot; K=256</span></h3>
+      <div class="dbar"><div class="fill" style="width:100%"></div>
+        <span><span class="ct">9&spades;</span> &middot; 3.1 pts</span></div>
+      <div class="dbar"><div class="fill" style="width:58%"></div>
+        <span><span class="ct">J&spades;</span> &middot; 4.9 pts &middot; &minus;2.1% match</span></div>
+      <div class="dbar"><div class="fill" style="width:15%"></div>
+        <span><span class="ct">Q&spades;</span> &middot; 8.0 pts &middot; &minus;5.6% match</span></div>
+      <div class="winline">your match win here:
+        <span class="cyan">41.3%</span></div>
+    </div>
+  </div>
+  <div class="verdict">Instinct liked the Jack. Played out 256 times,
+    the Jack quietly gives up 2.1% of the match &mdash; the Nine keeps
+    it. You get both opinions for every card you played, and a practice
+    mode with the same hints live at the table.</div>
+  <div class="caption">illustration &mdash; your reviews compute the
+    real thing, on your hardware, for your actual games.</div>
+</section>
+
+<section>
+  <div class="points">
+    <div class="panel"><b>Match-aware</b>
+      <p>Trained on whole games to 100, not isolated deals. Passes and
+      plays are valued in match-win chance &mdash; it will eat points
+      today to win the match tomorrow.</p></div>
+    <div class="panel"><b>Runs on your device</b>
+      <p>The deep search runs in your browser &mdash; GPU when
+      available, multi-core CPU otherwise. Search values are shared with
+      your match's viewers; nothing personal ever leaves your
+      device.</p></div>
+    <div class="panel"><b>Honestly measured</b>
+      <p>New models are promoted only through preregistered gates
+      &mdash; and the ones that fail are retired, not shipped.
+      <a href="https://play.perilune.ai/how?from=home">How it's built &rarr;</a></p></div>
+  </div>
+</section>
+
+<section>
+  <div class="hooks">
+    <div class="panel">
+      <b>Daily challenge</b>
+      <p id="daily-line">One attempt per day &mdash; the identical deal
+        for everyone, and a leaderboard that keeps every day forever.</p>
+      <a class="go" href="https://play.perilune.ai/?daily=1">play today's
+        deal &rarr;</a>
+    </div>
+    <div class="panel">
+      <b>The leaderboard is an open challenge</b>
+      <div id="lb-top" style="display:none"></div>
+      <p>Beat Perilune outright at full strength and your match joins
+        the board &mdash; permanently, under this model's name.</p>
+      <a class="go" href="https://play.perilune.ai/leaderboard">see the
+        board &rarr;</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <a href="https://play.perilune.ai/">play</a>
+  <a href="https://play.perilune.ai/about">about</a>
+  <a href="https://play.perilune.ai/how?from=home">how it's built</a>
+  <a href="https://play.perilune.ai/leaderboard">leaderboard</a>
+  <a href="https://play.perilune.ai/account">account</a>
+  <div class="provenance">An experiment in training a match-aware Hearts
+    AI &middot; matches are recorded anonymously to improve it.</div>
+</footer>
+
+</div>
+<script>
+// ---- live felt: replays a baked Perilune-vs-itself match ------------------
+// Same data the app's menu demos use (static JSON from real self-play,
+// no player data). Honest by construction: captioned as a demo, renders
+// only what the bake recorded.
+(function () {
+  const felt = document.getElementById('felt');
+  const cap = document.getElementById('fcap');
+  const SEATN = ['P1', 'P2', 'P3', 'P4'];
+  const RED = c => c.slice(-1) === 'H' || c.slice(-1) === 'D';
+  const GLYPH = {C: '♣', D: '♦', S: '♠', H: '♥'};
+  const cardTxt = c =>
+    `<span>${c.slice(0, -1)}<br>${GLYPH[c.slice(-1)]}</span>`;
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  let match = null;
+  const st = {d: 0, i: -1};
+
+  function skeleton() {
+    felt.innerHTML = SEATN.map((n, s) =>
+      `<div class="ftag ft${s}" id="ftag${s}"></div>`).join('')
+      + '<div id="ftrick"></div>';
+  }
+
+  function dealPts(deal, i) {
+    const pts = [0, 0, 0, 0];
+    const done = Math.floor((i + 1) / 4);
+    for (let t = 0; t < done; t++) {
+      let p = 0;
+      for (const pl of deal.plays.slice(4 * t, 4 * t + 4)) {
+        if (pl.c === 'QS') p += 13;
+        else if (pl.c.slice(-1) === 'H') p += 1;
+      }
+      pts[deal.winners[t]] += p;
+    }
+    return pts;
+  }
+
+  function tags(totals, pts, active) {
+    for (let s = 0; s < 4; s++) {
+      const t = document.getElementById('ftag' + s);
+      if (!t) continue;
+      t.style.display = '';
+      t.innerHTML = `${SEATN[s]} &middot; ${totals[s]}
+        <small>(+${pts[s]})</small>`;
+      t.classList.toggle('on', s === active);
+    }
+  }
+  function hideTags() {
+    for (let s = 0; s < 4; s++) {
+      const t = document.getElementById('ftag' + s);
+      if (t) t.style.display = 'none';
+    }
+  }
+
+  function step() {
+    const deal = match.deals[st.d];
+    const trick = document.getElementById('ftrick');
+    const before = st.d > 0 ? match.deals[st.d - 1].totals : [0, 0, 0, 0];
+    if (st.i === -1) {
+      trick.innerHTML = '';
+      tags(before, [0, 0, 0, 0], -1);
+      cap.textContent = deal.pass_dir === 'hold'
+        ? `deal ${st.d + 1} — no pass · demo, Perilune vs itself`
+        : `deal ${st.d + 1} — passing ${deal.pass_dir} · demo, Perilune vs itself`;
+      st.i++;
+      return 1400;
+    }
+    if (st.i >= deal.plays.length) {
+      trick.innerHTML = `<div class="fscores">${deal.scores.map(
+        (sc, s) => `<div><span>${SEATN[s]}</span><b>+${sc}</b>
+                    <i>${deal.totals[s]}</i></div>`).join('')}</div>`;
+      hideTags();
+      cap.textContent = `deal ${st.d + 1} scores — lowest wins`;
+      st.i = -1;
+      st.d = (st.d + 1) % match.deals.length;
+      return 2600;
+    }
+    const p = deal.plays[st.i];
+    if (st.i % 4 === 0) trick.innerHTML = '';
+    const div = document.createElement('div');
+    div.className = `tc p${p.s}${RED(p.c) ? ' red' : ''}`;
+    div.innerHTML = cardTxt(p.c);
+    trick.appendChild(div);
+    tags(before, dealPts(deal, st.i), p.s);
+    if (st.i % 4 === 3) {
+      const w = deal.winners[Math.floor(st.i / 4)];
+      cap.textContent = `${SEATN[w]} takes the trick`;
+      setTimeout(() => {
+        for (const c of trick.querySelectorAll('.tc'))
+          c.classList.add('sw' + w);
+      }, 500);
+      st.i++;
+      return 1450;
+    }
+    st.i++;
+    return 650;
+  }
+
+  function loop() {
+    let ms = 1000;
+    try { ms = step(); } catch (e) { return; }
+    setTimeout(loop, ms);
+  }
+
+  fetch('/static/demo/match_' + Math.floor(Math.random() * 3) + '.json')
+    .then(r => r.json())
+    .then(m => {
+      match = m;
+      skeleton();
+      if (reduced) {
+        // no motion: one representative completed trick, no animation
+        const deal = match.deals[0];
+        const trick = document.getElementById('ftrick');
+        tags([0, 0, 0, 0], [0, 0, 0, 0], -1);
+        for (const p of deal.plays.slice(0, 4)) {
+          const div = document.createElement('div');
+          div.className = `tc p${p.s}${RED(p.c) ? ' red' : ''}`;
+          div.style.animation = 'none';
+          div.innerHTML = cardTxt(p.c);
+          trick.appendChild(div);
+        }
+        cap.textContent = 'a trick from real self-play · demo';
+        return;
+      }
+      loop();
+    })
+    .catch(() => { felt.style.display = 'none'; cap.style.display = 'none'; });
+
+  // ---- live hooks: record win + daily count (graceful when offline) ------
+  fetch('/api/leaderboard').then(r => r.json()).then(d => {
+    const top = d.rows && d.rows[0];
+    if (!top) return;
+    const lb = document.getElementById('lb-top');
+    lb.innerHTML = `${top.name} holds the record —
+      <span class="score">${top.score} points</span> over ${top.deals}
+      deals.`;
+    lb.style.display = '';
+    if (top.share) {
+      const w = document.getElementById('watch-link');
+      w.href = 'https://play.perilune.ai/review?share='
+        + encodeURIComponent(top.share);
+      w.style.display = '';
+    }
+  }).catch(() => {});
+  fetch('/api/daily/leaderboard').then(r => r.json()).then(d => {
+    const n = d.total ?? (d.rows || []).length;
+    if (n > 0)
+      document.getElementById('daily-line').textContent =
+        `One attempt per day — the identical deal for everyone. `
+        + `${n} player${n === 1 ? ' has' : 's have'} finished today's.`;
+  }).catch(() => {});
+})();
+</script>
+</body>
+</html>

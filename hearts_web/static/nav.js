@@ -52,6 +52,7 @@
         <a href="/profile">Your profile</a>
         <a href="/account">Account</a>
         <a href="/about">About</a>
+        <a href="/how">How it's built</a>
       </div></div>`;
   document.body.appendChild(band);
   const dd = band.querySelector('#sitenav-dd');
