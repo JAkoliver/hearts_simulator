@@ -315,6 +315,159 @@ class HeartsNetV5(nn.Module):
         return self.oracle_fc2(h)
 
 
+class HeartsNetV6(nn.Module):
+    """Card+seat-token transformer (v6, docs/v6_prereg.md stage 1).
+
+    Extends v5's token scheme on the 882-dim obs v2: 1 global + 4 SEAT
+    tokens + 52 card tokens. Motivation (measured): moon threat, trick
+    control and match targeting are SEAT properties, and v5 had no seat
+    entities - worse, the v1 ctx score/void blocks are in ABSOLUTE seats
+    while nothing tells the net its own seat index, so per-opponent deal
+    points were structurally unattributable. Obs v2's relative-frame
+    capture planes fix the information; the seat tokens give it a place
+    to live.
+
+      - card tokens: v5's 10 channels + 6 obs-v2 channels (within-trick
+        position, led flag, taken-by x4 relative planes)
+      - seat tokens (relative seats 0=self,1=left,2=across,3=right):
+        identity embedding + [match score, tricks won, moon-alive,
+        deal points taken (derived: penalty-weighted taken-by plane),
+        leads-current-trick (derived)]
+      - global token: v5's 30 ctx dims + 6 match ctx + obs-v2 tail
+        (hearts-unseen, QS one-hot)
+      - heads: policy per card token, value on global, belief per card
+        token (all as v5); NEW training-only aux heads on seat tokens -
+        moon head (did this seat moon the deal) and per-seat final deal
+        points. The v5 oracle head is DELETED (measured uninformative).
+
+    Requires the full 882-dim observation; shorter inputs raise (no
+    silent zero-padding - a v1 pipeline feeding v6 is a bug).
+    """
+
+    CARD_BLOCKS = HeartsNetV5.CARD_BLOCKS + [556, 608, 660, 712, 764, 816]
+    N_CARD_CH = len(CARD_BLOCKS)                      # 16
+    CTX_START, CTX_END = 156, 186
+    MATCH_CTX_START, MATCH_CTX_DIM = 550, 6
+    EXT_TRICKS_WON = 868      # 4: tricks won per relative seat
+    EXT_MOON_ALIVE = 872      # 4: moon-alive per relative seat
+    EXT_TAIL_START, EXT_TAIL_END = 876, 882   # hearts-unseen + QS one-hot
+    TAKEN_BY_START = 660      # 4x52 relative taken-by planes
+    OBS_DIM = 882
+    N_SEAT_FEATS = 5
+
+    def __init__(self, obs_dim=882, d_model=448, num_layers=8, num_heads=8):
+        super(HeartsNetV6, self).__init__()
+        self.obs_dim = obs_dim
+        self.d_model = d_model
+
+        self.card_embed = nn.Embedding(52, d_model)
+        self.card_proj = nn.Linear(self.N_CARD_CH, d_model)
+        self.seat_embed = nn.Embedding(4, d_model)
+        self.seat_proj = nn.Linear(self.N_SEAT_FEATS, d_model)
+        self.ctx_proj = nn.Linear(self.CTX_END - self.CTX_START, d_model)
+        self.match_proj = nn.Linear(self.MATCH_CTX_DIM, d_model)
+        self.tail_proj = nn.Linear(self.EXT_TAIL_END - self.EXT_TAIL_START,
+                                   d_model)
+        self.register_buffer('card_ids', torch.arange(52), persistent=False)
+        self.register_buffer('seat_ids', torch.arange(4), persistent=False)
+        # Penalty values per card (/26) for the derived points feature
+        pen = torch.zeros(52)
+        pen[39:52] = 1.0 / 26.0
+        pen[36] = 13.0 / 26.0
+        self.register_buffer('penalty', pen, persistent=False)
+
+        self.enc_blocks = nn.ModuleList(
+            [V5Block(d_model, num_heads) for _ in range(num_layers)])
+        self.final_norm = nn.LayerNorm(d_model)
+
+        self.policy_head = nn.Linear(d_model, 1)   # per card token
+        self.value_head = nn.Linear(d_model, 1)    # global token
+        self.belief_head = nn.Linear(d_model, 3)   # per card token
+        # Aux heads (training-only), one output per SEAT token
+        self.moon_head = nn.Linear(d_model, 1)
+        self.points_head = nn.Linear(d_model, 1)
+
+        nn.init.zeros_(self.policy_head.weight)
+        nn.init.zeros_(self.policy_head.bias)
+
+    def _tokens(self, observation):
+        if observation.dim() == 1:
+            observation = observation.unsqueeze(0)
+        if observation.shape[-1] != self.OBS_DIM:
+            raise ValueError(
+                f'HeartsNetV6 requires the {self.OBS_DIM}-dim obs v2, '
+                f'got {observation.shape[-1]}')
+        b = observation.shape[0]
+        chans = torch.stack(
+            [observation[:, s:s + 52] for s in self.CARD_BLOCKS], dim=2)
+        cards = self.card_embed(self.card_ids).unsqueeze(0) \
+            .expand(b, 52, self.d_model) + self.card_proj(chans)
+        # seat features, relative frame throughout
+        taken = observation[:, self.TAKEN_BY_START:
+                            self.TAKEN_BY_START + 208].reshape(b, 4, 52)
+        pts = taken @ self.penalty                          # (b, 4)
+        # leads-current-trick: the led card of the trick in progress is
+        # (led flag AND on the table now); dot with each seat's
+        # who-played plane attributes it
+        led_now = observation[:, 608:660] * observation[:, 52:104]  # (b,52)
+        who = observation[:, 290:498].reshape(b, 4, 52)
+        leads = (who * led_now.unsqueeze(1)).sum(-1)        # (b, 4)
+        feats = torch.stack([
+            observation[:, self.MATCH_CTX_START:self.MATCH_CTX_START + 4],
+            observation[:, self.EXT_TRICKS_WON:self.EXT_TRICKS_WON + 4],
+            observation[:, self.EXT_MOON_ALIVE:self.EXT_MOON_ALIVE + 4],
+            pts, leads], dim=2)                             # (b, 4, 5)
+        seats = self.seat_embed(self.seat_ids).unsqueeze(0) \
+            .expand(b, 4, self.d_model) + self.seat_proj(feats)
+        ctx = self.ctx_proj(observation[:, self.CTX_START:self.CTX_END]) \
+            + self.match_proj(observation[:, self.MATCH_CTX_START:
+                                          self.MATCH_CTX_START
+                                          + self.MATCH_CTX_DIM]) \
+            + self.tail_proj(observation[:, self.EXT_TAIL_START:
+                                         self.EXT_TAIL_END])
+        x = torch.cat([ctx.unsqueeze(1), seats, cards], dim=1)  # (b, 57, d)
+        for block in self.enc_blocks:
+            x = block(x)
+        return self.final_norm(x)
+
+    def _heads(self, x, legal_actions_mask):
+        if legal_actions_mask.dim() == 1:
+            legal_actions_mask = legal_actions_mask.unsqueeze(0)
+        global_tok = x[:, 0, :]
+        card_toks = x[:, 5:, :]                       # (batch, 52, d)
+        logits = self.policy_head(card_toks).squeeze(-1)
+        masked_logits = logits.masked_fill(~legal_actions_mask, float('-inf'))
+        state_value = self.value_head(global_tok)
+        bel = self.belief_head(card_toks)             # (batch, 52, 3)
+        belief_logits = bel.transpose(1, 2).reshape(-1, 156)
+        return masked_logits, state_value, belief_logits
+
+    def forward(self, observation, legal_actions_mask):
+        x = self._tokens(observation)
+        masked_logits, state_value, _ = self._heads(x, legal_actions_mask)
+        return masked_logits, state_value
+
+    def forward_all(self, observation, legal_actions_mask):
+        x = self._tokens(observation)
+        return self._heads(x, legal_actions_mask)
+
+    def forward_aux(self, observation, legal_actions_mask):
+        """Training forward: standard heads + the seat-token aux heads.
+
+        Returns (masked_logits, value, belief_logits, moon_logits[b,4],
+        seat_points[b,4]) - moon labels are per RELATIVE seat 'this seat
+        shot the moon this deal'; points labels are final round_scores
+        (/26) in the relative frame."""
+        x = self._tokens(observation)
+        masked_logits, state_value, belief_logits = \
+            self._heads(x, legal_actions_mask)
+        seat_toks = x[:, 1:5, :]
+        moon_logits = self.moon_head(seat_toks).squeeze(-1)
+        seat_points = self.points_head(seat_toks).squeeze(-1)
+        return masked_logits, state_value, belief_logits, \
+            moon_logits, seat_points
+
+
 def net_from_checkpoint(path, map_location=None):
     """Construct the right network class at the right size for a checkpoint.
 
@@ -324,7 +477,14 @@ def net_from_checkpoint(path, map_location=None):
     checkpoints saved before the oracle head existed.
     """
     sd = torch.load(path, weights_only=True, map_location=map_location)
-    if 'card_embed.weight' in sd:
+    if 'seat_embed.weight' in sd:
+        d_model = sd['card_embed.weight'].shape[1]
+        num_layers = 1 + max(int(k.split('.')[1]) for k in sd
+                             if k.startswith('enc_blocks.'))
+        heads = max(1, d_model // 56)
+        net = HeartsNetV6(d_model=d_model, num_layers=num_layers,
+                          num_heads=heads)
+    elif 'card_embed.weight' in sd:
         d_model = sd['card_embed.weight'].shape[1]
         num_layers = 1 + max(int(k.split('.')[1]) for k in sd
                              if k.startswith('enc_blocks.'))
