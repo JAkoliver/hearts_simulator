@@ -85,7 +85,16 @@ cfg = _ilu.module_from_spec(_spec)
 _spec.loader.exec_module(cfg)
 
 MODEL_PATH = cfg.MODEL_PATH
-_net = net_from_checkpoint(MODEL_PATH)
+_net = net_from_checkpoint(MODEL_PATH, map_location='cpu')  # serving is CPU-only by design (host-portable: works on GPU-less VPS)
+
+# Off-host telemetry backup (no-op unless site_config defines BACKUP_S3;
+# the data files are training data - the host's disk is not their
+# durable home).
+try:
+    from hearts_web.backup_sync import start_from_config as _backup_start  # noqa: E402
+except ImportError:                       # direct-script / scratch runs
+    from backup_sync import start_from_config as _backup_start  # noqa: E402
+_backup_start(cfg)
 _net.eval()
 _net_lock = threading.Lock()
 _sessions = {}
@@ -128,7 +137,7 @@ def _load_tiers():
              'hearts_ai_grandmaster_v4m10.pt', 550)]):
         path = rel if os.path.isabs(rel) else os.path.join(root, rel)
         try:
-            m = torch.jit.load(path)
+            m = torch.jit.load(path, map_location='cpu')
             m.eval()
             with open(path, 'rb') as f:
                 md5 = hashlib.md5(f.read()).hexdigest()[:12]
@@ -1122,7 +1131,7 @@ def _equity_net():
     global _equity
     if _equity is None:
         try:
-            _equity = torch.jit.load('hearts_equity.pt')
+            _equity = torch.jit.load('hearts_equity.pt', map_location='cpu')
             _equity.eval()
         except Exception:
             _equity = False

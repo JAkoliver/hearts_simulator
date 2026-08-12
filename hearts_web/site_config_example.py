@@ -18,6 +18,22 @@ RL_CREATE = (10, 60.0)      # session/table creation + join
 # In-memory registries.
 SESSION_CAP = 200           # solo sessions kept before oldest eviction
 TABLE_CAP = 100             # tables kept before oldest eviction
+
+# Off-host backup of the append-only data files (match logs, identities,
+# daily attempts...) to any S3-compatible bucket (Cloudflare R2, S3,
+# MinIO). None = disabled (local dev default). The live deployment sets
+# real credentials in site_config.py (gitignored). Connectivity test:
+#   python -m hearts_web.backup_sync --test
+BACKUP_S3 = None
+# BACKUP_S3 = {
+#     'endpoint': 'https://<account_id>.r2.cloudflarestorage.com',
+#     'bucket': 'perilune-data',
+#     'access_key': '...',
+#     'secret_key': '...',
+#     'prefix': 'hearts_web/',
+#     'interval_s': 3600,
+#     'region': 'auto',       # R2: 'auto'; AWS: the real region
+# }
 CODE_LEN = 4                # join-code length
 
 # Table lifecycle (seconds).
