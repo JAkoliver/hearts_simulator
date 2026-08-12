@@ -1940,7 +1940,10 @@ function showMatchEnd() {
   const hostBtns = (mode === 'table' && state.you_host)
     ? '<button id="rematch-btn">Rematch</button>' +
       '<button id="close-table-btn" class="btn-danger">Close table for everyone</button>'
-    : isDaily ? '<button id="daily-lb-btn">Daily leaderboard</button>' : '';
+    : isDaily ? '<button id="daily-lb-btn">Daily leaderboard</button>'
+    // solo: a way OUT, not just another game - clears the table and
+    // its UI entirely (nogame menu), like practice's Menu button
+    : '<button id="solo-menu-btn">Back to menu</button>';
   // Rematch series: once a table has played 2+ matches, the end screen
   // doubles as the running scoreboard (wins per seat; tied firsts both
   // count). One match in, the column would just repeat the placements.
@@ -2100,6 +2103,14 @@ function showMatchEnd() {
   if (isDaily) {
     el('daily-lb-btn').onclick = () => { location.href = '/leaderboard#daily'; };
   }
+  const smb = el('solo-menu-btn');
+  if (smb) smb.onclick = () => {
+    el('overlay').style.display = 'none';
+    state = null;
+    sid = null;
+    localStorage.removeItem(K('hearts_sid'));
+    showHome();   // no live game -> full menu, all game chrome removed
+  };
   // Daily = one shot: no 'Play again' (it would silently start a NORMAL
   // solo match) - back to the menu, where the button shows done-state.
   el('o-btn').textContent = (mode === 'table' || isDaily)
