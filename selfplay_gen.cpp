@@ -62,6 +62,27 @@
 // happens at train time (distill.py --min-confidence), never at generation.
 // Old 824-byte v1 files (no header) remain readable via distill.py's
 // MATCH_RECORD dtype; new files are always v2.
+//
+// --v3 (docs/v6_prereg.md stage 2) upgrades match mode to RECORD FORMAT v3:
+// header "HMR3" | version u16 (=3) | record_size u16 (=1180) | base_seed u32
+// | thread_id u16 | zero-fill to 32B, then 1180-byte records - the v2 fields
+// with the 326-dim obs-v2 capture extension (HeartsEnv::ObserveExtFor,
+// quantized u8 like the obs) inserted directly after obs so obs882 =
+// bytes[0:882], and per-DEAL outcome labels appended at the tail:
+//   obs u8[556] | ext u8[326] | mask u8[52] | labels u8[156] | pi u8[52] |
+//   action u16 | seat u16 | reward f32 | eq_best f32 | eq_second f32 |
+//   gap_se f32 | second_action u16 | n_dets u16 | match_id u32 | flags u16 |
+//   reserved u16 | final_scores u8[4] | mooned_by i8 | pad u8
+// flags gains bit2 = shooter match (a clone attacker sat at this table).
+// final_scores = the deal's FINAL round scores (moon-adjusted, absolute
+// seats); mooned_by = absolute seat that shot the moon, -1 none - both
+// patched at deal end (aux-head labels), reward still patched at match end.
+// DEFENSE PRESSURE: with --v3, every 8th per-thread match ((m + tid) % 8
+// == 7) seats ONE certified shooter clone (--shooter-agg / --shooter-sel,
+// alternating; seat rotates) against three teacher seats; the ATTACKER'S
+// decisions are never recorded - we imitate defenders under pressure, not
+// the shooter. Records are buffered per match and written at match end
+// (the v2 contract; a mid-match kill loses at most that match).
 // --start-totals self,left,across,right constructs every match's starting
 // score state (rotated so the "self" slot cycles absolute seats per match);
 // --start-deals overrides the implied round(sum/26) deal count.
@@ -138,6 +159,45 @@ struct MatchPendingRec {
     uint16_t second_action = 0xFFFF;
     uint16_t n_dets = 0;
     uint16_t flags = 0;
+    // v3 additions (zero-cost for v2 writers, which ignore them)
+    std::array<uint8_t, 326> ext{};   // obs-v2 capture extension
+    std::array<uint8_t, 4> fin{};     // deal's final round scores (absolute)
+    int8_t mooned_by = -1;            // absolute mooning seat, -1 = none
+};
+
+// Raw policy over the 556-dim match trace - the shooter CLONES' driver.
+// (Copied from search_eval.cpp MatchRawPolicy - keep in sync.)
+class ShooterClone {
+public:
+    explicit ShooterClone(torch::jit::script::Module model)
+        : model_(std::move(model)) {}
+
+    int ChooseAction(const HeartsEnv& env, const std::array<double, 4>& totals,
+                     int deals_played) {
+        auto obs = env.Observe();
+        int me = env.GetCurrentPlayer();
+        torch::Tensor o = torch::zeros({1, 556}, torch::kFloat32);
+        float* op = o.data_ptr<float>();
+        std::copy(obs.begin(), obs.end(), op);
+        double mx = *std::max_element(totals.begin(), totals.end());
+        for (int i = 0; i < 4; ++i) {
+            op[550 + i] = (float)(totals[(me + i) % 4] / 100.0);
+        }
+        op[554] = (float)(deals_played / 20.0);
+        op[555] = (float)((100.0 - mx) / 100.0);
+        auto legal_raw = env.GetLegalActions();
+        torch::Tensor m = torch::zeros({1, 52}, torch::kBool);
+        bool* mp = m.data_ptr<bool>();
+        for (int i = 0; i < 13; ++i) {
+            if (legal_raw[i] != -1) mp[legal_raw[i]] = true;
+        }
+        torch::NoGradGuard g;
+        auto out = model_.forward({o, m}).toTuple();
+        return out->elements()[0].toTensor().argmax(1).item<int>();
+    }
+
+private:
+    torch::jit::script::Module model_;
 };
 
 // 1 = winner (lowest total); ties share the mean of their ranks.
@@ -330,6 +390,8 @@ static void RunMatchWorker(int tid, int quota, long match_base, unsigned int see
                            bool have_start, std::array<double, 4> start_rel,
                            int start_deals, int start_jitter,
                            const std::string& out_path,
+                           bool v3, const std::string& agg_path,
+                           const std::string& sel_path,
                            GenShared& shared) {
     try {
         std::vector<std::unique_ptr<SearchPlayer>> players;
@@ -338,16 +400,28 @@ static void RunMatchWorker(int tid, int quota, long match_base, unsigned int see
             cfg.seed = seed * 7919u + p * 104729u;
             players.push_back(std::make_unique<SearchPlayer>(backend, dim, cfg));
         }
+        // v3 defense pressure: per-thread clone instances (torch modules are
+        // not safe for concurrent forward across threads)
+        std::unique_ptr<ShooterClone> agg, sel;
+        if (v3) {
+            auto la = torch::jit::load(agg_path);
+            la.eval();
+            agg = std::make_unique<ShooterClone>(std::move(la));
+            auto ls = torch::jit::load(sel_path);
+            ls.eval();
+            sel = std::make_unique<ShooterClone>(std::move(ls));
+        }
 
         std::ofstream out(out_path, std::ios::binary);
         if (!out) {
             throw std::runtime_error("Cannot open output file " + out_path);
         }
-        // Record-format v2 file header (32 bytes, see the comment at the top).
+        // Record-format file header (32 bytes, see the comment at the top).
         {
             char hdr[32] = {};
-            std::memcpy(hdr, "HMR2", 4);
-            const uint16_t version = 2, record_size = 848;
+            std::memcpy(hdr, v3 ? "HMR3" : "HMR2", 4);
+            const uint16_t version = v3 ? 3 : 2;
+            const uint16_t record_size = v3 ? 1180 : 848;
             const uint32_t bseed = base_seed;
             const uint16_t tid16 = static_cast<uint16_t>(tid);
             std::memcpy(hdr + 4, &version, 2);
@@ -399,15 +473,30 @@ static void RunMatchWorker(int tid, int quota, long match_base, unsigned int see
             // align pass rotation with the implied starting deal count
             for (int r = 0; r < deals_played % 4; ++r) env.Reset();
 
+            // v3 shooter schedule, deterministic per (thread, match): every
+            // 8th match seats one clone attacker; seat and clone rotate
+            const long sm = static_cast<long>(m) + tid;
+            const bool shooter_match = v3 && (sm % 8 == 7);
+            const int atk_seat = static_cast<int>((sm / 8) % 4);
+            ShooterClone* atk = shooter_match
+                ? ((sm / 8) % 2 ? sel.get() : agg.get()) : nullptr;
+
             recs.clear();
             while (true) {  // deals until the match ends
                 for (int p = 0; p < 4; ++p) {
                     players[p]->SetMatchContext(totals, deals_played);
                 }
                 env.Reset();
+                const size_t deal_start = recs.size();
                 bool done = false;
                 while (!done) {
                     int p = env.GetCurrentPlayer();
+                    if (atk && p == atk_seat) {
+                        // attacker plays, never recorded
+                        done = env.Step(
+                            atk->ChooseAction(env, totals, deals_played)).done;
+                        continue;
+                    }
                     auto obs = env.Observe();
                     auto labels = env.ObserveOpponentHands();
                     auto legal_raw = env.GetLegalActions();
@@ -427,6 +516,17 @@ static void RunMatchWorker(int tid, int quota, long match_base, unsigned int see
                     }
 
                     MatchPendingRec r;
+                    if (v3) {
+                        auto ext = env.ObserveExtFor(p);
+                        for (int i = 0; i < 326; ++i) {
+                            float v = ext[i];
+                            if (v < 0.0f) v = 0.0f;
+                            if (v > 1.0f) v = 1.0f;
+                            r.ext[i] = static_cast<uint8_t>(
+                                std::lround(v * 255.0f));
+                        }
+                        if (shooter_match) r.flags |= 4u;
+                    }
                     for (int i = 0; i < 550; ++i) {
                         float v = obs[i];
                         if (v < 0.0f) v = 0.0f;
@@ -497,6 +597,23 @@ static void RunMatchWorker(int tid, int quota, long match_base, unsigned int see
                     done = env.Step(action).done;
                 }
                 auto rs = env.GetRoundScores();
+                if (v3) {
+                    // deal-end aux labels: FINAL (moon-adjusted) round scores
+                    // + the mooning seat, patched onto this deal's records
+                    int stot = rs[0] + rs[1] + rs[2] + rs[3];
+                    int8_t moonby = -1;
+                    if (stot == 78) {
+                        for (int i = 0; i < 4; ++i) {
+                            if (rs[i] == 0) moonby = static_cast<int8_t>(i);
+                        }
+                    }
+                    for (size_t ri = deal_start; ri < recs.size(); ++ri) {
+                        for (int i = 0; i < 4; ++i) {
+                            recs[ri].fin[i] = static_cast<uint8_t>(rs[i]);
+                        }
+                        recs[ri].mooned_by = moonby;
+                    }
+                }
                 for (int i = 0; i < 4; ++i) totals[i] += rs[i];
                 ++deals_played;
                 if (deals_played >= 60 ||
@@ -508,8 +625,12 @@ static void RunMatchWorker(int tid, int quota, long match_base, unsigned int see
             const uint16_t reserved = 0;
             for (const auto& r : recs) {
                 float reward = static_cast<float>((2.5 - place[r.seat]) * 4.0);
-                // 824 v1 fields in the v1 order, then the v2 tail: 848 bytes.
+                // v1 fields in the v1 order (v3 inserts ext after obs so
+                // obs882 = bytes[0:882]), then the v2 tail, then v3 labels.
                 out.write(reinterpret_cast<const char*>(r.obs.data()), 556);
+                if (v3) {
+                    out.write(reinterpret_cast<const char*>(r.ext.data()), 326);
+                }
                 out.write(reinterpret_cast<const char*>(r.mask.data()), 52);
                 out.write(reinterpret_cast<const char*>(r.labels.data()), 156);
                 out.write(reinterpret_cast<const char*>(r.pi.data()), 52);
@@ -524,7 +645,14 @@ static void RunMatchWorker(int tid, int quota, long match_base, unsigned int see
                 out.write(reinterpret_cast<const char*>(&match_id), 4);
                 out.write(reinterpret_cast<const char*>(&r.flags), 2);
                 out.write(reinterpret_cast<const char*>(&reserved), 2);
+                if (v3) {
+                    out.write(reinterpret_cast<const char*>(r.fin.data()), 4);
+                    out.write(reinterpret_cast<const char*>(&r.mooned_by), 1);
+                    const uint8_t pad = 0;
+                    out.write(reinterpret_cast<const char*>(&pad), 1);
+                }
             }
+            out.flush();
             shared.records.fetch_add(static_cast<long>(recs.size()));
             long total_done = shared.deals_done.fetch_add(1) + 1;
 
@@ -556,6 +684,9 @@ int main(int argc, char** argv) {
     bool match_mode = false;
     std::string equity_path, start_totals_str;
     int k_endgame = 0, start_deals = -1, start_jitter = 0;
+    // --v3 (v6 stage 2): obs-v2 records + shooter-clone defense pressure
+    bool v3 = false;
+    std::string shooter_agg_path, shooter_sel_path;
 
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
@@ -581,6 +712,9 @@ int main(int argc, char** argv) {
         else if (a == "--start-totals") start_totals_str = next();
         else if (a == "--start-deals") start_deals = std::stoi(next());
         else if (a == "--start-jitter") start_jitter = std::stoi(next());
+        else if (a == "--v3") v3 = true;
+        else if (a == "--shooter-agg") shooter_agg_path = next();
+        else if (a == "--shooter-sel") shooter_sel_path = next();
         else { std::cerr << "Unknown arg: " << a << "\n"; return 2; }
     }
     if (model_path.empty()) {
@@ -615,6 +749,19 @@ int main(int argc, char** argv) {
             }
             have_start = true;
         }
+        if (v3 && (shooter_agg_path.empty() || shooter_sel_path.empty())) {
+            std::cerr << "--v3 requires --shooter-agg and --shooter-sel "
+                         "(the certified clone traces)\n";
+            return 2;
+        }
+        if (v3 && have_start) {
+            std::cerr << "--v3 is the natural-bank recorder: no "
+                         "--start-totals\n";
+            return 2;
+        }
+    } else if (v3) {
+        std::cerr << "--v3 requires --match\n";
+        return 2;
     } else if (!equity_path.empty() || k_endgame > 0 || !start_totals_str.empty()
                || start_deals >= 0) {
         std::cerr << "--equity-model/--k-endgame/--start-totals/--start-deals "
@@ -708,6 +855,7 @@ int main(int argc, char** argv) {
                               seed, backend, dim, base_cfg, have_start,
                               start_rel, start_deals, start_jitter,
                               ThreadOutPath(out_path, t, threads),
+                              v3, shooter_agg_path, shooter_sel_path,
                               std::ref(shared));
             match_base += quota;
         } else {
