@@ -3,20 +3,20 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Perilune — a match-aware Hearts AI</title>
+<title>Perilune: a match-aware Hearts AI</title>
 <meta name="description" content="Play Hearts against Perilune, a match-aware AI, or your friends. Free, no account. Full match reviews with on-device deep-search analysis.">
 <link rel="canonical" href="https://perilune.ai/">
 <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
 <meta property="og:site_name" content="Perilune">
 <meta property="og:type" content="website">
-<meta property="og:title" content="Perilune — a match-aware Hearts AI">
+<meta property="og:title" content="Perilune: a match-aware Hearts AI">
 <meta property="og:description" content="Play Hearts against Perilune, a match-aware AI, or your friends. Free, no account. Full match reviews with on-device deep-search analysis.">
 <meta property="og:url" content="https://perilune.ai/">
 <meta property="og:image" content="https://play.perilune.ai/static/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Perilune — a match-aware Hearts AI">
+<meta name="twitter:title" content="Perilune: a match-aware Hearts AI">
 <meta name="twitter:description" content="Play Hearts against Perilune, a match-aware AI, or your friends. Free, no account. Full match reviews with on-device deep-search analysis.">
 <meta name="twitter:image" content="https://play.perilune.ai/static/og.png">
 <style>
@@ -167,7 +167,7 @@
 <div class="hero">
   <div>
     <h1 class="sg">A Hearts AI that plays the match, not just the hand.</h1>
-    <div class="sub">Play it free &mdash; no account, no install, it runs
+    <div class="sub">Play it free: no account, no install, it runs
       in your browser. Then review every decision you made against its
       deep search.</div>
     <a class="cta" href="https://play.perilune.ai/">Play now</a>
@@ -186,8 +186,8 @@
 <section>
   <h2 class="sg">Watch it think</h2>
   <div class="lede">Every reviewed match shows two opinions and never
-    mixes them: Perilune's <b>instinct</b> &mdash; its snap ranking
-    before any search &mdash; and <b>deep search</b>, where each card is
+    mixes them: Perilune's <b>instinct</b> (its snap ranking
+    before any search) and <b>deep search</b>, where each card is
     played out to the end of the deal dozens of times, on your device.</div>
   <div class="think">
     <div class="panel">
@@ -212,10 +212,10 @@
     </div>
   </div>
   <div class="verdict">Instinct liked the Jack. Played out 256 times,
-    the Jack quietly gives up 2.1% of the match &mdash; the Nine keeps
+    the Jack quietly gives up 2.1% of the match; the Nine keeps
     it. You get both opinions for every card you played, and a practice
     mode with the same hints live at the table.</div>
-  <div class="caption">illustration &mdash; your reviews compute the
+  <div class="caption">illustration: your reviews compute the
     real thing, on your hardware, for your actual games.</div>
 </section>
 
@@ -223,16 +223,16 @@
   <div class="points">
     <div class="panel"><b>Match-aware</b>
       <p>Trained on whole games to 100, not isolated deals. Passes and
-      plays are valued in match-win chance &mdash; it will eat points
+      plays are valued in match-win chance: it will eat points
       today to win the match tomorrow.</p></div>
     <div class="panel"><b>Runs on your device</b>
-      <p>The deep search runs in your browser &mdash; GPU when
+      <p>The deep search runs in your browser: GPU when
       available, multi-core CPU otherwise. Search values are shared with
       your match's viewers; nothing personal ever leaves your
       device.</p></div>
     <div class="panel"><b>Honestly measured</b>
-      <p>New models are promoted only through preregistered gates
-      &mdash; and the ones that fail are retired, not shipped.
+      <p>New models are promoted only through preregistered gates,
+      and the ones that fail are retired, not shipped.
       <a href="https://play.perilune.ai/how?from=home">How it's built &rarr;</a></p></div>
   </div>
 </section>
@@ -241,7 +241,7 @@
   <div class="hooks">
     <div class="panel">
       <b>Daily challenge</b>
-      <p id="daily-line">One attempt per day &mdash; the identical deal
+      <p id="daily-line">One attempt per day: the identical deal
         for everyone, and a leaderboard that keeps every day forever.</p>
       <a class="go" href="https://play.perilune.ai/?daily=1">play today's
         deal &rarr;</a>
@@ -250,7 +250,7 @@
       <b>The leaderboard is an open challenge</b>
       <div id="lb-top" style="display:none"></div>
       <p>Beat Perilune outright at full strength and your match joins
-        the board &mdash; permanently, under this model's name.</p>
+        the board permanently, under this model's name.</p>
       <a class="go" href="https://play.perilune.ai/leaderboard">see the
         board &rarr;</a>
     </div>
@@ -263,6 +263,7 @@
   <a href="https://play.perilune.ai/how?from=home">how it's built</a>
   <a href="https://play.perilune.ai/leaderboard">leaderboard</a>
   <a href="https://play.perilune.ai/account">account</a>
+  <a href="https://play.perilune.ai/support">support</a>
   <div class="provenance">An experiment in training a match-aware Hearts
     AI &middot; matches are recorded anonymously to improve it.</div>
 </footer>
@@ -331,8 +332,8 @@
       trick.innerHTML = '';
       tags(before, [0, 0, 0, 0], -1);
       cap.textContent = deal.pass_dir === 'hold'
-        ? `deal ${st.d + 1} — no pass · demo, Perilune vs itself`
-        : `deal ${st.d + 1} — passing ${deal.pass_dir} · demo, Perilune vs itself`;
+        ? `deal ${st.d + 1} · no pass · demo, Perilune vs itself`
+        : `deal ${st.d + 1} · passing ${deal.pass_dir} · demo, Perilune vs itself`;
       st.i++;
       return 1400;
     }
@@ -341,7 +342,7 @@
         (sc, s) => `<div><span>${SEATN[s]}</span><b>+${sc}</b>
                     <i>${deal.totals[s]}</i></div>`).join('')}</div>`;
       hideTags();
-      cap.textContent = `deal ${st.d + 1} scores — lowest wins`;
+      cap.textContent = `deal ${st.d + 1} scores · lowest wins`;
       st.i = -1;
       st.d = (st.d + 1) % match.deals.length;
       return 2600;
@@ -402,7 +403,7 @@
     const top = d.rows && d.rows[0];
     if (!top) return;
     const lb = document.getElementById('lb-top');
-    lb.innerHTML = `${top.name} holds the record —
+    lb.innerHTML = `${top.name} holds the record:
       <span class="score">${top.score} points</span> over ${top.deals}
       deals.`;
     lb.style.display = '';
@@ -416,9 +417,10 @@
   fetch('/api/daily/leaderboard').then(r => r.json()).then(d => {
     const n = d.total ?? (d.rows || []).length;
     if (n > 0)
-      document.getElementById('daily-line').textContent =
-        `One attempt per day — the identical deal for everyone. `
-        + `${n} player${n === 1 ? ' has' : 's have'} finished today's.`;
+      document.getElementById('daily-line').innerHTML =
+        'One attempt per day: the identical deal for everyone.'
+        + `<span style="display:block; margin-top:5px">`
+        + `${n} player${n === 1 ? ' has' : 's have'} finished today's.</span>`;
   }).catch(() => {});
 })();
 </script>

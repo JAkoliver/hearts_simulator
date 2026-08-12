@@ -192,13 +192,14 @@ def validate_v3_tar(path, expect_matches=None):
 
 if __name__ == '__main__':
     import sys
+    expect = int(sys.argv[2]) if len(sys.argv) > 2 else None
+    with open(sys.argv[1], 'rb') as _f:
+        magic = _f.read(4)
     if sys.argv[1].endswith('.tar'):
-        ok, detail = validate_v3_tar(sys.argv[1],
-                                     int(sys.argv[2]) if len(sys.argv) > 2
-                                     else None)
+        ok, detail = validate_v3_tar(sys.argv[1], expect)
+    elif magic == b'HMR3':
+        ok, _nm, detail = validate_v3_file(sys.argv[1])
     else:
-        ok, detail = validate_shard(sys.argv[1],
-                                    int(sys.argv[2]) if len(sys.argv) > 2
-                                    else None)
+        ok, detail = validate_shard(sys.argv[1], expect)
     print(("PASS " if ok else "FAIL ") + detail)
     sys.exit(0 if ok else 1)

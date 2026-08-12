@@ -9,7 +9,7 @@
 <meta property="og:site_name" content="Perilune">
 <meta property="og:type" content="article">
 <meta property="og:title" content="How Perilune is built">
-<meta property="og:description" content="Match-aware self-play, search-guided training, belief over hidden cards — and preregistered gates that decide what ships.">
+<meta property="og:description" content="Match-aware self-play, search-guided training, belief over hidden cards, and preregistered gates that decide what ships.">
 <meta property="og:image" content="https://play.perilune.ai/static/og.png">
 <meta name="twitter:card" content="summary_large_image">
 <style>
@@ -39,14 +39,14 @@
 are strict</div>
 
 <p>Perilune is a neural network that taught itself Hearts by playing
-millions of matches against itself. This page explains how that works
-&mdash; not the day-to-day training history, but the machinery: what the
+millions of matches against itself. This page explains how that works.
+Not the day-to-day training history, but the machinery: what the
 network learns, how it improves, and how we decide whether a new
 version is actually better.</p>
 
 <h2>The shape of the problem</h2>
 <p>Two things make Hearts interesting to a machine. First, it is a game
-of <b>hidden information</b> &mdash; you see 13 of 52 cards, and every
+of <b>hidden information</b>: you see 13 of 52 cards, and every
 good decision has to reason about where the rest sit. Second, Hearts is
 really a <b>match</b>: deals repeat until someone reaches 100, and the
 same play can be right at 0&ndash;0 and badly wrong when you're
@@ -56,16 +56,16 @@ values is denominated in one currency: <b>chance of winning the
 match</b>.</p>
 
 <h2>One network, three heads</h2>
-<p>The network reads the full visible situation &mdash; cards, scores,
-history, what each opponent has shown &mdash; and answers three
+<p>The network reads the full visible situation (cards, scores,
+history, what each opponent has shown) and answers three
 questions at once:</p>
-<p><b class="gold">Instinct</b> &mdash; a ranking over legal plays: what
+<p><b class="gold">Instinct</b>: a ranking over legal plays. What
 would I play here, before any deliberate thought?<br>
-<b class="cyan">Equity</b> &mdash; from this exact position, what is
+<b class="cyan">Equity</b>: from this exact position, what is
 each player's chance of winning the match?<br>
-<b>Belief</b> &mdash; for every unseen card, where is it likely to
+<b>Belief</b>: for every unseen card, where is it likely to
 be?</p>
-<div class="aside">Each head exists because training needs it &mdash;
+<div class="aside">Each head exists because training needs it,
 and each one surfaces on this site as a tool. Instinct is the gray bars
 in every review, equity is the "match win here" number, and belief is
 the review's lens that paints what Perilune suspects about hidden
@@ -75,8 +75,8 @@ machinery itself, exposed.</div>
 <h2>The improvement loop</h2>
 <p>A network alone has habits. To improve, it plays against itself with
 <b>search</b>: at a decision, the engine imagines many complete worlds
-consistent with everything visible &mdash; hidden hands dealt out the
-way the belief head suggests &mdash; and plays each candidate move out
+consistent with everything visible (hidden hands dealt out the
+way the belief head suggests) and plays each candidate move out
 to the end of the deal, in every imagined world, with the network
 playing all four seats. Average the outcomes in match-win terms and you
 get a judgment that is sharper than instinct alone. The improved
@@ -88,7 +88,7 @@ self</b>.</p>
 <p>One rule holds everywhere, in training and on this site: evaluations
 are <b>information-honest</b>. A seat is judged only on what that seat
 could see. The engine never scores a decision using knowledge the
-player couldn't have had &mdash; hindsight is cheap, and an AI trained
+player couldn't have had; hindsight is cheap, and an AI trained
 on peeking learns lines that only work if the cards are known. The same
 rule is why your match reviews will sometimes say a "wrong-looking"
 play was fine: given what you could see, it was.</p>
@@ -98,8 +98,8 @@ play was fine: given what you could see, it was.</p>
 curves go down, agreement scores go up, and none of it proves the new
 network wins more. So promotion is decided by one thing only: a
 <b>gate battery</b> against the current champion.</p>
-<p>Before a candidate is trained, the experiment is <b>preregistered</b>
-&mdash; what will be measured, on how many matches, and exactly what
+<p>Before a candidate is trained, the experiment is <b>preregistered</b>:
+what will be measured, on how many matches, and exactly what
 numbers count as passing are written down and signed before any data
 exists. A typical battery: thousands of head-to-head matches against
 the frozen incumbent demanding a statistically significant improvement
@@ -110,36 +110,36 @@ used inside search, plus behavior probes on situations that matter
 not shipped.</p>
 <div class="aside"><b>Dead ends are the point.</b> Most of what this
 pipeline produces is evidence that something plausible doesn't work.
-Several training directions have hit every intermediate target &mdash;
-learned exactly what they were designed to learn &mdash; and still
+Several training directions have hit every intermediate target
+(learned exactly what they were designed to learn) and still
 failed the gates, and were closed with their verdicts on file. That is
 the system working. The model you play is the one that survived.</div>
 <p>Each promoted model gets a permanent fingerprint (the
 <b>model hash</b> you see on the <a href="/leaderboard">leaderboard</a>).
 When a stronger model ships, the old boards are archived under the old
-hash &mdash; a win against a specific Perilune stays a win against that
+hash: a win against a specific Perilune stays a win against that
 Perilune, forever.</p>
 
 <h2>The same brain in your browser</h2>
-<p>The deep search in match reviews and practice mode is not a service
-&mdash; it is the same network and the same search, exported to run
+<p>The deep search in match reviews and practice mode is not a service.
+It is the same network and the same search, exported to run
 <b>on your device</b>: GPU where the browser offers it, multi-core CPU
 otherwise, with the engine tier always named in the status line. Cards
 that are strictly equivalent share one estimate instead of two noisy
 ones, and completed searches are shared with the other viewers of the
-same match &mdash; after being validated against the match replay
-&mdash; so one person's effort pre-searches the review for everyone.
+same match (after being validated against the match replay), so
+one person's effort pre-searches the review for everyone.
 Search values only; nothing personal leaves your device.</p>
 
 <h2>What the games are for</h2>
-<p>Matches on this site are recorded anonymously &mdash; cards, timing,
+<p>Matches on this site are recorded anonymously: cards, timing,
 outcomes, tied to a random browser identifier; no accounts, no personal
 information. Human games matter because people find weaknesses
 self-play never does. The <a href="/about">about page</a> has the full
 story of what is stored.</p>
 
 <h2>What's next</h2>
-<p>The current frontier is capacity &mdash; a larger network trained
+<p>The current frontier is capacity: a larger network trained
 with the same loop and judged by the same gates. If it earns promotion,
 it becomes a new model era: a new hash, a fresh leaderboard, and the
 old boards preserved. An open-source release of the engine, models,
