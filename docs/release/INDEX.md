@@ -72,7 +72,9 @@ release-doc material.
 - flip_snr numbers differ between ledger 07-25 (36.8%/0.41/0.57) and
   equity_data/verdicts/flip_snr.json (38.9%/0.62/0.86); same HALT
   verdict both places - resolve against the analysis script pre-release.
-- REPRODUCING.md needs a clean-machine build verification + Python pins.
+- ~~REPRODUCING.md needs a clean-machine build verification + Python
+  pins.~~ DONE 2026-08-12: requirements.lock committed; clean-clone
+  SelfPlayGen build verified (REPRODUCING.md sec. 1).
 - Stale figures in match_aware_search_design.md (N=8000 "local ~5.8h")
   are superseded by the ledger - noted in JOURNEY, doc left as-is
   (historical record).

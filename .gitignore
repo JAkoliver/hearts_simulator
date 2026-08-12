@@ -101,3 +101,4 @@ moon images/
 # NVIDIA-licensed CUDA runtime headers: fetched locally, never tracked
 # (scripts/fetch_cuda_headers.py; RELEASE_PLAN sec. 4.3)
 third_party/cuda_include/
+.v6_queue_token

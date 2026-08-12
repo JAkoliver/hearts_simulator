@@ -82,7 +82,8 @@ The released checkpoints and traces are in **GitHub Releases**
 | `hearts_ai_grandmaster.pt` / `hearts_ai_search.pt` | Champion raw-play / search traces (filenames are engine identifiers, not strength claims) |
 | `hearts_ai_search_ref_matchblind_20260724.pt` + `.pth` | The frozen match-blind reference of the N=8000 validation (md5 a1a0be31); required to reproduce the headline result |
 | `hearts_equity.pt` + `equity_v1.pth` | The equity model: score state to placement probabilities |
-| `hearts_ai_grandmaster_v4m10.pt` / `hearts_ai_search_v4m10.pt` | The v4-m10 anchor: part of the fixed opponent field of every measurement |
+| `hearts_ai_grandmaster_v3_milestone7.pt` | The v3-m7 anchor (goes in `legacy_v3_pass238/`, the path the eval scripts bind) |
+| `hearts_ai_grandmaster_v4m10.pt` / `hearts_ai_search_v4m10.pt` | The v4-m10 anchor: with v3-m7, the fixed opponent field of every measurement |
 | `shooter_agg_v1b.pt` / `shooter_sel_v1.pt` | Certified moon-shooter clones: the exploiter league's frozen attack instruments |
 
 Model cards: [docs/release/model_cards/](docs/release/model_cards/).

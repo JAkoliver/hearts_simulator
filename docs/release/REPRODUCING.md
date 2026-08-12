@@ -15,23 +15,29 @@ cloud/Dockerfile) and docs/RELEASE_PLAN.md sec. 4 are canonical.
   the CUDA-enabled TorchConfig.cmake demands a full CUDA Toolkit at
   configure time, but the build only links against the import libs
   libtorch ships (no .cu compilation) (CMakeLists.txt comment).
-- **third_party/cuda_include:** vendored CUDA runtime HEADERS (from pip
-  `nvidia-cuda-runtime-cu12` 12.6.77), needed by ATen/cuda/CUDAGraph.h;
-  all CUDA symbols still come from libtorch's DLLs. **Release caveat
-  (RELEASE_PLAN sec. 4.3): this directory is NVIDIA-licensed and will
-  be EXCLUDED from the public release, replaced with fetch
-  instructions** (pip download the wheel, copy its include/ tree).
+- **third_party/cuda_include:** NVIDIA CUDA headers (needed by
+  ATen/cuda/CUDAGraph.h; all CUDA symbols still come from libtorch's
+  DLLs). NVIDIA-licensed, therefore NOT tracked (RELEASE_PLAN
+  sec. 4.3): materialize once with `python scripts/fetch_cuda_headers.py`
+  (four wheels; see the clean-tree note below).
 - FTXUI v5.0.0 is fetched by CMake for the terminal game
   (FetchContent); `-DHEARTS_CLOUD_ONLY=ON` skips it and builds only the
   headless targets SelfPlayGen + SearchEval.
 - Configure/build: `cmake -S . -B build -DCMAKE_BUILD_TYPE=Release`
   then `cmake --build build --config Release`.
 - Python side: the pybind module (hearts_env) builds from the same
-  tree; training/eval scripts run under CPython with torch matching
-  the libtorch CUDA flavour, numpy, scipy, fastapi/uvicorn (web app).
-  [NEEDS CITATION: an exact Python package pin list is not recorded;
-  RELEASE_PLAN sec. 4.4 requires a clean-machine build verification
-  before release.]
+  tree; training/eval scripts run under CPython 3.13 with the exact
+  pins in **requirements.lock** (pip freeze of the working env; torch
+  2.12.1+cu126 matching the libtorch flavour). Scope honestly: the
+  lock makes training/eval run on a clean machine — the bit-identical
+  data contract lives in the C++/libtorch side and rule #14's caveats.
+- **Clean-tree build verified 2026-08-12:** fresh `git clone` +
+  `python scripts/fetch_cuda_headers.py` (four NVIDIA wheels: runtime/
+  nvcc/cccl 12.6.77 + cublas 12.6.4.1, 1,679 headers) + libtorch drop
+  + `cmake ... -DHEARTS_CLOUD_ONLY=ON` built SelfPlayGen.exe with no
+  repo-local state. The headers are NOT tracked (NVIDIA license
+  boundary); CMake fails at configure time with the exact fetch
+  command if they are missing.
 
 ## 2. Linux build (cloud/Dockerfile)
 
