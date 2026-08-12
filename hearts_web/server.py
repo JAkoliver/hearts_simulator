@@ -1335,6 +1335,10 @@ def compute_review(deal_lines, viewer_seat):
                 [enc_belief(rows[s_]) for s_ in range(4)])
     return {'viewer_seat': viewer_seat,
             'seat_types': deal_lines[0].get('seats'),
+            # AI provenance for the felt-corner chip: which model (md5,
+            # the leaderboard's era vocabulary) and tier sat at the table
+            'model': (deal_lines[0].get('model') or '')[:12] or None,
+            'tier': deal_lines[0].get('tier') or 'full',
             'win_prob_start': win0, 'deals': out_deals,
             # Client-side deep analysis (WASM engine): the replay contract.
             # Raw action ids per deal INCLUDING pass picks - the engine

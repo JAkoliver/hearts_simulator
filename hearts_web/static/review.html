@@ -137,6 +137,11 @@
   .gslot .card { width:calc(var(--cw)*.9); height:calc(var(--cw)*1.28);
                  font-size:calc(var(--cw)*.29); }
   .gslot .card + .card { margin-left:calc(var(--cw)*-.45); }
+  /* felt corner chip: AI model provenance + the game's trick counter */
+  #feltinfo { position:absolute; top:6px; left:9px; font-size:.68rem;
+              color:#8A8A93; line-height:1.4; text-align:left;
+              pointer-events:none; font-variant-numeric:tabular-nums;
+              max-width:30%; overflow-wrap:break-word; }
   .gslot.pos0 { bottom:2%; left:50%; transform:translateX(-50%); }
   .gslot.pos1 { left:1.5%; top:50%; transform:translateY(-50%); }
   .gslot.pos2 { top:2%; left:50%; transform:translateX(-50%); }
@@ -865,9 +870,25 @@ function render() {
   }
   // Hands surround the table at their seats' positions: across above,
   // left/right flanking as compact columns, viewer below.
+  // Felt corner chip: trick counter (the game's "trick N/13" vocabulary,
+  // play steps only) + which AI model sat at this table (leaderboard's
+  // model-hash vocabulary; omitted for all-human tables)
+  const anyAI = !R.seat_types
+    || Object.values(R.seat_types).some(t2 => t2 !== 'human');
+  const trickLine = st.type === 'play'
+    ? `trick ${Math.floor(st.i / 4) + 1}/13` : '';
+  const modelLine = (anyAI && R.model)
+    ? (R.tier && R.tier !== 'full'
+        ? `${esc(R.tier)} AI &middot; model ${esc(R.model)}`
+        : `Perilune &middot; model ${esc(R.model)}`)
+    : '';
+  const feltInfo = (trickLine || modelLine)
+    ? `<div id="feltinfo">${trickLine ? `<div>${trickLine}</div>` : ''}${
+        modelLine ? `<div>${modelLine}</div>` : ''}</div>`
+    : '';
   el('board').innerHTML =
     `<div class="hrow-c">${hstack((v + 2) % 4)}</div>` +
-    `<div id="mid">${vhand((v + 1) % 4)}<div id="rtable">${slots}</div>${vhand((v + 3) % 4)}</div>` +
+    `<div id="mid">${vhand((v + 1) % 4)}<div id="rtable">${feltInfo}${slots}</div>${vhand((v + 3) % 4)}</div>` +
     `<div class="hrow-c">${hstack(v)}</div>`;
   paintBelief(st);
 
