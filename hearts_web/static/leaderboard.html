@@ -32,7 +32,7 @@
   a.p { color:#ECECEC; text-decoration:none; }
   a.p:hover { color:#E8B923; }
   a.sc { font-weight:700; }
-  .supbadge { height:.95em; vertical-align:-.12em; margin-left:5px; }
+  .supbadge { height:.95em; vertical-align:-.12em; margin-right:5px; }
   .eras a { margin-right:10px; }
 </style>
 </head>
@@ -137,8 +137,7 @@ function flashRow(table, slug) {
       + d.rows.map(r => `<tr data-slug="${esc(r.slug)}"${
           r.rank === 1 ? ' class="top1"' : ''}>
           <td class="rank">${r.rank}</td>
-          <td><a class="p" href="/player/${encodeURIComponent(r.slug)}">${esc(r.name)}</a>${
-            r.sup ? '<img class="supbadge" src="/static/sup_badge.png" alt="supporter" title="supporter">' : ''}</td>
+          <td>${r.sup ? '<img class="supbadge" src="/static/sup_badge.png" alt="supporter" title="supporter">' : ''}<a class="p" href="/player/${encodeURIComponent(r.slug)}">${esc(r.name)}</a></td>
           <td><a class="sc" href="/review?share=${encodeURIComponent(r.share)}"
             title="watch this match">${r.score}</a></td>
           <td class="muted">${r.deals}</td>
@@ -212,8 +211,7 @@ function flashRow(table, slug) {
     '<tr><th></th><th>player</th><th>score</th><th>place</th><th>deals</th><th>time</th></tr>'
     + d.rows.map(r => `<tr${r.rank === 1 ? ' class="top1"' : ''}>
         <td class="rank">${r.rank}</td>
-        <td><a class="p" href="/player/${encodeURIComponent(r.slug)}">${esc(r.name)}</a>${
-          r.sup ? '<img class="supbadge" src="/static/sup_badge.png" alt="supporter" title="supporter">' : ''}</td>
+        <td>${r.sup ? '<img class="supbadge" src="/static/sup_badge.png" alt="supporter" title="supporter">' : ''}<a class="p" href="/player/${encodeURIComponent(r.slug)}">${esc(r.name)}</a></td>
         <td>${r.share
           ? `<a class="sc" href="/review?share=${encodeURIComponent(r.share)}"
                title="watch this match">${r.score}</a>`

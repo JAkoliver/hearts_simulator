@@ -774,7 +774,10 @@ function render() {
 
   const tag = s => `<span class="seat-tag${s === acting ? ' acting' : ''}"
       style="border-left:3px solid ${SEAT_COLORS[s]}${
-        s === acting ? `;background:${SEAT_COLORS[s]}` : ''}">${esc(seatLabel(s))}
+        s === acting ? `;background:${SEAT_COLORS[s]}` : ''}">${
+        (R.seat_sup && R.seat_sup[String(s)])
+          ? '<img src="/static/sup_badge.png" alt="supporter" title="supporter" style="height:.9em;vertical-align:-.1em;margin-right:4px">'
+          : ''}${esc(seatLabel(s))}
       &middot; ${deal._totals_before[s]} <small>(+${taken[s]})</small></span>`;
   // Deal-start step shows the PRE-pass hand with the outgoing three
   // outlined; every later step shows the post-pass hand.

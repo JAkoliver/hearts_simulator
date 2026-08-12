@@ -1344,8 +1344,13 @@ def compute_review(deal_lines, viewer_seat):
         for (di, pi), rows in bel_rows.items():
             out_deals[di]['plays'][pi].append(
                 [enc_belief(rows[s_]) for s_ in range(4)])
+    sup_map = deal_lines[0].get('seat_pids') or {}
+    if not sup_map and deal_lines[0].get('pid') is not None:
+        sup_map = {str(deal_lines[0].get('human_seat', 0)):
+                   deal_lines[0]['pid']}
     return {'viewer_seat': viewer_seat,
             'seat_types': deal_lines[0].get('seats'),
+            'seat_sup': {s: is_supporter(p) for s, p in sup_map.items()},
             # AI provenance for the felt-corner chip: which model (md5,
             # the leaderboard's era vocabulary) and tier sat at the table
             'model': (deal_lines[0].get('model') or '')[:12] or None,
@@ -3590,6 +3595,11 @@ def spectate_state(token: str, pid: str = None, cursor: int = None):
                            if obj.finished and obj.menv is not None else None),
             'seat_names': _spec_seat_names(obj),
             'human_seats': _spec_human_seats(obj),
+            'sup_seats': ([obj.human_seat] if isinstance(obj, Session)
+                          and is_supporter(obj.pid)
+                          else [] if isinstance(obj, Session)
+                          else sorted(s for pp, s in obj.seat_of.items()
+                                      if is_supporter(pp))),
             # bottom of the watcher's screen = the game's creator (solo
             # player / table host), never just the lowest-numbered seat
             'perspective': (obj.human_seat if isinstance(obj, Session)

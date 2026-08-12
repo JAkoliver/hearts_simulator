@@ -279,7 +279,7 @@
   #emote-pal .esup { font-size:.66rem; color:var(--muted, #A6A6AF);
     margin:9px 0 4px; display:flex; align-items:center; gap:5px; }
   #emote-pal .esup img { width:13px; height:13px; }
-  .supbadge { height:.95em; vertical-align:-.12em; margin-left:4px; }
+  .supbadge { height:.95em; vertical-align:-.12em; margin-right:4px; }
   #emote-pal .ehide { display:block; text-align:center; margin-top:8px;
                       font-size:.68rem; }
   .emote-bubble { position:absolute;
@@ -873,7 +873,7 @@ function showEmote(seat, id) {
   b.dataset.seat = seat;
   b.style.left = `${sr.left + sr.width / 2 - tr.left}px`;
   b.style.top = `${sr.top - tr.top - 6}px`;
-  b.innerHTML = /^[0-9a-f]/.test(v)
+  b.innerHTML = /^[0-9a-f-]+$/.test(v)
     ? `<img src="/static/emotes/${v}.svg" alt="">` : esc(v);
   el('table').appendChild(b);
   _emoteTimers[seat] = setTimeout(() => b.remove(), 3100);
@@ -882,7 +882,7 @@ function buildEmotePal() {
   const sup = !!(state && state.you_supporter);
   const pics = [], texts = [], spics = [], stexts = [];
   for (const [id, v] of Object.entries(EMOTES)) {
-    const pic = /^[0-9a-f]/.test(v);
+    const pic = /^[0-9a-f-]+$/.test(v);
     (SUP_EMOTES.has(id) ? (pic ? spics : stexts)
                         : (pic ? pics : texts)).push([id, v]);
   }
@@ -930,6 +930,12 @@ el('emote-btn').onclick = ev => {
 document.addEventListener('click', () =>
   el('emote-pal').classList.remove('open'));
 
+const SUP_IMG = '<img class="supbadge" src="/static/sup_badge.png"'
+  + ' alt="supporter" title="supporter">';
+// supporter flag for a seat: table/spectate states carry sup_seats;
+// solo states carry only you_supporter (AI seats are never supporters)
+const seatSup = s => !!((state.sup_seats && state.sup_seats.includes(s))
+  || (!state.sup_seats && s === state.your_seat && state.you_supporter));
 function seatName(s) {
   if (!SPECTATE && s === state.your_seat) return 'You';
   if (state.roster) return esc(state.roster[s].name);
@@ -945,10 +951,8 @@ function renderSeats(highlightSeat=null) {
   for (let s = 0; s < 4; s++) {
     const node = el(SEAT_IDS[pos(s)]);
     const away = state.away_seats && state.away_seats.includes(s);
-    const sb = (state.sup_seats && state.sup_seats.includes(s))
-      ? '<img class="supbadge" src="/static/sup_badge.png" alt="supporter" title="supporter">'
-      : '';
-    node.innerHTML = `<span class="tag"${away ? ' style="opacity:.55"' : ''}>${seatName(s)}${sb}${away ? ' &middot; away' : ''} &middot; ${state.match_scores[s]}
+    const sb = seatSup(s) ? SUP_IMG : '';
+    node.innerHTML = `<span class="tag"${away ? ' style="opacity:.55"' : ''}>${sb}${seatName(s)}${away ? ' &middot; away' : ''} &middot; ${state.match_scores[s]}
       <small>(+${state.round_scores[s]})</small></span>`;
     node.classList.toggle('active', s === highlightSeat);
   }
@@ -1876,7 +1880,7 @@ function showDealEnd(ev) {
                                         : `${seatName(ev.moon_by)} shot the moon!`)
       : `Deal ${state.deal_no - 1} complete`;
     el('o-body').innerHTML = '<table><tr><th>Player</th><th>This deal</th><th>Total</th></tr>' +
-      [0,1,2,3].map(s => `<tr><td>${seatName(s)}</td>
+      [0,1,2,3].map(s => `<tr><td>${seatSup(s) ? SUP_IMG : ''}${seatName(s)}</td>
         <td>+${ev.round_scores[s]}</td><td>${ev.totals[s]}</td></tr>`).join('') + '</table>';
     el('o-btn').textContent = 'Next deal';
     el('o-btn').style.display = '';
@@ -1942,7 +1946,7 @@ function showMatchEnd() {
       ['', '1st', '2nd', '3rd', '4th'][Math.round(p2)] || p2}`;
     el('o-body').innerHTML =
       '<table><tr><th>Player</th><th>Total</th></tr>'
-      + [0, 1, 2, 3].map(s2 => `<tr><td>${seatName(s2)}</td>
+      + [0, 1, 2, 3].map(s2 => `<tr><td>${seatSup(s2) ? SUP_IMG : ''}${seatName(s2)}</td>
           <td>${state.match_scores[s2]}</td></tr>`).join('') + '</table>'
       + `<p style="margin-top:12px">
            <button id="pr-again">Practice again</button>
@@ -1991,7 +1995,7 @@ function showMatchEnd() {
     + '<table><tr><th>Place</th><th>Player</th><th>Score</th>'
     + (series ? '<th>Series</th>' : '') + '</tr>' +
     order.map(s => `<tr><td>${state.placements[s]}</td>
-      <td>${seatName(s)}</td>
+      <td>${seatSup(s) ? SUP_IMG : ''}${seatName(s)}</td>
       <td>${state.match_scores[s]}</td>`
       + (series ? `<td>${state.series_wins[s]}</td>` : '')
       + '</tr>').join('') + '</table>' +
@@ -2351,10 +2355,8 @@ function renderLobby(ts) {
     + '<div id="lobby-players">'
     // one player per line, your own name in gold
     + ts.players.map((n, i) => `<div class="pchip${
-        n === ts.you_name ? ' you' : ''}">${esc(n)}${
-        (ts.players_sup && ts.players_sup[i])
-          ? '<img class="supbadge" src="/static/sup_badge.png" alt="supporter" title="supporter">'
-          : ''}</div>`).join('')
+        n === ts.you_name ? ' you' : ''}">${
+        (ts.players_sup && ts.players_sup[i]) ? SUP_IMG : ''}${esc(n)}</div>`).join('')
     + '</div>'
     + (ts.you_host
       ? `<div class="lobby-set">
@@ -2892,7 +2894,7 @@ function renderSpectateChrome(st) {
     trick: _specTrick, last_trick: st.last_trick,
     round_scores: st.round_scores, match_scores: st.match_scores,
     received: [], hand: [], legal: [], placements: st.placements,
-    target: st.target,
+    target: st.target, sup_seats: st.sup_seats || [],
   };
   renderSeats(null);
   renderSide();
