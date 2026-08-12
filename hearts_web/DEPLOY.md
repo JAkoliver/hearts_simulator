@@ -103,8 +103,16 @@ credentials-file: /etc/cloudflared/<tunnel-id>.json
 ingress:
   - hostname: play.perilune.ai
     service: http://127.0.0.1:8642
+  - hostname: perilune.ai
+    service: http://127.0.0.1:8642
+  - hostname: www.perilune.ai
+    service: http://127.0.0.1:8642
   - service: http_status:404
 ```
+The apex and www serve the landing page from the SAME server
+(host-based routing inside the app) - all three hostnames must be in
+the ingress AND `tunnel route dns`'d, or the apex 1033s (hit this at
+the 2026-08-12 cutover).
 
 ## 5. Telemetry backup (do this - the logs are training data)
 
