@@ -1677,18 +1677,55 @@ const SND = {};
 // NOTE volume is linear AMPLITUDE - perceived loudness is log. A 25%
 // cut is ~-2.5dB (barely detectable); to sound clearly quieter, halve
 // (-6dB). Tune in halvings, not percentages.
+// Zero-latency sfx via Web Audio. HTMLAudio cloneNode paid load/decode
+// startup on EVERY play, so fast-pace AI bursts (e.g. the AI leading
+// right after a pass) had sounds trailing the cards. Buffers decode
+// ONCE; playback via BufferSource starts within the audio callback.
+// The context needs a user gesture (autoplay policy) - created on the
+// first pointer/key input; until buffers land, a cloned-element
+// fallback keeps sounds working.
 for (const [n, v] of [['placing', .14], ['taking', .155],
                       ['shuffling', .125], ['explosion', .11]]) {
-  SND[n] = new Audio('/static/sound/' + n + '.mp3');
-  SND[n].preload = 'auto';
-  SND[n].volume = v;
+  SND[n] = {url: '/static/sound/' + n + '.mp3', vol: v, buf: null, el: null};
 }
+let _actx = null;
+function _sndInit() {
+  if (_actx) return;
+  try {
+    _actx = new (window.AudioContext || window.webkitAudioContext)();
+    for (const s of Object.values(SND)) {
+      fetch(s.url).then(r => r.arrayBuffer())
+        .then(b => _actx.decodeAudioData(b))
+        .then(buf => { s.buf = buf; })
+        .catch(() => {});
+    }
+  } catch (e) {}
+}
+document.addEventListener('pointerdown', _sndInit,
+                          {once: true, capture: true});
+document.addEventListener('keydown', _sndInit, {once: true, capture: true});
 let soundOn = localStorage.getItem('hearts_sound') !== '0';
 function sfx(name) {
   if (!soundOn || document.hidden) return;   // no sounds from hidden tabs
+  const s = SND[name];
+  if (!s) return;
   try {
-    const a = SND[name].cloneNode();
-    a.volume = SND[name].volume;
+    if (_actx && s.buf) {
+      if (_actx.state === 'suspended') _actx.resume();
+      const src = _actx.createBufferSource();
+      src.buffer = s.buf;
+      const g = _actx.createGain();
+      g.gain.value = s.vol;
+      src.connect(g).connect(_actx.destination);
+      src.start();
+      return;
+    }
+    if (!s.el) {
+      s.el = new Audio(s.url);
+      s.el.preload = 'auto';
+    }
+    const a = s.el.cloneNode();
+    a.volume = s.vol;
     a.play().catch(() => {});
   } catch (e) {}
 }
@@ -1909,7 +1946,17 @@ function showMatchEnd() {
   // count). One match in, the column would just repeat the placements.
   const series = mode === 'table' && Array.isArray(state.series_wins)
     && state.series_played > 1;
-  el('o-body').innerHTML = '<table><tr><th>Place</th><th>Player</th><th>Score</th>'
+  // Fresh leaderboard result (server sends `lb` only when THIS match
+  // claimed or improved the player's row on the model-era board)
+  const lbLine = (p === 1 && state.lb)
+    ? `<p style="color:var(--gold); margin:2px 0 10px">${
+        state.lb.rank === 1
+          ? 'Your win tops the leaderboard &mdash; #1'
+          : `Your win made the leaderboard &mdash; #${state.lb.rank} of ${
+              state.lb.total}`}</p>`
+    : '';
+  el('o-body').innerHTML = lbLine
+    + '<table><tr><th>Place</th><th>Player</th><th>Score</th>'
     + (series ? '<th>Series</th>' : '') + '</tr>' +
     order.map(s => `<tr><td>${state.placements[s]}</td>
       <td>${seatName(s)}</td>

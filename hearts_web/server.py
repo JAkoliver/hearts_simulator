@@ -269,6 +269,26 @@ def log_line(obj):
             pass   # a malformed entry must never block the log append
 
 
+def _lb_callout(sid, pid, tier):
+    """End-screen leaderboard callout: non-None only when THIS match is
+    the player's recorded board entry - i.e. the win that just claimed
+    or improved their row (log_line -> _index_add has already run by the
+    time a finished state is served). Rank uses the api_leaderboard sort
+    (score, then earlier timestamp)."""
+    try:
+        era = (TIERS[_norm_tier(tier)]['md5'] or '')[:12]
+    except (KeyError, TypeError):
+        return None
+    with _log_lock:
+        rows = _lb.get(era, {})
+        ent = rows.get(pid)
+        if not ent or ent.get('sid') != sid:
+            return None
+        rank = 1 + sum(1 for r in rows.values()
+                       if (r['score'], r['ts']) < (ent['score'], ent['ts']))
+        return {'rank': rank, 'total': len(rows)}
+
+
 # ---------------------------------------------------------------------------
 # Per-IP rate limiting for TUNNELED traffic (requests carrying
 # CF-Connecting-IP). Local/LAN requests are exempt - dev flows and phone
@@ -557,6 +577,11 @@ class Session:
             'spectators': (_spec_prune(self) or
                            _spec_rows(self, self.human_seat)),
             'spec_creator': True,
+            **({'lb': cb} if (self.finished and not self.practice
+                              and self.pid
+                              and (cb := _lb_callout(self.sid, self.pid,
+                                                     self.tier)))
+               else {}),
             **({'practice': True,
                 'can_undo': any(s == self.human_seat
                                 for s, _ in self.all_actions),
