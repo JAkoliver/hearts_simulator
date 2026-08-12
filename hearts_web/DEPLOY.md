@@ -25,6 +25,25 @@ pip install torch==2.12.1 --index-url https://download.pytorch.org/whl/cpu
 pip install fastapi==0.139.2 'uvicorn[standard]==0.51.0' numpy==2.5.1 pydantic
 ```
 
+**Build the C++ pybind module** (the server imports `hearts_env`; the
+Windows .pyd does not transfer - it must be built on the VPS. Verified
+on Ubuntu 26.04 / Python 3.14 / 2 GB RAM, 2026-08-12):
+
+```bash
+sudo fallocate -l 2G /swapfile && sudo chmod 600 /swapfile \
+  && sudo mkswap /swapfile && sudo swapon /swapfile   # compile headroom
+sudo apt install -y cmake g++ python3-dev
+pip install pybind11
+# pip torch has the same include/lib layout CMake expects of ./libtorch:
+ln -s "$(pwd)/.venv/lib/python3.14/site-packages/torch" libtorch
+python scripts/fetch_cuda_headers.py
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
+  -Dpybind11_DIR="$(.venv/bin/python -c 'import pybind11; print(pybind11.get_cmake_dir())')" \
+  -DPython_EXECUTABLE="$(pwd)/.venv/bin/python"
+cmake --build build --target hearts_env -j2
+cp build/hearts_env.cpython-*.so .
+```
+
 Copy from the old host (scp; none of these are in git):
 - model weights the server binds: `hearts_web_model.pth`,
   `hearts_equity.pt`, tier nets (`hearts_ai_grandmaster_v4m10.pt`,
@@ -65,13 +84,13 @@ WantedBy=multi-user.target
 
 On the VPS:
 ```bash
-curl -L https://pkg.cloudflare.com/cloudflared-stable-linux-amd64.deb -o cf.deb
+curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb -o cf.deb
 sudo dpkg -i cf.deb
-cloudflared tunnel login          # authorize on the Cloudflare account
 ```
-Either reuse the existing named tunnel (copy its credentials JSON from
-the old host's `%USERPROFILE%\.cloudflared\`) or create a fresh one and
-repoint DNS:
+No interactive login needed: copy `cert.pem` from the old host's
+`%USERPROFILE%\.cloudflared\` to `/root/.cloudflared/cert.pem` - it
+authorizes tunnel management for the account. Then create a fresh
+tunnel and stage it on a TEST hostname before touching the real one:
 ```bash
 cloudflared tunnel create perilune-vps
 cloudflared tunnel route dns perilune-vps play.perilune.ai
