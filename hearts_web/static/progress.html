@@ -300,12 +300,25 @@ const roll = (vals, w) => vals.map((_, i) => {
     window._dstat = d.daily || null;   // daily career counters (server)
     window._prog_meta = {cur: d.current_model,
                          labels: d.model_labels || {}};
+    window._is_sup = !!d.supporter;
   } catch (e) {
     el('sub').textContent = 'could not load progress: ' + e.message;
     return;
   }
+  // supporter badge on the title; idempotent because the h1 text is
+  // replaced again once the codename loads
+  const addSupBadge = () => {
+    const h1 = document.querySelector('h1');
+    if (window._is_sup && !h1.querySelector('img'))
+      h1.insertAdjacentHTML('beforeend',
+        ' <img src="/static/sup_badge.png" alt="supporter"'
+        + ' title="supporter" style="height:.9em;'
+        + ' vertical-align:-.08em; margin-left:5px">');
+  };
+  addSupBadge();
   if (PLAYER && pubName) {
     document.querySelector('h1').textContent = `${pubName} — profile`;
+    addSupBadge();
     el('h-read').innerHTML = 'player vs AI seats (instinct read)';
     el('h-habits').textContent = 'Where this player and Perilune part ways '
       + 'most often - the practice list, not a verdict.';
@@ -336,8 +349,11 @@ const roll = (vals, w) => vals.map((_, i) => {
   })();
   if (!PLAYER)
     fetch(`/api/name?pid=${encodeURIComponent(pid)}`).then(r => r.json())
-      .then(d => { document.querySelector('h1').textContent =
-        `${d.name} — your profile`; }).catch(() => {});
+      .then(d => {
+        document.querySelector('h1').textContent =
+          `${d.name} — your profile`;
+        addSupBadge();
+      }).catch(() => {});
 
   // ---- filters -----------------------------------------------------
   // Taxonomy: All | vs AI (solo non-daily + tables where you were the

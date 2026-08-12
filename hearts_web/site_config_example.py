@@ -42,3 +42,8 @@ DEV_MODE = 'localhost'
 # auto-plays the LOWEST legal card (or passes the 3 lowest) - deliberately
 # dumb so idling never recruits the strong AI to play for you.
 TURN_TIMER_S = 60
+
+# Patreon supporter perks (ops-light): JSON array of codenames as patrons
+# send them, or "pid:<canonical>" entries. Hot-reloaded on mtime, so adding
+# a patron never needs a restart.
+# SUPPORTERS_PATH = os.path.join(os.path.dirname(__file__), 'supporters.json')

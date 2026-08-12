@@ -274,6 +274,12 @@
                    color:var(--text); font-size:.72rem; padding:4px 10px;
                    cursor:pointer; }
   #emote-pal .et:hover { background:#3A3A42; }
+  #emote-pal .locked { opacity:.35; cursor:default; }
+  #emote-pal .locked:hover { background:var(--tag-bg); }
+  #emote-pal .esup { font-size:.66rem; color:var(--muted, #A6A6AF);
+    margin:9px 0 4px; display:flex; align-items:center; gap:5px; }
+  #emote-pal .esup img { width:13px; height:13px; }
+  .supbadge { height:.95em; vertical-align:-.12em; margin-left:4px; }
   #emote-pal .ehide { display:block; text-align:center; margin-top:8px;
                       font-size:.68rem; }
   .emote-bubble { position:absolute;
@@ -839,7 +845,13 @@ const EMOTES = {
   heartbreak: '1f494', party: '1f389', turtle: '1f422', moon: '1f319',
   wp: 'Well played', ouch: 'Ouch', oops: 'Oops',
   ty: 'Thanks', close: 'Close one', gg: 'gg',
+  // supporter pack: everyone SEES them; only supporters can send
+  fullmoon: '1f315', newmoon: '1f31a', rocket: '1f680',
+  comet: '2604', star: '2b50',
+  tothemoon: 'to the moon!', crash: 'crash landing', perilune: 'perilune.',
 };
+const SUP_EMOTES = new Set(['fullmoon', 'newmoon', 'rocket', 'comet',
+                            'star', 'tothemoon', 'crash', 'perilune']);
 const emoteHidden = () =>
   localStorage.getItem('hearts_hide_emotes') === '1';
 const _emoteTimers = {};
@@ -867,19 +879,33 @@ function showEmote(seat, id) {
   _emoteTimers[seat] = setTimeout(() => b.remove(), 3100);
 }
 function buildEmotePal() {
-  const pics = [], texts = [];
-  for (const [id, v] of Object.entries(EMOTES))
-    (/^[0-9a-f]/.test(v) ? pics : texts).push([id, v]);
+  const sup = !!(state && state.you_supporter);
+  const pics = [], texts = [], spics = [], stexts = [];
+  for (const [id, v] of Object.entries(EMOTES)) {
+    const pic = /^[0-9a-f]/.test(v);
+    (SUP_EMOTES.has(id) ? (pic ? spics : stexts)
+                        : (pic ? pics : texts)).push([id, v]);
+  }
+  const lock = sup ? '' : ' locked';
+  const ltitle = sup ? '' : ' title="supporter emote"';
   el('emote-pal').innerHTML =
     `<div class="erow">${pics.map(([id, cp]) =>
       `<button class="eb" data-e="${id}"><img
          src="/static/emotes/${cp}.svg" alt="${id}"></button>`).join('')}</div>
      <div class="erow" style="margin-top:7px">${texts.map(([id, t]) =>
       `<button class="et" data-e="${id}">${t}</button>`).join('')}</div>
+     <div class="esup"><img src="/static/sup_badge.png" alt=""> supporter
+       pack</div>
+     <div class="erow">${spics.map(([id, cp]) =>
+      `<button class="eb${lock}" data-e="${id}"${ltitle}><img
+         src="/static/emotes/${cp}.svg" alt="${id}"></button>`).join('')}</div>
+     <div class="erow" style="margin-top:7px">${stexts.map(([id, t]) =>
+      `<button class="et${lock}" data-e="${id}"${ltitle}>${t}</button>`).join('')}</div>
      <a href="#" id="emote-hide" class="qlink ehide">${
        emoteHidden() ? 'show emotes' : 'hide emotes'}</a>`;
   el('emote-pal').querySelectorAll('[data-e]').forEach(btn => {
     btn.onclick = async () => {
+      if (btn.classList.contains('locked')) return;  // server 403s anyway
       el('emote-pal').classList.remove('open');
       const eb = el('emote-btn');
       eb.disabled = true;                       // felt cooldown
@@ -919,7 +945,10 @@ function renderSeats(highlightSeat=null) {
   for (let s = 0; s < 4; s++) {
     const node = el(SEAT_IDS[pos(s)]);
     const away = state.away_seats && state.away_seats.includes(s);
-    node.innerHTML = `<span class="tag"${away ? ' style="opacity:.55"' : ''}>${seatName(s)}${away ? ' &middot; away' : ''} &middot; ${state.match_scores[s]}
+    const sb = (state.sup_seats && state.sup_seats.includes(s))
+      ? '<img class="supbadge" src="/static/sup_badge.png" alt="supporter" title="supporter">'
+      : '';
+    node.innerHTML = `<span class="tag"${away ? ' style="opacity:.55"' : ''}>${seatName(s)}${sb}${away ? ' &middot; away' : ''} &middot; ${state.match_scores[s]}
       <small>(+${state.round_scores[s]})</small></span>`;
     node.classList.toggle('active', s === highlightSeat);
   }
@@ -2321,8 +2350,11 @@ function renderLobby(ts) {
          + ' link</button></p>' : '')
     + '<div id="lobby-players">'
     // one player per line, your own name in gold
-    + ts.players.map(n => `<div class="pchip${
-        n === ts.you_name ? ' you' : ''}">${esc(n)}</div>`).join('')
+    + ts.players.map((n, i) => `<div class="pchip${
+        n === ts.you_name ? ' you' : ''}">${esc(n)}${
+        (ts.players_sup && ts.players_sup[i])
+          ? '<img class="supbadge" src="/static/sup_badge.png" alt="supporter" title="supporter">'
+          : ''}</div>`).join('')
     + '</div>'
     + (ts.you_host
       ? `<div class="lobby-set">

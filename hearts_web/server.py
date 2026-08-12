@@ -43,8 +43,12 @@ from hearts_net import net_from_checkpoint  # noqa: E402
 
 SUITS = 'CDSH'
 RANKS = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A']
-LOG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                        'match_logs.jsonl')
+# HEARTS_LOG_PATH: test isolation valve - scratch servers MUST set it or
+# their played matches pollute the real history/leaderboard (bit us
+# 2026-08-12: a test identity landed on the board)
+LOG_PATH = (os.environ.get('HEARTS_LOG_PATH')
+            or os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            'match_logs.jsonl'))
 
 app = FastAPI(title="Perilune - Hearts vs AI")
 
@@ -577,6 +581,7 @@ class Session:
             'spectators': (_spec_prune(self) or
                            _spec_rows(self, self.human_seat)),
             'spec_creator': True,
+            'you_supporter': is_supporter(self.pid),
             **({'lb': cb} if (self.finished and not self.practice
                               and self.pid
                               and (cb := _lb_callout(self.sid, self.pid,
@@ -928,8 +933,11 @@ class Table:
                 raise HTTPException(403, 'not seated at this table')
             return {**base,
                     'players': [p['name'] for p in self.lobby],
+                    'players_sup': [is_supporter(p['pid'])
+                                    for p in self.lobby],
                     'you_name': next((p['name'] for p in self.lobby
                                       if p['pid'] == pid), None),
+                    'you_supporter': is_supporter(pid),
                     'you_host': pid == self.host_pid}
         seat = self.seat_of.get(pid)
         if seat is None:
@@ -956,6 +964,9 @@ class Table:
                                  or now - self.last_seen.get(p, 0) > cfg.AWAY_S)]
         return {**base,
                 'you_host': pid == self.host_pid,
+                'you_supporter': is_supporter(pid),
+                'sup_seats': sorted(s for p, s in self.seat_of.items()
+                                    if is_supporter(p)),
                 'match_no': self.match_no, 'away_seats': sorted(away),
                 'your_seat': seat, 'roster': self.roster(),
                 'your_turn': my_turn, 'passing': need_pass,
@@ -1470,6 +1481,7 @@ def daily_leaderboard(pid: str = None, date: str = None, offset: int = 0):
     for i, r in enumerate(entries[offset:offset + 100]):
         nm = codename_of(r['canon'])
         row = {'rank': offset + i + 1, 'name': nm, 'slug': _name_slug(nm),
+               'sup': is_supporter(r['canon']),
                'score': r['score'], 'place': r['place'],
                'deals': r['deals'], 'ts': r['ts']}
         if unlocked:
@@ -2295,6 +2307,57 @@ def codename_of(pid, hash_era=False):
         return name
 
 
+# ---- supporters (Patreon perks, ops-light) --------------------------------
+# supporters.json (gitignored, lives with the other player stores): a JSON
+# array of CODENAMES as patrons send them ("Crimson Gadwall" or the slug),
+# or "pid:<canonical>" for edge cases. Hot-reloaded on mtime so adding a
+# patron never needs a restart. Perks are cosmetic only: a badge and a
+# supporter emote pack - gameplay and analysis stay free for everyone.
+SUPPORTERS_PATH = (os.environ.get('HEARTS_SUPPORTERS')
+                   or getattr(cfg, 'SUPPORTERS_PATH',
+                              os.path.join(_cfg_dir, 'supporters.json')))
+_sup_cache = {'mtime': None, 'canon': set(), 'checked': 0.0}
+_sup_lock = threading.Lock()
+
+
+def _supporters():
+    now = time.time()
+    with _sup_lock:
+        if now - _sup_cache['checked'] < 30:
+            return _sup_cache['canon']
+        _sup_cache['checked'] = now
+        try:
+            mt = os.path.getmtime(SUPPORTERS_PATH)
+        except OSError:
+            _sup_cache['mtime'] = None
+            _sup_cache['canon'] = set()
+            return _sup_cache['canon']
+        if mt == _sup_cache['mtime']:
+            return _sup_cache['canon']
+        canon = set()
+        try:
+            with open(SUPPORTERS_PATH, encoding='utf-8') as f:
+                entries = json.load(f)
+            with _names_lock:
+                for e in entries:
+                    e = str(e).strip()
+                    if e.startswith('pid:'):
+                        canon.add(e[4:])
+                    else:
+                        p = _slug2pid.get(_name_slug(e))
+                        if p:
+                            canon.add(p)
+        except (ValueError, OSError):
+            return _sup_cache['canon']   # malformed file: keep last good set
+        _sup_cache['mtime'] = mt
+        _sup_cache['canon'] = canon
+        return canon
+
+
+def is_supporter(canon):
+    return bool(canon) and canon in _supporters()
+
+
 # ---------------------------------------------------------------------------
 # Identity keys (2026-08-08): the pid IS the bearer key - never displayed,
 # never in page URLs, stored only in the player's browser (and their own
@@ -2816,6 +2879,7 @@ def api_progress(pid: str = None, player: str = None, limit: int = 60):
             if rank < 10:
                 dtop += 1
     return {'matches': out, 'public': public, 'name': pub_name,
+            'supporter': is_supporter(pid),
             'daily': {'completed': dcomp, 'top10': dtop}}
 
 
@@ -2870,6 +2934,7 @@ def api_leaderboard(era: str = None, offset: int = 0, find: str = None):
         nm = codename_of(r['canon'])
         rows.append({'rank': offset + i + 1, 'name': nm,
                      'slug': _name_slug(nm),
+                     'sup': is_supporter(r['canon']),
                      'score': r['score'], 'deals': r['deals'], 'ts': r['ts'],
                      'share': _share_make('s', r['sid'], 1, r['seat'])})
     eras.sort(key=lambda x: x['latest'], reverse=True)
@@ -3609,7 +3674,15 @@ EMOTES = {
     'turtle': '1f422', 'moon': '1f319',
     'wp': 'Well played', 'ouch': 'Ouch', 'oops': 'Oops',
     'ty': 'Thanks', 'close': 'Close one', 'gg': 'gg',
+    # supporter pack (Patreon perk): visible to everyone, SENDABLE only
+    # by supporters - enforced server-side below, never just in the UI
+    'fullmoon': '1f315', 'newmoon': '1f31a', 'rocket': '1f680',
+    'comet': '2604', 'star': '2b50',
+    'tothemoon': 'to the moon!', 'crash': 'crash landing',
+    'perilune': 'perilune.',
 }
+SUP_EMOTES = {'fullmoon', 'newmoon', 'rocket', 'comet', 'star',
+              'tothemoon', 'crash', 'perilune'}
 EMOTE_GAP_S = 2.5
 
 
@@ -3625,6 +3698,8 @@ def table_emote(body: dict):
             raise HTTPException(403, 'not seated at this table')
         if body.get('emote') not in EMOTES:
             raise HTTPException(400, 'unknown emote')
+        if body['emote'] in SUP_EMOTES and not is_supporter(canon):
+            raise HTTPException(403, 'supporter emote')
         now = time.time()
         last = getattr(t, 'emote_ts', None)
         if last is None:
