@@ -30,10 +30,17 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from shard_check import validate_shard
+from shard_check import validate_shard, validate_v3_tar
 
 RETRY_SEED_OFFSET = 500000  # mirrors expert_iter's per-chunk retry seeds
 MAX_RETRIES = 4
+
+# Match-v3 seed scheme (docs/v6_prereg.md stage 2): chunk i occupies
+# [base + i*100k, base + i*100k + threads + 1000*ceil(matches/threads)]
+# (SelfPlayGen env seeds = base + tid + 1000*m). Retries step +10k inside
+# the chunk's own 100k window - audited disjoint for chunks <= 90 matches.
+V3_CHUNK_STRIDE = 100_000
+V3_RETRY_OFFSET = 10_000
 
 
 class Queue:
@@ -58,13 +65,15 @@ class Queue:
             print(f"[queue] resumed from {state_path}: "
                   f"{self._count('done')} done / {len(self.state['chunks'])}")
         else:
+            stride = (V3_CHUNK_STRIDE
+                      if params.get('mode') == 'match_v3' else 1000)
             chunks = {}
             done_deals = 0
             i = 0
             while done_deals < deals:
                 n = min(chunk, deals - done_deals)
                 chunks[str(i)] = {
-                    'seed': seed + i * 1000, 'deals': n, 'status': 'pending',
+                    'seed': seed + i * stride, 'deals': n, 'status': 'pending',
                     'lease_worker': None, 'lease_until': 0, 'retries': 0,
                     'shard': None,
                 }
@@ -72,7 +81,9 @@ class Queue:
                 i += 1
             self.state = {'params': params, 'chunks': chunks}
             self._flush()
-            print(f"[queue] created {len(chunks)} chunks of <= {chunk} deals")
+            print(f"[queue] created {len(chunks)} chunks of <= {chunk} "
+                  + ('matches' if params.get('mode') == 'match_v3'
+                     else 'deals'))
 
     def _flush(self):
         tmp = self.state_path + '.tmp'
@@ -101,11 +112,16 @@ class Queue:
             c = self.state['chunks'].get(cid)
             if c is None or c['status'] == 'done':
                 return False, "unknown or already-done chunk"
-            shard = os.path.join(self.out_dir, f"chunk_{cid}.bin")
+            v3 = self.params.get('mode') == 'match_v3'
+            shard = os.path.join(self.out_dir,
+                                 f"chunk_{cid}" + ('.tar' if v3 else '.bin'))
             tmp = shard + '.tmp'
             with open(tmp, 'wb') as f:
                 f.write(body)
-            ok, detail = validate_shard(tmp, expect_deals=c['deals'])
+            if v3:
+                ok, detail = validate_v3_tar(tmp, expect_matches=c['deals'])
+            else:
+                ok, detail = validate_shard(tmp, expect_deals=c['deals'])
             if not ok:
                 os.remove(tmp)
                 self._requeue(c, f"upload failed validation: {detail}")
@@ -129,7 +145,9 @@ class Queue:
         # A retried chunk gets a fresh derived seed so a poisoned seed can't
         # wedge the queue (R2); after MAX_RETRIES it is parked for a human.
         c['retries'] += 1
-        c['seed'] += RETRY_SEED_OFFSET
+        c['seed'] += (V3_RETRY_OFFSET
+                      if self.params.get('mode') == 'match_v3'
+                      else RETRY_SEED_OFFSET)
         c['lease_worker'] = None
         c['lease_until'] = 0
         c['status'] = 'pending' if c['retries'] <= MAX_RETRIES else 'parked'
@@ -157,7 +175,9 @@ class Queue:
             return out
 
 
-def make_handler(queue, token, model_path, model_sha):
+def make_handler(queue, token, model_path, model_sha, model_registry=None):
+    # model_registry (match_v3): {name: {'path', 'file', 'sha256'}} served
+    # via GET /model?name=<name>; the plain /model stays for legacy leases.
     class Handler(BaseHTTPRequestHandler):
         def _auth(self):
             if self.headers.get('X-Auth-Token') != token:
@@ -177,13 +197,22 @@ def make_handler(queue, token, model_path, model_sha):
         def do_GET(self):
             if not self._auth():
                 return
-            if self.path == '/model':
-                with open(model_path, 'rb') as f:
+            if self.path.startswith('/model'):
+                path, sha = model_path, model_sha
+                if '?name=' in self.path:
+                    name = self.path.split('?name=')[-1]
+                    entry = (model_registry or {}).get(name)
+                    if entry is None:
+                        self.send_response(404)
+                        self.end_headers()
+                        return
+                    path, sha = entry['path'], entry['sha256']
+                with open(path, 'rb') as f:
                     data = f.read()
                 self.send_response(200)
                 self.send_header('Content-Type', 'application/octet-stream')
                 self.send_header('Content-Length', str(len(data)))
-                self.send_header('X-Model-SHA256', model_sha)
+                self.send_header('X-Model-SHA256', sha)
                 self.end_headers()
                 self.wfile.write(data)
             elif self.path == '/status':
@@ -239,6 +268,14 @@ def main():
                     help='worker deal-threads (cloud boxes have more cores)')
     ap.add_argument('--rollout-tricks', type=int, default=-1)
     ap.add_argument('--no-cuda', action='store_true')
+    # match-v3 generation (docs/v6_prereg.md stage 2): --deals/--chunk are
+    # MATCHES; four model files travel to workers, sha-pinned in the lease
+    ap.add_argument('--match-v3', action='store_true')
+    ap.add_argument('--equity-model', default='hearts_equity.pt')
+    ap.add_argument('--shooter-agg', default='shooter_agg_v1b.pt')
+    ap.add_argument('--shooter-sel', default='shooter_sel_v1.pt')
+    ap.add_argument('--pass-candidates', type=int, default=12)
+    ap.add_argument('--k-endgame', type=int, default=256)
     ap.add_argument('--lease-ttl', type=int, default=None,
                     help='seconds before a silent worker forfeits its chunk '
                          '(default: 20s/deal + 600)')
@@ -252,14 +289,35 @@ def main():
     with open(args.model, 'rb') as f:
         model_sha = hashlib.sha256(f.read()).hexdigest()
 
-    params = {'k': args.k, 'pass_k': args.pass_k, 'threads': args.threads,
-              'rollout_tricks': args.rollout_tricks, 'cuda': not args.no_cuda}
-    ttl = args.lease_ttl or (20 * args.chunk + 600)
+    registry = None
+    if args.match_v3:
+        registry = {}
+        for name, path in (('search', args.model),
+                           ('equity', args.equity_model),
+                           ('agg', args.shooter_agg),
+                           ('sel', args.shooter_sel)):
+            with open(path, 'rb') as f:
+                sha = hashlib.sha256(f.read()).hexdigest()
+            registry[name] = {'path': path,
+                              'file': os.path.basename(path), 'sha256': sha}
+        params = {'mode': 'match_v3', 'k': args.k, 'pass_k': args.pass_k,
+                  'pass_candidates': args.pass_candidates,
+                  'k_endgame': args.k_endgame, 'threads': args.threads,
+                  'cuda': not args.no_cuda,
+                  'models': {n: {'file': e['file'], 'sha256': e['sha256']}
+                             for n, e in registry.items()}}
+        ttl = args.lease_ttl or (150 * args.chunk + 900)
+    else:
+        params = {'k': args.k, 'pass_k': args.pass_k, 'threads': args.threads,
+                  'rollout_tricks': args.rollout_tricks,
+                  'cuda': not args.no_cuda}
+        ttl = args.lease_ttl or (20 * args.chunk + 600)
     queue = Queue(os.path.join(args.out_dir, 'queue_state.json'),
                   args.out_dir, params, args.deals, args.chunk, args.seed, ttl)
 
     server = ThreadingHTTPServer(('0.0.0.0', args.port),
-                                 make_handler(queue, token, args.model, model_sha))
+                                 make_handler(queue, token, args.model,
+                                              model_sha, registry))
     threading.Thread(target=server.serve_forever, daemon=True).start()
     print(f"[queue] serving on :{args.port}  model sha256 {model_sha[:12]}...  "
           f"lease ttl {ttl}s")
