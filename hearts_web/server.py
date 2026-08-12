@@ -3024,6 +3024,12 @@ def how_page():
                                      'static', 'how.html'))
 
 
+@app.get('/support')
+def support_page():
+    return FileResponse(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                     'static', 'support.html'))
+
+
 # ---- Open Graph preview cards ---------------------------------------------
 # Link previews (Discord/iMessage/Slack/Twitter) fetch without JS, so
 # the meta tags are injected server-side at the <!--OG--> marker.

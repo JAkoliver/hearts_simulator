@@ -312,8 +312,9 @@ const roll = (vals, w) => vals.map((_, i) => {
     if (window._is_sup && !h1.querySelector('img'))
       h1.insertAdjacentHTML('afterbegin',
         '<img src="/static/sup_badge.png" alt="supporter"'
-        + ' title="supporter" style="height:.9em;'
-        + ' vertical-align:-.08em; margin-right:6px">');
+        + ' title="supporter" style="height:1.15em;'
+        + ' vertical-align:-.2em; margin-right:8px;'
+        + ' background:#18181B; border-radius:50%; padding:3px">');
   };
   addSupBadge();
   if (PLAYER && pubName) {
@@ -803,6 +804,6 @@ const roll = (vals, w) => vals.map((_, i) => {
   renderAll();
 })();
 </script>
-<script src="/static/nav.js?v=6"></script>
+<script src="/static/nav.js?v=7"></script>
 </body>
 </html>

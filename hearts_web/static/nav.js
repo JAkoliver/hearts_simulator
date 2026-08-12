@@ -53,6 +53,8 @@
         <a href="/account">Account</a>
         <a href="/about">About</a>
         <a href="/how">How it's built</a>
+        <a href="/support">Support <span
+           style="color:#E5484D">&hearts;</span></a>
       </div></div>`;
   document.body.appendChild(band);
   const dd = band.querySelector('#sitenav-dd');

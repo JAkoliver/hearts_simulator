@@ -122,7 +122,20 @@
   .panel h3 { font-size:.75rem; color:var(--muted); text-transform:uppercase; margin-bottom:5px; }
   .panel .mini { display:inline-flex; margin:1px; }
   .seat { position:absolute; text-align:center; font-size:.82rem; color:var(--seat-text); }
-  .seat .tag { background:var(--tag-bg); padding:2px 10px; border-radius:10px; white-space:nowrap; }
+  /* inline-flex so the oversized badge and the name center on each
+     other instead of fighting over the text baseline */
+  .seat .tag { background:var(--tag-bg); padding:2px 10px; border-radius:10px; white-space:nowrap;
+               display:inline-flex; align-items:center; gap:4px;
+               line-height:1.3; }
+  /* supporter tags become true capsules; the badge coin IS the left
+     end cap: its height is EXACTLY the pill's (1.3em line + 2x2px
+     padding, bled over by the negative margins). Explicit height -
+     never auto/stretch: the img's intrinsic 256px would inflate the
+     pill (the giant-moon incident) */
+  .seat .tag:has(.supbadge) { border-radius:999px; padding-left:0; }
+  .seat .tag .supbadge { margin:-2px 0; vertical-align:baseline;
+                         height:calc(1.3em + 4px);
+                         aspect-ratio:1; padding:2px; }
   .seat.active .tag { background:var(--gold); color:#222; font-weight:600; }
   #seat-top { top:8px; left:50%; transform:translateX(-50%); }
   #seat-left { left:8px; top:50%; transform:translateY(-50%); }
@@ -258,8 +271,12 @@
   #emote-btn:hover { color:var(--text); }
   #emote-btn svg { display:block; }
   #emote-btn:disabled { opacity:.45; cursor:default; }
-  #emote-pal { display:none; position:absolute; right:0;
-               bottom:calc(100% + 8px); background:var(--overlay-panel);
+  /* opens BESIDE the felt (right edge, flush with its bottom) so the
+     palette never covers a seat name; narrow layouts fall back to the
+     old above-the-button popover (media query below) */
+  #emote-pal { display:none; position:absolute;
+               left:calc(100% + 22px); bottom:-8px;
+               background:var(--overlay-panel);
                border:1px solid #2E2E33; border-radius:11px;
                padding:9px 10px; width:212px;
                box-shadow:0 6px 18px rgba(0,0,0,.5); }
@@ -277,9 +294,20 @@
   #emote-pal .locked { opacity:.35; cursor:default; }
   #emote-pal .locked:hover { background:var(--tag-bg); }
   #emote-pal .esup { font-size:.66rem; color:var(--muted, #A6A6AF);
-    margin:9px 0 4px; display:flex; align-items:center; gap:5px; }
+    margin:9px 0 4px; display:flex; align-items:center; gap:5px;
+    cursor:pointer; user-select:none; }
   #emote-pal .esup img { width:13px; height:13px; }
-  .supbadge { height:.95em; vertical-align:-.12em; margin-right:4px; }
+  #emote-pal .esup a { color:inherit; display:inline-flex;
+    align-items:center; gap:5px; text-decoration:none; }
+  #emote-pal .esup a:hover { color:var(--text);
+    text-decoration:underline; }
+  #emote-pal .esup .chev { margin-left:auto; font-size:.6rem; }
+  /* dark disc mount: keeps the gold moon legible on the gold
+     active-turn pill; near-invisible on dark chips. Oversized on
+     purpose (border-box: padding eats height, so 1.3em keeps the
+     moon itself bigger than the bare .95em original) */
+  .supbadge { height:1.3em; vertical-align:-.35em; margin-right:4px;
+              background:#18181B; border-radius:50%; padding:2px; }
   #emote-pal .ehide { display:block; text-align:center; margin-top:8px;
                       font-size:.68rem; }
   .emote-bubble { position:absolute;
@@ -571,6 +599,7 @@
     #table { width:min(92vw, 950px); }
     #side { position:static; margin-left:0; width:min(92vw, 950px);
             flex-direction:row; flex-wrap:wrap; }
+    #emote-pal { left:auto; right:0; bottom:calc(100% + 8px); }
     #dev-controls { position:static; margin:0; width:auto; text-align:center; } }
   /* Phones: smaller trick footprint (no seat-tag collisions), toggle in
      flow (no header overlap), tagline on its own line. The side panels
@@ -617,6 +646,7 @@
     <a href="/account">Account</a>
     <a href="/about">About</a>
     <a href="/how">How it's built</a>
+    <a href="/support">Support <span style="color:#E5484D">&hearts;</span></a>
   </div>
 </div>
   <svg class="logo" width="20" height="20" viewBox="0 0 32 32"><rect width="32" height="32" rx="7" fill="#00000055"/><path d="M11 27 V7 H17.5 a6.5 6.5 0 0 1 0 13 H11" fill="none" stroke="#ECECEC" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="25.2" cy="7.6" r="3.1" fill="#E5484D"/></svg>
@@ -887,25 +917,44 @@ function buildEmotePal() {
                         : (pic ? pics : texts)).push([id, v]);
   }
   const lock = sup ? '' : ' locked';
-  const ltitle = sup ? '' : ' title="supporter emote"';
+  const ltitle = sup ? '' : ' title="supporter emote - tap to learn more"';
+  const supCollapsed =
+    localStorage.getItem('hearts_sup_collapsed') === '1';
   el('emote-pal').innerHTML =
     `<div class="erow">${pics.map(([id, cp]) =>
       `<button class="eb" data-e="${id}"><img
          src="/static/emotes/${cp}.svg" alt="${id}"></button>`).join('')}</div>
      <div class="erow" style="margin-top:7px">${texts.map(([id, t]) =>
       `<button class="et" data-e="${id}">${t}</button>`).join('')}</div>
-     <div class="esup"><img src="/static/sup_badge.png" alt=""> supporter
-       pack</div>
-     <div class="erow">${spics.map(([id, cp]) =>
+     <div class="esup" id="esup-row" title="${supCollapsed
+       ? 'show' : 'hide'} supporter emotes"><a id="esup-link"
+       href="/support" target="_blank" rel="noopener"
+       title="become a supporter"><img
+       src="/static/sup_badge.png" alt=""> supporter pack</a><span
+       class="chev">${supCollapsed ? '&#9656;' : '&#9662;'}</span></div>`
+    + (supCollapsed ? '' :
+    `<div class="erow">${spics.map(([id, cp]) =>
       `<button class="eb${lock}" data-e="${id}"${ltitle}><img
          src="/static/emotes/${cp}.svg" alt="${id}"></button>`).join('')}</div>
      <div class="erow" style="margin-top:7px">${stexts.map(([id, t]) =>
-      `<button class="et${lock}" data-e="${id}"${ltitle}>${t}</button>`).join('')}</div>
-     <a href="#" id="emote-hide" class="qlink ehide">${
+      `<button class="et${lock}" data-e="${id}"${ltitle}>${t}</button>`).join('')}</div>`)
+    + `<a href="#" id="emote-hide" class="qlink ehide">${
        emoteHidden() ? 'show emotes' : 'hide emotes'}</a>`;
+  // header toggles the section (state persists); the text itself is the
+  // Patreon link - link clicks navigate, not toggle
+  el('esup-row').onclick = ev => {
+    ev.stopPropagation();               // keep the palette open
+    if (ev.target.closest('#esup-link')) return;
+    localStorage.setItem('hearts_sup_collapsed', supCollapsed ? '0' : '1');
+    buildEmotePal();
+  };
   el('emote-pal').querySelectorAll('[data-e]').forEach(btn => {
-    btn.onclick = async () => {
-      if (btn.classList.contains('locked')) return;  // server 403s anyway
+    btn.onclick = async ev => {
+      if (btn.classList.contains('locked')) {       // server 403s anyway;
+        ev.stopPropagation();                       // highest-intent moment:
+        window.open('/support', '_blank', 'noopener');  // show the pitch
+        return;
+      }
       el('emote-pal').classList.remove('open');
       const eb = el('emote-btn');
       eb.disabled = true;                       // felt cooldown
