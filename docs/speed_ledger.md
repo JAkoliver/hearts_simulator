@@ -814,3 +814,31 @@ that entry: UNBOUNDED BATCH COALESCING in InferenceServer (fixed by
 the max_group_rows_ cap, 45821a6). Commit 592078e's title ("root-caused
 to the equity path") carries the superseded diagnosis; the fix commit
 45821a6 carries the correct one. Found by the release-docs audit.
+
+## 2026-08-12: v6 Stage-2 bank generation COMPLETE (cloud fleet + local tail)
+
+24/24 chunks x 96 matches. Full-bank battery (validate_v3_records.py,
+all 768 per-thread files): 1,524,821 records, 2,304 matches, 288
+shooter-clone matches (EXACT 1/8 schedule held; attacker seat never
+recorded), matches-with-moons shooter/natural 154/1170. ALL V3 CHECKS
+PASS. Bank at expert_data/v6_bank/ (per-thread files kept separate).
+
+Measured rates (steady, teacher = deployed flat searcher K=64/256,
+pass-k 24, threads 32, bf16 CUDA):
+- H100 SXM pod (4x fleet, AP-IN-1): 82-92 min per 96-match chunk
+  (~53-57 s/match), 0 retries over 20 cloud chunks.
+- RTX 4090 local: 93-98 s/match (chunks 20-23; webapp co-resident for
+  20-22, dedicated for 23 - no measurable difference).
+
+Cloud cost: $96.31 FINAL ($96.07 GPU + $0.24 disk) vs the $110 hard
+cap; fleet + template deleted same day. Ops incident on the record:
+the local orchestrator died ~03:50 (collateral of a webapp restart);
+restart requeued 4 in-flight chunks, creating a dup-compute hazard
+that would have blown the cap (~$116-120 projected). Resolved by
+one-time queue-state surgery (in-flight chunks marked awaiting_upload,
+final 4 chunks held for local generation); seeds/geometry/teacher
+untouched - data is prereg-exact. The escape hatch (finish locally,
+chunk-resumable queue) worked as designed.
+
+NEXT (prereg): Stage 3 - from-scratch HMR3 distillation trainer,
+three arms, recipe freeze on holdout only.
