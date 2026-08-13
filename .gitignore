@@ -108,3 +108,24 @@ hearts_web/review_cache/
 
 # session onboarding doc: machine-local, mirrored in the ops repo, NEVER tracked
 CLAUDE.md
+
+# ---- research artifacts: derived, huge, regenerable from seeds ----
+# Rationale: 7.6 GB of these sat untracked-and-unignored, so a single
+# `git add -A` would try to commit the whole v6 training bank (audit
+# 2026-08-13). The reproducibility contract is (seed, chunk) -> data,
+# so banks and trial checkpoints are regenerable, not archival.
+# NOTE the deliberate exceptions below: verdict JSONs and the N=8000
+# validation dataset ARE evidence cited in docs and stay committable.
+expert_data/
+v6_stage3/
+v6_stage4/
+probe_decisions_*.csv
+behave_*.csv
+se_*.csv
+*.npz
+equity_data/expert_iter_v2/
+equity_data/exploiter_r1/
+equity_data/exploiter_r2/
+equity_data/instrument_check/
+!equity_data/verdicts/**
+!equity_data/validation_v1/**
