@@ -57,7 +57,8 @@ async function tick() {
 
   const liveTables = d.now.tables.filter(t => !t.finished);
   cards.push(`<div class="card"><h2>Right now</h2>
-    <div class="big">${d.now.solo_live + liveTables.length}</div>
+    <div class="big">${d.now.visitors ?? 0}</div>
+    ${kv('visitors on the site', (d.now.visitors ?? 0) + ' (last 5 min)')}
     ${kv('live solo sessions', d.now.solo_live)}
     ${kv('live tables', liveTables.length)}
     ${kv('humans at tables', liveTables.reduce((a,t)=>a+(t.humans||0),0))}

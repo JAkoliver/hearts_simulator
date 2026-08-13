@@ -369,9 +369,58 @@ async def html_no_cache(request: Request, call_next):
     return resp
 
 
+
+# ---------------------------------------------------------------------------
+# Live visitor counter: "how many people are on the site right now", for the
+# ops page. Design constraints, in priority order:
+#   * NOTHING is persisted or logged - the map lives in memory and dies with
+#     the process. No file, no backup, no export.
+#   * the key is HMAC(ephemeral per-process salt, ip + ua), so the stored
+#     value is not an address, cannot be reversed, and cannot be correlated
+#     across restarts or against any other data the site holds.
+#   * bounded - a spoofed-IP flood must not grow memory on a 2 GB box.
+#   * only an AGGREGATE COUNT is ever exposed, and only on the
+#     localhost-only admin page.
+# This is strictly LESS than the rate limiter already does with the raw IP,
+# so it does not change what the about page promises ("no personal
+# information"): nothing personal is recorded, here or anywhere.
+# ---------------------------------------------------------------------------
+_VISIT_SALT = secrets.token_bytes(16)
+_VISIT_WINDOW_S = 300           # "active" = seen in the last 5 minutes
+_VISIT_CAP = 20000
+_visits = {}                    # opaque digest -> last-seen wall clock
+_visits_lock = threading.Lock()
+
+
+def _note_visit(ip, ua):
+    key = hmac.new(_VISIT_SALT, f'{ip}|{ua}'.encode('utf-8', 'replace'),
+                   hashlib.sha256).digest()[:16]
+    now = time.time()
+    with _visits_lock:
+        _visits[key] = now
+        if len(_visits) > _VISIT_CAP:
+            cut = now - _VISIT_WINDOW_S
+            for k in [k for k, t in _visits.items() if t < cut]:
+                del _visits[k]
+            if len(_visits) > _VISIT_CAP:          # still oversized: trim
+                for k in sorted(_visits, key=_visits.get)[:len(_visits) // 2]:
+                    del _visits[k]
+
+
+def _active_visitors():
+    cut = time.time() - _VISIT_WINDOW_S
+    with _visits_lock:
+        return sum(1 for t in _visits.values() if t >= cut)
+
+
 @app.middleware('http')
 async def rate_limit(request: Request, call_next):
     ip = request.headers.get('cf-connecting-ip')
+    ua = request.headers.get('user-agent', '')
+    # count real visitors only: the admin surface is ours, and the uptime
+    # monitor is a robot, not a person
+    if ip and not request.url.path.startswith('/api/admin')             and 'curl' not in ua.lower():
+        _note_visit(ip, ua)
     if ip and request.url.path.startswith('/api/'):
         if _limited(_rl_general, ip, *RL_GENERAL):
             return JSONResponse({'detail': 'rate limited'}, status_code=429)
@@ -4167,7 +4216,7 @@ def admin_status(request: Request):
         feedback['error'] = str(e)[:120]
     return {
         'now': {'solo_live': solo_live, 'solo_total': solo_total,
-                'tables': tables},
+                'tables': tables, 'visitors': _active_visitors()},
         'feedback': feedback,
         'logs': _log_stats(),
         'system': {'uptime_s': round(time.time() - _BOOT_TS),

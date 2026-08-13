@@ -453,6 +453,51 @@ def the_fallback_address_is_only_offered_when_configured():
             'would advertise a dead mailbox')
 
 
+@test('privacy')
+def visitor_counter_dedupes_and_stores_no_address():
+    """Counts people, not requests - and keeps nothing identifying.
+
+    The map is in-memory only, keyed by an HMAC under an ephemeral
+    per-process salt. A raw IP appearing anywhere in it (or the count
+    rising per REQUEST rather than per visitor) is a privacy failure.
+    """
+    server._visits.clear()
+    ip_a, ip_b = '198.51.100.4', '203.0.113.9'
+    for _ in range(5):                       # one visitor, many requests
+        client.get('/about', headers={'CF-Connecting-IP': ip_a})
+    assert server._active_visitors() == 1, (
+        'the counter counts requests, not visitors')
+    client.get('/how', headers={'CF-Connecting-IP': ip_b})
+    assert server._active_visitors() == 2, 'a second visitor was not counted'
+
+    blob = repr(list(server._visits.keys()))
+    assert ip_a not in blob and ip_b not in blob, (
+        'A RAW IP IS HELD IN MEMORY - the counter must store only salted '
+        'digests')
+    assert all(isinstance(k, bytes) for k in server._visits), (
+        'visitor keys are not opaque digests')
+
+
+@test('privacy')
+def visitor_counter_is_never_persisted():
+    """Nothing about visitors may reach disk or the backup set."""
+    import hearts_web.backup_sync as bs
+    assert not any('visit' in f for f in bs.DATA_FILES), (
+        'a visitor file entered the backup set')
+    for name in os.listdir(WEB):
+        assert 'visit' not in name.lower(), (
+            f'{name} looks like a persisted visitor file')
+
+
+@test('privacy')
+def the_uptime_robot_is_not_counted_as_a_person():
+    server._visits.clear()
+    client.get('/api/leaderboard', headers={
+        'CF-Connecting-IP': '192.0.2.50', 'User-Agent': 'curl/8.4.0'})
+    assert server._active_visitors() == 0, (
+        'the uptime monitor is being counted as a visitor')
+
+
 # ===========================================================================
 # runner
 # ===========================================================================
