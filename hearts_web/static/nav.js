@@ -55,6 +55,7 @@
         <a href="/how">How it's built</a>
         <a href="/support">Support <span
            style="color:#E5484D">&hearts;</span></a>
+        <a href="/feedback">Send feedback</a>
         <a href="https://github.com/JAkoliver/hearts_simulator"
            target="_blank" rel="noopener">GitHub &nearr;</a>
       </div></div>`;

@@ -64,3 +64,9 @@ TURN_TIMER_S = 60
 # mtime, so adding
 # a patron never needs a restart.
 # SUPPORTERS_PATH = os.path.join(os.path.dirname(__file__), 'supporters.json')
+
+# Optional fallback address shown on /feedback. Leave as None and the
+# page simply does not offer one (never advertise a dead mailbox).
+# Cloudflare Email Routing forwards @perilune.ai to a real inbox for
+# free - set this once that exists.
+FEEDBACK_EMAIL = None

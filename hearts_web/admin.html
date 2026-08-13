@@ -92,6 +92,21 @@ async function tick() {
     ${Object.entries(d.system.tiers).map(([k, m]) =>
       kv('tier ' + k, m, m ? 'ok' : 'warn')).join('')}</div>`);
 
+  const fb = d.feedback || {};
+  cards.push(`<div class="card"><h2>Feedback</h2>
+    <div class="big">${fb.last_24h || 0}</div>
+    ${kv('in the last 24 h', fb.last_24h || 0)}
+    ${kv('total received', fb.total || 0)}
+    ${(fb.recent || []).map(r => `<div style="margin-top:8px;
+        border-top:1px solid #29292E; padding-top:6px">
+      <div class="muted">${fmtAgo(now - r.ts)} ago &middot; ${r.category || 'other'}${
+        r.email ? ' &middot; ' + r.email : ''}</div>
+      <div>${String(r.message || '').slice(0, 240)
+              .replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}</div>
+      ${r.sid ? `<div class="muted">match ${r.sid}</div>` : ''}
+    </div>`).join('') || '<span class="muted">nothing yet</span>'}
+    ${fb.error ? kv('read error', fb.error, 'warn') : ''}</div>`);
+
   const sup = Object.entries(d.supporters || {});
   cards.push(`<div class="card"><h2>Supporters (${sup.length})</h2>
     ${sup.map(([n]) => `<div>${n}</div>`).join('') || '<span class="muted">none yet</span>'}</div>`);

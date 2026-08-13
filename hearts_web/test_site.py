@@ -12,6 +12,7 @@ the hard way:
   * point HEARTS_LOG_PATH at a temp file - a scratch server writing the
     REAL match log put a test identity on the public leaderboard
     (2026-08-12);
+  * point HEARTS_FEEDBACK_PATH at a temp file for the same reason;
   * stub the off-host backup starter - importing the server otherwise
     spawns a thread that uploads the live data files to R2.
 
@@ -35,6 +36,9 @@ sys.path.insert(0, ROOT)
 _tmp_log = tempfile.NamedTemporaryFile(suffix='.jsonl', delete=False)
 _tmp_log.close()
 os.environ['HEARTS_LOG_PATH'] = _tmp_log.name
+_tmp_fb = tempfile.NamedTemporaryFile(suffix='.jsonl', delete=False)
+_tmp_fb.close()
+os.environ['HEARTS_FEEDBACK_PATH'] = _tmp_fb.name
 os.environ.setdefault('CUDA_VISIBLE_DEVICES', '')       # CPU: tests are tiny
 
 import hearts_web.backup_sync as _bs                     # noqa: E402
@@ -63,6 +67,15 @@ def test(group):
 def read(path):
     with open(path, encoding='utf-8') as f:
         return f.read()
+
+
+def _feedback_rows():
+    """Rows currently in the live feedback file (may be absent)."""
+    try:
+        with open(server.FEEDBACK_PATH, encoding='utf-8') as f:
+            return [json.loads(ln) for ln in f if ln.strip()]
+    except FileNotFoundError:
+        return []
 
 
 # ===========================================================================
@@ -377,6 +390,70 @@ def supporter_badge_keeps_its_dark_mount():
 
 
 # ===========================================================================
+# feedback - the public write path, so it gets the closest scrutiny
+# ===========================================================================
+
+@test('feedback')
+def feedback_page_serves():
+    r = client.get('/feedback')
+    assert r.status_code == 200 and b'Send feedback' in r.content
+
+
+@test('feedback')
+def a_report_is_stored_with_server_side_context():
+    before = _feedback_rows()
+    r = client.post('/api/feedback', json={
+        'message': 'the review panel showed the 4C grouped with the 6C',
+        'category': 'bug', 'page': '/review?share=abc', 'sid': 'TESTSID'})
+    assert r.status_code == 200, f'submit failed: {r.status_code} {r.text}'
+    rows = _feedback_rows()
+    assert len(rows) == len(before) + 1, 'the report was not appended'
+    e = rows[-1]
+    assert e['category'] == 'bug' and e['sid'] == 'TESTSID'
+    assert e['model'], 'the serving model hash was not attached'
+    assert 'ua' in e, 'the user agent was not attached'
+    assert 'ip' not in e and 'cf-connecting-ip' not in e, (
+        'an IP address was stored - the site promises it is not')
+
+
+@test('feedback')
+def the_honeypot_swallows_bots():
+    before = _feedback_rows()
+    r = client.post('/api/feedback', json={
+        'message': 'buy cheap watches', 'website': 'http://spam.example'})
+    assert r.status_code == 200, 'the honeypot response should look normal'
+    assert len(_feedback_rows()) == len(before), (
+        'a honeypot-tripping submission was stored anyway')
+
+
+@test('feedback')
+def junk_submissions_are_refused():
+    assert client.post('/api/feedback', json={'message': 'hi'}).status_code == 400
+    assert client.post('/api/feedback',
+                       json={'message': 'x' * 5000}).status_code == 400
+
+
+@test('feedback')
+def feedback_never_touches_the_match_log():
+    log = os.environ['HEARTS_LOG_PATH']
+    before = os.path.getsize(log) if os.path.exists(log) else 0
+    client.post('/api/feedback', json={'message': 'a perfectly fine report'})
+    after = os.path.getsize(log) if os.path.exists(log) else 0
+    assert after == before, 'a feedback submission wrote to the match log'
+
+
+@test('feedback')
+def the_fallback_address_is_only_offered_when_configured():
+    d = client.get('/api/feedback/meta').json()
+    assert 'email' in d, '/api/feedback/meta lost its email field'
+    if d['email'] is None:
+        src = read(os.path.join(STATIC, 'feedback.html'))
+        assert '@perilune.ai' not in src, (
+            'the page hardcodes an address while none is configured - it '
+            'would advertise a dead mailbox')
+
+
+# ===========================================================================
 # runner
 # ===========================================================================
 
@@ -406,10 +483,11 @@ def main():
     print(f'\n{passed} passed, {len(failed)} failed')
     if failed:
         print('failed: ' + ', '.join(failed))
-    try:
-        os.unlink(_tmp_log.name)
-    except OSError:
-        pass
+    for tmp in (_tmp_log.name, _tmp_fb.name):
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
     return 1 if failed else 0
 
 

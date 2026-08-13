@@ -316,7 +316,8 @@ RL_GENERAL = cfg.RL_GENERAL
 RL_CREATE = cfg.RL_CREATE
 CREATE_PATHS = ('/api/new', '/api/daily/new',
                 '/api/table/new', '/api/table/join',
-                '/api/identity/new', '/api/identity/rotate')
+                '/api/identity/new', '/api/identity/rotate',
+                '/api/feedback')
 
 
 def _limited(bucket, ip, limit, window):
@@ -4149,9 +4150,25 @@ def admin_status(request: Request):
                              encoding='utf-8'))
     except Exception:
         pass
+    feedback = {'total': 0, 'recent': []}
+    try:
+        with open(FEEDBACK_PATH, encoding='utf-8') as f:
+            rows = [json.loads(ln) for ln in f if ln.strip()]
+        feedback['total'] = len(rows)
+        feedback['recent'] = [
+            {k: r.get(k) for k in ('ts', 'category', 'message', 'email',
+                                   'page', 'sid')}
+            for r in rows[-8:][::-1]]
+        day = time.time() - 86400
+        feedback['last_24h'] = sum(1 for r in rows if r.get('ts', 0) >= day)
+    except FileNotFoundError:
+        feedback['last_24h'] = 0
+    except Exception as e:
+        feedback['error'] = str(e)[:120]
     return {
         'now': {'solo_live': solo_live, 'solo_total': solo_total,
                 'tables': tables},
+        'feedback': feedback,
         'logs': _log_stats(),
         'system': {'uptime_s': round(time.time() - _BOOT_TS),
                    'rss_mb': rss_mb,
@@ -4169,3 +4186,72 @@ def admin_page(request: Request):
         raise HTTPException(403, 'admin is localhost-only')
     return FileResponse(os.path.join(
         os.path.dirname(os.path.abspath(__file__)), 'admin.html'))
+
+
+# ---------------------------------------------------------------------------
+# Feedback: the site's report/suggest outlet. No account, no email required -
+# the point is that a player who notices something can say so in one box.
+# The SERVER attaches the context that makes a report actionable (page, match
+# id, model hash, UA), because a human never remembers to include it.
+#
+# Privacy: the IP is used for rate limiting (middleware) and never stored;
+# the email field is optional, volunteered, and used only to reply.
+# ---------------------------------------------------------------------------
+# HEARTS_FEEDBACK_PATH: the same test-isolation valve HEARTS_LOG_PATH has -
+# a scratch server must never append to the real feedback file.
+FEEDBACK_PATH = (os.environ.get('HEARTS_FEEDBACK_PATH')
+                 or os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                 'feedback.jsonl'))
+FEEDBACK_MAX = 4000          # message hard cap
+FEEDBACK_CATEGORIES = ('bug', 'ai-behaviour', 'suggestion', 'other')
+
+
+class FeedbackBody(BaseModel):
+    message: str
+    category: str | None = None
+    email: str | None = None
+    page: str | None = None
+    sid: str | None = None
+    # honeypot: a real form leaves it empty; bots fill every field they see
+    website: str | None = None
+
+
+@app.post('/api/feedback')
+def submit_feedback(body: FeedbackBody, request: Request):
+    if body.website:                      # honeypot tripped
+        return {'ok': True}               # look successful; store nothing
+    msg = (body.message or '').strip()
+    if len(msg) < 4:
+        raise HTTPException(400, 'please write a little more')
+    if len(msg) > FEEDBACK_MAX:
+        raise HTTPException(400, f'message longer than {FEEDBACK_MAX} chars')
+    email = (body.email or '').strip()[:200]
+    cat = body.category if body.category in FEEDBACK_CATEGORIES else 'other'
+    entry = {
+        'ts': round(time.time(), 3),
+        'category': cat,
+        'message': msg,
+        'email': email or None,
+        'page': (body.page or '')[:300] or None,
+        'sid': (body.sid or '')[:64] or None,
+        'model': MODEL_MD5,
+        'ua': (request.headers.get('user-agent') or '')[:300],
+        'seen': False,
+    }
+    with open(FEEDBACK_PATH, 'a', encoding='utf-8') as f:
+        f.write(json.dumps(entry, ensure_ascii=False) + '\n')
+    print(f'[feedback] {cat}: {msg[:80]}')
+    return {'ok': True}
+
+
+@app.get('/api/feedback/meta')
+def feedback_meta():
+    """The optional fallback address, so the page can offer it ONLY when
+    one is actually configured (never advertise a dead mailbox)."""
+    return {'email': getattr(cfg, 'FEEDBACK_EMAIL', None)}
+
+
+@app.get('/feedback')
+def feedback_page():
+    return FileResponse(os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), 'static', 'feedback.html'))

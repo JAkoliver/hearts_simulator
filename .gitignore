@@ -129,3 +129,7 @@ equity_data/exploiter_r2/
 equity_data/instrument_check/
 !equity_data/verdicts/**
 !equity_data/validation_v1/**
+
+# player-submitted feedback (may contain a volunteered email)
+hearts_web/feedback.jsonl
+hearts_web/match_logs.jsonl.*

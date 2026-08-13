@@ -53,6 +53,7 @@ DATA_FILES = [
     'progress_stats.jsonl',
     'search_shares.jsonl',
     'supporters.json',
+    'feedback.jsonl',
 ]
 
 

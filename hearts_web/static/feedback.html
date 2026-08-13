@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Send feedback</title>
+<meta name="description" content="Report a bug, flag odd AI behaviour, or suggest something for Perilune. No account needed.">
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<style>
+  @font-face { font-family:'Space Grotesk';
+    src:url('/static/fonts/space-grotesk.woff2') format('woff2');
+    font-weight:300 700; font-display:swap; }
+  body { font-family:system-ui, sans-serif; background:#121212; color:#ECECEC;
+         max-width:640px; margin:0 auto; padding:32px 20px; line-height:1.55; }
+  h1 { font-family:'Space Grotesk', system-ui, sans-serif; color:#FFD97A;
+       font-size:1.9rem; margin-bottom:2px; }
+  .tag { color:#A6A6AF; font-style:italic; margin-bottom:18px; }
+  a { color:#E8B923; }
+  p { margin:10px 0; }
+  label { display:block; font-size:.78rem; color:#A6A6AF; margin:14px 0 4px;
+          text-transform:uppercase; letter-spacing:.03em; }
+  select, textarea, input[type=email] {
+    width:100%; background:#1E1E21; color:#ECECEC; border:1px solid #33333A;
+    border-radius:9px; padding:10px 12px; font-family:inherit;
+    font-size:.95rem; }
+  textarea { min-height:150px; resize:vertical; }
+  select:focus, textarea:focus, input:focus { outline:2px solid #E8B923;
+    outline-offset:1px; }
+  .hint { font-size:.78rem; color:#8A8A93; margin-top:4px; }
+  .ctx { background:#1E1E21; border-radius:10px; padding:10px 14px;
+         font-size:.78rem; color:#A6A6AF; margin:16px 0; }
+  .ctx b { color:#C9C9CF; font-weight:600; }
+  button.send { background:#E8B923; color:#121212; font-weight:700;
+    font-size:1rem; border:0; border-radius:10px; padding:12px 26px;
+    cursor:pointer; margin-top:16px; }
+  button.send:hover { background:#FFD97A; }
+  button.send:disabled { opacity:.5; cursor:default; }
+  #msg { margin-top:14px; font-size:.9rem; display:none; }
+  #msg.ok { color:#6BCB77; display:block; }
+  #msg.err { color:#E5484D; display:block; }
+  /* honeypot: off-screen, not display:none (some bots skip hidden fields) */
+  .hp { position:absolute; left:-9999px; width:1px; height:1px;
+        overflow:hidden; }
+</style>
+</head>
+<body>
+<h1>Send feedback</h1>
+<div class="tag">bugs, odd AI behaviour, or ideas &mdash; no account needed</div>
+
+<p>If something looked wrong, the most useful thing you can tell me is
+<b>what you expected instead</b>. If it happened during a match, come
+here from that match's review page and the report carries the match
+with it, so I can replay the exact hand.</p>
+
+<form id="fb">
+  <label for="cat">What kind of thing is this?</label>
+  <select id="cat">
+    <option value="bug">Something is broken</option>
+    <option value="ai-behaviour">The AI did something strange</option>
+    <option value="suggestion">A suggestion</option>
+    <option value="other">Something else</option>
+  </select>
+
+  <label for="message">What happened?</label>
+  <textarea id="message" maxlength="4000"
+    placeholder="What you did, what you saw, and what you expected instead."></textarea>
+
+  <label for="email">Email (optional)</label>
+  <input id="email" type="email" maxlength="200" placeholder="only if you'd like a reply">
+  <div class="hint">Optional, and used only to reply to you. Leave it
+    blank and the report stays anonymous &mdash; the site has no accounts.</div>
+
+  <div class="hp"><label for="website">Website</label>
+    <input id="website" type="text" tabindex="-1" autocomplete="off"></div>
+
+  <div class="ctx" id="ctx"></div>
+
+  <button class="send" id="send" type="submit">Send</button>
+  <div id="msg"></div>
+</form>
+
+<p style="margin-top:24px" id="mailfallback" hidden></p>
+
+<p style="margin-top:22px; font-size:.85rem; color:#A6A6AF">
+  Technical or reproducible? An issue on
+  <a href="https://github.com/JAkoliver/hearts_simulator/issues">GitHub</a>
+  is ideal &mdash; it keeps the discussion with the code.</p>
+
+<p style="margin-top:22px"><a href="/">&larr; back to the table</a></p>
+
+<script>
+const el = id => document.getElementById(id);
+const q = new URLSearchParams(location.search);
+// context: where the reporter came from, and the match if there is one
+const fromPage = q.get('from') || document.referrer || '';
+const sid = q.get('sid') || q.get('share') || '';
+el('ctx').innerHTML = 'Sent with your report: <b>the page you came from</b>'
+  + (sid ? ', <b>the match you were viewing</b>' : '')
+  + ', and <b>which AI version</b> is live. No account, no IP address.';
+
+fetch('/api/feedback/meta').then(r => r.json()).then(d => {
+  if (d && d.email) {
+    const p = el('mailfallback');
+    p.innerHTML = 'Prefer email? <a href="mailto:' + d.email + '">'
+      + d.email + '</a>';
+    p.hidden = false;
+  }
+}).catch(() => {});
+
+el('fb').addEventListener('submit', async ev => {
+  ev.preventDefault();
+  const message = el('message').value.trim();
+  const box = el('msg');
+  if (message.length < 4) {
+    box.className = 'err'; box.textContent = 'Please write a little more.';
+    return;
+  }
+  el('send').disabled = true;
+  try {
+    const r = await fetch('/api/feedback', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        message, category: el('cat').value,
+        email: el('email').value.trim() || null,
+        page: fromPage || null, sid: sid || null,
+        website: el('website').value || null,
+      })});
+    if (!r.ok) throw new Error((await r.json()).detail || r.status);
+    box.className = 'ok';
+    box.textContent = 'Thank you — that came through.';
+    el('fb').reset();
+  } catch (e) {
+    box.className = 'err';
+    box.textContent = 'That did not send (' + e.message + '). '
+      + 'If it keeps failing, try again in a minute.';
+    el('send').disabled = false;
+  }
+});
+</script>
+<script src="/static/nav.js?v=10"></script>
+</body>
+</html>
