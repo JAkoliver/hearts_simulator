@@ -194,6 +194,20 @@ SIGNED by user 2026-08-11 ("I sign off, start"). Scope: stages 0-5 as
 written; venue decision for Stage 2 reserved to quote time; any
 band change after data = the registered one-amendment path only.
 
+## Stage-4 stop rule (clarification, 2026-08-13 - NOT an amendment)
+
+Stage 4 as written halts on "3 consecutive structural nulls (pooled
+|delta| < 0.02)". That covers a ladder that goes nowhere but NOT one
+whose trials clearly FAIL, which is the case in hand (trial 1: +0.296
+placement vs its own baseline, ~13 SE worse). The house PPO stop rule
+already covers this and is stricter: three consecutive trials without
+improvement HALT the round (docs/exploiter_league_prereg.md "STOP RULE
+(binding)"). It is applied here as written: **3 consecutive failed
+trials -> Stage 4 HALTS and reports.** Stopping EARLIER than the
+registered condition cannot inflate a false positive, so this is a
+clarification, not an amendment, and the Stage-4 amendment budget is
+untouched.
+
 ## Stage-3 amendment (the registered one; user-approved 2026-08-12, BEFORE any screen ran)
 
 Arm (c) produced no snapshot inside the entropy band [0.22, 0.87]
