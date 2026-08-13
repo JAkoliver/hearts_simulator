@@ -1,0 +1,27 @@
+# Uptime monitor: probes the live site every 10 minutes from GitHub's
+# runners. A failed run means the site is down (after one retry), and
+# GitHub emails the repo owner about workflow failures by default.
+# Cron timing is best-effort (GitHub may delay under load); this is a
+# free safety net, not an SLA instrument.
+name: uptime
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: probe endpoints (one retry each)
+        run: |
+          check() {
+            curl -sf --max-time 20 -o /dev/null "$1" && return 0
+            echo "first probe of $1 failed; retrying in 30s"
+            sleep 30
+            curl -sf --max-time 20 -o /dev/null "$1"
+          }
+          check https://play.perilune.ai/api/leaderboard
+          check https://perilune.ai/
