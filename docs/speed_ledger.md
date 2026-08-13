@@ -891,3 +891,30 @@ and 10 both recurred). Permanent fix: scripts/run_match_gate.py is the
 only sanctioned gate entry. The "v6 gate is 10x slower on CPU" claim
 made during the thrash was WRONG - clean timing: 8 matches/24s at 4
 workers; full gate ~51 min at 12.
+
+## 2026-08-13: v6 Stage 4 trial 2 - FAIL, no movement; two problems found
+
+Trial 2 (continued from trial-1 weights, optimizer moments carried,
+75k deals): gate n=3200 placement **+0.1694 (SE 0.0195)** vs champion
+8a89da90 - slightly WORSE than trial 1's +0.1367. Trial-over-trial
+movement -0.033 +/- 0.028 = within noise. Neither trial is a
+"structural null" by the registered definition (|delta| < 0.02
+placement), so the prereg's 3-null halt is NOT met and the ladder
+formally continues.
+
+PROCEDURAL DEVIATION (owned): the prereg registers the ladder as
+`run_loop` match-mode, which MUTATES the config between trials
+(propose -> train -> gate -> promote/rollback). Both trials so far ran
+train.py directly on a FIXED config, so trial 2 was the same recipe
+continued - which plausibly explains the flat result. Subsequent trials
+must go through run_loop (or vary hyperparameters deliberately) for the
+ladder to be the registered instrument.
+
+BLOCKER FOUND for Stage 5 (independent of the ladder): the C++ search
+path CANNOT LOAD A V6 NET. SearchPlayer.hpp ProbeObsDim probes
+{550, 556, 238, 181} only - 882 is absent, and nothing assembles the
+obs-v2 vector engine-side. The registered battery is conjunctive
+(match gate AND search guard n=4800 K=32), so no v6 candidate can be
+promoted until the engine speaks obs v2. This must be built and
+verified (A/A determinism + a v5 agreement check) before Stage 5,
+regardless of how the ladder ends.
