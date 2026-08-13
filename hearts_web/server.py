@@ -411,6 +411,8 @@ class Session:
     def __init__(self, pid=None, ua='', tier='full', daily=None,
                  practice=False):
         self.sid = secrets.token_urlsafe(12)
+        self.last_active = time.time()   # touched by state polls (the
+        # client heartbeat); admin's "live" = active within cfg.STALE_S
         self.daily = daily          # 'YYYY-MM-DD' for the daily challenge
         # PRACTICE: never logged (which also keeps it out of history,
         # profile stats, the leaderboard and the community pool - the
@@ -3266,6 +3268,7 @@ def _own_session(s, pid):
 def get_state(sid: str, pid: str = None):
     s = _get(sid)
     _own_session(s, pid)
+    s.last_active = time.time()
     with s.lock:
         return s.state()
 
@@ -4078,9 +4081,16 @@ def _log_stats():
 def admin_status(request: Request):
     if not _is_local_admin(request):
         raise HTTPException(403, 'admin is localhost-only')
+    now = time.time()
+    stale_s = getattr(cfg, 'STALE_S', 120)
     with _sessions_lock:
+        # "live" = unfinished AND polled recently. Sessions are KEPT in
+        # memory after the tab closes (resume support; evicted at cap),
+        # so unfinished-alone counts ghosts forever (found 2026-08-13:
+        # a closed phone tab pinned the count at 1 until restart).
         solo_live = sum(1 for s in _sessions.values()
-                        if not getattr(s, 'finished', True))
+                        if not getattr(s, 'finished', True)
+                        and now - getattr(s, 'last_active', 0) < stale_s)
         solo_total = len(_sessions)
     tables = []
     with _tables_lock:
