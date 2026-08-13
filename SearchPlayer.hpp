@@ -29,7 +29,12 @@ inline int ProbeObsDim(torch::jit::script::Module& m) {
     // would silently accept 556 input (ignoring the tail), while a 556 match
     // trace errors on 550 input - so probing 550 first resolves both
     // correctly. (556 = 550 + MATCH_CTX_DIM, hearts_net.py.)
-    for (int dim : {550, 556, 238, 181}) {
+    // 882 (obs v2, HeartsNetV6) goes LAST for the same reason in reverse:
+    // every narrower trace would silently accept an 882-wide row and be
+    // misreported, so each resolves to its own width first. A v6 trace
+    // fails all the narrow probes (its card-channel slices run to 868, so
+    // a short row yields empty slices and the stack errors).
+    for (int dim : {550, 556, 238, 181, 882}) {
         try {
             std::vector<torch::jit::IValue> probe;
             probe.push_back(torch::zeros({1, dim}, torch::kFloat32));
@@ -52,7 +57,14 @@ public:
     int ChooseAction(const HeartsEnv& env) {
         auto obs = env.Observe();
         auto legal_raw = env.GetLegalActions();
-        torch::Tensor o = torch::from_blob((void*)obs.data(), {1, obs_dim_}, torch::kFloat32).clone();
+        // Zero row + bounded copy: Observe() is 550 floats, so wrapping it
+        // with from_blob at obs_dim_ read PAST THE END for any wider trace
+        // (556/882). Wider widths keep zeros beyond 550, which for a match
+        // trace is the start-of-match context - the same footing the raw
+        // (match-blind) instrument gives every arm.
+        torch::Tensor o = torch::zeros({1, obs_dim_}, torch::kFloat32);
+        std::memcpy(o.data_ptr<float>(), obs.data(),
+                    std::min(obs_dim_, 550) * sizeof(float));
         torch::Tensor m = torch::zeros({1, 52}, torch::kBool);
         bool* mp = m.data_ptr<bool>();
         for (int i = 0; i < 13; ++i) {
@@ -178,8 +190,9 @@ public:
                  Config cfg)
         : backend_(std::move(backend)), obs_dim_(model_obs_dim), cfg_(cfg), rng_(cfg.seed) {
         if (cfg_.match_aware) {
-            if (obs_dim_ != 556)
-                throw std::runtime_error("match_aware requires a 556-dim trace");
+            if (obs_dim_ != 556 && obs_dim_ != 882)
+                throw std::runtime_error("match_aware requires a 556- or "
+                                         "882-dim (obs v2) trace");
             if (!cfg_.equity_model)
                 throw std::runtime_error("match_aware requires an equity model");
             if (cfg_.rollout_tricks >= 0)
@@ -672,12 +685,27 @@ private:
         row[555] = static_cast<float>((100.0 - mx) / 100.0);
     }
 
-    // Copy an engine observation (550 floats) into a row of width obs_dim_,
-    // appending ctx for `seat` when running the 556-dim match trace.
-    template <typename Obs>
-    void FillObsRow(float* row, const Obs& obs, int seat) const {
-        std::memcpy(row, obs.data(), 550 * sizeof(float));
-        if (obs_dim_ == 556) WriteCtx(row, seat);
+    // Build one net-input row of width obs_dim_ for `seat`, from `env`:
+    //   [0,550)    per-deal observation for that seat
+    //   [550,556)  match context      (556 and 882 traces)
+    //   [556,882)  obs-v2 extension   (882 traces only)
+    // This is EXACTLY the layout the v6 training records carry
+    // (selfplay_gen writes obs[550] + ctx[6] then ext[326]; v6_distill
+    // concatenates the same two fields), so the search feeds a v6 net the
+    // same vector it was trained on. The row must be zeroed by the caller
+    // (torch::zeros/empty+fill) only for widths this does not write.
+    void FillObsRow(float* row, const HeartsEnv& env, int seat) const {
+        auto obs = env.ObserveFor(seat);
+        // min(): a legacy narrow trace (238/181) takes the PREFIX. The
+        // unconditional 550-copy that stood here overran such a row into
+        // the next one (rows are contiguous in the batch tensor).
+        std::memcpy(row, obs.data(),
+                    std::min(obs_dim_, 550) * sizeof(float));
+        if (obs_dim_ >= 556) WriteCtx(row, seat);
+        if (obs_dim_ == 882) {
+            auto ext = env.ObserveExtFor(seat);
+            std::memcpy(row + 556, ext.data(), 326 * sizeof(float));
+        }
     }
 
     // Score completed rollouts by match equity: exact placements when the
@@ -792,8 +820,7 @@ private:
             float* op = o.data_ptr<float>();
             bool* mp = m.data_ptr<bool>();
             for (size_t j = 0; j < active.size(); ++j) {
-                auto obs = sims[active[j]].sim_env.Observe();
-                FillObsRow(op + j * obs_dim_, obs,
+                FillObsRow(op + j * obs_dim_, sims[active[j]].sim_env,
                            sims[active[j]].sim_env.GetCurrentPlayer());
                 auto lr = sims[active[j]].sim_env.GetLegalActions();
                 for (int i = 0; i < 13; ++i) {
@@ -846,8 +873,7 @@ private:
         float* op = o.data_ptr<float>();
         for (size_t j = 0; j < leaves.size(); ++j) {
             Sim& s = sims[leaves[j]];
-            auto obs = s.sim_env.ObserveFor(s.eval_seat);
-            FillObsRow(op + j * obs_dim_, obs, s.eval_seat);
+            FillObsRow(op + j * obs_dim_, s.sim_env, s.eval_seat);
         }
 
         torch::Tensor v;
@@ -984,9 +1010,8 @@ private:
     }
 
     std::vector<float> PolicyProbs(const HeartsEnv& env, const std::vector<int>& legal) {
-        auto obs = env.Observe();
         torch::Tensor o = torch::zeros({1, obs_dim_}, torch::kFloat32);
-        FillObsRow(o.data_ptr<float>(), obs, env.GetCurrentPlayer());
+        FillObsRow(o.data_ptr<float>(), env, env.GetCurrentPlayer());
         torch::Tensor m = torch::zeros({1, 52}, torch::kBool);
         bool* mp = m.data_ptr<bool>();
         for (int a : legal) mp[a] = true;
@@ -1036,9 +1061,8 @@ private:
     // ---------------------------- shared internals ----------------------------
 
     int ArgmaxSingle(const HeartsEnv& env, const std::vector<int>& legal) {
-        auto obs = env.Observe();
         torch::Tensor o = torch::zeros({1, obs_dim_}, torch::kFloat32);
-        FillObsRow(o.data_ptr<float>(), obs, env.GetCurrentPlayer());
+        FillObsRow(o.data_ptr<float>(), env, env.GetCurrentPlayer());
         torch::Tensor m = torch::zeros({1, 52}, torch::kBool);
         bool* mp = m.data_ptr<bool>();
         for (int a : legal) mp[a] = true;
@@ -1046,9 +1070,8 @@ private:
     }
 
     bool FetchBelief(const HeartsEnv& env) {
-        auto obs = env.Observe();
         torch::Tensor o = torch::zeros({1, obs_dim_}, torch::kFloat32);
-        FillObsRow(o.data_ptr<float>(), obs, env.GetCurrentPlayer());
+        FillObsRow(o.data_ptr<float>(), env, env.GetCurrentPlayer());
         torch::Tensor m = torch::ones({1, 52}, torch::kBool);
         InferenceBackend* bk = cfg_.belief_backend ? cfg_.belief_backend.get() : backend_.get();
         InferOutputs out = bk->Forward(o, m);

@@ -286,6 +286,14 @@ class _SearchExport(torch.nn.Module):
 def _trace_for_search(checkpoint_path, out_path, obs_dim=550):
     net = net_from_checkpoint(checkpoint_path)
     net.eval()
+    # v6 (obs-v2) nets accept ONLY their own width - tracing one at 550/556
+    # raises inside the net. The engine probes 882 and assembles the
+    # matching row (SearchPlayer::FillObsRow), so the NET decides, not the
+    # caller's match-aware guess.
+    net_dim = int(getattr(net, 'obs_dim', 0) or 0)
+    if net_dim == 882 and obs_dim != 882:
+        print(f"  (obs-v2 net: tracing at 882, not {obs_dim})")
+        obs_dim = 882
     dummy_obs = torch.zeros(1, obs_dim, dtype=torch.float32)
     dummy_mask = torch.zeros(1, 52, dtype=torch.bool)
     torch.jit.trace(_SearchExport(net), (dummy_obs, dummy_mask)).save(out_path)

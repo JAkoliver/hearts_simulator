@@ -918,3 +918,38 @@ obs-v2 vector engine-side. The registered battery is conjunctive
 promoted until the engine speaks obs v2. This must be built and
 verified (A/A determinism + a v5 agreement check) before Stage 5,
 regardless of how the ladder ends.
+
+## 2026-08-13: C++ obs-v2 search path BUILT + verified (Stage-5 blocker cleared)
+
+The flat search now speaks obs v2, so a v6 candidate can face the
+registered search guard. Changes: ProbeObsDim gained 882 (LAST in the
+probe order - every narrower trace would silently accept a wider row);
+FillObsRow rebuilt to take the ENV and assemble
+[ObserveFor(seat) 550 | WriteCtx 6 | ObserveExtFor(seat) 326], byte-
+identical to what selfplay_gen writes into HMR3 records and what
+v6_distill concatenates for training; match_aware widened to accept
+882; orchestrator._trace_for_search now takes the width from the NET
+(a v6 net traced at 556 raises).
+
+TWO LATENT BUGS found by the refactor and fixed:
+- FillObsRow memcpy'd 550 floats unconditionally, overrunning a
+  narrow (238/181) row into the next row of the batch tensor.
+- RawPolicy::ChooseAction wrapped the 550-float Observe() with
+  from_blob at obs_dim_, reading PAST THE END for any 556/882 trace.
+TreeSearchPlayer now THROWS on 882 rather than silently feeding a v6
+net a row with no extension block (the tree search is closed for
+strength; the flat player is the only supported obs-v2 path).
+
+VERIFICATION (all pass):
+- Static: WriteCtx == hearts_match_env.match_ctx_row term for term;
+  record ext == ObserveExtFor(acting seat).
+- A/A determinism: same seed twice, byte-identical CSVs (also
+  identical across a full rebuild) - no uninitialized reads.
+- Sanity: v6 arm -2.33 vs the validated v5 match arm -1.83 on the
+  identical seed/deals (n=6, K=8) - the v6 net plays sensibly, which a
+  mis-assembled observation could not produce.
+- REGRESSION: the v5 arm's result is BYTE-IDENTICAL between the
+  pre-change and post-change builds (stash, rebuild, rerun, compare).
+- Pipeline: orchestrator.evaluate_candidate_search runs a v6 candidate
+  end to end - auto-traced at 882, MATCH-AWARE mode engaged, both arms
+  sharded, paired delta returned.

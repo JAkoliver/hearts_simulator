@@ -67,6 +67,15 @@ public:
     TreeSearchPlayer(std::shared_ptr<InferenceBackend> backend, int model_obs_dim, Config cfg)
         : backend_(std::move(backend)), obs_dim_(model_obs_dim), cfg_(cfg), rng_(cfg.seed),
           flat_(backend_, model_obs_dim, cfg.pass_cfg) {
+        // obs v2 (882) is deliberately NOT wired here: this class builds its
+        // own observation rows and would silently feed a v6 net a row with
+        // the extension block missing AND match_aware_ false. The tree
+        // search is closed for strength (measured: converges to the flat
+        // search at 55x the cost), so the flat SearchPlayer is the only
+        // supported obs-v2 path. Fail loudly rather than measure garbage.
+        if (obs_dim_ == 882)
+            throw std::runtime_error("obs-v2 (882) nets are not supported by "
+                                     "the tree search; use the flat search");
         match_aware_ = (obs_dim_ == 556);
         if (match_aware_ && !cfg_.equity_model)
             throw std::runtime_error("556-dim tree search requires an equity model");
