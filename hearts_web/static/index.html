@@ -648,6 +648,8 @@
        top-left corner is free (the left seat tag sits at 20% height). */
     #subline { max-width:38%; }
     #subline > span { display:block; margin-right:0; line-height:1.2; }
+    /* the model identity is its own row under "vs Perilune" */
+    #tierline .tname { display:block; }
     #theme-toggle { position:static; order:2; width:100%;
                     display:flex; justify-content:center; gap:6px;
                     flex-wrap:wrap; }
@@ -2921,17 +2923,24 @@ function updateTierline() {
   // practice panel and controls, but who you are playing is not.
   // Evaluated per update (not cached at load) so rotating the device
   // picks up the other form on the next state poll.
-  // The model name is nowrap, so when the line is too narrow it breaks
-  // AFTER "vs" - a deliberate second row with the name intact, never a
-  // mid-phrase wrap (the profile page's convention).
-  const narrow = matchMedia('(max-width:640px)').matches;
-  const opp = `vs <span class="tname">${
-    esc(state && state.tier_label || 'full strength')}</span>`;
-  el('tierline').innerHTML =
-    state && state.practice
-      ? (narrow ? opp : `PRACTICE · ${opp}`)
-      : state && state.tier_label && state.tier !== 'full'
-        ? `vs <span class="tname">${esc(state.tier_label)}</span>` : '';
+  // PHONES: two DELIBERATE rows - "vs Perilune" then WHICH model, e.g.
+  //   vs Perilune            vs Perilune
+  //   v5 (full strength)     Casual
+  // (the tier label is "Perilune · v5 (full strength)"; the name moves to
+  // row 1 so row 2 is purely the model identity, which is the part a
+  // player actually needs). Desktop keeps the single full-width line.
+  const t = el('tierline');
+  const label = (state && state.tier_label) || '';
+  const showing = state && (state.practice
+                            || (label && state.tier !== 'full'));
+  if (!showing) { t.textContent = ''; return; }
+  if (matchMedia('(max-width:640px)').matches) {
+    const model = label.replace(/^Perilune\s*·\s*/, '') || 'v5 (full strength)';
+    t.innerHTML = `vs Perilune<span class="tname">${esc(model)}</span>`;
+  } else {
+    t.textContent = state.practice
+      ? `PRACTICE · vs ${label || 'full strength'}` : `vs ${label}`;
+  }
 }
 
 async function newMatch(practice = false) {
