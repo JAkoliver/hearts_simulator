@@ -343,7 +343,9 @@ def nav_dropdown_escapes_the_band_stacking_context():
     review.html's #top is 56, so the menu opened UNDER that page's
     buttons. A child cannot outrank its parent's stacking context."""
     src = read(os.path.join(STATIC, 'nav.js'))
-    assert 'document.body.appendChild(dd)' in src, (
+    # anchored to line start: a COMMENTED-OUT call still contains the
+    # substring, which let a deliberately broken build pass once
+    assert re.search(r'(?m)^\s*document\.body\.appendChild\(dd\)', src), (
         'the nav dropdown is no longer reparented to <body>; it will open '
         'underneath any page header with a higher z-index')
     assert re.search(r"dd\.style\.zIndex\s*=\s*'(\d+)'", src), (
