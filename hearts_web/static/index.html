@@ -91,7 +91,10 @@
   body.nogame #side, body.nogame #theme-toggle, body.nogame footer,
   body.nogame #hint-side, body.nogame #practice-controls
     { display:none !important; }
-  #menu-btn-wrap { position:absolute; top:8px; right:10px; z-index:5; }
+  /* z8: the OPEN dropdown must paint over the header's game controls
+     (z5) and any table chrome, but stay under the match-end overlay
+     (z9/10) and the key-backup nudge (z11/12) */
+  #menu-btn-wrap { position:absolute; top:8px; right:10px; z-index:8; }
   #menu-btn-wrap button { font-size:.75rem; padding:4px 12px;
     background:var(--tag-bg); color:var(--text); }
   /* site-links dropdown: SAME look and link list as nav.js's #sitenav-dd
