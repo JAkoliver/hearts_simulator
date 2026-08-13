@@ -619,7 +619,11 @@
     #seat-right { top:20%; transform:none; }
     #hand .card { width:52px; height:75px; font-size:.95rem; }
     #theme-toggle { position:static; }
-    #menu-btn-wrap { position:static; }
+    /* menu button STAYS absolute top-right on phones (matches nav.js
+       pages; its dropdown anchors there). The old static fallback put
+       the button in flow beside the name while the dropdown still
+       opened at the right edge - disconnected (mobile pass 2026-08-12).
+       The .sub wraps to its own line, so the corner is clear. */
     header .sub { width:100%; text-align:center; font-size:.68rem; }
     #side { margin-top:6px; }
   }
