@@ -105,3 +105,6 @@ moon images/
 third_party/cuda_include/
 .v6_queue_token
 hearts_web/review_cache/
+
+# session onboarding doc: machine-local, mirrored in the ops repo, NEVER tracked
+CLAUDE.md
