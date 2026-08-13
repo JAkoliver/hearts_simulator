@@ -1178,16 +1178,34 @@ def _win_probs(totals, deals_played):
 _QS = SUITS.index('S') * 13 + RANKS.index('Q')
 
 
-def _equiv_groups(hand_set, played_set, legal):
+def _table_cards(obs):
+    """Cards on the table in the trick IN PROGRESS (observation block
+    52:104; 0:52 is the hand, 104:156 the completed history)."""
+    return set(np.flatnonzero(np.asarray(obs)[52:104] > 0).tolist())
+
+
+def _equiv_groups(hand_set, played_set, legal, table=()):
     """Groups of strictly-equivalent legal cards: same suit, every rank
     between them in the acting seat's own hand or already played
     (visible info only), and equal penalty value. Such cards win/lose
     identical tricks AND score identically in every continuation -
     preferences inside a group are meaningless.
 
+    A card ON THE TABLE is NOT a bridge, even though it is 'played':
+    it is a live threshold this very decision plays against. With the
+    5C led, holding 4C and 6C, the 4C ducks the trick and the 6C beats
+    it - materially different plays, and the search shares ONE estimate
+    across a group, so a wrong bridge corrupts the analysis rather than
+    just the display. (Found by the user in practice mode 2026-08-13:
+    4C..AC merged into a single bar under a led 5C.) Conservative by
+    design: a table card between two ranks splits them even when the
+    trick is already won above both - splitting only costs an
+    optimization, wrong merging costs correctness.
+
     The QS never joins a group (13 points vs 0 for its neighbors),
     though held it still bridges J-K connectivity. Hearts all carry the
     same 1 point, so heart groups are fine."""
+    table = set(table)
     by_suit = {}
     for c in legal:
         if c == _QS:      # 13 points: never equivalent to 0-point neighbors
@@ -1199,7 +1217,9 @@ def _equiv_groups(hand_set, played_set, legal):
         cur = [cards[0]]
         for prev, nxt in zip(cards, cards[1:]):
             ok = all(
-                (suit * 13 + r) in hand_set or (suit * 13 + r) in played_set
+                (suit * 13 + r) in hand_set
+                or ((suit * 13 + r) in played_set
+                    and (suit * 13 + r) not in table)
                 for r in range(prev % 13 + 1, nxt % 13))
             if ok:
                 cur.append(nxt)
@@ -1358,7 +1378,8 @@ def compute_review(deal_lines, viewer_seat):
                     all_ref.append(('bel', di, len(plays), os_))
             hand = set(np.flatnonzero(obs[:52] > 0).tolist())
             eq = [[card_name(c) for c in g]
-                  for g in _equiv_groups(hand, played_deal, legal)]
+                  for g in _equiv_groups(hand, played_deal, legal,
+                                         _table_cards(obs))]
             plays.append([s, card_name(card), 0.0, [], eq])  # evals fill below
             played_deal.add(card)
             trick_cards.append((s, card))
@@ -2034,7 +2055,8 @@ def _decision_replay(lines):
                 continue
             legal = [a for a in menv.get_legal_actions() if a != -1]
             hand = set(hand_of(menv, s))
-            eq = [tuple(g) for g in _equiv_groups(hand, played_deal, legal)]
+            eq = [tuple(g) for g in _equiv_groups(hand, played_deal,
+                                                 legal, set(trick))]
             plays.append({'seat': s, 'card': card, 'legal': legal, 'eq': eq,
                           'lead': trick[0] // 13 if trick else None})
             played_deal.add(card)
@@ -2251,7 +2273,8 @@ def compute_insight(deal_lines, seat):
                 obs_l.append(obs)
                 mask_l.append(mask)
                 hand = set(np.flatnonzero(obs[:52] > 0).tolist())
-                eq = _equiv_groups(hand, played_deal, legal)
+                eq = _equiv_groups(hand, played_deal, legal,
+                                   _table_cards(obs))
                 meta.append((d['deal_no'], plays // 4 + 1, card, len(legal),
                              eq, plays))
             if not passing:
@@ -2683,7 +2706,8 @@ def compute_match_stats(deal_lines, seat):
                     obs = np.array(menv.observe(), dtype=np.float32)
                     hand = set(np.flatnonzero(obs[:52] > 0).tolist())
                     agree_meta.append((len(obs_l), cat, card, len(legal),
-                                       _equiv_groups(hand, played_deal, legal)))
+                                       _equiv_groups(hand, played_deal, legal,
+                                                     _table_cards(obs))))
                     obs_l.append(obs)
                     mask_l.append(mask)
                 trick.append((s, card))
@@ -3937,7 +3961,7 @@ def practice_eval(sid: str, pid: str = None):
         hand = set(np.flatnonzero(obs[:52] > 0).tolist())
         passing = bool(s.menv.is_passing())
         eq = _equiv_groups(hand, set() if passing else s.played_this_deal,
-                           legal)
+                           legal, () if passing else _table_cards(obs))
         with _net_lock, torch.no_grad():
             logits = _net.forward_all(
                 torch.from_numpy(obs).unsqueeze(0),
