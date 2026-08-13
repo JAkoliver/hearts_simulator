@@ -44,6 +44,8 @@ _DIR = os.path.dirname(os.path.abspath(__file__))
 STATUS = {'enabled': False, 'last_cycle': None, 'uploads': {}, 'errors': {}}
 
 DATA_FILES = [
+    '.share_secret',        # share-link HMAC key: losing it silently
+                            # invalidates every link players have posted
     'match_logs.jsonl',
     'daily_attempts.jsonl',
     'player_names.jsonl',

@@ -49,6 +49,9 @@ Copy from the old host (scp; none of these are in git):
   `hearts_equity.pt`, tier nets (`hearts_ai_grandmaster_v4m10.pt`,
   `legacy_v3_pass238/hearts_ai_grandmaster_v3_milestone7.pt`)
 - `hearts_web/site_config.py` (production config incl. BACKUP_S3)
+- `hearts_web/.share_secret` (share-link HMAC key - WITHOUT it the new
+  host mints a fresh secret and every previously-shared review link
+  404s; learned at the 2026-08-12 cutover)
 - `hearts_web/supporters.json`
 - the existing data files, so history/leaderboard carry over:
   `hearts_web/match_logs.jsonl`, `daily_attempts.jsonl`,

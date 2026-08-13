@@ -543,6 +543,8 @@ class Session:
                           'placements': list(self.menv.placements()),
                           'duration_s': round(time.time() - self.t0, 1),
                           'ua': self.ua})
+                threading.Thread(target=_prewarm_review,
+                                 args=(self.sid, 1), daemon=True).start()
                 _pstats_kick(self.sid, 1)
 
     def run_ai_turns(self):
@@ -915,6 +917,9 @@ class Table:
             self.emit('match_end',
                       final=list(map(int, self.menv.match_scores)),
                       placements=places)
+            threading.Thread(target=_prewarm_review,
+                             args=(f'table:{self.code}', self.match_no),
+                             daemon=True).start()
             log_line({'v': LOG_V, 'kind': 'match', 'sid': f'table:{self.code}',
                       'pid': None, 'mode': 'table', 'seed': self.seed,
                       'human_seat': None, 'match_no': self.match_no,
@@ -1205,6 +1210,70 @@ def _equiv_groups(hand_set, played_set, legal):
 
 _review_cache = {}   # (sid_key, match_no) -> seat-independent payload
 
+# Disk layer under the in-memory cache: computed payloads survive
+# restarts (a review costs seconds of CPU to compute, milliseconds to
+# load). Derived data - gitignored, excluded from backups, prunable.
+_REVIEW_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                           'review_cache')
+os.makedirs(_REVIEW_DIR, exist_ok=True)
+_REVIEW_DISK_MAX = 2000          # files; oldest pruned past this
+
+
+def _review_disk_path(key):
+    h = hashlib.md5(f'{key[0]}|{key[1]}'.encode()).hexdigest()
+    return os.path.join(_REVIEW_DIR, h + '.json')
+
+
+def _review_get_or_compute(key, lines):
+    """Memory -> disk -> compute (persisting), single choke point used
+    by both the API and the match-end prewarm."""
+    cached = _review_cache.get(key)
+    if cached is not None and cached['n_deals'] == len(lines):
+        return cached
+    path = _review_disk_path(key)
+    try:
+        with open(path, encoding='utf-8') as f:
+            cached = json.load(f)
+        if cached.get('n_deals') == len(lines):
+            _review_cache[key] = cached
+            return cached
+    except (OSError, ValueError):
+        pass
+    cached = {'n_deals': len(lines), 'payload': compute_review(lines, -1)}
+    _review_cache[key] = cached
+    while len(_review_cache) > 20:
+        _review_cache.pop(next(iter(_review_cache)))
+    try:
+        tmp = path + '.tmp'
+        with open(tmp, 'w', encoding='utf-8') as f:
+            json.dump(cached, f, separators=(',', ':'))
+        os.replace(tmp, path)
+        files = [os.path.join(_REVIEW_DIR, n) for n in os.listdir(_REVIEW_DIR)
+                 if n.endswith('.json')]
+        if len(files) > _REVIEW_DISK_MAX:
+            files.sort(key=os.path.getmtime)
+            for p in files[:len(files) - _REVIEW_DISK_MAX]:
+                try:
+                    os.remove(p)
+                except OSError:
+                    pass
+    except OSError as e:
+        print(f'[review-cache] persist failed: {e}')
+    return cached
+
+
+def _prewarm_review(sid_key, match_no):
+    """Fired on a background thread at match end: by the time a player
+    clicks Review, the payload is computed and persisted. Never raises."""
+    try:
+        lines = [l for l in _log_lines_for(sid_key)
+                 if l.get('match_no', 1) == match_no]
+        if lines:
+            _review_get_or_compute((sid_key, match_no), lines)
+            print(f'[review-cache] prewarmed {sid_key} match {match_no}')
+    except Exception as e:
+        print(f'[review-cache] prewarm {sid_key}/{match_no} failed: {e}')
+
 
 def _apply_logged_hands(menv, d):
     """Cross-toolchain replay: seed-based dealing differs between MSVC /
@@ -1328,10 +1397,15 @@ def compute_review(deal_lines, viewer_seat):
         mask_t = torch.from_numpy(np.stack(all_mask))
         chunks = []
         bchunks = []
-        with _net_lock, torch.no_grad():
+        # Lock PER CHUNK, not around the whole loop: a background
+        # prewarm (or a long review) must yield to live gameplay
+        # inference every ~512 rows instead of freezing AI moves for
+        # the full multi-second forward.
+        with torch.no_grad():
             for i in range(0, len(all_obs), 512):
-                logits, _, bel = _net.forward_all(obs_t[i:i + 512],
-                                                  mask_t[i:i + 512])
+                with _net_lock:
+                    logits, _, bel = _net.forward_all(obs_t[i:i + 512],
+                                                      mask_t[i:i + 512])
                 chunks.append(torch.softmax(logits, dim=1))
                 bchunks.append(torch.sigmoid(bel))
         probs = torch.cat(chunks)
@@ -1623,13 +1697,7 @@ def api_review(pid: str = None, sid: str = None, code: str = None,
                match_no: int = None, share: str = None):
     pid = resolve_pid(pid)
     key, lines, seat = _review_access(pid, sid, code, match_no, share)
-    cached = _review_cache.get(key)
-    if cached is None or cached['n_deals'] != len(lines):
-        cached = {'n_deals': len(lines),
-                  'payload': compute_review(lines, -1)}
-        _review_cache[key] = cached
-        while len(_review_cache) > 20:
-            _review_cache.pop(next(iter(_review_cache)))
+    cached = _review_get_or_compute(key, lines)
     out = dict(cached['payload'])
     out['viewer_seat'] = seat
     # Codenames for human seats (per-request: pid-derived, retroactive -
