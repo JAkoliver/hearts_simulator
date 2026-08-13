@@ -878,11 +878,14 @@ const EMOTES = {
   ty: 'Thanks', close: 'Close one', gg: 'gg',
   // supporter pack: everyone SEES them; only supporters can send
   fullmoon: '1f315', newmoon: '1f31a', rocket: '1f680',
-  comet: '2604', star: '2b50',
-  tothemoon: 'to the moon!', crash: 'crash landing', perilune: 'perilune.',
+  thinking: '1f914', salt: '1f9c2', sparkheart: '1f496',
+  nope: '1f645-200d-2642-fe0f', blackheart: '1f5a4',
+  tothemoon: 'to the moon!', crash: 'crash landing',
+  dots: '...', gl: 'good luck!',
 };
-const SUP_EMOTES = new Set(['fullmoon', 'newmoon', 'rocket', 'comet',
-                            'star', 'tothemoon', 'crash', 'perilune']);
+const SUP_EMOTES = new Set(['fullmoon', 'newmoon', 'rocket', 'thinking',
+                            'salt', 'sparkheart', 'nope', 'blackheart',
+                            'tothemoon', 'crash', 'dots', 'gl']);
 const emoteHidden = () =>
   localStorage.getItem('hearts_hide_emotes') === '1';
 const _emoteTimers = {};

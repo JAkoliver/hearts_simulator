@@ -3721,12 +3721,14 @@ EMOTES = {
     # supporter pack: visible to everyone, SENDABLE only
     # by supporters - enforced server-side below, never just in the UI
     'fullmoon': '1f315', 'newmoon': '1f31a', 'rocket': '1f680',
-    'comet': '2604', 'star': '2b50',
+    'thinking': '1f914', 'salt': '1f9c2', 'sparkheart': '1f496',
+    'nope': '1f645-200d-2642-fe0f', 'blackheart': '1f5a4',
     'tothemoon': 'to the moon!', 'crash': 'crash landing',
-    'perilune': 'perilune.',
+    'dots': '...', 'gl': 'good luck!',
 }
-SUP_EMOTES = {'fullmoon', 'newmoon', 'rocket', 'comet', 'star',
-              'tothemoon', 'crash', 'perilune'}
+SUP_EMOTES = {'fullmoon', 'newmoon', 'rocket', 'thinking', 'salt',
+              'sparkheart', 'nope', 'blackheart',
+              'tothemoon', 'crash', 'dots', 'gl'}
 EMOTE_GAP_S = 2.5
 
 
