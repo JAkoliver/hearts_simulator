@@ -83,17 +83,21 @@ WantedBy=multi-user.target
 
 `sudo systemctl enable --now hearts-web`
 
-## 4. Move the tunnel
+## 4. Set up the tunnel
 
 On the VPS:
 ```bash
 curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb -o cf.deb
 sudo dpkg -i cf.deb
 ```
-No interactive login needed: copy `cert.pem` from the old host's
-`%USERPROFILE%\.cloudflared\` to `/root/.cloudflared/cert.pem` - it
-authorizes tunnel management for the account. Then create a fresh
-tunnel and stage it on a TEST hostname before touching the real one:
+Tunnel management needs `/root/.cloudflared/cert.pem`, which authorizes
+the account. Copy it from a machine that already has one (it lives in
+`%USERPROFILE%\.cloudflared\` on Windows) to skip the browser step, or
+run `cloudflared tunnel login` to mint a fresh one - the cert is
+account-level and re-issuable, unlike a tunnel's credentials JSON,
+which is not (lose that and you create a new tunnel and re-route DNS).
+Then create the tunnel, staging it on a TEST hostname before touching
+the real one:
 ```bash
 cloudflared tunnel create perilune-vps
 cloudflared tunnel route dns perilune-vps play.perilune.ai
@@ -127,19 +131,29 @@ python -m hearts_web.backup_sync --test    # expects: HTTP 200 - OK
 ```
 The server then uploads every changed data file hourly on its own.
 
-## 6. Cutover checklist
+## 6. Bring-up checklist
+
+Run this after a first deploy or a rebuild.
 
 1. VPS server up on 127.0.0.1:8642, `systemctl status hearts-web` green.
-2. Data files + models copied; `curl localhost:8642/api/leaderboard`
+2. Data files + models in place; `curl localhost:8642/api/leaderboard`
    shows the real board (history carried over).
-3. Stop the tunnel on the old host (RUN_TUNNEL.cmd window / service).
-4. Start cloudflared on the VPS; play.perilune.ai now originates there.
-5. Play one full solo deal + create one table from a phone (not the
+3. cloudflared running as a service, with ALL of play / apex / www in
+   both the ingress and `tunnel route dns` (sec. 4).
+4. Play one full solo deal + create one table from a phone (not the
    LAN) to verify the real path.
-6. Backup probe: `--test` returns 200; first hourly cycle logs
+5. Backup probe: `--test` returns 200; first hourly cycle logs
    `[backup] match_logs.jsonl: ... uploaded`.
-7. Old host: keep everything for a week as rollback (rollback = stop
-   VPS tunnel, start the old RUN_TUNNEL.cmd - DNS never changes).
+
+**Recovery is forward-only.** The site once originated from a desktop
+behind the same tunnel; that path was retired at the 2026-08-12 cutover
+and there is no rolling back to it - a snapshot of that machine is
+missing every match and identity created since, so restoring it would
+destroy live player data to recover a dead host. If the VPS is lost,
+rebuild from this runbook and restore the data from R2 with
+`hearts_web/restore_backup.py` (drill passed 2026-08-12: every object
+byte-identical on a second machine). That, plus this document, IS the
+disaster-recovery plan.
 
 ## 7. Updating a live site
 

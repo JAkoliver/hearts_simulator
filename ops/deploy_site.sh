@@ -20,9 +20,9 @@
 #   ops/deploy_site.sh --dry-run    # show what would deploy, change nothing
 #
 # The TARGET HOST is infrastructure and never lives in this public repo
-# (same rule as RUN_TUNNEL.cmd: gitignored here, versioned in the
-# private ops repo). Supply it in ops/deploy_target.env - gitignored,
-# and in the ops-repo sync set:
+# (the .gitignore "tunnel infrastructure" rule: gitignored here,
+# versioned in the private ops layer). Supply it in
+# ops/deploy_target.env - gitignored, and in the ops-repo sync set:
 #
 #   HEARTS_VPS=root@<vps-ip>          # required
 #   HEARTS_VPS_REPO=/home/hearts/hearts_simulator
