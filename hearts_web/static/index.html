@@ -420,6 +420,9 @@
                     padding:0 4px; }
   .specrow .skick:hover { color:#E5484D; }
   #tierline { color:#8A8A93; margin-right:10px; }
+  /* the model name never breaks internally: a too-narrow line wraps
+     after "vs" instead, putting the name on a deliberate second row */
+  #tierline .tname { white-space:nowrap; }
   #turnclock { color:#E8B923; font-variant-numeric:tabular-nums; }
   #status { position:absolute; bottom:38px; left:0; width:100%; text-align:center;
             font-size:.95rem; color:var(--text); text-shadow:0 1px 3px #000;
@@ -2918,13 +2921,17 @@ function updateTierline() {
   // practice panel and controls, but who you are playing is not.
   // Evaluated per update (not cached at load) so rotating the device
   // picks up the other form on the next state poll.
+  // The model name is nowrap, so when the line is too narrow it breaks
+  // AFTER "vs" - a deliberate second row with the name intact, never a
+  // mid-phrase wrap (the profile page's convention).
   const narrow = matchMedia('(max-width:640px)').matches;
-  const opp = `vs ${state && state.tier_label || 'full strength'}`;
-  el('tierline').textContent =
+  const opp = `vs <span class="tname">${
+    esc(state && state.tier_label || 'full strength')}</span>`;
+  el('tierline').innerHTML =
     state && state.practice
       ? (narrow ? opp : `PRACTICE · ${opp}`)
       : state && state.tier_label && state.tier !== 'full'
-        ? `vs ${state.tier_label}` : '';
+        ? `vs <span class="tname">${esc(state.tier_label)}</span>` : '';
 }
 
 async function newMatch(practice = false) {
