@@ -60,9 +60,31 @@
       </div></div>`;
   document.body.appendChild(band);
   const dd = band.querySelector('#sitenav-dd');
-  band.querySelector('#sitenav-btn').addEventListener('click', e => {
+  const btn = band.querySelector('#sitenav-btn');
+  // The dropdown must ESCAPE the band's stacking context. A page may put
+  // its own fixed header above the band - review.html's #top is z-index
+  // 56 vs the band's 55 - and a child can never paint above an element
+  // that outranks its parent's stacking context, so the menu opened
+  // UNDERNEATH that page's ? and share buttons. Reparent it to <body>
+  // and place it under the button at open time (fixed coords, measured
+  // from the button, so it lands correctly on every page and at every
+  // band height).
+  document.body.appendChild(dd);
+  dd.style.position = 'fixed';
+  dd.style.zIndex = '60';
+  const place = () => {
+    const r = btn.getBoundingClientRect();
+    dd.style.top = `${Math.round(r.bottom + 6)}px`;
+    dd.style.right = `${Math.max(0, Math.round(window.innerWidth - r.right))}px`;
+    dd.style.left = 'auto';
+  };
+  btn.addEventListener('click', e => {
     e.stopPropagation();
+    if (!dd.classList.contains('open')) place();
     dd.classList.toggle('open');
+  });
+  addEventListener('resize', () => {
+    if (dd.classList.contains('open')) place();
   });
   document.addEventListener('click', () => dd.classList.remove('open'));
 })();
