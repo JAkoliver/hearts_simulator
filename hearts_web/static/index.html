@@ -2911,10 +2911,16 @@ setInterval(() => {
 }, 500);
 function updateTierline() {
   // practice ALWAYS names the opponents' difficulty (the hints run
-  // full-strength regardless - the panel header says so)
+  // full-strength regardless - the panel header says so).
+  // PHONES: the felt is too narrow to carry the full string beside the
+  // CENTERED top seat tag, so practice collapses to the one word that
+  // matters. Evaluated per update (not cached at load) so rotating the
+  // device picks up the other form on the next state poll.
+  const narrow = matchMedia('(max-width:640px)').matches;
   el('tierline').textContent =
     state && state.practice
-      ? `PRACTICE · vs ${state.tier_label || 'full strength'}`
+      ? (narrow ? 'PRACTICE'
+                : `PRACTICE · vs ${state.tier_label || 'full strength'}`)
       : state && state.tier_label && state.tier !== 'full'
         ? `vs ${state.tier_label}` : '';
 }
