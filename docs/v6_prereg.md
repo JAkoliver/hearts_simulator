@@ -193,3 +193,19 @@ without a specific approved rental.
 SIGNED by user 2026-08-11 ("I sign off, start"). Scope: stages 0-5 as
 written; venue decision for Stage 2 reserved to quote time; any
 band change after data = the registered one-amendment path only.
+
+## Stage-3 amendment (the registered one; user-approved 2026-08-12, BEFORE any screen ran)
+
+Arm (c) produced no snapshot inside the entropy band [0.22, 0.87]
+(best 0.877, range to 0.955 - the obs-v1/no-aux control imitates the
+teacher more diffusely at every recipe). Arms (a) and (b) froze
+in-band, so the band itself stands for the candidates. AMENDMENT:
+for arm (c) ONLY, the entropy eligibility is waived and its
+lowest-holdout-CE snapshot is frozen (lr 3e-4, epoch 2, CE 0.8681,
+entropy 0.891 - flagged out-of-band). Rationale: (c) is a measurement
+control, not a promotion candidate; discarding its screen datum wastes
+the control while the flag preserves honesty. The amendment budget for
+Stage 3 is now SPENT. Holdout freeze table recorded in
+v6_stage3/arm*_lr*.json; screens run at the registered n=2500
+(measured instrument SE 0.136-0.144/deal - the +1.5 band is >6 SE wide,
+so deeper n buys nothing the decision uses).

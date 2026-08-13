@@ -37,14 +37,30 @@ def validate_code():
         return False, f"Smoke test failed:\n{res.stderr}\n{res.stdout}"
     return True, ""
 
+def _obs_for_net(env, net):
+    """Per-net observation: v6 nets (obs_dim 882) get obs v2 assembled as
+    [observe()[0:550] | zero match ctx | observe_ext()]; zero match
+    context is the start-of-match state, the same thing the
+    match-conditioned v5 baseline sees in this per-deal instrument
+    (its 550-dim input skips the match term entirely). Everything else
+    gets the classic observe() untouched - bit-identical legacy path."""
+    obs = env.observe()
+    if getattr(net, 'obs_dim', 0) == 882:
+        return np.concatenate([
+            np.asarray(obs, dtype=np.float32)[:550],
+            np.zeros(6, dtype=np.float32),
+            np.asarray(env.observe_ext(), dtype=np.float32)])
+    return obs
+
+
 def play_round(env, seat_networks):
     """Play one full round deterministically (argmax) and return the 4 scores."""
     env.reset()
     done = False
     while not done:
-        obs = env.observe()
-        legal_actions_raw = env.get_legal_actions()
         current_player = env.get_current_player()
+        obs = _obs_for_net(env, seat_networks[current_player])
+        legal_actions_raw = env.get_legal_actions()
 
         state_tensor = torch.tensor(obs, dtype=torch.float32).unsqueeze(0)
         mask_tensor = torch.zeros((1, 52), dtype=torch.bool)

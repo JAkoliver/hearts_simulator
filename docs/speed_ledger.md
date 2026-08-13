@@ -842,3 +842,33 @@ chunk-resumable queue) worked as designed.
 
 NEXT (prereg): Stage 3 - from-scratch HMR3 distillation trainer,
 three arms, recipe freeze on holdout only.
+
+## 2026-08-13: v6 Stage 3 COMPLETE - freeze + screens; Stage 4 unlocked
+
+Grid: 3 arms x 2 lrs x 4 epochs (epoch snapshots cover the registered
+epochs {2,3,4}; batch amendment 2048->512 documented in v6_distill.py -
+WDDM VRAM spill at 2048 gave 7.5 s/step and bit-identical fp32/TF32
+epochs; at 512 the same epoch fell 89 min -> 5.1 min). By-match holdout
+123 matches / 80,220 records.
+
+Freeze (declared criterion: entropy band [0.22,0.87] then lowest
+holdout CE): arm a = lr1e-4 ep3 (CE 0.8413, match 64.2%, entropy
+0.832); arm b = lr3e-4 ep4 (CE 0.8381, 64.2%, 0.854); arm c = NO
+in-band snapshot (0.877-0.955) -> REGISTERED AMENDMENT (user-approved
+pre-unblinding, docs/v6_prereg.md): eligibility waived for the control
+arm only, lr3e-4 ep2 frozen (CE 0.8681) with out-of-band flag.
+Holdout findings: a-vs-b TIED on imitation (scale bought ~nothing
+pre-PPO); b-vs-c separates cleanly (structure helps: CE 0.838 vs
+0.868, match 64.2 vs 63.0).
+
+Screens (registered n=2500, instrument SE 0.14-0.16, +1.5 band > 6 SE
+wide; harness extended: play_round feeds v6 nets obs-v2 with zero
+match ctx - the same start-of-match footing the baseline gets):
+  arm a +0.828 (SE 0.155) UB +1.083 -> BAND MET, Stage 4 opens
+  arm b +0.628 (SE 0.153) UB +0.880
+  arm c +0.594 (SE 0.143) UB +0.829
+Registered expectation confirmed: from-scratch imitation lands behind
+the RL-sharpened baseline (v5-M's scratch-distill had landed AHEAD -
+this generation's gap is real). Fresh data alone did not reproduce the
+lineage (arm c +0.59 behind). Scale's pre-PPO contribution: none
+measurable (a slightly WORSE than b per-deal, within noise).
