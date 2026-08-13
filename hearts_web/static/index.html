@@ -2913,14 +2913,16 @@ function updateTierline() {
   // practice ALWAYS names the opponents' difficulty (the hints run
   // full-strength regardless - the panel header says so).
   // PHONES: the felt is too narrow to carry the full string beside the
-  // CENTERED top seat tag, so practice collapses to the one word that
-  // matters. Evaluated per update (not cached at load) so rotating the
-  // device picks up the other form on the next state poll.
+  // CENTERED top seat tag, so the "PRACTICE ·" prefix is dropped and the
+  // OPPONENT is kept - which mode you are in is already obvious from the
+  // practice panel and controls, but who you are playing is not.
+  // Evaluated per update (not cached at load) so rotating the device
+  // picks up the other form on the next state poll.
   const narrow = matchMedia('(max-width:640px)').matches;
+  const opp = `vs ${state && state.tier_label || 'full strength'}`;
   el('tierline').textContent =
     state && state.practice
-      ? (narrow ? 'PRACTICE'
-                : `PRACTICE · vs ${state.tier_label || 'full strength'}`)
+      ? (narrow ? opp : `PRACTICE · ${opp}`)
       : state && state.tier_label && state.tier !== 'full'
         ? `vs ${state.tier_label}` : '';
 }
