@@ -331,7 +331,17 @@
      the board, hands stack as full-width rows around a short felt, and
      the transport grows to thumb size. */
   body.mobile { overflow:auto; padding:8px 10px;
-                --cw:clamp(19px, 6.6vw, 30px); }
+                --cw:clamp(19px, 6.6vw, 30px);
+    /* Opening an .mpanel changes content height, and the browser's
+       SCROLL ANCHORING compensates by nudging scrollTop - which slid the
+       in-flow header up under the fixed site band, so the x-ray note
+       appeared to ride over the "Match review" line. Opt this page out:
+       expanding a panel now grows downward and leaves the scroll
+       position alone. */
+    overflow-anchor:none; }
+  /* belt and braces: if anything ever does meet the header, the header
+     paints on top instead of being overdrawn */
+  body.mobile #top { position:relative; z-index:1; background:#121212; }
   body.mobile #grid { display:block; }
   /* header on ONE line: match info shrinks with ellipsis so the ? stays
      up top; the x-ray note gets its own row; desktop spacer hidden */
