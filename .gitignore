@@ -79,6 +79,8 @@ logs/
 # Tunnel infrastructure + machine-specific schedule launchers
 RUN_TUNNEL.cmd
 TUNNEL_HELPER.ps1
+# Live site origin address (the thing the tunnel exists to conceal)
+ops/deploy_target.env
 MORNING_TO_GENTLE.cmd
 PAUSE_V2_EXPERIMENT.cmd
 RESUME_V2_EXPERIMENT.cmd

@@ -141,6 +141,69 @@ The server then uploads every changed data file hourly on its own.
 7. Old host: keep everything for a week as rollback (rollback = stop
    VPS tunnel, start the old RUN_TUNNEL.cmd - DNS never changes).
 
+## 7. Updating a live site
+
+Everything above is one-time. Day to day the VPS is a plain clone of
+the PUBLIC repo, so a deploy is just "fast-forward it":
+
+```bash
+git push                # the VPS can only pull what GitHub already has
+ops/deploy_site.sh      # pull + restart-if-needed + health check
+```
+
+`ops/deploy_site.sh` refuses to run from a non-main branch or with
+unpushed commits, refuses to pull onto a VPS repo with modified tracked
+files, verifies HEAD landed on origin/main, then checks
+`127.0.0.1:8642/api/leaderboard` at the origin and the public URL
+through the tunnel. `--dry-run` shows the diffstat and changes nothing;
+`--restart` forces the bounce.
+
+**The host address is not in this repo.** The origin IP is the one
+thing the tunnel exists to conceal, so it is infrastructure and lives
+in the private ops layer with the tunnel launchers - never in a public
+file, in the same way this runbook writes `<tunnel-id>` rather than the
+real one. The script reads it from `ops/deploy_target.env`
+(gitignored, in the ops-repo sync set):
+
+```bash
+HEARTS_VPS=root@<vps-ip>
+HEARTS_VPS_REPO=/home/hearts/hearts_simulator
+HEARTS_VPS_USER=hearts
+HEARTS_SITE_URL=https://play.perilune.ai/
+```
+
+**Restart or not?** The script decides from the diff, but the rule
+matters when doing it by hand: the HTML pages are read from disk on
+every request (`_og_serve` re-opens `static/index.html` per hit; the
+rest of `/static` is a `StaticFiles` mount), so a front-end change is
+live the instant the pull lands. Only tracked `.py` changes need
+`systemctl restart hearts-web`.
+
+By hand, if the script isn't available:
+
+```bash
+ssh root@<vps-ip>
+sudo -H -u hearts git -C /home/hearts/hearts_simulator pull --ff-only
+systemctl restart hearts-web     # only if .py changed
+curl -s -o /dev/null -w '%{http_code}\n' localhost:8642/api/leaderboard
+```
+
+A pull never touches the untracked production files (`site_config.py`,
+`.share_secret`, the `.pth` weights, `static/models/`, `static/ort/`,
+the jsonl data, the VPS-built `hearts_env*.so`) - that is what makes an
+unattended deploy safe, so keep those out of git.
+
+**Model deploys** are the other path, and they are NOT a git pull:
+`scp` the new `.pth` up and `systemctl restart hearts-web` (or
+`ops/deploy_site.sh --restart` after the copy). `MODEL_PATH` in the
+VPS's `site_config.py` decides which weights serve.
+
+The admin page is bound to localhost - reach it over an SSH tunnel:
+
+```bash
+ssh -L 8642:localhost:8642 root@<vps-ip>   # then open localhost:8642/admin
+```
+
 ## Notes
 
 - The AI seats run the raw net on CPU: single forward pass per
