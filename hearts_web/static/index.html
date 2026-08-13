@@ -352,6 +352,9 @@
   #pr-open { font-size:.72rem; color:var(--muted); margin-left:6px;
              cursor:pointer; display:inline-flex; align-items:center;
              gap:4px; }
+  /* the phone-only twin of #pr-open - swapped in by the 760px query
+     (declared HERE so that query, later in the sheet, wins) */
+  #pr-openbtn { display:none; }
   /* the review's eval-panel conventions, VERBATIM from review.html
      (keep in sync): raw net = gray probability bars with the pick in
      gold, deep search = cyan VALUE bars, inline card text via .ct.
@@ -655,6 +658,12 @@
      at load by the width probe); the game panels drop back into flow
      under the table like the normal game layout. */
   @media (max-width:760px) {
+    /* the 56vw felt exists to leave room for the open-book flanks; on
+       phones those move into a modal, so practice gets the SAME table
+       as every other mode (it read as a shrunken felt otherwise) */
+    body.practice #table { width:min(92vw, 950px); }
+    #pr-open { display:none; }
+    #pr-openbtn { display:inline-block; }
     body.practice #side { position:static; left:auto; top:auto;
       width:min(92vw, 950px); margin:6px auto 0; flex-direction:row;
       flex-wrap:wrap; }
@@ -678,6 +687,30 @@
       border-radius:0 0 10px 10px; }
     .mpanel-hint #hint-side h3 { display:none; }
   }
+  /* open-book on phones: the west/east hands are absolutely positioned
+     BESIDE the felt, so on a narrow screen they sit off-screen. There
+     the checkbox becomes #pr-openbtn, which raises all three hands at
+     once over the table; dismiss it to keep playing. */
+  #aih-modal { position:fixed; inset:0; background:rgba(0,0,0,.72);
+               display:none; align-items:center; justify-content:center;
+               z-index:10; padding:12px; }
+  #aih-modal .opanel { background:var(--overlay-panel); border-radius:14px;
+                       padding:16px 14px 10px; position:relative;
+                       width:min(96vw, 460px); max-height:88vh;
+                       overflow-y:auto; text-align:left; }
+  #aih-modal h3 { font-family:'Space Grotesk', system-ui, sans-serif;
+                  color:var(--banner); font-size:.95rem;
+                  margin:0 26px 10px 0; }
+  #aih-close { position:absolute; top:8px; right:10px; background:none;
+               border:0; color:#A6A6AF; font-size:1.25rem; cursor:pointer;
+               padding:2px 8px; margin:0; }
+  #aih-close:hover { color:var(--text); }
+  .aih-seat { margin-bottom:11px; }
+  .aih-seat .sh-label { font-size:.72rem; color:var(--muted);
+                        margin-bottom:4px; }
+  .aih-seat .aih-where { opacity:.7; }
+  .aih-seat .cds { display:flex; flex-wrap:wrap; gap:4px; }
+  #aih-empty { font-size:.72rem; color:var(--muted); }
   #dev-controls { position:absolute; right:100%; top:0; margin-right:12px; width:170px;
                   text-align:right; }
   #dev-controls button { font-size:.75rem; padding:4px 12px; background:#7a2f2f; color:#eee; }
@@ -779,7 +812,14 @@
   <button id="pr-redo" title="replay your decision and what followed">redo &#10555;</button>
   <button id="pr-retry" title="restart this deal from the top">retry deal</button>
   <label id="pr-open"><input type="checkbox" id="pr-openbook"> show AI hands</label>
+  <button id="pr-openbtn" title="see every AI hand">show AI hands</button>
 </div>
+
+<div id="aih-modal"><div class="opanel">
+  <button id="aih-close" title="close (Esc)">&times;</button>
+  <h3>AI hands</h3>
+  <div id="aih-body"></div>
+</div></div>
 
 <div id="overlay"><div class="opanel">
   <h2 id="o-title"></h2>
@@ -1300,7 +1340,8 @@ function renderPracticeExtras() {
   el('practice-controls').style.display =
     pr && !state.finished ? 'flex' : 'none';
   el('hint-side').style.display = pr && !state.finished ? '' : 'none';
-  if (!pr) return;
+  if (!pr) { closeAiHands(); return; }
+  renderAiHands();   // keeps an open modal live while the AI plays on
   refreshRawEval();
   buildOuthands();
   el('pr-undo').disabled = !state.can_undo;
@@ -1338,6 +1379,46 @@ el('pr-undo').onclick = () => prAct('/api/practice/undo');
 el('pr-redo').onclick = () => prAct('/api/practice/redo');
 el('pr-retry').onclick = () => prAct('/api/practice/retry');
 el('pr-openbook').onchange = () => render();
+
+// Phone open-book (mobile pass 2026-08-13): the felt's flanks don't
+// exist below 760px, so all three hands are raised over the table at
+// once and dismissed to resume play. Seats are listed in YOUR frame -
+// left, across, right - so the modal maps onto the table you just left.
+const WHERE = ['', 'left', 'across', 'right'];
+function renderAiHands() {
+  if (el('aih-modal').style.display !== 'flex') return;
+  if (!state || !state.ai_hands || state.finished) { closeAiHands(); return; }
+  const byPos = {};
+  for (const [s, cards] of Object.entries(state.ai_hands))
+    byPos[pos(Number(s))] = {seat: Number(s), cards};
+  const rows = [1, 2, 3].map(p => {
+    const h = byPos[p];
+    if (!h) return '';
+    const cds = h.cards.length
+      ? `<div class="cds">${h.cards.map(n => cardHTML(n, 'mini')).join('')}</div>`
+      : '<div id="aih-empty">no cards left</div>';
+    return `<div class="aih-seat"><div class="sh-label">${seatName(h.seat)}
+      <span class="aih-where">&middot; ${WHERE[p]}</span></div>${cds}</div>`;
+  }).join('');
+  el('aih-body').innerHTML = rows
+    || '<div id="aih-empty">hands are not visible yet</div>';
+}
+function closeAiHands() { el('aih-modal').style.display = 'none'; }
+el('pr-openbtn').onclick = () => {
+  el('aih-modal').style.display = 'flex';
+  renderAiHands();
+};
+el('aih-close').onclick = closeAiHands;
+el('aih-modal').onclick = e => {
+  if (e.target === el('aih-modal')) closeAiHands();
+};
+// Capture phase, like the help modal: Esc closes ONLY this while it's up.
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && el('aih-modal').style.display === 'flex') {
+    closeAiHands();
+    e.stopPropagation();
+  }
+}, true);
 
 // Raw-network layer: auto-refreshes at each of YOUR decisions, in the
 // review's exact currency (equivalence-pooled probability bars, top 3
