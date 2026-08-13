@@ -637,6 +637,14 @@
        Flex `order` does the reordering: the controls div is first in
        markup (desktop needs it absolute top-left), so in static flow
        it would otherwise render ABOVE the name. */
+    /* Felt subline (trick counter + PRACTICE-vs-model + turn clock) is one
+       horizontal row, and on a narrow felt its combined width ran into the
+       CENTERED top seat tag. Stack the items and cap the strip at the left
+       38% so its width becomes the max of the items, not their sum; the
+       long practice label wraps inside that column. The space below the
+       top-left corner is free (the left seat tag sits at 20% height). */
+    #subline { max-width:38%; }
+    #subline > span { display:block; margin-right:0; line-height:1.2; }
     #theme-toggle { position:static; order:2; width:100%;
                     display:flex; justify-content:center; gap:6px;
                     flex-wrap:wrap; }
