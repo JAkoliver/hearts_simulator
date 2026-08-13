@@ -31,6 +31,10 @@
   #sitenav-dd a { display:block; padding:7px 12px; border-radius:6px;
                   color:#A6A6AF; text-decoration:none; font-size:.82rem; }
   #sitenav-dd a:hover { background:#26262A; color:#E8B923; }
+  /* nine entries read as five groups: play / results / about /
+     take part / utilities */
+  #sitenav-dd a.sep { border-top:1px solid #2A2A30; margin-top:4px;
+                      padding-top:9px; }
   body { padding-top: 62px !important; }
   `;
   const style = document.createElement('style');
@@ -48,14 +52,14 @@
     <div id="sitenav"><button id="sitenav-btn">Menu</button>
       <div id="sitenav-dd">
         <a href="/?menu=1">Play</a>
-        <a href="/leaderboard">Leaderboard</a>
+        <a class="sep" href="/leaderboard">Leaderboard</a>
         <a href="/profile">Your profile</a>
-        <a href="/account">Account</a>
-        <a href="/about">About</a>
+        <a class="sep" href="/about">About</a>
         <a href="/how">How it's built</a>
-        <a href="/support">Support <span
+        <a class="sep" href="/support">Support <span
            style="color:#E5484D">&hearts;</span></a>
         <a href="/feedback">Send feedback</a>
+        <a class="sep" href="/account">Account</a>
         <a href="https://github.com/JAkoliver/hearts_simulator"
            target="_blank" rel="noopener">GitHub &nearr;</a>
       </div></div>`;

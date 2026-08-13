@@ -108,6 +108,8 @@
   #menu-dd a { display:block; padding:7px 12px; border-radius:6px;
                color:#A6A6AF; text-decoration:none; font-size:.82rem; }
   #menu-dd a:hover { background:#26262A; color:#E8B923; }
+  #menu-dd a.sep { border-top:1px solid #2A2A30; margin-top:4px;
+                   padding-top:9px; }
   #home-close:hover { color:var(--gold) !important; }
   header h1 { cursor:pointer; }
   header h1:hover { color:var(--gold); }
@@ -744,11 +746,11 @@
   <div id="menu-dd">
     <a href="/leaderboard">Leaderboard</a>
     <a href="/profile">Your profile</a>
-    <a href="/account">Account</a>
-    <a href="/about">About</a>
+    <a class="sep" href="/about">About</a>
     <a href="/how">How it's built</a>
-    <a href="/support">Support <span style="color:#E5484D">&hearts;</span></a>
+    <a class="sep" href="/support">Support <span style="color:#E5484D">&hearts;</span></a>
     <a href="/feedback">Send feedback</a>
+    <a class="sep" href="/account">Account</a>
     <a href="https://github.com/JAkoliver/hearts_simulator" target="_blank" rel="noopener">GitHub &nearr;</a>
   </div>
 </div>
