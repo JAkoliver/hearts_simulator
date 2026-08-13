@@ -872,3 +872,22 @@ the RL-sharpened baseline (v5-M's scratch-distill had landed AHEAD -
 this generation's gap is real). Fresh data alone did not reproduce the
 lineage (arm c +0.59 behind). Scale's pre-PPO contribution: none
 measurable (a slightly WORSE than b per-deal, within noise).
+
+## 2026-08-13: v6 Stage 4 trial 1 - FAIL (gap real, ladder continues)
+
+Trial 1 (chain-base recipe, minibatch 512, 75k deals ~2h, from
+freeze_arm_a): pool telemetry improved through training (avg place
+~2.5 -> 2.141, win 27 -> 33.3% vs mixed pool; critic EV 0.91 from the
+distilled value head). Registered gate (scripts/run_match_gate.py,
+n=3200, 51 min): placement +0.137 vs champion (SE 0.019) - candidate
+significantly BEHIND; consistent with the stage-3 screen (+0.83/deal
+raw). NOT a structural null (|d| >> 0.02): the ladder continues, trial
+2 trains on from trial-1 weights with carried optimizer moments.
+
+Ops incident on the record (cost ~6h + a reboot): an UNGUARDED stdin
+pre-flight script around match_eval fork-bombed the machine (Windows
+spawn re-imported __main__ recursively; launcher-discipline rules 4
+and 10 both recurred). Permanent fix: scripts/run_match_gate.py is the
+only sanctioned gate entry. The "v6 gate is 10x slower on CPU" claim
+made during the thrash was WRONG - clean timing: 8 matches/24s at 4
+workers; full gate ~51 min at 12.
