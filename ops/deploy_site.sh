@@ -69,6 +69,18 @@ say() { printf '\n\033[1m== %s\033[0m\n' "$*"; }
 # ---- preflight: the VPS can only pull what GitHub already has -------------
 say "preflight (local)"
 BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+# Regression suite first: a deploy that fails these is a deploy that
+# breaks the live site. --skip-tests exists for emergencies only.
+if [ "${SKIP_TESTS:-0}" != "1" ]; then
+  echo "== regression suite"
+  if ! python hearts_web/test_site.py > /tmp/deploy_tests.log 2>&1; then
+    tail -25 /tmp/deploy_tests.log >&2
+    echo "TESTS FAILED - refusing to deploy (SKIP_TESTS=1 overrides)" >&2
+    exit 1
+  fi
+  tail -1 /tmp/deploy_tests.log
+fi
+
 if [ "$BRANCH" != "main" ]; then
   echo "on branch '$BRANCH', not main - the VPS tracks main. Aborting." >&2
   exit 1
