@@ -330,19 +330,24 @@
      analysis stack; the side panels wrap into collapsible sections above
      the board, hands stack as full-width rows around a short felt, and
      the transport grows to thumb size. */
+  /* HEIGHT MUST BE RELEASED HERE. The desktop body is a FIXED-HEIGHT flex
+     column (html,body{height:100%} + display:flex) whose panels scroll
+     internally. Mobile scrolls the PAGE instead, but only `overflow` was
+     overridden - so body stayed a 100vh flex column and every child kept
+     the default flex-shrink:1. Opening an .mpanel then made the content
+     exceed that fixed height, and flex resolved it by COMPRESSING the
+     siblings above: the header and x-ray note were squeezed shorter, so
+     the panel bar rose and the note rode over the "Match review" line.
+     height:auto lets the column grow with its content; flex-shrink:0 on
+     the children makes the guarantee explicit. */
   body.mobile { overflow:auto; padding:8px 10px;
                 --cw:clamp(19px, 6.6vw, 30px);
-    /* Opening an .mpanel changes content height, and the browser's
-       SCROLL ANCHORING compensates by nudging scrollTop - which slid the
-       in-flow header up under the fixed site band, so the x-ray note
-       appeared to ride over the "Match review" line. Opt this page out:
-       expanding a panel now grows downward and leaves the scroll
-       position alone. */
-    overflow-anchor:none; }
-  /* belt and braces: if anything ever does meet the header, the header
-     paints on top instead of being overdrawn */
-  body.mobile #top { position:relative; z-index:1; background:#121212; }
-  body.mobile #grid { display:block; }
+                height:auto; min-height:100%; }
+  /* ID-specificity: #grid's own `flex:1 1 auto` and #top's rules
+     would outrank a `body.mobile > *` shrink guard */
+  body.mobile #top, body.mobile #xray-note,
+  body.mobile > * { flex-shrink:0; }
+  body.mobile #grid { display:block; flex:0 0 auto; }
   /* header on ONE line: match info shrinks with ellipsis so the ? stays
      up top; the x-ray note gets its own row; desktop spacer hidden */
   body.mobile #top { position:static; height:auto; max-width:none;
