@@ -333,7 +333,7 @@ def _search_finish(proc, out_csv):
 _GATE_SHARD_STRIDE = 1_000_000
 
 def evaluate_candidate_search(candidate_path, deals=500, k=64, alpha=0.05,
-                              shards=4):
+                              shards=4, baseline_ckpt=None):
     """Paired search-vs-search gate: candidate and the current teacher trace
     each play `deals` identical deals (1 search seat vs 3 neutral-anchor raw
     seats, table B all-anchor), one-sided t-test on the per-deal delta.
@@ -365,6 +365,17 @@ def evaluate_candidate_search(candidate_path, deals=500, k=64, alpha=0.05,
     match_aware = _guard_match_aware()
     equity = EQUITY_TRACE if match_aware else None
     baseline_trace = MATCH_SEARCH_TRACE if match_aware else 'hearts_ai_search.pt'
+    if baseline_ckpt:
+        # CANDIDATE-LINEAGE guard (v6 prereg stage 4): compare the candidate
+        # against THIS lineage's own previous champion, not the deployed
+        # teacher trace. A separate lineage that has not yet caught the
+        # champion would fail a champion-anchored guard on every trial, so
+        # the ladder could never climb - the same conflation that made the
+        # first two manual trials uninterpretable (ledger 2026-08-13).
+        _trace_for_search(baseline_ckpt, 'search_gate_baseline.pt',
+                          obs_dim=556 if match_aware else 550)
+        baseline_trace = 'search_gate_baseline.pt'
+        print(f"  guard baseline: {baseline_ckpt} (lineage's own)")
     seed = int(time.time())
     _trace_for_search(candidate_path, 'search_gate_candidate.pt',
                       obs_dim=556 if match_aware else 550)
@@ -543,7 +554,9 @@ def main():
                     candidate_model_path,
                     deals=cfg.get('search_gate_deals', 2400),
                     k=cfg.get('search_gate_k', 32),
-                    alpha=cfg.get('search_gate_alpha', 0.05))
+                    alpha=cfg.get('search_gate_alpha', 0.05),
+                    baseline_ckpt=(baseline_model_path
+                                   if cfg.get('candidate_lineage') else None))
                 if sg_mean is None:
                     # Guard infrastructure missing; evaluate_candidate_search
                     # already printed the skip. Do not promote blind.
@@ -568,14 +581,30 @@ def main():
             print(f"*** Experiment SUCCESS! Candidate is statistically superior (mean={mean_str}) ***")
             
             timestamp = int(time.time())
-            os.makedirs('Hall_of_Fame', exist_ok=True)
-            milestone_path = f"Hall_of_Fame/hearts_model_milestone_{timestamp}.pth"
+            # CANDIDATE LINEAGE: milestones stay OUT of Hall_of_Fame - that
+            # directory is the champion's archive AND train.py's PPO opponent
+            # pool, so a not-yet-promoted lineage must not seed either.
+            lineage = bool(cfg.get('candidate_lineage'))
+            mdir = cfg.get('lineage_dir', 'v6_stage4/milestones') if lineage                 else 'Hall_of_Fame'
+            os.makedirs(mdir, exist_ok=True)
+            milestone_path = f"{mdir}/hearts_model_milestone_{timestamp}.pth"
             shutil.copy('hearts_model_final.pth', milestone_path)
             print(f"*** Elite Milestone Captured: {milestone_path} ***")
             
             ledger["baseline_score"] = new_mean
             write_ledger(ledger)
             
+            if lineage:
+                # A lineage champion is NOT the deployed champion: leave the
+                # webapp weights, hearts_ai_grandmaster.pt and the match
+                # traces alone. hearts_ai_search_match.pt in particular is
+                # the registered v6 teacher, a released artifact, AND the
+                # guard baseline for the champion line - overwriting it from
+                # a candidate lineage would corrupt all three.
+                print("Candidate lineage: deployment artifacts NOT refreshed "
+                      "(webapp weights and champion traces untouched).")
+                write_ledger(ledger)
+                return
             # The webapp serves ONLY promoted weights (hearts_web_model.pth);
             # the chain's hearts_model_final.pth holds unpromoted candidates
             # mid-trial and must never reach the site.
