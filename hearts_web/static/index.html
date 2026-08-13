@@ -648,6 +648,36 @@
     #theme-toggle .ctlrow { display:flex; justify-content:center;
                             gap:6px; }
   }
+  /* practice on phones (mobile pass 2026-08-13): the FIXED side panels
+     cover the table below ~760px. Match-review convention copied
+     (review.html body.mobile mpanel): Perilune's view becomes a native
+     <details> section ABOVE the table, collapsed by default (wrapped
+     at load by the width probe); the game panels drop back into flow
+     under the table like the normal game layout. */
+  @media (max-width:760px) {
+    body.practice #side { position:static; left:auto; top:auto;
+      width:min(92vw, 950px); margin:6px auto 0; flex-direction:row;
+      flex-wrap:wrap; }
+    .mpanel-hint { display:none; margin:0 auto 8px;
+                   width:min(92vw, 950px); }
+    body.practice .mpanel-hint { display:block; }
+    /* the inner panel hides itself outside practice / at match end -
+       an empty summary bar must not linger */
+    .mpanel-hint:has(> #hint-side[style*="none"]) { display:none; }
+    .mpanel-hint > summary { list-style:none; background:var(--panel-bg);
+      border-radius:10px; padding:11px 12px; font-size:.74rem;
+      color:var(--muted); text-transform:uppercase; letter-spacing:.03em;
+      cursor:pointer; display:flex; align-items:center; }
+    .mpanel-hint > summary::-webkit-details-marker { display:none; }
+    .mpanel-hint > summary::after { content:'\25B8'; margin-left:auto;
+      transition:transform .15s; }
+    .mpanel-hint[open] > summary::after { transform:rotate(90deg); }
+    .mpanel-hint[open] > summary { border-radius:10px 10px 0 0; }
+    body.practice #hint-side { position:static; right:auto; top:auto;
+      bottom:auto; width:auto; max-height:50vh;
+      border-radius:0 0 10px 10px; }
+    .mpanel-hint #hint-side h3 { display:none; }
+  }
   #dev-controls { position:absolute; right:100%; top:0; margin-right:12px; width:170px;
                   text-align:right; }
   #dev-controls button { font-size:.75rem; padding:4px 12px; background:#7a2f2f; color:#eee; }
@@ -1007,6 +1037,22 @@ el('emote-btn').onclick = ev => {
 };
 document.addEventListener('click', () =>
   el('emote-pal').classList.remove('open'));
+
+// Mobile practice (mobile pass 2026-08-13): Perilune's view wraps into
+// a collapsible <details> above the table - the match-review mpanel
+// convention (review.html). Same DOM node moves in, so every
+// hint-raw/hint-out/deepbar binding keeps working untouched.
+if (matchMedia('(max-width:760px)').matches) {
+  const hs = el('hint-side');
+  const d = document.createElement('details');
+  d.className = 'mpanel-hint';
+  const s = document.createElement('summary');
+  s.textContent = "Perilune's view";
+  d.appendChild(s);
+  const lay = el('layout');
+  lay.parentNode.insertBefore(d, lay);
+  d.appendChild(hs);
+}
 
 const SUP_IMG = '<img class="supbadge" src="/static/sup_badge.png"'
   + ' alt="supporter" title="supporter">';
