@@ -58,6 +58,9 @@
     color:var(--gold); border-bottom-color:var(--gold); }
   #home-progress, .qlink { border-bottom:none; }
   #theme-toggle { position:absolute; top:8px; left:10px; z-index:5; }
+  /* the .ctlrow spans exist only for the phone layout's deliberate
+     3+2 split; on desktop they contribute no layout */
+  #theme-toggle .ctlrow { display:contents; }
   #theme-toggle button { font-size:.75rem; padding:4px 12px;
     background:var(--tag-bg); color:var(--text); }
   /* lobby: player chips, a settings card with aligned label:control
@@ -618,14 +621,29 @@
     #seat-left { top:20%; transform:none; }
     #seat-right { top:20%; transform:none; }
     #hand .card { width:52px; height:75px; font-size:.95rem; }
-    #theme-toggle { position:static; }
-    /* menu button STAYS absolute top-right on phones (matches nav.js
-       pages; its dropdown anchors there). The old static fallback put
-       the button in flow beside the name while the dropdown still
-       opened at the right edge - disconnected (mobile pass 2026-08-12).
-       The .sub wraps to its own line, so the corner is clear. */
-    header .sub { width:100%; text-align:center; font-size:.68rem; }
+    /* Phone header rows (mobile pass 2026-08-12), top to bottom:
+       1. logo + Perilune (Menu stays ABSOLUTE top-right beside them -
+          matches nav.js pages; its dropdown anchors there)
+       2. the tagline
+       3. the game controls, centered; below 420px they become a
+          DELIBERATE 3+2 split (theme/speed/auto + sound/?) via the
+          .ctlrow spans instead of an accidental mid-row wrap.
+       Flex `order` does the reordering: the controls div is first in
+       markup (desktop needs it absolute top-left), so in static flow
+       it would otherwise render ABOVE the name. */
+    #theme-toggle { position:static; order:2; width:100%;
+                    display:flex; justify-content:center; gap:6px;
+                    flex-wrap:wrap; }
+    header .sub { order:1; width:100%; text-align:center;
+                  font-size:.68rem; }
     #side { margin-top:6px; }
+  }
+  /* very narrow phones (22:9 class): the five controls can't share one
+     line - split them deliberately via the markup groups */
+  @media (max-width:420px) {
+    #theme-toggle { flex-direction:column; align-items:center; gap:4px; }
+    #theme-toggle .ctlrow { display:flex; justify-content:center;
+                            gap:6px; }
   }
   #dev-controls { position:absolute; right:100%; top:0; margin-right:12px; width:170px;
                   text-align:right; }
@@ -642,7 +660,7 @@
 </head>
 <body>
 <header>
-<div id="theme-toggle"><button id="theme-btn"></button><button id="speed-btn" title="animation speed - cycle normal / fast / instant (at a table only the host can change it)"></button><button id="auto-btn" title="automatically play your card when only one is legal"></button><button id="sound-btn" title="game sounds on/off"></button><button id="help-btn" title="how Hearts works">?</button></div>
+<div id="theme-toggle"><span class="ctlrow"><button id="theme-btn"></button><button id="speed-btn" title="animation speed - cycle normal / fast / instant (at a table only the host can change it)"></button><button id="auto-btn" title="automatically play your card when only one is legal"></button></span><span class="ctlrow"><button id="sound-btn" title="game sounds on/off"></button><button id="help-btn" title="how Hearts works">?</button></span></div>
 <div id="menu-btn-wrap"><button id="menu-btn">Menu</button>
   <div id="menu-dd">
     <a href="/leaderboard">Leaderboard</a>
