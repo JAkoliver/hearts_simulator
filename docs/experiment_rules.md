@@ -144,6 +144,33 @@ variable.) Every reopening gets its own pre-registration.
   = search-equity ordering; a future teacher with a DIFFERENT signal
   source, e.g. visit counts or exploiter-league games, is outside this
   closure).
+- Visit-count-target distillation at 7.6M (2026-08-11, Phase 2,
+  docs/phase2_visitcount_results.md): both registered picks WORSE
+  (ep3 match +0.083 p~1.0 + guard UB +0.427; ep2 +0.042 p=.997 + guard
+  UB +0.318 vs +0.3), dose-response consistent with the mechanism -
+  visit distributions encode where search LOOKED, not what it endorsed
+  (entropy 0.43 -> ~1.0 onto explored-but-rejected moves). With
+  expert-iter v2, BOTH available encodings of the searched teacher are
+  measured non-improving at 7.6M. Untested variable: a genuinely new
+  signal source (exploiter-league games qualify).
+- Mutation-chain match-PPO on a FRESH, far-below-ceiling distill
+  (2026-08-13, v6 Stage 4, ledger + docs/v6_next_plan.md): three
+  consecutive run_loop trials from the champion-regime config
+  neighborhood (lr pinned ~1e-5) each made the candidate WORSE than its
+  own lineage baseline (+0.296 -> +0.167 -> +0.080 placement, SE ~0.021;
+  monotone mitigation, never crossed; moon-shot suppression every
+  trial). The sanctioned retry shape is docs/v6_next_plan.md Path C
+  (KL-anchor-to-distill-init + registered lr x lambda factorial), not
+  more mutation roulette. Untested variables: regime-appropriate
+  recipes (Path C), and a non-starved starting distill (Stage-2b).
+- CONDITIONAL: scale-without-data at 2.55x (2026-08-13, v6 Stage 3):
+  arm a (19.37M) TIED arm b (v5-M architecture + obs-v2 channels + aux
+  heads) on imitation from the 1.52M-record bank - capacity idled.
+  Closure is conditional on that bank size; records-per-param fell
+  ~4.9x vs the 2.93M bank that built v5-M. Per the admissibility rule
+  above, "more data" IS the recorded untested variable here: the
+  data-scaling probe (v6_next_plan Step 1) is the registered reopening
+  test, and a data-bound verdict reopens scale via Stage-2b.
 
 ## Strategy (2026-07-23): see docs/ROADMAP.md
 

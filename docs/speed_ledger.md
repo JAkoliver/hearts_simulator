@@ -953,3 +953,61 @@ VERIFICATION (all pass):
 - Pipeline: orchestrator.evaluate_candidate_search runs a v6 candidate
   end to end - auto-traced at 882, MATCH-AWARE mode engaged, both arms
   sharded, paired delta returned.
+
+## 2026-08-13: v6 Stage 4 HALTED - three consecutive failed trials
+
+The registered stop rule fired. Three trials ran under `run_loop`
+match-mode with `candidate_lineage: true` (the corrected instrument -
+trials 1/2 of the earlier entries had run train.py on a fixed config,
+the procedural deviation owned above). Each candidate was gated at
+n=3200 against ITS OWN v6 lineage baseline, not the v5 champion. All
+three FAILED; `scripts/ladder_stop_watch.py` counted the third
+consecutive failure and killed the loop while trial 4 was launching.
+
+Positive delta = candidate WORSE (placement, lower is better):
+
+| trial | placement Δ (SE) | final score Δ (SE) | win% A/B | neutral raw (SE, p) | gate |
+|---|---|---|---|---|---|
+| 1 | +0.296 (0.022) | +7.61 (0.55) | 35.2 / 46.4 | +0.630 (0.170, 1.000) | 5144s |
+| 2 | +0.167 (0.022) | +4.37 (0.54) | 40.8 / 48.4 | -0.181 (0.159, 0.127) | 4977s |
+| 3 | +0.080 (0.021) | +2.25 (0.52) | 44.1 / 48.1 | +0.187 (0.165, 0.872) | 5188s |
+
+THE FINDING is the trend, not any single verdict: +0.296 -> +0.167 ->
++0.080, monotone convergence toward the baseline that never crosses it.
+Trial 3 sits ~3.8 SE behind where trial 1 was ~13.5 SE behind. Because
+a failed trial rolls back, each trial is a FRESH run_loop hyperparameter
+proposal trained from the same lineage baseline - so the trend reflects
+the mutation search finding better recipes, not accumulated training.
+The round ran out of trials while still improving.
+
+None of the three is a "structural null" by the registered definition
+(|delta| < 0.02 placement) - all are 4-13 SE from zero - so the
+prereg's original 3-null halt never applied. What halted the round is
+the house PPO stop rule (three consecutive trials without improvement),
+applied per the 2026-08-13 clarification. That clarification stops
+EARLIER than the registered condition and so cannot inflate a false
+positive: **the Stage-4 amendment budget remains untouched.**
+
+TELEMETRY (informs, never gates): the candidate shot FEWER moons than
+its baseline in every trial (492/571, 404/543, 528/556 test-seat moons)
+while deals/match ran slightly long (A 10.86-10.91 vs B 10.78-10.79) -
+consistent with a candidate playing a flatter, less aggressive game
+rather than one that is simply weaker everywhere. Moons conceded at
+table were mixed (484/478, 557/496, 475/506).
+
+INTEGRITY after the hard kill (launcher-discipline rule 6, verified
+BEFORE anything else touched the weights):
+- `Hall_of_Fame/hearts_model_milestone_1785322724.pth` md5 **8a89da90** - intact
+- `hearts_web_model.pth` (served) md5 **8a89da90** - identical to champion
+- `hearts_ai_search_match.pt` 3a2abd36 / `hearts_equity.pt` efdfee07 -
+  unchanged since 2026-08-07
+- `hearts_model_final.pth` a9653255 holds an UNPROMOTED candidate -
+  must never be served (CLAUDE.md MODEL_PATH rule)
+- no orphaned processes; GPU released to 2.2GB
+
+CONSEQUENCE: Stage 5 is NOT entered (it requires a gate pass). The
+champion is unchanged and v6 has not beaten v5 through the PPO ladder.
+What the halt does NOT license is an improvised continuation: the trend
+argues the recipe search was still working, but resuming requires a
+registered decision (a new round, or the one Stage-4 amendment), not
+just relaunching the loop.

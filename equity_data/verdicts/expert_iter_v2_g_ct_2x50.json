@@ -1,0 +1,23 @@
+{
+ "stage": "mix-selection (selects, never concludes)",
+ "mix": "g_ct_2x50",
+ "n_units": 6400,
+ "crn_ok": true,
+ "delta": 0.0087890625,
+ "se_hier": 0.004054165629549799,
+ "ci95": [
+  -0.0041112925332274595,
+  0.021689417533227458
+ ],
+ "eval_means": [
+  0.00796875,
+  0.02015625,
+  0.00109375,
+  0.0059375
+ ],
+ "n_evals": 4,
+ "t_unit": 0.997363139117464,
+ "p_maxT_adj": 0.9853014698530147,
+ "p_raw_one_sided": 0.8406870054546046,
+ "candidate_eligible": false
+}

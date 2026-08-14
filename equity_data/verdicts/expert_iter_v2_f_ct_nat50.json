@@ -1,0 +1,23 @@
+{
+ "stage": "mix-selection (selects, never concludes)",
+ "mix": "f_ct_nat50",
+ "n_units": 6400,
+ "crn_ok": true,
+ "delta": -0.001015625,
+ "se_hier": 0.004554314503738003,
+ "ci95": [
+  -0.015507453750894327,
+  0.013476203750894325
+ ],
+ "eval_means": [
+  0.0028125,
+  0.0003125,
+  0.006875,
+  -0.0140625
+ ],
+ "n_evals": 4,
+ "t_unit": -0.11490497048520115,
+ "p_maxT_adj": 0.8111188881111889,
+ "p_raw_one_sided": 0.45426202525103504,
+ "candidate_eligible": false
+}

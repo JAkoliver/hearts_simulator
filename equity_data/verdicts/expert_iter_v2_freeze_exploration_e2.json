@@ -1,0 +1,44 @@
+{
+ "runs": [
+  {
+   "conf_match": 0.6646,
+   "value_ev": 0.2964,
+   "belief_bce": 0.1794,
+   "nonconf_entropy": 0.7374,
+   "baseline_entropy": 0.3186,
+   "entropy_ratio": 2.314,
+   "nonconf_kl_to_baseline": 0.64515,
+   "coef": 1.0,
+   "seed": 909,
+   "cand": "C:/Users/patom/AppData/Local/Temp/claude/e--hearts-simulator/9b543bb2-a88f-4d17-9eb4-141c9eb8db67/scratchpad/freeze_explore/e2\\cand_v2_freeze_c1.0_s909.pth"
+  },
+  {
+   "conf_match": 0.6541,
+   "value_ev": 0.2994,
+   "belief_bce": 0.1787,
+   "nonconf_entropy": 0.74,
+   "baseline_entropy": 0.3186,
+   "entropy_ratio": 2.323,
+   "nonconf_kl_to_baseline": 0.66072,
+   "coef": 1.0,
+   "seed": 910,
+   "cand": "C:/Users/patom/AppData/Local/Temp/claude/e--hearts-simulator/9b543bb2-a88f-4d17-9eb4-141c9eb8db67/scratchpad/freeze_explore/e2\\cand_v2_freeze_c1.0_s910.pth"
+  }
+ ],
+ "means_by_coef": {
+  "1.0": {
+   "conf_match": 0.6593,
+   "value_ev": 0.2979,
+   "belief_bce": 0.179,
+   "entropy_ratio": 2.3185,
+   "nonconf_kl_to_baseline": 0.6529
+  }
+ },
+ "entropy_constraint": "ratio <= 2.0",
+ "eligible": [],
+ "recommendation": null,
+ "rationale": "BOTH coefficients violate the entropy constraint (ratio > 2x baseline) - the recipe itself looks broken; HALT and investigate before any mix runs.",
+ "bank": "expert_data/mixes/b_even50.bin",
+ "baseline": "Hall_of_Fame/hearts_model_milestone_1785322724.pth",
+ "note": "holdout-only diagnostics; final choice is the user's"
+}

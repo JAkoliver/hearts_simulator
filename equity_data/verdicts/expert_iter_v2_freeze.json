@@ -1,0 +1,75 @@
+{
+ "runs": [
+  {
+   "conf_match": 0.5872,
+   "value_ev": 0.2924,
+   "belief_bce": 0.1774,
+   "nonconf_entropy": 0.9699,
+   "baseline_entropy": 0.3186,
+   "entropy_ratio": 3.044,
+   "nonconf_kl_to_baseline": 1.66352,
+   "coef": 0.25,
+   "seed": 909,
+   "cand": ".\\cand_v2_freeze_c0.25_s909.pth"
+  },
+  {
+   "conf_match": 0.6008,
+   "value_ev": 0.2989,
+   "belief_bce": 0.176,
+   "nonconf_entropy": 0.9576,
+   "baseline_entropy": 0.3186,
+   "entropy_ratio": 3.006,
+   "nonconf_kl_to_baseline": 1.57762,
+   "coef": 0.25,
+   "seed": 910,
+   "cand": ".\\cand_v2_freeze_c0.25_s910.pth"
+  },
+  {
+   "conf_match": 0.6592,
+   "value_ev": 0.2988,
+   "belief_bce": 0.1768,
+   "nonconf_entropy": 0.7522,
+   "baseline_entropy": 0.3186,
+   "entropy_ratio": 2.361,
+   "nonconf_kl_to_baseline": 0.67001,
+   "coef": 1.0,
+   "seed": 909,
+   "cand": ".\\cand_v2_freeze_c1.0_s909.pth"
+  },
+  {
+   "conf_match": 0.6592,
+   "value_ev": 0.3023,
+   "belief_bce": 0.1757,
+   "nonconf_entropy": 0.7451,
+   "baseline_entropy": 0.3186,
+   "entropy_ratio": 2.339,
+   "nonconf_kl_to_baseline": 0.65175,
+   "coef": 1.0,
+   "seed": 910,
+   "cand": ".\\cand_v2_freeze_c1.0_s910.pth"
+  }
+ ],
+ "means_by_coef": {
+  "0.25": {
+   "conf_match": 0.594,
+   "value_ev": 0.2956,
+   "belief_bce": 0.1767,
+   "entropy_ratio": 3.025,
+   "nonconf_kl_to_baseline": 1.6206
+  },
+  "1.0": {
+   "conf_match": 0.6592,
+   "value_ev": 0.3005,
+   "belief_bce": 0.1763,
+   "entropy_ratio": 2.35,
+   "nonconf_kl_to_baseline": 0.6609
+  }
+ },
+ "entropy_constraint": "ratio <= 2.0",
+ "eligible": [],
+ "recommendation": null,
+ "rationale": "BOTH coefficients violate the entropy constraint (ratio > 2x baseline) - the recipe itself looks broken; HALT and investigate before any mix runs.",
+ "bank": "expert_data/mixes/b_even50.bin",
+ "baseline": "Hall_of_Fame/hearts_model_milestone_1785322724.pth",
+ "note": "holdout-only diagnostics; final choice is the user's"
+}
