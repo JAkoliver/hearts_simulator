@@ -157,27 +157,28 @@ disaster-recovery plan.
 
 ## 7. Updating a live site
 
-Everything above is one-time. Day to day the VPS is a plain clone of
-the PUBLIC repo, so a deploy is just "fast-forward it":
-
-```bash
-git push                # the VPS can only pull what GitHub already has
-ops/deploy_site.sh      # pull + restart-if-needed + health check
-```
-
-`ops/deploy_site.sh` refuses to run from a non-main branch or with
-unpushed commits, refuses to pull onto a VPS repo with modified tracked
-files, verifies HEAD landed on origin/main, then checks
+Everything above is one-time. Day to day the serving VPS is a plain git
+clone, so a deploy is just "fast-forward it": push, pull `--ff-only`,
+restart the service only if a tracked `.py` changed (the HTML/JS/CSS
+pages are read from disk per request, so front-end changes are live the
+moment the pull lands), then health-check
 `127.0.0.1:8642/api/leaderboard` at the origin and the public URL
-through the tunnel. `--dry-run` shows the diffstat and changes nothing;
-`--restart` forces the bounce.
+through the tunnel.
 
-**The host address is not in this repo.** The origin IP is the one
-thing the tunnel exists to conceal, so it is infrastructure and lives
-in the private ops layer with the tunnel launchers - never in a public
-file, in the same way this runbook writes `<tunnel-id>` rather than the
-real one. The script reads it from `ops/deploy_target.env`
-(gitignored, in the ops-repo sync set):
+**Where the live site pulls from:** since 2026-08-14 the production VPS
+tracks a private operational fork of this codebase (webapp development
+happens there; curated updates are synced back to this public repo, so
+the app code you are reading is the same). The deploy tooling — a
+script wrapping the pull/restart/health-check contract above, gated on
+`hearts_web/test_site.py` — lives in that fork. A self-hosted instance
+of THIS repo deploys the same way: push, `git pull --ff-only` on the
+box, restart on `.py` changes, health-check.
+
+**The host address is not in any repo.** The origin IP is the one thing
+the tunnel exists to conceal, so it is infrastructure and lives in the
+private ops layer with the tunnel launchers - never in a tracked file,
+in the same way this runbook writes `<tunnel-id>` rather than the real
+one. The deploy script reads it from a gitignored `deploy_target.env`:
 
 ```bash
 HEARTS_VPS=root@<vps-ip>
@@ -208,8 +209,8 @@ the jsonl data, the VPS-built `hearts_env*.so`) - that is what makes an
 unattended deploy safe, so keep those out of git.
 
 **Model deploys** are the other path, and they are NOT a git pull:
-`scp` the new `.pth` up and `systemctl restart hearts-web` (or
-`ops/deploy_site.sh --restart` after the copy). `MODEL_PATH` in the
+`scp` the new `.pth` up and `systemctl restart hearts-web` (or the
+deploy script's `--restart` after the copy). `MODEL_PATH` in the
 VPS's `site_config.py` decides which weights serve.
 
 The admin page is bound to localhost - reach it over an SSH tunnel:
