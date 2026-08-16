@@ -42,7 +42,12 @@ def _play_match(menv, seat_nets):
     moons = np.zeros(4, dtype=np.int64)
     while True:
         cp = menv.get_current_player()
-        action = _act(seat_nets[cp], menv.observe(), menv.get_legal_actions())
+        net = seat_nets[cp]
+        # v6 seats take obs v2 (882); everything else keeps the classic
+        # 556 match obs bit-untouched (v6 prereg stage 4 wiring)
+        obs = (menv.observe_v2() if getattr(net, 'obs_dim', 0) == 882
+               else menv.observe())
+        action = _act(net, obs, menv.get_legal_actions())
         deal_done, match_done, round_scores = menv.step(action)
         if deal_done:
             srt = np.sort(round_scores)

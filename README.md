@@ -33,7 +33,9 @@ citations is [docs/release/RESULTS.md](docs/release/RESULTS.md).
   promotion gates, with a clean dose-response in the final case. The
   current 7.6M-parameter network is at capacity from this baseline;
   the successor campaign (v6, [docs/v6_prereg.md](docs/v6_prereg.md))
-  trains a larger network from scratch.
+  trained a larger, structurally extended network from scratch and was
+  concluded 2026-08-16 without a promotion — post-mortem in
+  [docs/v6_postmortem.md](docs/v6_postmortem.md).
 
 No claims about human-relative strength are made anywhere in this
 repository; human games on the site are n=1 anecdotes and labeled so.

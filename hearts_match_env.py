@@ -154,6 +154,14 @@ class MatchVecEnv:
             for e in g])
         return np.concatenate([obs, ctx], axis=1).astype(np.float32)
 
+    def observe_v2_batch(self, g):
+        """Obs v2 for v6 learners/pool nets: [classic 550 | match ctx 6 |
+        extension 326] = 882 (docs/v6_prereg.md stage 0 layout - exactly
+        the training-record obs field)."""
+        return np.concatenate(
+            [self.observe_batch(g), self.vec.observe_ext_batch(g)],
+            axis=1).astype(np.float32)
+
     def step_batch(self, g, actions):
         """Returns (deal_dones, match_dones, placements, round_scores).
         placements[j] is a 4-vector for match-done envs, else None."""

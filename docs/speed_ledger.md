@@ -1011,3 +1011,158 @@ What the halt does NOT license is an improvised continuation: the trend
 argues the recipe search was still working, but resuming requires a
 registered decision (a new round, or the one Stage-4 amendment), not
 just relaunching the loop.
+
+## 2026-08-15: v6 DATA-SCALING PROBE — verdict DATA-BOUND (registered reopening test)
+
+Prereg docs/v6_data_scaling_prereg.md (signed 21:44 PDT; instruments
+md5-frozen before any counted run). Frozen arm-a recipe (v6_distill.py
+UNCHANGED: lr 1e-4, 3 ep, batch 512) on nested, generation-stratified
+subsets of the frozen 1.52M bank, 2 seeds per size, all six nets scored
+on the SAME full-bank by-match holdout (80,220 rec / 123 matches).
+
+MEASURED durations (RTX 4090, gentle profile, desktop co-resident):
+S1 456,150 rec = 288 s; S2 970,749 rec = 608 s; S3 1,444,601 rec =
+906 s per 3-epoch training (95/202/301 s per epoch — linear in records,
+5.0 min/epoch on the full bank vs the 08-13 5.1). Six trainings 60 min
+wall (derived quote was 62). Fixed-holdout eval ~20 s/net. Screens
+n=2500 ~3.9 min each incl. worker spin-up.
+
+Fixed-holdout results (seed 20260812 / 20260813):
+  S1  CE 0.9333/0.9427  match 60.57/60.06%  entropy 0.926/0.927 (OUT of band)
+  S2  CE 0.8586/0.8748  match 63.49/62.84%  entropy 0.864/0.877
+  S3  CE 0.8413/0.8488  match 64.17/63.86%  entropy 0.832/0.854 (IN band)
+S3 seed 20260812 REPRODUCED the frozen Stage-3 arm-a run bit-for-bit
+(0.8413 / 64.17% / 0.832) — recipe deterministic on this box.
+
+Registered paired by-match inference (seed-averaged, 123 clusters):
+  control  S1->S2  dCE -0.0703 [-0.0732,-0.0674]  dMatch +2.75pp [+2.51,+3.00]  q<1e-4
+  decision S2->S3  dCE -0.0217 [-0.0240,-0.0194]  dMatch +0.89pp [+0.70,+1.09]  q<1e-4
+  (Wilcoxon exact agrees everywhere.)  VERDICT: **DATA-BOUND.**
+Slope is real but DIMINISHING: per doubling, CE -0.065 (control) ->
+-0.038 (decision); match +2.5pp -> +1.6pp. Seed spread 0.008-0.016 CE.
+
+Screens (registered ESTIMATION ONLY, one net per size, n=2500 vs
+8a89da90, each its own seed => UNPAIRED across sizes, SE ~0.14-0.15
+each, cross-size SE ~0.2):
+  S1 +1.888 (0.154)   S2 +0.439 (0.140)   S3 +0.766 (0.149)
+  [S3 = the frozen arm-a net; Stage-3 screen of the same net +0.828
+  (0.155) — re-measurement consistent.]
+The 0.5->1.0M step is huge in strength (-1.45/deal, ~7 SE). The
+1.0->1.5M step is NOT resolved by this instrument (+0.33 +/- 0.20, wrong
+sign, ~1.6 SE) — the strength axis does not confirm the decision-step
+imitation gain at n=2500 single-seed. TENSION ON THE RECORD: imitation
+says data-bound; strength at 1.0->1.5M is flat-or-noise. Consequence:
+the Stage-2b go/no-go band must be set in STRENGTH units with PAIRED
+(CRN) screens and >1 seed, not in imitation units.
+
+CONSEQUENCE (per prereg §7): the CONDITIONAL scale-without-data closure
+is reopened by its registered route; Stage-2b becomes PROPOSABLE (own
+prereg + approval, ~60h local). Nothing else is licensed: no Path C, no
+promotion claim, no PPO statement. Nets in v6_probe/ are probe artifacts
+— never serve, never gate. Champion 8a89da90 untouched; hearts_model_
+final.pth not written. Verdict JSON: equity_data/verdicts/v6_data_probe.json.
+
+## 2026-08-16: v6 DATA PROBE ADDENDUM A — paired strength: Stage-2b NOT PROPOSED, v6 SHELVED
+
+Registered before running (docs/v6_data_scaling_prereg.md §10). Same
+six probe nets; neutral_raw_eval.py with BOTH arms probe nets, n=5000
+paired deals per pairing (SE 0.10-0.11), 4 pairings = 45 min wall
+(03:01-03:46; ~11 min each incl. spin-up — MEASURED n=5000 row).
+  S3-S2: +0.198 (0.105) / -0.158 (0.104)  pooled +0.018 (0.074) UB95 +0.163
+  S2-S1: -1.049 (0.112) / -1.345 (0.111)  pooled -1.198 (0.079) UB95 -1.044
+Control sane; decision UB95 > -0.10 => registered band 3: STAGE-2B NOT
+PROPOSED; v6 SHELVED PENDING A NEW SIGNAL SOURCE. Path C on the existing
+distill stays the only v6 continuation (own prereg). Seed finding: same-
+size nets differ by 0.30-0.36/deal in strength (~2 SE) — training-seed
+variance exceeds the +50%-data effect; >=2 seeds per arm for any future
+distill strength comparison. Register updated. Champion untouched.
+
+## 2026-08-16 BACK-FILL: measured rows for 2026-08-01 → 08-11 (recovered from logs/)
+
+Documentation audit 2026-08-16 found the ledger had NO rows between the
+08-01 wedge correction and the 08-12 v6 Stage-2 entry, although four
+programs ran in that window (expert-iter v2, exploiter league r1-r3 +
+side probe, Phase 2 visit-count). Rule 7 quotes durations from this
+file only, so the rows are reconstructed here from the driver logs'
+own timestamps (PHASEA_/PHASEB_/DEFGATE_/R2GEN_/R3TRIAL/P2* markers).
+Where a start had to be inferred from the preceding job's end, it says
+so. All local RTX 4090 / 7800X3D, v5 nets unless stated. Order of
+programs = chronological.
+
+### Expert-iter v2 (2026-08-01 → 08-05; docs/expert_iter_v2_results.md)
+- Match-aware generation, mixed chunk types (nat/knife/mid/leader/asym/
+  trail/early), 08-01 → 08-04 02:32 ALL_RESERVES_MET. Per-chunk seconds
+  are logged (e.g. nat_70: 40 matches 4,435 s = 111 s/match; knife_148:
+  60 matches from totals 90/88/86/84 = 1,630 s = 27 s/match — short
+  matches). Bank build 02:45, freeze 03:13.
+- v2mix pipeline (6 compositions x 2 reps, 08-04 07:31 → 08-05 02:33 =
+  19.0 h): confidence-filtered distill ~7 min per candidate; TWO match
+  gates n=3200 (blocks b5/b6) per candidate at **32-34 min each** (v5
+  vs v5, 12 workers). Analysis 02:33.
+
+### Exploiter league round 1 (2026-08-05 → 08-08; docs/exploiter_league_prereg.md; results in r2_results.md §r1)
+- Phase A (search-shooter vs 3x baseline, 402 matches per combo, 3
+  shards x 134, K=64 flat, pass search): agg_base **4 h 38 m**
+  (13:56→18:34), sel_base **11 h 20 m** (→05:54), sel_v4 **9 h 53 m**
+  (→15:47). Total 25.8 h. (An 11:30 start at 6 shards was aborted and
+  restarted at 3 shards at 13:56.)
+- Phase B generation (510 matches per mode = 3 x 170): agg **8 h 58 m**
+  (16:38→01:36), sel **11 h 20 m** (→12:56). Clone distills + quality
+  verify 12:59-13:37 (~40 min).
+- Phase C trials (match-mode PPO from 8a89da90, shooter shares
+  0.15/0.15, Adam moments carried): t1 ≈1.6 h (start inferred ~13:40,
+  end 15:15), t2 **1 h 29 m** (17:57→19:26), t3 **1 h 34 m**
+  (20:58→22:32).
+- Defense gate (64 CRN-paired seed-matches, 2 shards x 32, BelowNormal,
+  frozen SEL search-shooter probe): t1 base arm **78.8 min** + cand arm
+  **79.9 min**; t2 cand arm 92 min; t3 cand arm 106 min (concurrent
+  desktop load; the base arm is CRN-reusable and was NOT rerun for
+  t2/t3).
+- Gates 2+3 on t3 (00:18→04:33 = 4 h 15 m): NI match gate n=3200
+  **2,066 s = 34.4 min**; search guard n=4800 K=32 (8 concurrent runs)
+  **≈3.6 h**.
+
+### Exploiter league round 2 (2026-08-08 → 08-09; docs/exploiter_league_r2_results.md)
+- Search-defender smoke 08:56-12:29. A2 corpus generation (3 search
+  defenders vs clone attacker, 180 matches per mode, 3 x 60): agg
+  **6 h 19 m** (13:26→19:45); sel 1 h 52 m + 4 h 47 m = **6 h 39 m**
+  (paused 21:37, resumed 02:53 — the pause/resume machinery's first
+  production use).
+- b2 supervised grid (12 checkpoints on ~60k moon-alive decisions):
+  minutes per checkpoint (09:19-09:56 for grid + exploration + final).
+- 16-seed defense pre-probes: **20-23 min per arm** (5 arms 09:58→11:45).
+- Defense gates (cand arm only, base arm reused): kl8ep1 **86.6 min**,
+  kl4ep1 **83.4 min**.
+
+### Exploiter league round 3 + Phase-2 side probe (2026-08-09 → 08-10)
+- Anchored-PPO trials at HEADROOM 25%: c0 (λ=1.0) **2 h 08 m**
+  (15:14→17:22); c0b (λ=0.4) **2 h 17 m** (17:24→19:41); probe005
+  (λ=0.05) **2 h 13 m** (22:37→00:51). Each includes candidate archive
+  + baseline restore + drift measurement (seconds).
+- probe005 search guard n=4800 K=32: **3 h 39 m** (02:24→06:03).
+- probe005 defense gate cand arm ≈80 min (end 08:53, start inferred).
+
+### Phase 2 visit-count distillation (2026-08-09 → 08-11; docs/phase2_visitcount_results.md)
+- Pace probe (tree teacher) budgets 200/400/800: **14.4 / 23.3 / 54.0
+  min**. Stage B validity: 37 min (06:05→06:43). Stage B-2 chain incl.
+  rebuild: 1 h 47 m (07:06→08:53).
+- Stage C strength screen (n=800 deals, 2 shards, tree vs flat):
+  **2 h 41 m** (09:12→11:53). Generation 2 x 170 matches at budget 200,
+  BelowNormal: **22 h 22 m** (11:53 08-10 → 10:14 08-11).
+- Stage D distills: ~8 min for the six candidates (10:14→10:22).
+- Stage E gates per candidate (match n=3200 + guard n=4800): ep3
+  **4 h 15 m** (10:29→14:44), ep2 **4 h 29 m** (→19:13).
+
+### Reconciliation notes written 2026-08-16
+- **Match gate n=3200 durations by net generation (same 12-worker
+  convention):** v5 vs v5 **32-34 min** (this window, 3 measurements);
+  v6 vs v5 champion **51 min** (08-13); v6 vs v6 **83-86 min** (08-13
+  ladder). The 07-28 "~40 min" was the first evolved-guard-era figure.
+- **Search guard n=4800 K=32:** measured **3.6-3.7 h** in this window
+  (two runs) vs the 2.7 h projected on 07-28 from the n=2400 82-min row.
+  Quote 3.6 h from here on.
+- **Defense gate (64 CRN seed-matches, search-speed SEL probe):**
+  **80-107 min per arm** depending on co-resident load; base arm
+  reusable. Pre-probe (16 seeds): ~21 min per arm.
+- No results doc existed for round 1; docs/exploiter_league_r1_results.md
+  now carries the round-1 record with verdict-file pointers.

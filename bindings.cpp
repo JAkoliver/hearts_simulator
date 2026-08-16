@@ -49,6 +49,21 @@ public:
         return out;
     }
 
+    // obs-v2 extension block (326 dims past the classic 550+match6), for
+    // v6 learners in the vec PPO loop (docs/v6_prereg.md stage 4). Same
+    // per-index contract as observe_batch.
+    py::array_t<float> observe_ext_batch(py::array_t<int64_t> idx) const {
+        auto ix = idx.unchecked<1>();
+        py::array_t<float> out({ix.shape(0), (py::ssize_t)326});
+        auto o = out.mutable_unchecked<2>();
+        for (py::ssize_t j = 0; j < ix.shape(0); ++j) {
+            auto ext = envs_[Check(ix(j))].ObserveExt();
+            std::memcpy(o.mutable_data(j, 0), ext.data(),
+                        326 * sizeof(float));
+        }
+        return out;
+    }
+
     py::array_t<bool> legal_mask_batch(py::array_t<int64_t> idx) const {
         auto ix = idx.unchecked<1>();
         py::array_t<bool> out({ix.shape(0), (py::ssize_t)52});
@@ -153,6 +168,7 @@ PYBIND11_MODULE(hearts_env, m) {
         .def("reset_all", &HeartsVecEnv::reset_all)
         .def("current_players", &HeartsVecEnv::current_players)
         .def("observe_batch", &HeartsVecEnv::observe_batch)
+        .def("observe_ext_batch", &HeartsVecEnv::observe_ext_batch)
         .def("legal_mask_batch", &HeartsVecEnv::legal_mask_batch)
         .def("labels_batch", &HeartsVecEnv::labels_batch)
         .def("step_batch", &HeartsVecEnv::step_batch);

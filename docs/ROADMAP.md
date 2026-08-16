@@ -117,6 +117,17 @@ within-decision equity ORDERING (gaps), which is more drift-robust
 than absolute levels - drift concern is real but not urgent.
 
 ## Queued: v6 network (added 2026-07-29 - trigger condition, not a date)
+**STATUS 2026-08-16: RUN AND SHELVED.** The v6 that actually ran
+(docs/v6_prereg.md, signed 08-11) departed from this queue entry: it
+bundled scale (2.55x) + structure (seat tokens, aux heads) + obs v2 in
+one from-scratch distill rather than the pure-scale-first, warm-started,
+A/B-isolated sequence below. Outcome: structure helped imitation, scale
+bought nothing, match-PPO from the fresh distill damaged it (Stage 4
+halted 08-13), and the data probe found strength saturated at 1.0-1.5M
+records (08-16). Post-mortem and the v6(2) design that follows THIS
+entry's sequencing: docs/v6_postmortem.md. Main compute program now:
+exploiter league round 4 (docs/exploiter_league_r4_prereg.md).
+
 TRIGGER: the improvement loop (PPO alternation + match-aware expert
 iteration) demonstrably compounding AND the 7.6M v5 stops responding
 across several cycles with powered gates. Rationale: the v5-L lesson -

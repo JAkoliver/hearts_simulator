@@ -163,14 +163,27 @@ variable.) Every reopening gets its own pre-registration.
   (KL-anchor-to-distill-init + registered lr x lambda factorial), not
   more mutation roulette. Untested variables: regime-appropriate
   recipes (Path C), and a non-starved starting distill (Stage-2b).
-- CONDITIONAL: scale-without-data at 2.55x (2026-08-13, v6 Stage 3):
-  arm a (19.37M) TIED arm b (v5-M architecture + obs-v2 channels + aux
-  heads) on imitation from the 1.52M-record bank - capacity idled.
+- CONDITIONAL: scale-without-data (2026-08-13, v6 Stage 3): arm a
+  (19.37M, 2.55x the champion) TIED arm b (v5-M architecture + obs-v2
+  channels + aux heads; the a-vs-b contrast is ~2.4x) on imitation from
+  the 1.52M-record bank - capacity idled.
   Closure is conditional on that bank size; records-per-param fell
   ~4.9x vs the 2.93M bank that built v5-M. Per the admissibility rule
   above, "more data" IS the recorded untested variable here: the
   data-scaling probe (v6_next_plan Step 1) is the registered reopening
   test, and a data-bound verdict reopens scale via Stage-2b.
+  **REOPENED 2026-08-15: probe verdict DATA-BOUND** (docs/
+  v6_data_scaling_prereg.md §9) — imitation improves at every measured
+  size, slope diminishing; Stage-2b proposable. Closure stands ONLY for
+  the 1.52M bank. **THEN Addendum A (2026-08-16, paired strength,
+  n=5000 x 4): +49% data bought NO detectable strength (S3-S2 pooled
+  +0.018, SE 0.074, UB95 +0.163) while the control step did (-1.20,
+  SE 0.08). Registered consequence: Stage-2b NOT PROPOSED; v6 SHELVED
+  PENDING A NEW SIGNAL SOURCE.** Recorded untested variables: Path C
+  (regime-appropriate PPO on the existing distill, own prereg); a
+  teacher with a different signal source. Seed rule from the same
+  record: >=2 training seeds per arm for any distill strength
+  comparison (same-size seeds differed by 0.30-0.36/deal).
 
 ## Strategy (2026-07-23): see docs/ROADMAP.md
 

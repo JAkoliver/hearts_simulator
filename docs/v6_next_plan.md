@@ -139,6 +139,20 @@ clean test in-branch anyway.
 
 ## 4. Step 1 — data-scaling probe (FIRST ACTION, needs mini-prereg + go)
 
+**STATUS 2026-08-15: RUN AND CONCLUDED — verdict DATA-BOUND** (prereg
+docs/v6_data_scaling_prereg.md §9; ledger 2026-08-15). Slope real but
+diminishing (match +1.6 pp per doubling at the top of the range); the
+strength screen did NOT resolve the 1.0→1.5M step. Routing follows the
+data-bound branch: Stage-2b (Path B) is proposable; its go/no-go band
+must be in strength units with paired screens.
+
+**UPDATE 2026-08-16 (Addendum A, paired strength n=5000×4): the
+decision step bought NO detectable strength (S3−S2 +0.018 ± 0.074,
+UB95 +0.163) → registered band: STAGE-2B NOT PROPOSED; v6 SHELVED
+PENDING A NEW SIGNAL SOURCE.** Path B is dead on measurement. Path C on
+the existing arm-a distill is the only v6 continuation (own prereg).
+Path D (league r4) is the main compute program.
+
 Question: does the v6 distill improve materially with more data, holding
 the recipe fixed? (Is F4 the real constraint?)
 
@@ -168,11 +182,13 @@ Runs ONLY on a data-bound probe verdict.
   Stage-2b before anyone proposes a third installment; do not extrapolate.
 - Venue: **LOCAL hardware (user decision 2026-08-14 — no cloud for
   Stage-2b).** Ledger basis (SAME-CONFIG row, corrected 2026-08-14 —
-  the first draft wrongly quoted the 2026-07-17 v5-era 6.32 s/deal row):
+  the first draft, like the as-signed v6 prereg §Stage 2/§Costs (~44h),
+  quoted the 2026-07-17 v5-era 6.32 s/deal row; the prereg's figure is
+  history and stands as signed, this doc supersedes it):
   Stage 2's own local RTX 4090 chunks with the format-v3 recorder at
-  K=64/256 measured **93-98 s/match** (ledger, chunks 20-23; measured
-  with the webapp co-resident, which has since moved to the VPS, so
-  mildly conservative). At ~662 records/match, a ~1.5M-record
+  K=64/256 measured **93-98 s/match** (ledger, chunks 20-23; chunk 23 ran
+  dedicated and chunks 20-22 with the webapp co-resident, with no
+  measurable difference — so no headroom is claimed). At ~662 records/match, a ~1.5M-record
   installment ≈ ~2,300 matches ≈ **~60h machine time full-throttle** —
   ~40% over the old quote. Under rule-17 windows (5h/night) that is
   ~12 nights; with standing full-throttle permission, ~2.5 days
@@ -210,9 +226,10 @@ calibration shots.
 **R2 — a registered factorial replaces mutation roulette for round 1.**
 The Stage-4 chain searched a tiny neighborhood evolved for a different
 regime (F3). Round 1 of Path C is a pinned 2×2: lr {1e-5 control, 5e-5}
-× λ {calibrated dose, 0 control} — 4 trials ≈ 16-18h total on the
-MEASURED v6 basis (per trial ≈ 4h: 75k-deal training + the 83-86 min
-n=3200 lineage gate; note the ledger's OTHER n=3200 figure, 51 min, is
+× λ {calibrated dose, 0 control} — 4 trials ≈ 14h from MEASURED
+components (2h 75k-deal training + 83-86 min n=3200 lineage gate ≈ 3.4h
+per trial) plus a pad for the 2-shot λ calibration allowance (each shot
+≈ another trial), so budget ~16-22h for round 1; note the ledger's OTHER n=3200 figure, 51 min, is
 the v6-vs-v5-CHAMPION config with only one 19.4M arm — Path C gates are
 both-arms-v6 and must be costed at 86 min). The λ=0 /
 lr=1e-5 cell reproduces the Stage-4 regime as an internal control. Only
@@ -233,7 +250,9 @@ axis. Not in round 1 — each arm is ~4h and the 2×2 answers first.
 - Mid-training cheap gate probe (n=800, **~21 min** — DERIVED by
   n-scaling the measured 86-min n=3200 both-arms-v6 gate; the first
   draft's "~10 min" was a v5-era figure, ~2× optimistic for v6-vs-v6)
-  at ~half budget so a damaging trial halts at ~2.5h instead of 4h.
+  at ~half of the 75k-deal TRAINING budget (~1h in), so a damaging trial
+  halts at ~1.4h (probe included) instead of ~3.4h — "half budget"
+  means half the training deals, to be pinned in the Path C prereg.
 - Three-strikes stop rule as standing house rule; candidate_lineage: true;
   explicit-snapshot gating; gates via scripts/run_match_gate.py ONLY.
 
@@ -278,8 +297,11 @@ also carries the previously-missing Phase-2 visit-count closure):
   fresh, far-below-ceiling distill: measured actively damaging** (3/3
   trials, monotone mitigation never reaching zero). Path C §6 is the only
   sanctioned retry shape.
-- Scale-without-data at 2.6×: no pre-PPO effect (F2), conditional on the
-  1.52M bank — the F4 probe can reopen this with data, nothing else can.
+- Scale-without-data (arm a 19.37M vs arm b, ~2.4× — F2's pinned
+  contrast; 2.55× vs the champion): no pre-PPO effect, conditional on the
+  1.52M bank — the F4 probe was the registered reopening test. UPDATE
+  2026-08-16: probe run; imitation data-bound but strength saturated at
+  1.0→1.5M (Addendum A) → Stage-2b NOT PROPOSED, v6 SHELVED.
 
 Standing closures that constrain these paths (register has details):
 equity-ordering distillation targets (expert-iter v2), visit-count targets
@@ -293,8 +315,14 @@ imitation at ~60k-decision scale (r2), K>64 escalation / ISMCTS.
 - Lineage milestones: v6_stage4/milestones/ (rolled back; nothing promoted).
 - Frozen Stage-3 nets + verdicts: v6_stage3/, equity_data/verdicts/.
 - Champion: Hall_of_Fame/milestone_1785322724 = 8a89da90 (verified).
-- The dose/guard data Path D rests on:
-  equity_data/verdicts/r3_probe005_guard.json (+ r3_drift_*.json).
+- The dose/guard/defense data Path D rests on:
+  equity_data/verdicts/r3_probe005_guard.json (guard PASS),
+  r3_probe005_defense_gate.json (defense NULL, n=64), r3_drift_*.json,
+  exploiter_r1_defense_gate_r1t3.json + exploiter_r1_gates23_r1t3.json
+  (the only defense pass and its two gate failures).
+- Data-scaling probe record: docs/v6_data_scaling_prereg.md §9/§11,
+  equity_data/verdicts/v6_data_probe.json, v6_probe/ (probe nets — never
+  serve, never gate).
 - Nothing in this plan is launched. Sequence on user go: Step-1 probe
   mini-prereg → probe → branch decision → (Stage-2b approval if
   data-bound) → Path C prereg → Path D prereg may proceed in parallel at

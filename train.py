@@ -471,7 +471,12 @@ def run_cycle_vec_match(vec, registry, active_ids, seat_net, steps_this_match,
         for k in np.unique(deciding[active]):
             headroom.pace()
             g = active[deciding[active] == k]
-            obs = vec.observe_batch(g)
+            # v6 nets (obs_dim 882) take obs v2; everything else keeps the
+            # classic 556 path bit-untouched (v6 prereg stage 4 wiring)
+            if getattr(registry[k], 'obs_dim', 0) == 882:
+                obs = vec.observe_v2_batch(g)
+            else:
+                obs = vec.observe_batch(g)
             mask = vec.legal_mask_batch(g)
             actions, log_probs, values = select_actions_batch(
                 registry[k], obs, mask, device,
@@ -628,6 +633,9 @@ def main():
             # pool nets consume it natively (zero-proj checkpoints stay
             # score-blind, exactly as they played historically).
             for i in range(1, len(registry)):
+                if getattr(registry[i], 'obs_dim', 0) == 882:
+                    continue   # v6 pool nets take obs v2 via the per-net
+                               # selector in run_cycle_vec_match
                 if not isinstance(registry[i], HeartsNetV5):
                     registry[i] = Slice550(registry[i]).to(device).eval()
             vec = MatchVecEnv(num_envs, 1000)
@@ -689,6 +697,7 @@ def main():
               f"baseline {ap} ({want}) on threat-dead states")
 
     games_played = 0
+    mid_snapshot_written = False
     pool_refresh_interval = config.get('pool_refresh_interval', 25000)
     next_pool_refresh = pool_refresh_interval
 
@@ -770,6 +779,20 @@ def main():
             print(line)
             train_log.write(line + "\n")
             train_log.flush()
+
+            # League round 4 (docs/exploiter_league_r4_prereg.md §3.2):
+            # ONE mid-trial snapshot of the policy at 50% of max_episodes,
+            # for the registered mid-training defense probe. Pure side
+            # effect: state_dict copy -> file; consumes no RNG, touches no
+            # training state. Written once per run.
+            if (not mid_snapshot_written
+                    and games_played >= max_episodes // 2):
+                torch.save({k: v.detach().cpu().clone()
+                            for k, v in network.state_dict().items()},
+                           'hearts_model_mid.pth')
+                mid_snapshot_written = True
+                print(f"MID-TRIAL SNAPSHOT saved at {games_played} games "
+                      f"-> hearts_model_mid.pth")
 
             # Periodically snapshot the current policy into the opponent pool so
             # in-trial opponents track progress instead of staying frozen
