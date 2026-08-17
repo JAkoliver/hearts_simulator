@@ -1,0 +1,11 @@
+{
+ "candidate": "cand_r4_C.pth",
+ "drift_agreement": 0.89773,
+ "threshold": 0.97,
+ "pass": false,
+ "n_drift": 20025,
+ "telemetry": {
+  "defense_holdout_teacher_match": 0.5036,
+  "mean_entropy_drift_holdout": 0.2645
+ }
+}

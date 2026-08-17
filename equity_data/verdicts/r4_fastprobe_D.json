@@ -1,0 +1,34 @@
+{
+ "base": "Hall_of_Fame/hearts_model_milestone_1785322724.pth",
+ "attacker": "shooter_sel_v1.pth",
+ "matches": 1000,
+ "seed": 740000000,
+ "results": {
+  "cand_r4_D_mid.pth": {
+   "n": 1000,
+   "cand_moons_per_match": 1.477,
+   "base_moons_per_match": 1.479,
+   "delta": -0.002,
+   "se": 0.0368422767124041,
+   "p_one_sided": 0.4783592930910545,
+   "ci95": [
+    -0.07429712711530193,
+    0.07029712711530192
+   ],
+   "ddef_place": -0.004333333333333334
+  },
+  "cand_r4_D.pth": {
+   "n": 1000,
+   "cand_moons_per_match": 1.485,
+   "base_moons_per_match": 1.479,
+   "delta": 0.006,
+   "se": 0.038071162490964386,
+   "p_one_sided": 0.5625979170391615,
+   "ci95": [
+    -0.06870862062956802,
+    0.08070862062956803
+   ],
+   "ddef_place": -0.008
+  }
+ }
+}

@@ -1166,3 +1166,59 @@ programs = chronological.
   reusable. Pre-probe (16 seeds): ~21 min per arm.
 - No results doc existed for round 1; docs/exploiter_league_r1_results.md
   now carries the round-1 record with verdict-file pointers.
+
+## 2026-08-16: LEAGUE R4 STAGE 0 — base arm reproduces; fast defense probe VALIDATED; r1-t3 replicates
+
+Prereg docs/exploiter_league_r4_prereg.md (signed 08-16, defense gate
+n=320). MEASURED:
+- Base-arm reproduction (SEL search-shooter shard 0, 32 matches, seed
+  720260806, single shard, K=64 flat, GPU): 33.4 min (11:07:49->11:41:11)
+  = 63 s/match single-shard. Output BYTE-IDENTICAL to r1's base_0.csv
+  under probe trace 3a2abd36 + the 08-13-rebuilt SearchEval.
+- Fast defense probe (defense_probe_fast.py, 3 raw defenders vs the
+  shooter_sel_v1 clone, CRN-paired vs baseline defenders): 8 arms x
+  1,000 matches = 8,000 raw matches in 73.2 min at 12 workers,
+  BelowNormal (~9 min per arm-thousand; the desktop stayed usable).
+Results (delta moons conceded/match, negative = better; SE ~0.04):
+  A/A 0.000 | c0 -0.011 | c0b +0.065 | probe005 -0.060 (p=.066) |
+  r1t1 -0.074 (p=.030) | r1t2 -0.089 (p=.015) | r1t3 -0.235 (p<1e-4)
+=> §3.3 VALIDATION PASS; ordering reproduces the search-SEL gate's;
+r1-t3's -0.250 (n=64) REPLICATES at -0.235 +/- 0.041 under a different
+attacker. Clone concedes 1.48 moons/match to the champion vs the search
+shooter's 2.48. Nothing else launched; trials await go.
+
+## 2026-08-16: LEAGUE R4 base-arm EXTENSION COMPLETE (n=64 -> 320)
+
+8 shards x 32 CRN seed-matches (seeds 724260806..731260806), baseline
+defenders vs the frozen SEL search-shooter, K=64 flat, pass search,
+FULL SPEED: two waves of 4 concurrent shards, Normal priority, machine
+otherwise idle. MEASURED: wave 1 2 h 51 m (13:40->16:31), wave 2
+2 h 52 m (16:31->19:23) => **5 h 42 m for 256 matches = 80 s/match
+aggregate at 4-wide** (single-shard was 63 s/match; 4-wide buys ~3.2x
+throughput, GPU pinned 100% / 11 GB - wider would not help). All 8
+shards rc=0, 32 matches each, 1,763 deals.
+Base rate on the extension: 2.559 moons/match (var 0.475) vs r1's 64:
+2.484 (var 0.444) - consistent. Combined base arm n=320: 2.544/match.
+Files: equity_data/exploiter_r4/base_ext/base_{4..11}.csv (+ .tricks).
+Quote for a CANDIDATE arm at n=320 (10 shards): ~7.1 h at 4-wide
+(80 s/match), not the 6.6 h projected from 2-wide r1 timing.
+
+## 2026-08-17: LEAGUE R4 round-1 factorial COMPLETE — no gate-eligible cell; reserve arm is the program
+
+Four anchored-PPO cells from 8a89da90 (r3 recipe, fresh Adam,
+config_r4_base.json + {anchor_kl_coef, shooter_share}), each followed by
+drift measurement + fast defense probe on mid and end snapshots
+(docs/exploiter_league_r4_results.md). MEASURED:
+- Cell A (lambda 0.05, share 0.15) at HEADROOM 0.25: train 2 h 18 m
+  (02:48->05:06), probes+drift 31 min, cell 2 h 49 m.
+- Cells D/B/C at FULL SPEED (HEADROOM 0): train 1 h 34 m / 1 h 33 m /
+  1 h 35 m; cells 2 h 01 m / 2 h 01 m / 2 h 03 m incl. ~27-min probes.
+  Full speed = ~1.5x the headroom pace. Whole chain 02:48->11:42.
+Fast-probe END deltas (moons conceded/match, n=1000 CRN, SE ~0.038):
+  A -0.082 (p=.014, UB -0.009) | D +0.006 | B -0.019 | C +0.033
+Drift: A 7.9%, B 7.9%, D 10.4%, C 10.2% (predictions 7.8% / ~9.5%).
+None meets the registered eligibility (UB<0 AND point <= -0.10);
+D,B,C = three consecutive non-eligible => round-1 closed. Cell A +
+probe005 = two seeds at ~-0.07 (2.6 SE pooled): a real but sub-bar
+signal at lambda=0.05. Looser anchor and denser threats both WORSE.
+Nothing gated; champion md5 8a89da90 verified after cell C.
