@@ -9,6 +9,7 @@
 //
 //   an_load_match(seed, deal_action_offsets, actions)   full-replay contract
 //   an_analyze(deal, action_idx, K)  -> pump kind
+//   an_choose_pass(deal, seat, K, n_cand) -> pump kind (LIVE pass search)
 //   an_pump kinds: 0 done, 1 policy rows wanted (root: feed logits+belief;
 //                  rollout: feed argmax acts), 2 equity rows wanted
 //
@@ -111,6 +112,7 @@ struct Engine {
     std::vector<int32_t> r_trace;   // n_states x 4 per-seat playout points
     std::vector<std::array<int, 3>> combos;   // pass candidates under eval
     std::array<int, 3> actual_combo{};        // the pass actually made
+    bool have_actual = false;                 // review: anchor the actual pass; live: no actual yet
     int n_cand = 10;
     std::vector<int32_t> r_combo;   // n x 3 pass-combo card ids
     std::vector<int> cards_deal;    // per-replica current deal index
@@ -320,7 +322,10 @@ struct Engine {
         env.Reset();
         if (deal_idx < (int)deal_hands.size()) env.SetDeal(deal_hands[deal_idx]);
         const auto& acts = deal_actions[deal_idx];
-        if (action_idx >= (int)acts.size()) return false;
+        // action_idx == acts.size() is the PENDING decision (live play:
+        // everything logged so far has been replayed, the decision itself
+        // has not been made). Review callers always pass action_idx < size.
+        if (action_idx > (int)acts.size()) return false;
         for (int i = 0; i < action_idx; ++i) env.Step(acts[i]);
         env_valid = true;
         return true;
@@ -641,30 +646,50 @@ KEEP int32_t* an_result_trace() { return E.r_trace.data(); }
 // the native engine uses). Root wants logits+belief via
 // an_feed_root_pass: logits propose candidate combos, belief weights the
 // determinizations. The ACTUAL pass is always among the candidates.
-KEEP int an_analyze_pass(int deal_idx, int seat, int k, int n_cand) {
-  return Trap([&]() -> int {
+// Shared pass-search setup. live=false (review): the deal is finished and
+// the pass actually made is anchored as a candidate. live=true (play):
+// only the picks of seats BEFORE this one exist in the log; no anchor -
+// the candidate set is exactly the native SearchPlayer::ChoosePass one
+// (TopThree + samples), scored combo x determinization.
+static int BeginPass(int deal_idx, int seat, int k, int n_cand, bool live) {
     E.K = k;
     E.playout_mode = E.trace_mode = E.cards_mode = false;
     E.pass_mode = true;
+    E.have_actual = false;
     E.n_cand = n_cand < 4 ? 4 : (n_cand > 20 ? 20 : n_cand);
-    E.rng.seed(0x51ED270Fu
+    E.rng.seed((live ? 0x11FE5EEDu : 0x51ED270Fu)
                ^ (unsigned)(deal_idx * 131071 + seat * 257 + k));
     E.sims.clear();
     E.dets.clear();
     E.combos.clear();
     if (deal_idx >= (int)E.deal_actions.size()) return -1;
     const auto& acts = E.deal_actions[deal_idx];
-    if ((int)acts.size() != 64) return -1;   // hold deal: no pass
+    if (!live && (int)acts.size() != 64) return -1;        // review: hold deal has no pass
+    if (live && (int)acts.size() < seat * 3) return -1;    // live: earlier seats' picks must be logged
     if (!E.SeekTo(deal_idx, seat * 3)) return -1;
     if (!E.env.IsPassing() || E.env.GetCurrentPlayer() != seat) return -1;
     E.me = seat;
     E.legal = Engine::LegalVector(E.env);
-    for (int j = 0; j < 3; ++j) E.actual_combo[j] = acts[seat * 3 + j];
-    std::sort(E.actual_combo.begin(), E.actual_combo.end());
+    if (!live) {
+        for (int j = 0; j < 3; ++j) E.actual_combo[j] = acts[seat * 3 + j];
+        std::sort(E.actual_combo.begin(), E.actual_combo.end());
+        E.have_actual = true;
+    }
     E.BuildContext();
     E.cap = {13, 13, 13};   // pass rewind: everyone back to full hands
     return E.RequestRoot();
-  });
+}
+
+KEEP int an_analyze_pass(int deal_idx, int seat, int k, int n_cand) {
+  return Trap([&]() -> int { return BeginPass(deal_idx, seat, k, n_cand, false); });
+}
+
+// LIVE pass choice (site "search on" mode): same search as review minus the
+// anchor; result via an_result_combo after the pump completes. Port of
+// SearchPlayer::ChoosePass (native defaults pass_k=12 / pass_candidates=12;
+// the teacher uses --pass-k 24).
+KEEP int an_choose_pass(int deal_idx, int seat, int k, int n_cand) {
+  return Trap([&]() -> int { return BeginPass(deal_idx, seat, k, n_cand, true); });
 }
 
 // Root feed for pass analysis: candidates from the policy's own pass
@@ -703,7 +728,7 @@ KEEP int an_feed_root_pass(const float* logits52, const float* belief156) {
                           [&](size_t a, size_t b) { return p[a] > p[b]; });
         add_combo({E.legal[idx[0]], E.legal[idx[1]], E.legal[idx[2]]});
     }
-    add_combo(E.actual_combo);
+    if (E.have_actual) add_combo(E.actual_combo);   // review anchors the real pass; live has none
     int tries = 0;
     while ((int)E.combos.size() < E.n_cand && tries++ < E.n_cand * 8) {
         std::array<int, 3> c{};
