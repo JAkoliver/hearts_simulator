@@ -1,0 +1,34 @@
+{
+ "base": "Hall_of_Fame/hearts_model_milestone_1785322724.pth",
+ "attacker": "shooter_sel_v1.pth",
+ "matches": 1000,
+ "seed": 740000000,
+ "results": {
+  "hybrid_champ_armb_threat.pth": {
+   "n": 1000,
+   "cand_moons_per_match": 1.372,
+   "base_moons_per_match": 1.479,
+   "delta": -0.107,
+   "se": 0.03615048904036926,
+   "p_one_sided": 0.001575282482924374,
+   "ci95": [
+    -0.17793960348416696,
+    -0.03606039651583304
+   ],
+   "ddef_place": -0.03783333333333333
+  },
+  "hybrid_champ_armb_anyalive.pth": {
+   "n": 1000,
+   "cand_moons_per_match": 1.332,
+   "base_moons_per_match": 1.479,
+   "delta": -0.147,
+   "se": 0.04138966180224362,
+   "p_one_sided": 0.00020037346827230494,
+   "ci95": [
+    -0.22822064941683406,
+    -0.06577935058316593
+   ],
+   "ddef_place": -0.03466666666666667
+  }
+ }
+}

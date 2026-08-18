@@ -1287,3 +1287,13 @@ lr 1e-3: tm 54.27% (champ 53.47%) PASS, threat-dead drift 34.1% FAIL.
 Tune lr 1e-4: tm 49.9% FAIL, drift 36.0% FAIL. HALT per the registered
 one-tune rule. Both rejected checkpoints kept untracked. Champion
 untouched (only read).
+
+## 2026-08-18: HYBRID "defense specialist" probe (docs/hybrid_specialist_probe.md)
+
+HeartsHybrid (champion + arm b switching on moon-alive threat states).
+MEASURED: fast probe 2 hybrids + base x 1,000 = 3,000 matches in 45.7 min
+at 12 workers (the hybrid runs TWO nets per decision, one at 882 - ~1.6x
+a plain-net probe); neutral_raw n=5000 vs champion 6.6 min each.
+threat gate: defense -0.107 (SE 0.036), strength +0.104 (SE 0.055);
+any_alive gate: -0.147 (0.041), +0.246 (0.093). Defense lives in the
+threat-state play (19% of decisions).

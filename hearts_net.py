@@ -521,6 +521,64 @@ class HeartsNetV5Ext(HeartsNetV5):
         return self.final_norm(x)
 
 
+class HeartsHybrid(nn.Module):
+    """Two raw nets that SWITCH by state (docs/hybrid_specialist_probe.md):
+    the CHAMPION (556 inputs) plays every decision except moon-alive THREAT
+    states, where the SPECIALIST (an obs-v2 net, 882 inputs) plays instead.
+    A hard gate, not a perturbation - neither net's weights change.
+
+    Gate 'threat' (primary): some OPPONENT relative seat is moon-alive
+    (obs-v2 dims 872-875, seats 1-3) AND that seat has taken >= 1 penalty
+    point (from the taken-by planes 660-867 x penalty). Passing-phase and
+    no-points states never fire (everyone is trivially alive there).
+    Gate 'any_alive' (secondary): any opponent moon-alive flag set.
+    obs_dim = 882 (needs obs v2); the champion sees the 556 prefix.
+    """
+    OBS_DIM = 882
+    _PEN = None
+
+    def __init__(self, champion, specialist, gate='threat'):
+        super().__init__()
+        self.champion = champion
+        self.specialist = specialist
+        self.gate = gate
+        self.obs_dim = 882
+        pen = torch.zeros(52); pen[39:52] = 1.0; pen[36] = 13.0
+        self.register_buffer('pen', pen, persistent=False)
+
+    def gate_mask(self, observation):
+        alive = observation[:, 872:876] > 0.5                       # rel seats 0..3
+        if self.gate == 'any_alive':
+            return alive[:, 1:].any(dim=1)
+        taken = observation[:, 660:868].reshape(-1, 4, 52)
+        pts = taken @ self.pen                                       # (b, 4)
+        return (alive[:, 1:] & (pts[:, 1:] >= 1.0)).any(dim=1)
+
+    def forward(self, observation, legal_actions_mask):
+        if observation.dim() == 1:
+            observation = observation.unsqueeze(0)
+        if legal_actions_mask.dim() == 1:
+            legal_actions_mask = legal_actions_mask.unsqueeze(0)
+        if observation.shape[-1] != self.OBS_DIM:
+            raise ValueError(f'HeartsHybrid requires 882-dim obs v2, got {observation.shape[-1]}')
+        g = self.gate_mask(observation)
+        lc, vc = self.champion(observation[:, :556], legal_actions_mask)
+        ls, vs = self.specialist(observation, legal_actions_mask)
+        gm = g.unsqueeze(1)
+        return torch.where(gm, ls, lc), torch.where(gm, vs, vc)
+
+    def forward_all(self, observation, legal_actions_mask):
+        logits, value = self.forward(observation, legal_actions_mask)
+        _, _, bel = self.champion.forward_all(observation[:, :556], legal_actions_mask)
+        return logits, value, bel
+
+
+def save_hybrid(path, champion_ckpt, specialist_ckpt, gate='threat'):
+    torch.save({'hybrid': True, 'gate': gate,
+                'champion_sd': torch.load(champion_ckpt, weights_only=True, map_location='cpu'),
+                'specialist_sd': torch.load(specialist_ckpt, weights_only=True, map_location='cpu')}, path)
+
+
 def net_from_checkpoint(path, map_location=None):
     """Construct the right network class at the right size for a checkpoint.
 
@@ -530,6 +588,15 @@ def net_from_checkpoint(path, map_location=None):
     checkpoints saved before the oracle head existed.
     """
     sd = torch.load(path, weights_only=True, map_location=map_location)
+    if isinstance(sd, dict) and sd.get('hybrid'):
+        import tempfile, os
+        parts = []
+        for k in ('champion_sd', 'specialist_sd'):
+            f = tempfile.NamedTemporaryFile(delete=False, suffix='.pth'); f.close()
+            torch.save(sd[k], f.name); parts.append(net_from_checkpoint(f.name, map_location)); os.remove(f.name)
+        net = HeartsHybrid(parts[0], parts[1], gate=sd.get('gate', 'threat'))
+        net.eval()
+        return net
     if 'ext_card_proj.weight' in sd:          # league r5 adapter net (882)
         d_model = sd['card_embed.weight'].shape[1]
         num_layers = 1 + max(int(k.split('.')[1]) for k in sd
