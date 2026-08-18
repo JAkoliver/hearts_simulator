@@ -203,8 +203,13 @@ variable.) Every reopening gets its own pre-registration.
   the trunk's at lr 9e-6 under the anchor). Closes that DELIVERY METHOD
   only. The information hypothesis is supported by T1 (obs-v2 students
   out-defend obs-v1 students ~4 SE) and remains open; recorded untested
-  variable: adapter WARM-START (adapters pretrained with the trunk
-  frozen) then the same PPO (r5 Addendum W). Also on record: T0 audit -
+  variable: adapter WARM-START — RUN 2026-08-18 (r5 Addendum W) and
+  HALTED at acceptance: adapters pretrained with the trunk frozen
+  disturb the champion at every dose tried (drift 34-36% vs a 3% bar;
+  smaller adapters = more disturbance). Additive obs-v2 adapters on
+  8a89da90 are closed by both delivery methods. Still open: adapters
+  trained jointly with an anchored trunk fine-tune; a from-scratch
+  obs-v2 generation (T1: obs-v2 students out-defend obs-v1 ~4 SE). Also on record: T0 audit -
   the champion already decodes moon-alive well (AUC 0.975 given points
   taken) but not per-seat points (R^2 0.62) or per-card capture (probe =
   raw channels).

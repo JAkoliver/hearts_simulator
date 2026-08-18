@@ -1277,3 +1277,13 @@ the trunk's card_proj) - the zero-init pathway did not grow into use at
 lr 9e-6 under the anchor. Paired strength vs champion: E1 -0.003, E2
 -0.001, C2 -0.001, C1 -0.198 (SE ~0.08). Champion 8a89da90 verified.
 Round-5 total: Stage 0 ~1 h + trials 11.4 h, $0.
+
+## 2026-08-18: LEAGUE R5 Addendum W — warm-start HALTED at acceptance (no trials)
+
+warmstart_v5ext.py: adapters-only supervised imitation on the 1.44M
+training records, trunk frozen, 1 epoch = 108 s (batch 512, GPU);
+acceptance (teacher-match on the 80k holdout + shared drift) ~2 min.
+lr 1e-3: tm 54.27% (champ 53.47%) PASS, threat-dead drift 34.1% FAIL.
+Tune lr 1e-4: tm 49.9% FAIL, drift 36.0% FAIL. HALT per the registered
+one-tune rule. Both rejected checkpoints kept untracked. Champion
+untouched (only read).

@@ -1,0 +1,14 @@
+{
+ "candidate": "cand_r5_ext_warm.pth",
+ "md5": "04c009c68bae9b9d6697efa12afb43b3",
+ "teacher_match_candidate": 0.49922712540513586,
+ "teacher_match_champion": 0.5347294938917976,
+ "ce_candidate": 1.2110551433235117,
+ "ce_champion": 2.6396116117383737,
+ "a_pass": false,
+ "drift_threat_dead": 0.35972875356674194,
+ "drift_other_play": 0.39872485399246216,
+ "b_pass": false,
+ "adapter_mean_abs_w": 0.060110896825790405,
+ "trunk_card_proj_mean_abs_w": 0.19464674592018127
+}
