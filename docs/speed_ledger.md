@@ -1246,3 +1246,34 @@ lambda=0.05/share=0.15 family, four seeds at b=0/0/2/4 read
 -0.060/-0.082/-0.063/-0.056: a stable ~-0.065 +/- 0.019 in-band ceiling
 (real, sub-bar). Champion 8a89da90 verified. Round-4 total machine time:
 Stage 0 ~2.5 h + extension 5.7 h + 6 trials ~14 h = ~22 h, $0.
+
+## 2026-08-17/18: LEAGUE R5 STAGE 0 — instruments frozen, T0 no-halt, T1 positive
+
+Prereg docs/exploiter_league_r5_prereg.md (signed 08-17). MEASURED:
+- T0 information audit (audit_t0_info.py, 80,220 holdout records, linear
+  probes on champion activations, GPU L-BFGS): ~6 min. Per-seat points
+  R^2 0.62 (raw 0.39); moon-alive AUC 0.975 given points taken (raw
+  0.911); QS holder acc 0.93; per-card taken-by from the card token 0.784
+  = raw channels 0.787 (majority 0.61) -> capture attribution ABSENT.
+  Registered halt NOT triggered.
+- T1: fast probe on arm b (obs v2) / arm c (obs v1), 2 nets + base x
+  1,000 = 3,000 matches: 30 min at 12 workers; paired strength n=5000
+  4.7 min. arm b -0.117 (SE 0.041) vs champion, arm c +0.126 (0.041);
+  b-c strength -0.246/deal (SE 0.103).
+- validate_v5ext 4,096 states ~1 min; drift_screen_v6holdout ~1 min/net;
+  ext-learner trainer smoke (SMOKE_TEST) ~2 min.
+Trials E1,C1,E2,C2 launched 00:21 at HEADROOM 0.25.
+
+## 2026-08-18: LEAGUE R5 trials COMPLETE — mechanism NULL (adapters never became a pathway); no promotion
+
+Four cells at HEADROOM 0.25 (E1 00:21->03:19, C1 ->06:08, E2 ->08:56,
+C2 ->11:44): train 2 h 17-19 m each; drift x2 + fast probes + paired
+strength ~41 min per cell (fast probe 3 arms ~28 min, neutral_raw
+n=5000 ~4.7 min, drift instruments ~2 min). MEASURED per-cell 2 h 48-
+59 m; four cells 11 h 23 m. Fast probe END: E1 -0.015, C1 -0.029, E2
+-0.015, C2 -0.046 (SE 0.038 each); pooled E-C +0.022 (SE 0.038) => NULL;
+no cell eligible. Adapters after 250k deals: mean |w| ~0.006 (~30x below
+the trunk's card_proj) - the zero-init pathway did not grow into use at
+lr 9e-6 under the anchor. Paired strength vs champion: E1 -0.003, E2
+-0.001, C2 -0.001, C1 -0.198 (SE ~0.08). Champion 8a89da90 verified.
+Round-5 total: Stage 0 ~1 h + trials 11.4 h, $0.

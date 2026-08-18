@@ -15,6 +15,13 @@ CELL=${1:?cell tag required (A/B/C/D)}
 LAMBDA=${2:?anchor_kl_coef required}
 SHARE=${3:?shooter_share required}
 BCREDIT=${4:-0}      # Addendum R block_credit_b (0 = round-1 recipe)
+# League r5 (docs/exploiter_league_r5_prereg.md): R5_INIT=<ckpt> starts the
+# trial from that checkpoint instead of the champion (the ext-adapter init,
+# md5 R5_INIT_MD5), and R5_STRENGTH=1 adds the paired neutral-raw strength
+# read of the END candidate vs the champion (n=5000). Unset = r4 behaviour.
+R5_INIT=${R5_INIT:-}
+R5_INIT_MD5=${R5_INIT_MD5:-}
+R5_STRENGTH=${R5_STRENGTH:-0}
 LOG=logs/r4_trial_$CELL.log
 MILESTONE=Hall_of_Fame/hearts_model_milestone_1785322724.pth
 BASE_CFG=config_r4_base.json
@@ -47,10 +54,15 @@ mark "config written lambda=$LAMBDA share=$SHARE block_credit_b=$BCREDIT md5=$(m
 restore_cfg() { cp "equity_data/exploiter_r4/config_json_backup_$CELL.json" config.json; mark "config.json WIP restored"; }
 trap restore_cfg EXIT
 
-# --- baseline restore, fresh Adam ---------------------------------------------
-cp "$MILESTONE" hearts_model_final.pth
-[ "$(md5sum hearts_model_final.pth | cut -c1-8)" = "8a89da90" ] \
-  || { mark "HALT bad baseline restore"; exit 1; }
+# --- baseline restore (or r5 init), fresh Adam -------------------------------
+if [ -n "$R5_INIT" ]; then
+  cp "$R5_INIT" hearts_model_final.pth
+  [ "$(md5sum hearts_model_final.pth | cut -c1-8)" = "$R5_INIT_MD5" ] || { mark "HALT bad r5 init restore ($R5_INIT expected $R5_INIT_MD5)"; exit 1; }
+  mark "r5 init: $R5_INIT md5=$R5_INIT_MD5"
+else
+  cp "$MILESTONE" hearts_model_final.pth
+  [ "$(md5sum hearts_model_final.pth | cut -c1-8)" = "8a89da90" ] || { mark "HALT bad baseline restore"; exit 1; }
+fi
 rm -f hearts_optimizer.pth hearts_model_mid.pth
 mark "start lambda=$LAMBDA share=$SHARE block_credit_b=$BCREDIT (fresh Adam, HEADROOM ${HEARTS_HEADROOM:-0.25})"
 
@@ -72,9 +84,13 @@ cp "$MILESTONE" hearts_model_final.pth
 mark "baseline restored"
 
 # --- drift MEASUREMENT (band 5-15% informs; not a gate) -----------------------
-PYTHONUNBUFFERED=1 python -u drift_screen_b2.py "cand_r4_$CELL.pth" \
-  --json "equity_data/verdicts/r4_drift_$CELL.json" >> "$LOG" 2>&1
-mark "drift measured (r4_drift_$CELL.json; exit code is NOT a gate)"
+if [ -z "$R5_INIT" ]; then
+  PYTHONUNBUFFERED=1 python -u drift_screen_b2.py "cand_r4_$CELL.pth" --json "equity_data/verdicts/r4_drift_$CELL.json" >> "$LOG" 2>&1
+  mark "drift measured (r4_drift_$CELL.json; exit code is NOT a gate)"
+fi
+# r5 shared drift instrument (556 and 882 candidates alike; v6 holdout threat-dead)
+PYTHONUNBUFFERED=1 python -u drift_screen_v6holdout.py "cand_r4_$CELL.pth" --json "equity_data/verdicts/r5_driftv6_$CELL.json" >> "$LOG" 2>&1
+mark "drift (v6 holdout) measured (r5_driftv6_$CELL.json)"
 
 # --- fast defense probe: mid + end snapshots (registered mechanism reading) ---
 NETS="cand_r4_$CELL.pth"
@@ -84,4 +100,10 @@ PYTHONUNBUFFERED=1 python -u defense_probe_fast.py --nets $NETS \
   --out "equity_data/exploiter_r4/fastprobe_$CELL.csv" \
   --json "equity_data/verdicts/r4_fastprobe_$CELL.json" >> "$LOG" 2>&1
 mark "fast probe done (r4_fastprobe_$CELL.json)"
+
+# --- r5: paired strength of the END candidate vs the champion (guardrail/informs)
+if [ "$R5_STRENGTH" = "1" ]; then
+  PYTHONUNBUFFERED=1 python -u neutral_raw_eval.py --cand "cand_r4_$CELL.pth" --base "$MILESTONE" --deals 5000 --workers 12 >> "$LOG" 2>&1
+  mark "paired strength vs champion done (see log: Neutral raw delta)"
+fi
 mark "COMPLETE"

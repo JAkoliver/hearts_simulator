@@ -1,0 +1,69 @@
+{
+ "n": 80220,
+ "train_records": 58743,
+ "test_records": 21477,
+ "A_points_r2_champion_global": 0.6237812042236328,
+ "A_points_r2_raw_556": 0.3878328204154968,
+ "B_moonalive_auc_champion_global": [
+  0.9978230359586158,
+  0.9947177316049871,
+  0.994824425336445,
+  0.9934204717957232
+ ],
+ "B_moonalive_auc_mean_champion_global": 0.9951964161739428,
+ "B_moonalive_auc_raw_556": [
+  0.9857265312997895,
+  0.9865720680769061,
+  0.9851043350966526,
+  0.9841392002206621
+ ],
+ "B_moonalive_auc_mean_raw_556": 0.9853855336735027,
+ "B2_moonalive_auc_given_points_champion_global": [
+  0.9916879181601748,
+  0.9676052740782645,
+  0.9724112339240322,
+  0.9691126860724966
+ ],
+ "B2_moonalive_auc_given_points_mean_champion_global": 0.975204278058742,
+ "B2_moonalive_auc_given_points_raw_556": [
+  0.9117032743356623,
+  0.9131601669572725,
+  0.9075137105692421,
+  0.9122064180844824
+ ],
+ "B2_moonalive_auc_given_points_mean_raw_556": 0.9111458924866648,
+ "B2_n_test_given_points": 12143,
+ "C_qs_acc_champion_global": 0.9321134236625227,
+ "C_qs_acc_raw_556": 0.8353121944405644,
+ "C_qs_majority_baseline": 0.6644782790892583,
+ "D_takenby_acc_champion_cardtoken": 0.7842808585929133,
+ "D_takenby_acc_raw_cardchannels+ctx": 0.7867951762350421,
+ "D_takenby_majority_baseline": 0.6109791870372957,
+ "disagreement_by_bin": {
+  "all_play": {
+   "n": 67938,
+   "rate": 0.4465542111925579
+  },
+  "pass": {
+   "n": 12282,
+   "rate": 0.5687998697280573
+  },
+  "moon_alive_opponent": {
+   "n": 13009,
+   "rate": 0.4616803751249135
+  },
+  "moon_alive_none": {
+   "n": 29197,
+   "rate": 0.39798609446175975
+  },
+  "endgame_tricks>=9": {
+   "n": 18662,
+   "rate": 0.35526738827564036
+  },
+  "early_tricks<4": {
+   "n": 21801,
+   "rate": 0.4767212513187468
+  }
+ },
+ "registered_halt": false
+}

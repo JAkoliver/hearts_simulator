@@ -204,9 +204,15 @@ def ppo_update(network, optimizer, buffer, device, gamma=1.0, eps_clip=0.2, k_ep
                     if bool(dead.any()):
                         dmask = old_masks[midx][dead]
                         clogits = masked_logits[dead]
+                        # League r5: an obs-v2 (882) learner is anchored to the
+                        # 556-input champion on the v1 PREFIX (obs v2 is
+                        # prefix-preserving by construction); 556 learners
+                        # take the identical path as before.
+                        a_states = old_states[midx][dead]
+                        if a_states.shape[-1] > 556:
+                            a_states = a_states[:, :556]
                         with torch.no_grad():
-                            alogits, _, _ = anchor_net.forward_all(
-                                old_states[midx][dead], dmask)
+                            alogits, _, _ = anchor_net.forward_all(a_states, dmask)
                         clogp = torch.log_softmax(clogits, dim=1).masked_fill(~dmask, 0.0)
                         alogp = torch.log_softmax(alogits, dim=1).masked_fill(~dmask, 0.0)
                         cp = torch.softmax(clogits, dim=1)

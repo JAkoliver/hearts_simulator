@@ -468,6 +468,59 @@ class HeartsNetV6(nn.Module):
             moon_logits, seat_points
 
 
+class HeartsNetV5Ext(HeartsNetV5):
+    """League round 5 (docs/exploiter_league_r5_prereg.md §3.3): the v5
+    champion plus ZERO-INITIALIZED adapters over the obs-v2 extension.
+
+    Card tokens gain 6 extra channels (within-trick position, led flag,
+    taken-by x4 RELATIVE planes) through `ext_card_proj`; the global token
+    gains 14 dims (tricks won x4, moon-alive x4, hearts unseen, Q-spade
+    status one-hot x5) through `ext_ctx_proj`. Both start at exactly zero,
+    so a champion checkpoint loaded into this class is BIT-IDENTICAL to
+    HeartsNetV5 on the 556 prefix until training moves the adapters (the
+    verified match_proj / extended-v5 pattern). obs_dim = 882; a 556-dim
+    caller is a bug (raises), same contract as HeartsNetV6.
+    """
+    EXT_CARD_BLOCKS = [556, 608, 660, 712, 764, 816]   # 6 x 52
+    N_EXT_CARD_CH = len(EXT_CARD_BLOCKS)
+    EXT_TRICKS_WON = 868      # 4
+    EXT_MOON_ALIVE = 872      # 4
+    EXT_TAIL_START, EXT_TAIL_END = 876, 882   # hearts-unseen + QS one-hot (6)
+    N_EXT_CTX = 4 + 4 + 6      # 14
+    OBS_DIM = 882
+
+    def __init__(self, obs_dim=882, d_model=320, num_layers=6, num_heads=10):
+        super().__init__(obs_dim=556, d_model=d_model, num_layers=num_layers,
+                         num_heads=num_heads)
+        self.obs_dim = 882
+        self.ext_card_proj = nn.Linear(self.N_EXT_CARD_CH, d_model)
+        self.ext_ctx_proj = nn.Linear(self.N_EXT_CTX, d_model)
+        for m in (self.ext_card_proj, self.ext_ctx_proj):
+            nn.init.zeros_(m.weight)
+            nn.init.zeros_(m.bias)
+
+    def _tokens(self, observation):
+        if observation.dim() == 1:
+            observation = observation.unsqueeze(0)
+        if observation.shape[-1] != self.OBS_DIM:
+            raise ValueError(
+                f'HeartsNetV5Ext requires the {self.OBS_DIM}-dim obs v2, '
+                f'got {observation.shape[-1]}')
+        b = observation.shape[0]
+        chans = torch.stack([observation[:, s:s + 52] for s in self.CARD_BLOCKS], dim=2)
+        ext = torch.stack([observation[:, s:s + 52] for s in self.EXT_CARD_BLOCKS], dim=2)
+        cards = self.card_embed(self.card_ids).unsqueeze(0).expand(b, 52, self.d_model)             + self.card_proj(chans) + self.ext_card_proj(ext)
+        ctx = self.ctx_proj(observation[:, self.CTX_START:self.CTX_END])             + self.match_proj(observation[:, self.MATCH_CTX_START:
+                                          self.MATCH_CTX_START + self.MATCH_CTX_DIM])             + self.ext_ctx_proj(torch.cat([
+                observation[:, self.EXT_TRICKS_WON:self.EXT_TRICKS_WON + 4],
+                observation[:, self.EXT_MOON_ALIVE:self.EXT_MOON_ALIVE + 4],
+                observation[:, self.EXT_TAIL_START:self.EXT_TAIL_END]], dim=1))
+        x = torch.cat([ctx.unsqueeze(1), cards], dim=1)  # (batch, 53, d)
+        for block in self.enc_blocks:
+            x = block(x)
+        return self.final_norm(x)
+
+
 def net_from_checkpoint(path, map_location=None):
     """Construct the right network class at the right size for a checkpoint.
 
@@ -477,7 +530,14 @@ def net_from_checkpoint(path, map_location=None):
     checkpoints saved before the oracle head existed.
     """
     sd = torch.load(path, weights_only=True, map_location=map_location)
-    if 'seat_embed.weight' in sd:
+    if 'ext_card_proj.weight' in sd:          # league r5 adapter net (882)
+        d_model = sd['card_embed.weight'].shape[1]
+        num_layers = 1 + max(int(k.split('.')[1]) for k in sd
+                             if k.startswith('enc_blocks.'))
+        heads = max(1, d_model // 32)
+        net = HeartsNetV5Ext(d_model=d_model, num_layers=num_layers,
+                             num_heads=heads)
+    elif 'seat_embed.weight' in sd:
         d_model = sd['card_embed.weight'].shape[1]
         num_layers = 1 + max(int(k.split('.')[1]) for k in sd
                              if k.startswith('enc_blocks.'))

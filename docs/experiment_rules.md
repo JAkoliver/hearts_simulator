@@ -196,6 +196,18 @@ variable.) Every reopening gets its own pre-registration.
   Untested variables recorded: seat-attributed threat information
   added to the champion via zero-init adapters (obs v2) before anchored
   PPO; sequence-level league-game teacher signal; RL exploiters.
+- Zero-init obs-v2 threat-information adapters trained from zero INSIDE
+  the champion-regime anchored PPO (2026-08-18, league round 5, docs/
+  exploiter_league_r5_results.md): E - C = +0.022 (SE 0.038) on the fast
+  defense probe; the adapters never became a pathway (mean |w| ~30x below
+  the trunk's at lr 9e-6 under the anchor). Closes that DELIVERY METHOD
+  only. The information hypothesis is supported by T1 (obs-v2 students
+  out-defend obs-v1 students ~4 SE) and remains open; recorded untested
+  variable: adapter WARM-START (adapters pretrained with the trunk
+  frozen) then the same PPO (r5 Addendum W). Also on record: T0 audit -
+  the champion already decodes moon-alive well (AUC 0.975 given points
+  taken) but not per-seat points (R^2 0.62) or per-card capture (probe =
+  raw channels).
 
 ## Strategy (2026-07-23): see docs/ROADMAP.md
 

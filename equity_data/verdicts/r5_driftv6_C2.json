@@ -1,0 +1,11 @@
+{
+ "candidate": "cand_r4_C2.pth",
+ "candidate_obs_dim": 550,
+ "n_dead": 29197,
+ "n_alive": 38741,
+ "agreement_threat_dead": 0.9206425547599792,
+ "drift_threat_dead": 0.07935744524002075,
+ "agreement_other_play": 0.865465521812439,
+ "drift_other_play": 0.13453447818756104,
+ "band_5_15_informs": true
+}
