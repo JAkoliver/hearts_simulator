@@ -436,9 +436,12 @@ def assign_match_opponents(seat_net, e, ids, shooter_ids, shooter_p):
             sid = shooter_ids[0] if u < shooter_p else shooter_ids[1]
             seat_net[e, random.randrange(1, 4)] = sid
 
+BLOCK_CREDIT_STATS = {'events': 0, 'reward': 0.0}   # Addendum R telemetry
+
+
 def run_cycle_vec_match(vec, registry, active_ids, seat_net, steps_this_match,
                         buffers, deals_target, device, match_reward_scale,
-                        shooter_ids=(), shooter_p=0.0):
+                        shooter_ids=(), shooter_p=0.0, block_credit_b=0.0):
     """Match-to-100 variant of run_cycle_vec (docs/ROADMAP.md phase 1).
 
     Differences: seats are FIXED for a whole match (reassigned only at match
@@ -500,6 +503,26 @@ def run_cycle_vec_match(vec, registry, active_ids, seat_net, steps_this_match,
                     b.masks.append(mask[j])
                     b.dones.append(False)
                     b.hand_labels.append(labels[j])
+
+            # League r4 Addendum R (docs/exploiter_league_r4_prereg.md §9):
+            # BLOCK CREDIT. A block event (blocker seat W, penalty pts) is
+            # raised by the engine when the trick that just resolved ended a
+            # live moon threat (one seat held all points taken, >= 6, trick
+            # index >= 3) and W != that seat won it with points. If W is a
+            # LEARNER seat, its most recent recorded decision - its play in
+            # that trick, appended above - receives + b * pts / 26 on top of
+            # the unchanged match-terminal placement reward. Pool/clone seats
+            # get nothing. With block_credit_b == 0 (round 1) this block is
+            # skipped entirely, so the round-1 code path is bit-identical.
+            if block_credit_b > 0.0:
+                ev = vec.block_events_batch(g)
+                for j in np.flatnonzero(ev[:, 0] >= 0):
+                    e = int(g[j]); w = int(ev[j, 0])
+                    if seat_net[e, w] == 0 and len(buffers[e][w].rewards) > 0:
+                        credit = block_credit_b * float(ev[j, 1]) / 26.0
+                        buffers[e][w].rewards[-1] += credit
+                        BLOCK_CREDIT_STATS['events'] += 1
+                        BLOCK_CREDIT_STATS['reward'] += credit
 
             deals_done += int(deal_dones.sum())
             for j in np.flatnonzero(match_dones):
@@ -677,6 +700,11 @@ def main():
     # (docs/exploiter_league_r3_prereg.md). md5-verified so a stale
     # working file can never silently become the anchor.
     anchor_net = None
+    # Addendum R block credit (0.0 = OFF; round-1 recipe)
+    block_credit_b = float(config.get('block_credit_b', 0.0))
+    if block_credit_b > 0.0:
+        print(f"BLOCK CREDIT (league r4 Addendum R): b={block_credit_b} -> "
+              f"+b*pts/26 to the learner seat that ends a live moon threat")
     anchor_kl_coef = float(config.get('anchor_kl_coef', 0.0))
     if anchor_kl_coef > 0:
         import hashlib
@@ -713,7 +741,8 @@ def main():
                      seats_counted) = run_cycle_vec_match(
                         vec, registry, active_ids, seat_net, steps_this_game,
                         vec_buffers, update_timestep, device,
-                        match_reward_scale, shooter_ids, shooter_p)
+                        match_reward_scale, shooter_ids, shooter_p,
+                        block_credit_b)
                     p0_reward_sum, p0_raw_sum = 0.0, 0.0
                 else:
                     done_games, p0_reward_sum, p0_raw_sum = run_cycle_vec(
@@ -776,6 +805,9 @@ def main():
                         f"P0 Raw: {avg_p0_raw:.2f} | P0 Rel: {avg_p0_reward:+.2f} | "
                         f"Critic EV: {ev_str} | Belief BCE: {bce_str}"
                         + (" | WARMUP" if in_warmup else ""))
+            if block_credit_b > 0.0:
+                line += (f" | BlockCredits: {BLOCK_CREDIT_STATS['events']} "
+                         f"(+{BLOCK_CREDIT_STATS['reward']:.1f} reward total)")
             print(line)
             train_log.write(line + "\n")
             train_log.flush()

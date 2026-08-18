@@ -7,12 +7,14 @@
 # fast defense probe run on BOTH snapshots (mid + end). config.json (a WIP file
 # in this tree) is backed up and restored byte-for-byte.
 #
-# Usage: nohup bash ops/run_r4_trial.sh <cell> <lambda> <share> > logs/r4_<cell>_nohup.log 2>&1 &
-#   e.g. bash ops/run_r4_trial.sh A 0.05 0.15
+# Usage: nohup bash ops/run_r4_trial.sh <cell> <lambda> <share> [block_credit_b] > logs/r4_<cell>_nohup.log 2>&1 &
+#   e.g. bash ops/run_r4_trial.sh A 0.05 0.15          (round 1)
+#        bash ops/run_r4_trial.sh R1 0.05 0.15 2.0     (Addendum R, block credit b)
 cd "$(dirname "$0")/.."
 CELL=${1:?cell tag required (A/B/C/D)}
 LAMBDA=${2:?anchor_kl_coef required}
 SHARE=${3:?shooter_share required}
+BCREDIT=${4:-0}      # Addendum R block_credit_b (0 = round-1 recipe)
 LOG=logs/r4_trial_$CELL.log
 MILESTONE=Hall_of_Fame/hearts_model_milestone_1785322724.pth
 BASE_CFG=config_r4_base.json
@@ -31,15 +33,16 @@ mark() { echo "R4TRIAL $CELL $* $(date)" >> "$LOG"; }
 
 # --- config: back up WIP, write cell config ----------------------------------
 cp config.json "equity_data/exploiter_r4/config_json_backup_$CELL.json"
-python - "$LAMBDA" "$SHARE" <<'PY'
+python - "$LAMBDA" "$SHARE" "$BCREDIT" <<'PY'
 import json, sys
 c = json.load(open('config_r4_base.json'))
 c['anchor_kl_coef'] = float(sys.argv[1])
 c['shooter_share'] = float(sys.argv[2])
+c['block_credit_b'] = float(sys.argv[3])
 json.dump(c, open('config.json', 'w'), indent=1)
 PY
 cp config.json "equity_data/exploiter_r4/config_$CELL.json"
-mark "config written lambda=$LAMBDA share=$SHARE md5=$(md5sum config.json | cut -c1-8)"
+mark "config written lambda=$LAMBDA share=$SHARE block_credit_b=$BCREDIT md5=$(md5sum config.json | cut -c1-8)"
 
 restore_cfg() { cp "equity_data/exploiter_r4/config_json_backup_$CELL.json" config.json; mark "config.json WIP restored"; }
 trap restore_cfg EXIT
@@ -49,7 +52,7 @@ cp "$MILESTONE" hearts_model_final.pth
 [ "$(md5sum hearts_model_final.pth | cut -c1-8)" = "8a89da90" ] \
   || { mark "HALT bad baseline restore"; exit 1; }
 rm -f hearts_optimizer.pth hearts_model_mid.pth
-mark "start lambda=$LAMBDA share=$SHARE (fresh Adam, HEADROOM ${HEARTS_HEADROOM:-0.25})"
+mark "start lambda=$LAMBDA share=$SHARE block_credit_b=$BCREDIT (fresh Adam, HEADROOM ${HEARTS_HEADROOM:-0.25})"
 
 HEARTS_HEADROOM=${HEARTS_HEADROOM:-0.25} PYTHONUNBUFFERED=1 \
   python -u train.py >> "$LOG" 2>&1

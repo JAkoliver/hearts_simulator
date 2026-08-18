@@ -184,6 +184,18 @@ variable.) Every reopening gets its own pre-registration.
   teacher with a different signal source. Seed rule from the same
   record: >=2 training seeds per arm for any distill strength
   comparison (same-size seeds differed by 0.30-0.36/deal).
+- Anchored placement-reward match-PPO for MOON DEFENSE on 8a89da90 at
+  in-band drift (2026-08-17, league round 4, docs/exploiter_league_r4_
+  results.md): 2x2 lambda {0.05,0.02} x shooter share {0.15,0.25} plus
+  block-credit reward shaping b {2,4} - six trials, none gate-eligible
+  on the validated fast defense probe (SE ~0.037). The lambda=0.05
+  family is a stable ~-0.065 +/- 0.019 moons/match across four seeds
+  (b=0/0/2/4): real, sub-bar, unmoved by shaping, density or anchor
+  dose. Closes: anchored placement-reward PPO at 5-15% drift, shares
+  <= 0.25, block credit <= 4 for defense on THIS baseline's inputs.
+  Untested variables recorded: seat-attributed threat information
+  added to the champion via zero-init adapters (obs v2) before anchored
+  PPO; sequence-level league-game teacher signal; RL exploiters.
 
 ## Strategy (2026-07-23): see docs/ROADMAP.md
 

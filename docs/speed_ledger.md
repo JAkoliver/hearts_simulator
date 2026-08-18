@@ -1222,3 +1222,27 @@ D,B,C = three consecutive non-eligible => round-1 closed. Cell A +
 probe005 = two seeds at ~-0.07 (2.6 SE pooled): a real but sub-bar
 signal at lambda=0.05. Looser anchor and denser threats both WORSE.
 Nothing gated; champion md5 8a89da90 verified after cell C.
+
+## 2026-08-17: LEAGUE R4 Addendum R trial R1 (block credit b=2.0) — NOT eligible; R2 = b=4.0 by rule
+
+Anchored PPO from 8a89da90, r4 cell-A recipe + block_credit_b 2.0,
+HEADROOM 0.25: train 2 h 04 m (13:47->15:52), drift+probes 30 min,
+COMPLETE 16:22. Drift 7.7% (agreement 0.923). Fast probe n=1000:
+END -0.063 (SE 0.037, UB95 +0.010, p=.046); MID -0.114 (SE 0.036,
+UB -0.043, p=.0009). Registered END reading fails both eligibility
+criteria. Block credits 70,565 (+11,619 reward, ~+0.165 each);
+defender placement vs probe field -0.02/-0.03 (no Goodhart sign).
+Champion restored/verified 8a89da90. Per §9.3 -> R2 at b=4.0.
+
+## 2026-08-17: LEAGUE R4 Addendum R trial R2 (b=4.0) — NOT eligible; ROUND 4 CONCLUDED, no promotion
+
+HEADROOM 0.25: train 2 h 02 m (16:22->18:25), drift+probes 34 min,
+COMPLETE 18:59. Drift 8.2%. Fast probe END -0.056 (SE 0.037, UB95
++0.017, p=.066); MID +0.010. Credits 71,362 (+23,655 reward, ~+0.33
+each); defender placement -0.018 (no Goodhart sign at b=4).
+Both reserve trials non-eligible => §9.6 closure: block-credit reward
+shaping at b<=4 does not move defense inside the anchor. Across the
+lambda=0.05/share=0.15 family, four seeds at b=0/0/2/4 read
+-0.060/-0.082/-0.063/-0.056: a stable ~-0.065 +/- 0.019 in-band ceiling
+(real, sub-bar). Champion 8a89da90 verified. Round-4 total machine time:
+Stage 0 ~2.5 h + extension 5.7 h + 6 trials ~14 h = ~22 h, $0.

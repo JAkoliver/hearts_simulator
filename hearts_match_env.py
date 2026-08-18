@@ -162,6 +162,12 @@ class MatchVecEnv:
             [self.observe_batch(g), self.vec.observe_ext_batch(g)],
             axis=1).astype(np.float32)
 
+    def block_events_batch(self, g):
+        """Addendum R (docs/exploiter_league_r4_prereg.md §9): (n,2) int32
+        [blocker seat, penalty pts] per env since last read, seat -1 = none;
+        read-and-clear. Captured by the C++ vec env BEFORE deal auto-reset."""
+        return self.vec.block_events_batch(g)
+
     def step_batch(self, g, actions):
         """Returns (deal_dones, match_dones, placements, round_scores).
         placements[j] is a 4-vector for match-done envs, else None."""

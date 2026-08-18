@@ -17,6 +17,7 @@ class HeartsVecEnv {
 public:
     HeartsVecEnv(int n, unsigned int seed0, bool enable_passing = true) {
         envs_.reserve(n);
+        pending_block_.assign(n, {-1, 0});   // Addendum R
         for (int i = 0; i < n; ++i) {
             envs_.emplace_back(seed0 + i, enable_passing);
             envs_.back().Reset();  // a freshly constructed env has no deal yet
@@ -106,6 +107,12 @@ public:
             HeartsEnv& env = envs_[Check(ix(j))];
             bool done = env.Step(static_cast<int>(ac(j))).done;
             d(j) = done;
+            // Addendum R: capture the block event (if any) BEFORE the
+            // deal-end auto-reset below can clear it; pending until read.
+            {
+                auto ev = env.TakeBlockEvent();
+                if (ev.first >= 0) pending_block_[Check(ix(j))] = ev;
+            }
             if (done) {
                 auto sc = env.GetRoundScores();
                 for (int i = 0; i < 4; ++i) s(j, i) = sc[i];
@@ -126,6 +133,23 @@ private:
     }
 
     std::vector<HeartsEnv> envs_;
+    // Addendum R: per-env pending block event {seat, pts}, seat -1 = none
+    std::vector<std::pair<int, int>> pending_block_;
+
+public:
+    // Addendum R: (n,2) int32 [blocker seat, penalty pts] for the requested
+    // envs since their last read (seat -1 = none); read-and-clear.
+    py::array_t<int32_t> block_events_batch(py::array_t<int64_t> idx) {
+        auto ix = idx.unchecked<1>();
+        py::array_t<int32_t> out({ix.shape(0), (py::ssize_t)2});
+        auto o = out.mutable_unchecked<2>();
+        for (py::ssize_t j = 0; j < ix.shape(0); ++j) {
+            auto& ev = pending_block_[Check(ix(j))];
+            o(j, 0) = ev.first; o(j, 1) = ev.second;
+            ev = {-1, 0};
+        }
+        return out;
+    }
 };
 
 // "hearts_env" will be the name of the module you import in Python
@@ -158,7 +182,8 @@ PYBIND11_MODULE(hearts_env, m) {
         // implementation-bound (see HeartsEnv.hpp SetDeal comment), so
         // replays of logs produced by a different build install the
         // logged hands instead of trusting the seed.
-        .def("set_deal", &HeartsEnv::SetDeal, py::arg("hand_ids"));
+        .def("set_deal", &HeartsEnv::SetDeal, py::arg("hand_ids"))
+        .def("take_block_event", &HeartsEnv::TakeBlockEvent);
 
     // 3. Batched environment pool (numpy in/out; see class comment)
     py::class_<HeartsVecEnv>(m, "HeartsVecEnv")
@@ -171,5 +196,6 @@ PYBIND11_MODULE(hearts_env, m) {
         .def("observe_ext_batch", &HeartsVecEnv::observe_ext_batch)
         .def("legal_mask_batch", &HeartsVecEnv::legal_mask_batch)
         .def("labels_batch", &HeartsVecEnv::labels_batch)
-        .def("step_batch", &HeartsVecEnv::step_batch);
+        .def("step_batch", &HeartsVecEnv::step_batch)
+        .def("block_events_batch", &HeartsVecEnv::block_events_batch);
 }

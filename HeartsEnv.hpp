@@ -78,6 +78,17 @@ private:
     std::array<int, 52> taken_by;    // seat that captured the card, -1 until its trick resolves
     std::array<int, 4> tricks_won;   // tricks captured per seat this deal
 
+    // League round 4 Addendum R (docs/exploiter_league_r4_prereg.md §9):
+    // per-trick BLOCK-EVENT register. When, before a trick resolves,
+    // exactly one seat S holds ALL penalty points taken so far in the deal
+    // with >= 6 points and the resolving trick has index >= 3 (the 4th
+    // trick or later), and the trick carries >= 1 penalty point and is won
+    // by W != S, then W "blocked" S's moon attempt: record (W, points in
+    // that trick). Read-and-clear by TakeBlockEvent(); pure bookkeeping,
+    // touches no game state, no RNG.
+    int block_event_seat = -1;
+    int block_event_pts = 0;
+
     int CardToActionId(const Card& c) const {
         return (static_cast<int>(c.suit) * 13) + (c.rank - 2);
     }
@@ -148,6 +159,7 @@ public:
         state.total_scores = preserved_totals; // Restore total scores
         
         void_tracker.fill(false);
+        block_event_seat = -1; block_event_pts = 0;
 
         // Shuffle deck
         std::shuffle(full_deck.begin(), full_deck.end(), rng);
@@ -197,9 +209,16 @@ public:
             auto it = std::find_if(hand.begin(), hand.end(), [&](const Card& c) {
                 return c.suit == played_card.suit && c.rank == played_card.rank;
             });
-            if (it != hand.end()) {
-                hand.erase(it);
+            if (it == hand.end()) {
+                // Hardening (2026-08-17): a pass of a card not in hand used to
+                // be HALF-applied (pick recorded, receiver's hand grew to 14,
+                // GetLegalActions then overflowed its 13-slot array). Fail
+                // loudly instead; unreachable under legal-action masks.
+                throw std::runtime_error("Step: pass of a card not in hand (player "
+                                         + std::to_string(player) + ", action "
+                                         + std::to_string(action_id) + ")");
             }
+            hand.erase(it);
             pass_picks[player].push_back(action_id);
 
             if (pass_picks[player].size() == 3) {
@@ -275,6 +294,20 @@ public:
             }
             tricks_won[trick_winner]++;
 
+            // Addendum R block-event detection (pre-trick threat state)
+            {
+                int holders = 0, threat_seat = -1;
+                for (int i = 0; i < 4; ++i) {
+                    if (state.round_scores[i] > 0) { holders++; threat_seat = i; }
+                }
+                if (holders == 1 && state.round_scores[threat_seat] >= 6
+                        && state.tricks_played >= 3 && penalty_points >= 1
+                        && trick_winner != threat_seat) {
+                    block_event_seat = trick_winner;
+                    block_event_pts = penalty_points;
+                }
+            }
+
             state.round_scores[trick_winner] += penalty_points;
 
             // Assign reward to the trick winner (negative of penalty points)
@@ -328,6 +361,14 @@ public:
         return result;
     }
 
+    // Addendum R: returns {blocker seat, penalty points} of the block event
+    // recorded since the last call (seat -1 = none) and clears it.
+    std::pair<int, int> TakeBlockEvent() {
+        std::pair<int, int> ev{block_event_seat, block_event_pts};
+        block_event_seat = -1; block_event_pts = 0;
+        return ev;
+    }
+
     std::array<int, 13> GetLegalActions() const {
         std::array<int, 13> legal_actions;
         legal_actions.fill(-1); // -1 Sentinel
@@ -339,6 +380,7 @@ public:
         // Passing phase: any remaining card in hand may be passed
         if (in_passing) {
             for (const auto& c : hand) {
+                if (idx >= 13) break;   // hardening: never overflow the 13-slot array
                 legal_actions[idx++] = CardToActionId(c);
             }
             return legal_actions;
@@ -384,6 +426,7 @@ public:
             }
 
             if (legal) {
+                if (idx >= 13) break;   // hardening: never overflow the 13-slot array
                 legal_actions[idx++] = CardToActionId(c);
             }
         }
@@ -445,7 +488,8 @@ public:
         
         // Trick Position / Turn (4 floats: 160, 161, 162, 163)
         // One-hot encoding based on how many cards are in the trick
-        int trick_pos = state.current_trick.size();
+        int trick_pos = static_cast<int>(state.current_trick.size());
+        if (trick_pos > 3) trick_pos = 3;   // hardening: 4-card trick is unreachable here (resolved in Step) but must never alias obs[164]
         obs[160 + trick_pos] = 1.0f;
         
         // Hearts Broken (1 float: 164)
