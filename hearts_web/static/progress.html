@@ -16,6 +16,9 @@
        margin-bottom:2px; }
   a { color:#E8B923; }
   .muted { color:#A6A6AF; }
+  /* matches played with client-side search - flagged everywhere they are
+     listed, so a strong-looking result is never mistaken for instinct play */
+  .cs-tag { color:#E8C46A; font-size:.82em; }
   .small { font-size:.72rem; }
   .panel { background:#1E1E21; border-radius:10px; padding:14px 16px;
            margin-top:12px; }
@@ -467,8 +470,9 @@ const roll = (vals, w) => vals.map((_, i) => {
      : '');
 
   // band 2: placement trend (y inverted: 1st on top)
-  const what = m => m.daily ? 'Daily'
-    : m.mode === 'table' ? `Table ${esc(m.code)}` : 'vs AI';
+  const what = m => (m.daily ? 'Daily'
+    : m.mode === 'table' ? `Table ${esc(m.code)}` : 'vs AI')
+    + (m.search ? ' <span class="cs-tag">(search on)</span>' : '');
   // bucket-tooltip helper: mean of the non-null slice
   const bavg = (arr, i0, i1) => {
     const s = arr.slice(i0, i1 + 1).filter(v => v != null);

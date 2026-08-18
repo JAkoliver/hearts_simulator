@@ -165,14 +165,22 @@ moment the pull lands), then health-check
 `127.0.0.1:8642/api/leaderboard` at the origin and the public URL
 through the tunnel.
 
-**Where the live site pulls from:** since 2026-08-14 the production VPS
-tracks a private operational fork of this codebase (webapp development
-happens there; curated updates are synced back to this public repo, so
-the app code you are reading is the same). The deploy tooling — a
+**Where the live site pulls from:** since 2026-08-14 this codebase
+lives in two synced repositories — the public research repo
+(`hearts_simulator`) and a private operational fork where webapp
+development happens. The production VPS tracks the PRIVATE fork's
+`main`; curated updates are synced to the public repo, so the app code
+is the same in both. The deploy tooling — `site_ops/deploy_site.sh`, a
 script wrapping the pull/restart/health-check contract above, gated on
-`hearts_web/test_site.py` — lives in that fork. A self-hosted instance
-of THIS repo deploys the same way: push, `git pull --ff-only` on the
-box, restart on `.py` changes, health-check.
+`hearts_web/test_site.py` — exists only in the private fork (if you
+are reading this there, it is beside you; the public repo carries no
+deploy tooling and cannot deploy production). A self-hosted instance
+built from the public repo deploys the same way by hand: push,
+`git pull --ff-only` on the box, restart on `.py` changes,
+health-check. Note the production clone's directory is still named
+`hearts_simulator` (it predates the split — only its `origin` remote
+was repointed); the name is historical, not an indication of which
+repo it tracks.
 
 **The host address is not in any repo.** The origin IP is the one thing
 the tunnel exists to conceal, so it is infrastructure and lives in the
@@ -218,6 +226,49 @@ The admin page is bound to localhost - reach it over an SSH tunnel:
 ```bash
 ssh -L 8642:localhost:8642 root@<vps-ip>   # then open localhost:8642/admin
 ```
+
+## 8. Running the site locally (before you deploy)
+
+The fastest way to check a change is to look at it, and the app runs on a
+laptop exactly as it runs on the VPS. `server.py` falls back to the
+committed `site_config_example.py` when there is no `site_config.py`, so
+a checkout that has the untracked weights in place needs no configuration
+at all:
+
+```bash
+python -m uvicorn hearts_web.server:app --host 127.0.0.1 --port 8642
+```
+
+Then open http://127.0.0.1:8642. Three details matter more than they look:
+
+- **Point `HEARTS_LOG_PATH` (and `HEARTS_FEEDBACK_PATH`) somewhere
+  outside the repo.** A scratch server left on the defaults writes into
+  the real match history - that is what the isolation valve is for, and
+  it exists because a test identity reached the leaderboard on
+  2026-08-12. Player data inside the working tree is also one careless
+  `git add` from being committed.
+- **Bind `127.0.0.1`, not `0.0.0.0`.** The dev-controls gate requires a
+  loopback client, so over a LAN address the reset button and the
+  `?player=` identity override silently disappear - and a dev server does
+  not belong on the network.
+- **Cap the torch thread pools** (`OMP_NUM_THREADS=1`,
+  `MKL_NUM_THREADS=1`) when anything else is using the machine. Serving
+  is one CPU forward pass per AI decision, but torch will take every core
+  it is offered.
+
+Front-end files are read from disk per request here too, so HTML/JS/CSS
+edits need only a browser refresh; `--reload` restarts the process for
+`.py` changes. Two tabs at `?player=alice` and `?player=bob` are two
+independent identities - the client namespaces its localStorage per dev
+player - which is the only practical way to exercise a multi-human table.
+`/admin` works locally, since the localhost gate is satisfied; note that
+port 8642 is also what the admin SSH tunnel binds, so do not run both at
+once.
+
+A wrapper that sets all of the above, and refuses to start if the scratch
+directory is inside the working tree, lives in the private operational
+fork as `site_ops/dev_server.sh` (with a PowerShell twin). The command
+above is the whole of what it does.
 
 ## Notes
 

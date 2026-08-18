@@ -39,6 +39,11 @@ os.environ['HEARTS_LOG_PATH'] = _tmp_log.name
 _tmp_fb = tempfile.NamedTemporaryFile(suffix='.jsonl', delete=False)
 _tmp_fb.close()
 os.environ['HEARTS_FEEDBACK_PATH'] = _tmp_fb.name
+# Client-search store gets its own valve for the same reason the match log
+# does: test matches must never land in real player data.
+_tmp_cs = tempfile.NamedTemporaryFile(suffix='.jsonl', delete=False)
+_tmp_cs.close()
+os.environ['HEARTS_CS_LOG_PATH'] = _tmp_cs.name
 os.environ.setdefault('CUDA_VISIBLE_DEVICES', '')       # CPU: tests are tiny
 
 import hearts_web.backup_sync as _bs                     # noqa: E402
@@ -195,6 +200,208 @@ def a_solo_match_deals_and_accepts_a_play():
 
 
 @test('gameplay')
+def a_fresh_deal_reports_hearts_unbroken():
+    """2026-08-15: the hearts-broken badge was derived client-side from
+    watched plays, so a client that never watched the heart land - a
+    refresh, a resumed session, a spectator - showed it wrong. The state
+    payload carries the flag now, and /api/state is exactly what a
+    refresh fetches, so the key must be present and must start False."""
+    sid = client.post('/api/new', json={'practice': True}).json()['sid']
+    st = client.get(f'/api/state/{sid}').json()
+    assert 'hearts_broken' in st, (
+        '/api/state dropped hearts_broken - the client silently falls back '
+        'to watched plays, and a mid-deal refresh shows a stale badge')
+    assert st['hearts_broken'] is False, 'a fresh deal starts unbroken'
+
+
+# ---- client-search play ---------------------------------------------------
+# The AI's move is chosen by the visitor's browser, so the visitor's machine
+# necessarily holds the AI's cards. These guard the two things that keeps
+# survivable: the disclosure stays confined to client-search sessions, and
+# these matches never touch the trusted store.
+
+def _cs_new(want_awaiting=False):
+    """A client-search session. With want_awaiting, drive past the pass
+    phase (which the server plays) until an AI seat is on turn for a PLAY -
+    a test that quietly returns early when the human is up is a test that
+    covers nothing on those deals."""
+    for _ in range(12):
+        r = client.post('/api/new', json={'client_search': True})
+        assert r.status_code == 200, f'/api/new client_search failed: {r.text}'
+        st = r.json()
+        if not want_awaiting or st.get('awaiting'):
+            return st
+        # the human may be first to act; play until an AI seat is awaited
+        for _ in range(6):
+            if not (st.get('your_turn') and st.get('legal')):
+                break
+            st = client.post(f"/api/play/{st['sid']}",
+                             json={'card': st['legal'][0]}).json()
+            if st.get('awaiting'):
+                return st
+    raise AssertionError('12 client-search deals and never an AI seat on turn')
+
+
+@test('gameplay')
+def an_ordinary_session_never_exposes_another_seats_hand():
+    """The highest-severity regression in this feature: the client-search
+    disclosure bleeding into normal play. A normal state payload carries
+    only the human's own hand, and /api/cs/position must refuse outright."""
+    st = client.post('/api/new', json={}).json()
+    sid = st['sid']
+    for key in ('start_hands', 'hands', 'ai_hands'):
+        assert key not in st, f'normal state payload exposed {key!r}'
+    assert st.get('client_search') is False
+    r = client.get(f'/api/cs/position/{sid}')
+    assert r.status_code == 409, (
+        f'/api/cs/position answered a NORMAL session ({r.status_code}) - '
+        'the AI hand disclosure is reachable outside client-search play')
+
+
+@test('gameplay')
+def client_search_waits_for_the_browser_instead_of_playing_the_ai():
+    """The whole mode rests on run_ai_turns() stopping. If the server plays
+    the AI anyway, the client's search result arrives for a position that
+    has already moved on."""
+    st = _cs_new(want_awaiting=True)
+    assert st['client_search'] is True
+    assert st['search_profile'] == {'play_k': 64, 'pass_k': 24}, (
+        f"profile drifted from the teacher: {st['search_profile']}")
+    aw = st['awaiting']
+    assert aw['seat'] != st['your_seat'], 'awaiting the human seat'
+    assert (aw['phase'], aw['k']) in (('play', 64), ('pass', 24)), (
+        f'awaited {aw["phase"]} at K={aw["k"]}; the teacher is play 64 / '
+        'pass 24')
+    if aw['phase'] == 'pass':
+        assert aw['cards'] == 3, (
+            'a pass is scored as whole 3-card combos, so the client must be '
+            'told to send three')
+    pos = client.get(f"/api/cs/position/{st['sid']}").json()
+    # the WHOLE match so far, one entry per deal: pass direction is
+    # deal_count % 4 and the engine counts deals by replaying them, so a
+    # single-deal payload passes the wrong way from deal 2 on
+    n = pos['deal_idx'] + 1
+    assert len(pos['deals']) == n and len(pos['start_hands']) == n, (
+        f"position sent {len(pos['deals'])} deals and "
+        f"{len(pos['start_hands'])} hand sets for deal_idx {pos['deal_idx']}")
+    live = pos['start_hands'][pos['deal_idx']]
+    assert len(live) == 4 and sum(len(h) for h in live) == 52, (
+        'the live deal\'s start hands are not a full 52-card deal')
+    assert pos['action_idx'] == len(pos['deals'][pos['deal_idx']])
+    assert pos['legal'], 'no legal actions offered for the AI seat'
+
+
+@test('gameplay')
+def client_search_rejects_moves_it_should_not_accept():
+    st = _cs_new(want_awaiting=True)
+    sid = st['sid']
+    aw = st['awaiting']
+    legal = client.get(f'/api/cs/position/{sid}').json()['legal']
+    bad = next(c for c in range(52) if c not in legal)
+    good = ({'cards': legal[:3]} if aw['phase'] == 'pass'
+            else {'card': legal[0]})
+    badbody = ({'cards': [bad] + legal[:2]} if aw['phase'] == 'pass'
+               else {'card': bad})
+    r = client.post(f'/api/cs/play/{sid}',
+                    json={'seat': aw['seat'], **badbody})
+    assert r.status_code == 400, f'illegal card accepted ({r.status_code})'
+    if aw['phase'] == 'pass':
+        r = client.post(f'/api/cs/play/{sid}',
+                        json={'seat': aw['seat'], 'cards': legal[:2]})
+        assert r.status_code == 400, 'a 2-card pass was accepted'
+    r = client.post(f'/api/cs/play/{sid}',
+                    json={'seat': st['your_seat'], **good})
+    assert r.status_code == 409, f'human seat accepted as an AI move ({r.status_code})'
+    r = client.post(f'/api/cs/play/{sid}',
+                    json={'seat': aw['seat'], 'k': aw['k'], 'ms': 800,
+                          'engine': {'ver': 17, 'ep': 'webgpu'}, **good})
+    assert r.status_code == 200, f'a legal AI move was rejected: {r.text}'
+
+
+@test('gameplay')
+def client_search_never_writes_to_the_trusted_log():
+    """Quarantine, checked at the only place it can be broken."""
+    log = os.environ['HEARTS_LOG_PATH']
+    before = os.path.getsize(log) if os.path.exists(log) else 0
+    st = _cs_new()
+    sid = st['sid']
+    # A whole deal is 64 actions and costs no inference at all in this mode -
+    # the "AI" move is supplied, so no forward pass ever runs.
+    for _ in range(80):
+        cur = client.get(f'/api/state/{sid}').json()
+        if cur.get('finished') or cur.get('deal_no', 1) > 1:
+            break
+        aw = cur.get('awaiting')
+        if aw:
+            legal = client.get(f'/api/cs/position/{sid}').json()['legal']
+            body = ({'cards': legal[:3]} if aw['phase'] == 'pass'
+                    else {'card': legal[0]})
+            client.post(f'/api/cs/play/{sid}',
+                        json={'seat': aw['seat'], **body})
+        elif cur.get('legal'):
+            client.post(f'/api/play/{sid}', json={'card': cur['legal'][0]})
+        else:
+            break
+    after = os.path.getsize(log) if os.path.exists(log) else 0
+    assert after == before, (
+        'a client-search session appended to match_logs - it can now reach '
+        'the leaderboard, progress stats and the training corpus')
+
+    # ...and it DID land in the separate store, where review can find it.
+    rows = [json.loads(l) for l in
+            open(os.environ['HEARTS_CS_LOG_PATH'], encoding='utf-8')
+            if sid in l]
+    assert rows, 'a completed client-search deal wrote no cs log line'
+    assert all(r['trust'] == 'client-search' for r in rows), (
+        'a cs log line is missing its trust marker - a stray copy of this '
+        'file would no longer identify itself')
+    assert server._log_lines_for(sid), (
+        '_log_lines_for cannot resolve a client-search match, so review and '
+        'history are broken for this mode')
+
+
+@test('gameplay')
+def only_the_host_can_see_a_search_tables_ai_hands():
+    """At a table the disclosure is not the player's own problem: the
+    host's browser holds the AI seats' cards, which is information the
+    other humans do not have, in a live game against them. So the route is
+    host-only, and every seat is told search is on."""
+    host = client.post('/api/identity/new', json={}).json()['key']
+    guest = client.post('/api/identity/new', json={}).json()['key']
+    code = client.post('/api/table/new',
+                       json={'pid': host, 'client_search': True}).json()['code']
+    client.post('/api/table/join', json={'code': code, 'pid': guest})
+    client.post('/api/table/start', json={'code': code, 'pid': host,
+                                          'timer_s': 0, 'speed': 'fast'})
+    gv = client.get(f'/api/table/state/{code}?pid={guest}').json()
+    assert gv['client_search'] is True, (
+        'a guest is not told the host is searching, so they cannot know '
+        'the host can see the AI hands')
+    r = client.get(f'/api/cs/table/position/{code}?pid={guest}')
+    assert r.status_code == 403, (
+        f'a guest reached the AI hands ({r.status_code}) - one player '
+        'seeing cards another cannot, in a game against them')
+    plain = client.post('/api/table/new', json={'pid': host}).json()['code']
+    r = client.get(f'/api/cs/table/position/{plain}?pid={host}')
+    assert r.status_code == 409, (
+        f'a NON-search table served the AI hands ({r.status_code})')
+
+
+@test('gameplay')
+def a_finished_client_search_match_can_be_reviewed():
+    """Review gates on _finished_matches, and only the trusted-log indexer
+    fills it - so until cs_log_line registered them too, a completed
+    client-search match answered 'the review opens when the match ends'
+    forever. Caught driving a real match, 2026-08-17."""
+    fake = 'CSREVIEWSID'
+    server.cs_log_line({'v': 1, 'kind': 'cs_match', 'trust': 'client-search',
+                        'sid': fake, 'pid': None})
+    assert (fake, 1) in server._finished_matches, (
+        'a completed client-search match is not registered as finished, so '
+        'its review is permanently unreachable')
+
+
+@test('gameplay')
 def practice_eval_returns_a_ranking():
     sid = client.post('/api/new', json={'practice': True}).json()['sid']
     r = client.get(f'/api/practice/eval?sid={sid}')
@@ -305,6 +512,147 @@ def every_emote_has_an_svg():
 
 
 @test('consistency')
+def client_search_discloses_what_it_is_doing():
+    """The mode's whole defensibility is that it says what it is. It runs
+    the AI on the visitor's hardware, which means their machine holds the
+    AI's cards - so the page must state that it is unranked AND why, and
+    must not claim the passes are searched when they are not."""
+    js = read(os.path.join(STATIC, 'cs_play.js'))
+    idx = read(os.path.join(STATIC, 'index.html'))
+    assert 'cs_play.js' in idx, 'index.html no longer loads the driver'
+    assert 'id="cs-status"' in idx, 'the disclosure line has no mount point'
+    assert 'window.csHost' in idx, (
+        'the csHost bridge is gone; cs_play.js cannot apply state, and '
+        'assigning window.state would silently write a different variable')
+    low = js.lower()
+    assert 'unranked' not in low and 'unranked' not in idx.lower(), (
+        '"unranked" is back - it implies a ranking system this site does '
+        'not have (user call 2026-08-17); say what is true instead, that '
+        'these matches stay off the leaderboard')
+    assert 'off the leaderboard' in low, (
+        'the driver no longer tells the player these matches do not count')
+    assert "ai’s cards" in low or "ai's cards" in low, (
+        'the driver states the restriction without the reason - players '
+        'should learn WHY it does not count')
+    assert 'raw policy' not in low, (
+        'the "passes use the raw policy" caveat is back - since engine VER '
+        '17 (an_choose_pass) the client searches passes at K=24 too, so '
+        'that text now understates what the device is doing')
+    assert 'passes' in low, (
+        'the note no longer mentions passes at all; the player should know '
+        'the device is choosing those as well')
+    # every seat at a searching table is warned, not just the host
+    assert 'host’s device' in low or "host's device" in low, (
+        'guests at a searching table are no longer told the host can see '
+        'the AI hands - that is information they do not have, in a live '
+        'game against them')
+    # a desynced search must never be played
+    assert 'desync' in low and 'reject' in low, (
+        'cs_play.js no longer refuses a desynced search result')
+
+    # the toggle contract: one switch across the modes, daily excluded
+    assert 'id="cs-toggle"' in idx, 'the search toggle is gone'
+    low_idx = idx.lower()
+    assert 'off the leaderboard' in low_idx, (
+        'the toggle no longer says these games do not count')
+    assert 'your computer' in low_idx or 'your browser' in low_idx, (
+        'the toggle no longer says whose machine does the work')
+    # the note must not be able to resize the menu around it
+    assert re.search(r'#home \.opanel[^}]*max-width', idx, re.S), (
+        'the menu panel lost its width cap, so opening the search note '
+        'stretches the whole menu sideways again')
+    assert re.search(r'd\.disabled\s*=\s*on', idx), (
+        'the daily challenge is no longer disabled while search is on - it '
+        'is a ranked board and a search match cannot count for it')
+
+    # whole-match replay: a single-deal load passes in the wrong direction
+    # from deal 2 on (pass_direction = deal_count % 4)
+    assert 'deals' in js and 'deal_idx' in js, (
+        'cs_play.js is no longer sending every deal to the worker; pass '
+        'direction will be wrong from deal 2 and the search will pick '
+        'cards the seat does not hold')
+
+
+@test('consistency')
+def every_log_replay_installs_the_logged_hands():
+    """Seed dealing is toolchain-bound (std::shuffle), which is why deal
+    lines carry their hands. A replay that trusts the seed instead
+    desyncs and steps cards that are not in the current player's hand;
+    hands grew to 14, and the engine's GetLegalActions fills a
+    std::array<int,13> with an unchecked idx++, so the canary died and
+    the whole server aborted with 'stack smashing detected' - 11 times
+    between 2026-08-12 and 2026-08-17, reachable by any client that
+    could POST /api/search/upload.
+
+    Every function replaying logged actions must install the hands AND
+    guard the desync: the install prevents it, the guard turns a missed
+    case into a 500 instead of a dead process."""
+    import inspect
+    for fn in (server.compute_review, server._legal_deals,
+               server._decision_replay, server.compute_insight,
+               server.compute_match_stats):
+        src = inspect.getsource(fn)
+        assert '_apply_logged_hands' in src, (
+            f'{fn.__name__} replays logged actions without installing the '
+            'logged hands - it will desync on a foreign toolchain and can '
+            'overflow the engine legal-action buffer')
+        assert 'get_current_player() !=' in src, (
+            f'{fn.__name__} has no replay-desync guard - a desync there '
+            'aborts the process instead of failing one request')
+
+
+@test('consistency')
+def a_restored_table_has_every_field_it_will_be_asked_for():
+    """_restore_tables builds tables with Table.__new__, so __init__
+    never runs; it then sets only _SNAP_FIELDS plus a small defaults
+    block. Any attribute __init__ defines that is in NEITHER list is
+    simply ABSENT on a table restored after a restart, and the first
+    request touching it 500s - silently, because only tables that
+    survived a restart are affected.
+
+    This is a whole-class guard, not a one-field one: hearts_broken
+    shipped broken this way on 2026-08-17, and the three spectator
+    fields had been missing for longer. Adding a field to Table means
+    deciding whether it SURVIVES a restart (_SNAP_FIELDS) or RESETS
+    (the defaults block) - this fails until you have."""
+    import inspect
+    # [a-z0-9_]: t0 is a field name, and a pattern that quietly skipped
+    # it would be a blind spot in the guard rather than in the code
+    defaults = set(re.findall(r'^\s+t\.([a-z0-9_]+)\s*=',
+                              inspect.getsource(server._restore_tables), re.M))
+    fields = set(re.findall(r'^\s+self\.([a-z0-9_]+)\s*=',
+                            inspect.getsource(server.Table.__init__), re.M))
+    gap = sorted(fields - set(server._SNAP_FIELDS) - defaults)
+    assert not gap, (
+        f'never set on a restored table, will AttributeError when read: '
+        f'{gap} - add each to _SNAP_FIELDS (survives the restart) or to '
+        'the defaults block in _restore_tables (resets cleanly)')
+
+
+@test('consistency')
+def hearts_broken_is_tracked_and_shipped_everywhere():
+    """One flag, two writers (Session._apply, Table._apply) and three
+    payloads (solo state, table state, spectator snapshot). Any client
+    that does not receive it silently reverts to deriving the badge from
+    plays it watched, which is the bug this replaced."""
+    src = read(os.path.join(WEB, 'server.py'))
+    n = src.count("'hearts_broken':")
+    assert n >= 3, (
+        f'only {n} state payload(s) carry hearts_broken - the solo state, '
+        'the table state and the spectator snapshot all need it')
+    w = src.count('self.hearts_broken = True')
+    assert w == 2, (
+        f'{w} writer(s) set hearts_broken - Session._apply and '
+        'Table._apply must each mark the suit broken')
+    js = read(os.path.join(STATIC, 'index.html'))
+    body = re.search(r'function render\(\) \{(.*?)\n\}', js, re.S)
+    assert body, 'render() vanished from index.html'
+    assert 'hearts_broken' in body.group(1), (
+        'render() no longer adopts state.hearts_broken - refresh, resume '
+        'and mid-deal join go back to guessing the badge')
+
+
+@test('consistency')
 def nav_cache_version_is_uniform():
     """One stale ?v= means that page keeps serving an old menu."""
     versions = {}
@@ -387,6 +735,85 @@ def supporter_badge_keeps_its_dark_mount():
     block = re.search(r'(?m)^\s*\.supbadge \{(.*?)\}', src, re.S)
     assert block and 'border-radius:50%' in block.group(1).replace(' ', ''), (
         'the supporter badge lost its circular dark mount')
+
+
+@test('layout')
+def the_slow_review_paths_show_a_loading_indicator():
+    """A cold review costs seconds of server CPU (_review_get_or_compute
+    falls through memory and disk to compute_review), and the end-screen
+    insight replays the match the same way. Both used to sit blank
+    through it and look finished/broken. What actually matters here is
+    not that a spinner exists but that it is CLEARED on every exit -
+    including the error path, where a stranded spinner outlives the
+    thing it was waiting for."""
+    rev = read(os.path.join(STATIC, 'review.html'))
+    assert 'id="rev-loading"' in rev and '#rev-loading.on' in rev, (
+        'the review page lost its loading overlay (markup or CSS)')
+    boot = rev[rev.index('// ---- boot'):]
+    assert boot.count('doneLoading()') >= 2, (
+        'the review loader is not cleared on BOTH the success and error '
+        'paths - a failed review would spin forever')
+    idx = read(os.path.join(STATIC, 'index.html'))
+    m = re.search(r'function showMatchEnd\s*\(', idx)
+    assert m, 'showMatchEnd() vanished from index.html'
+    body = idx[m.end():]
+    nxt = re.search(r'\n(?:async )?function ', body)
+    if nxt:
+        body = body[:nxt.start()]
+    assert 'vring' in body, (
+        'the end-screen insight card no longer holds its slot while the '
+        'server replays the match')
+    assert body.count('dropHold()') >= 2, (
+        'the end-screen spinner is not dropped on both the resolved and '
+        'the failed path')
+
+
+@test('layout')
+def end_screen_score_tables_are_ranked_not_seat_ordered():
+    """Score tables read top-to-bottom as the standing: 1st place first,
+    4th last. The deal screen has no placements yet so it ranks on the
+    running totals (LOWEST wins at Hearts); both match-end tables - the
+    ranked one and the practice one - rank on the engine's placements."""
+    src = read(os.path.join(STATIC, 'index.html'))
+    assert 'const byPlace =' in src, (
+        'the shared ranking helper vanished; the tables below are only '
+        'ordered if something still sorts them')
+    for fn, key in (('showDealEnd', 'byPlace(ev.totals)'),
+                    ('showMatchEnd', 'byPlace(state.placements)')):
+        m = re.search(r'function %s\s*\(' % fn, src)
+        assert m, f'{fn}() vanished from index.html'
+        body = src[m.end():]
+        nxt = re.search(r'\n(?:async )?function ', body)
+        if nxt:
+            body = body[:nxt.start()]
+        assert key in body, (
+            f'{fn}() no longer ranks its score table with {key}')
+        assert not re.search(r'\[0, ?1, ?2, ?3\]\.map', body), (
+            f'{fn}() is emitting a score row per seat in SEAT order again')
+
+
+@test('layout')
+def hearts_broken_badge_resets_on_every_game_entry():
+    """2026-08-15: heartsBroken is client-only state with no server
+    mirror. It was reset at deal_end and on a table match_no change -
+    neither of which fires when a game STARTS - so a badge lit in the
+    previous game rode onto the opening felt of the next (reported:
+    solo -> break hearts -> host table -> close table -> solo). The
+    lobby is why entering a table needs its own reset: handleTableState
+    returns early for state 'lobby', above the match_no reset."""
+    src = read(os.path.join(STATIC, 'index.html'))
+    for fn in ('newMatch', 'enterTable', 'startSpectate'):
+        m = re.search(r'(?:async )?function %s\s*\(' % fn, src)
+        assert m, f'{fn}() vanished from index.html'
+        # slice to the next top-level function so a NEIGHBOUR's reset can
+        # never satisfy this one
+        body = src[m.end():]
+        nxt = re.search(r'\n(?:async )?function ', body)
+        if nxt:
+            body = body[:nxt.start()]
+        assert 'setHeartsBroken(false)' in body, (
+            f'{fn}() no longer resets the hearts-broken badge - a badge '
+            'lit in the previous game will ride into the next one')
 
 
 # ===========================================================================
@@ -538,3 +965,98 @@ def main():
 
 if __name__ == '__main__':
     sys.exit(main())
+
+
+@test('consistency')
+def client_search_seeds_the_review_cache_on_the_agreed_contract():
+    """Every client-search decision is a real K=64 search at a position the
+    review will re-analyse anyway, so it is written into the store
+    review.html reads. Three files share this contract - review.html owns
+    it, verify_end.js and cs_play.js write into it - and a mismatch in any
+    of schema / db / store / key silently produces a cache that is never
+    read, which looks exactly like it working."""
+    rev = read(os.path.join(STATIC, 'review.html'))
+    ver = read(os.path.join(STATIC, 'verify_end.js'))
+    cs = read(os.path.join(STATIC, 'cs_play.js'))
+    schema = re.search(r"DEEP_SCHEMA\s*=\s*'([^']+)'", rev).group(1)
+    for name, src in (('verify_end.js', ver), ('cs_play.js', cs)):
+        assert re.search(r"SCHEMA\s*=\s*'%s'" % re.escape(schema), src), (
+            f'{name} does not write review.html DEEP_SCHEMA {schema!r}; its '
+            'entries will never be read')
+        assert "'perilune-review'" in src and "'evals'" in src, (
+            f'{name} lost the review db/store name')
+        assert re.search(r'\$\{\w+\}\|\$\{\w+\(?\)?\}\|\$\{\w+\}\|'
+                         r'\$\{[\w.]+\}\|\$\{[\w.]+\}\|\$\{[\w.]+\}', src), (
+            f'{name} no longer builds the 6-part schema|ident|md5|K|d|i key')
+    # the review indexes plays only; the engine indexes the full action
+    # list, so the writer has to subtract the pass offset
+    assert 'pass_offset' in cs, (
+        'cs_play.js is not subtracting the pass offset, so every entry on a '
+        'passing deal is filed 12 positions off and never matches')
+
+
+@test('consistency')
+def every_analysis_worker_url_is_versioned_and_agrees():
+    """The worker is loaded from four places and cached by URL. An
+    UNVERSIONED load serves whatever the browser already has: on
+    2026-08-17 cs_play.js had no ?v=, so a stale worker with no 'livepass'
+    kind fell through its dispatch chain to _an_analyze with an undefined
+    actionIdx, analysed a play at a passing position, and the engine's -1
+    surfaced as "search desync".
+
+    The worker also picks the ENGINE url from its own VER, so a stale
+    worker pins a stale wasm too. Every caller must carry ?v=, and they
+    must all carry the SAME one - a split means two engine versions live
+    in one browser."""
+    seen = {}
+    for name in ('cs_play.js', 'verify_end.js', 'index.html', 'review.html'):
+        src = read(os.path.join(STATIC, name))
+        for m in re.finditer(r"new Worker\('([^']*analysis_worker\.js[^']*)'",
+                             src):
+            url = m.group(1)
+            ver = re.search(r'\?v=(\d+)', url)
+            assert ver, f'{name} loads the worker unversioned: {url}'
+            seen.setdefault(ver.group(1), []).append(name)
+    assert seen, 'no analysis_worker.js loads found at all'
+    assert len(seen) == 1, (
+        f'analysis_worker.js is loaded at more than one version: '
+        f'{ {k: v for k, v in seen.items()} } - one page will run a '
+        'different worker, and therefore a different engine')
+
+
+@test('consistency')
+def cs_play_cache_version_matches_the_file():
+    """cs_play.js is cached by its ?v=. It sat at v=1 through a dozen
+    rewrites on 2026-08-17 and browsers kept serving the FIRST version -
+    which had no pass handling, so it asked the engine for a play at a
+    passing position and the refusal surfaced as "search desync". The
+    source was right the whole time; the bytes being executed were not.
+
+    Binding the pin to a constant inside the file means the two cannot
+    drift without this failing."""
+    js = read(os.path.join(STATIC, 'cs_play.js'))
+    idx = read(os.path.join(STATIC, 'index.html'))
+    inner = re.search(r'const CS_VER\s*=\s*(\d+)', js)
+    assert inner, 'cs_play.js lost its CS_VER marker'
+    pin = re.search(r'cs_play\.js\?v=(\d+)', idx)
+    assert pin, 'index.html loads cs_play.js without a ?v= cache key'
+    assert inner.group(1) == pin.group(1), (
+        f'cs_play.js declares CS_VER={inner.group(1)} but index.html pins '
+        f'?v={pin.group(1)} - browsers will run whichever they cached')
+
+
+@test('consistency')
+def searched_ai_moves_still_obey_the_speed_setting():
+    """A forced move costs no search at all - the engine steps a single
+    legal card with no net call - and the whole last trick is forced. So
+    without a dwell the endgame snapped after twelve tricks of visible
+    thinking (reported 2026-08-17). The driver waits out the remainder of
+    pace().ai, which is 0 at 'instant' - so instant still plays the moment
+    the search lands."""
+    js = read(os.path.join(STATIC, 'cs_play.js'))
+    idx = read(os.path.join(STATIC, 'index.html'))
+    assert not re.search(r'H\.paceAi\(\)\s*-\s*\(Date\.now', js), (
+        'the driver is padding searched moves against pace().ai again. '
+        'animate() already sleeps one pace().ai after every AI card, so '
+        'this makes a searched move take TWO beats where a non-search '
+        'game takes one (user call 2026-08-17: single beat)')

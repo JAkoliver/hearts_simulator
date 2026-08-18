@@ -24,7 +24,7 @@
 
 // VER busts HTTP caches for the engine glue AND its .wasm (locateFile) -
 // without it, browsers happily run a stale engine forever.
-const VER = 16;
+const VER = 17;   // 17: an_choose_pass (live pass search)
 // Fixed batch buckets: WebGPU compiles a pipeline PER TENSOR SHAPE, and
 // rollout rounds shrink row counts continuously - hundreds of one-off
 // shapes means hundreds of shader compiles (stalls, device pressure).
@@ -42,8 +42,11 @@ const CHUNK = 416;
 // pass ~56, but a cards-only replica plays a WHOLE MATCH sequentially
 // (measured 415 rounds for 8 deals) - one guard for all of them false-
 // alarmed at K=64. Bound = generous multiple of the measured need.
-const MAX_ROUNDS = {cards: 4000, pass: 400, trace: 400, playout: 400,
-                    play: 400};
+const MAX_ROUNDS = {cards: 4000, pass: 400, livepass: 400, trace: 400,
+                    playout: 400, play: 400};
+// Review's pass analysis and live pass search differ ONLY in the entry
+// point; the root feed and the result shape are the same.
+const isPass = k => k === 'pass' || k === 'livepass';
 let M = null, policy = null, equity = null, ep = null;
 let jobs = [], running = false, jobsDone = 0, jobsTotal = 0;
 let clearEpoch = 0;
@@ -118,7 +121,7 @@ async function init() {
   equity = await ort.InferenceSession.create(
     '/static/models/perilune_equity.onnx?v=' + VER,
     { executionProviders: ['wasm'] });
-  postMessage({ type: 'ready', ep });
+  postMessage({ type: 'ready', ep, ver: VER });
 }
 
 function loadMatch(seed, dealActions, startHands) {
@@ -267,6 +270,8 @@ async function analyzeOne(job) {
   let kind = job.kind === 'trace' ? M._an_deal_trace(job.deal)
     : job.kind === 'playout' ? M._an_playout(job.deal)
     : job.kind === 'pass' ? M._an_analyze_pass(job.deal, job.seat, job.K, 10)
+    : job.kind === 'livepass'
+      ? M._an_choose_pass(job.deal, job.seat, job.K, job.nCand || 10)
     : job.kind === 'cards' ? M._an_cards_match(job.K)
     : M._an_analyze(job.deal, job.actionIdx, job.K);
   if (kind === -3) throw new Error('engine: ' + anError());
@@ -282,7 +287,7 @@ async function analyzeOne(job) {
     const rows = M._an_rows();
     if (kind === 1) {
       if (M._an_is_root()) {
-        if (job.kind === 'pass') {
+        if (isPass(job.kind)) {
           // Pass root needs logits (candidate proposals) AND belief.
           const obs = new Float32Array(M.HEAPF32.buffer, M._an_obs(), 556);
           const mask = new Uint8Array(M.HEAPU8.buffer, M._an_mask(), 52);
@@ -346,7 +351,7 @@ async function analyzeOne(job) {
                                      M._an_result_cards(), n * 6)];
     return { ...job, cards, desync: false };
   }
-  if (job.kind === 'pass') {
+  if (isPass(job.kind)) {
     const n = M._an_result_n();
     const combos = [...new Int32Array(M.HEAP32.buffer,
                                       M._an_result_combo(), n * 3)];

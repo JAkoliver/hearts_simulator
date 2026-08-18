@@ -162,6 +162,50 @@
               color:#E5484D; opacity:0; transition:opacity .4s;
               text-shadow:0 1px 3px #000; pointer-events:none; }
   #hb-badge.on { opacity:.85; }
+  /* Client-search disclosure. BELOW the hand, in normal flow - an
+     absolutely-positioned version sat on top of the cards (reported
+     2026-08-17). Never silent while the device is working; see
+     cs_play.js for the contract. */
+  /* Below the pass button, and FIXED height per line: the activity line
+     swaps between a spinner and idle text, and the note wraps to a
+     different number of lines as state changes. Without reserved space
+     every change nudged the hand up and down (reported 2026-08-17). */
+  #cs-status { margin:8px auto 0; max-width:62ch; text-align:center;
+               font-size:.74rem; line-height:1.45; color:var(--muted);
+               padding:0 12px; }
+  #cs-activity { min-height:1.5em; color:var(--text); }
+  #cs-note { min-height:3em; }
+  #cs-note b { color:var(--banner); }
+  #cs-status a { color:var(--gold); margin-left:6px; }
+  #cs-status .cs-dim { opacity:.6; }
+  /* The note must never widen the menu - it wraps inside the panel and
+     grows DOWNWARD (reported 2026-08-17: toggling it stretched the box
+     across the screen). The panel is capped, and the block inherits that
+     width rather than pushing it out. */
+  #cs-block { width:100%; margin-top:14px; padding-top:12px;
+              border-top:1px solid var(--tag-bg); text-align:left; }
+  #cs-toggle-row { display:flex; align-items:center; gap:12px;
+                   font-size:.85rem; cursor:pointer; user-select:none;
+                   line-height:1.3; }
+  /* Two ids: #home input sets width:150px at equal specificity and later
+     in the sheet, which rendered the checkbox 150px wide and stranded it
+     at the far left of its own box (reported 2026-08-17). */
+  #home #cs-toggle-row input { width:auto; flex:none; margin:0;
+                               accent-color:var(--gold); cursor:pointer; }
+  .cs-switch { display:flex; align-items:center; gap:7px; flex:none; }
+  #cs-state { font-size:.78rem; letter-spacing:.02em; color:var(--muted);
+              min-width:5.6em; }
+  #cs-state.on { color:var(--gold); font-weight:600; }
+  .cs-label { flex:1; }
+  #cs-toggle-row .cs-sub { color:var(--muted); display:block;
+                           font-size:.78rem; }
+  #cs-toggle-note { font-size:.76rem; line-height:1.5; color:var(--muted);
+                    margin-top:8px; }
+  #cs-toggle-note p { margin:0 0 7px; }
+  #cs-toggle-note p:last-child { margin-bottom:0; }
+  #cs-toggle-note b { color:var(--banner); }
+  .cs-tag { color:var(--gold); font-size:.76em; }
+  button[disabled] { opacity:.4; cursor:not-allowed; }
   /* Trick cards + cross offsets scaled 1.36x with the 700x410 -> 950x560
      table enlargement (52/84px offsets -> 71/114px). */
   .tcard.pos0 { translate:0 71px; }
@@ -445,7 +489,10 @@
      the DOM) still wins if both are up. */
   body.menuopen header { z-index:10; }
   #home .opanel { background:var(--overlay-panel); border-radius:14px;
-                  padding:24px 32px; text-align:center; min-width:300px; }
+                  padding:24px 32px; text-align:center;
+                  /* capped so a long block (the search note) wraps and
+                     grows down instead of stretching the menu sideways */
+                  min-width:300px; max-width:min(370px, 92vw); }
   #home h2 { color:var(--banner); margin-bottom:14px; }
   #home .hrow { margin:8px 0; }
   #home input { background:var(--tag-bg); color:var(--text); border:1px solid #555;
@@ -795,6 +842,10 @@
 
 <div id="hand"></div>
 <div id="pass-controls" style="display:none"><button id="pass-btn" disabled></button></div>
+<div id="cs-status" style="display:none">
+  <div id="cs-activity"></div>
+  <div id="cs-note"></div>
+</div>
 <div id="hint-side" style="display:none">
   <h3>Perilune's view <span style="font-weight:400; text-transform:none">&middot; full-strength</span></h3>
   <div id="hint-scroll">
@@ -880,6 +931,17 @@
     border-radius:8px; padding:10px; margin:6px 0; font-size:.78rem"></div>
   <div class="hrow"><input id="home-code" placeholder="CODE" maxlength="4">
     <button id="home-join">Join table</button></div>
+  <div id="cs-block">
+    <label id="cs-toggle-row">
+      <span class="cs-switch">
+        <input type="checkbox" id="cs-toggle">
+        <span id="cs-state">Search off</span>
+      </span>
+      <span class="cs-label">Let the AI think ahead
+        <span class="cs-sub">on your device</span></span>
+    </label>
+    <div id="cs-toggle-note" style="display:none"></div>
+  </div>
   <div id="home-err"></div>
   <div id="attract-show" style="display:none"><a class="qlink"
     href="#" onclick="attractToggle(true);return false">show demos</a></div>
@@ -968,8 +1030,20 @@ function cardHTML(name, cls='') {
             <span class="cpip">${g}</span>
             <span class="ix ixb">${rank}<br>${g}</span></div>`;
 }
-// Hearts-broken badge: derived client-side from watched plays (public
-// info only - first heart seen this deal), reset at deal boundaries.
+// Hearts-broken badge. The SERVER owns this now (state.hearts_broken -
+// public info every seat can see); render() adopts it from every
+// snapshot, which is what makes a refresh, a resumed solo session, a
+// mid-deal table join and a spectator all correct: none of them watched
+// the heart land, and watched plays were the only source before.
+//
+// The event-driven set-true below is still what LIGHTS it during play,
+// because it fires as the card lands - a snapshot can be up to one poll
+// early. The entry-point resets (newMatch, enterTable, startSpectate)
+// cover the window before the first render, notably a table lobby,
+// where handleTableState returns early above the match_no reset. That
+// window is what let a badge lit in the previous game ride onto the
+// next opening felt (reported: solo -> break hearts -> host table ->
+// close table -> solo).
 let heartsBroken = false;
 function setHeartsBroken(v) {
   heartsBroken = v;
@@ -1141,12 +1215,32 @@ function renderSeats(highlightSeat=null) {
 // node creation, so rebuilding the whole trick re-animated every card on
 // every render (and cut short the animation of a card just played).
 // Existing (pos, name) nodes are left untouched; only new cards animate.
+// ?csdebug=1 traces every trick paint. A .tcard replays its drop
+// animation whenever the node is RECREATED, so a "the trick animated
+// again" report is really "something painted a trick that was missing
+// cards, then painted them back". This says which call did it.
+const CSDEBUG = new URLSearchParams(location.search).get('csdebug') === '1';
 function renderTrick(cards) {
   const trick = el('trick');
   const want = new Map(cards.map(t => [String(pos(t.seat)), t.name]));
+  let removed = [];
   [...trick.children].forEach(node => {
-    if (want.get(node.dataset.pos) !== node.dataset.name) node.remove();
+    if (want.get(node.dataset.pos) !== node.dataset.name) {
+      removed.push(node.dataset.name);
+      node.remove();
+    }
   });
+  if (CSDEBUG) {
+    const at = String((new Error()).stack || '').split(String.fromCharCode(10));
+    const via = (at[2] || at[1] || '').trim().slice(0, 90);
+    const present = [...trick.children].map(n => n.dataset.pos);
+    const adding = cards.filter(t => present.indexOf(String(pos(t.seat))) < 0)
+                        .map(t => t.name);
+    if (removed.length || adding.length)
+      console.log('[trick] want=[' + cards.map(c => c.name).join(',') + ']',
+                  'removed=[' + removed.join(',') + ']',
+                  'added=[' + adding.join(',') + ']', 'via', via);
+  }
   const have = new Set([...trick.children].map(n => n.dataset.pos));
   for (const t of cards) {
     const p = String(pos(t.seat));
@@ -1222,8 +1316,11 @@ function renderHand(showLegal = true) {
       }
     });
   }
-  const passing = mode === 'table' ? state.passing
-                                   : (state.your_turn && state.passing);
+  // A PHASE, not a turn: with search on, an AI seat's pass takes seconds
+  // and the player should be picking theirs meanwhile. The server queues
+  // an out-of-turn pass and applies it when the seat comes round.
+  const passing = state.passing && !(state.passed_so_far || []).length
+                  || (state.passing && mode === 'table');
   el('pass-controls').style.display = passing ? 'block' : 'none';
   if (passing) {
     const need = 3 - (state.passed_so_far ? state.passed_so_far.length : 0);
@@ -1560,7 +1657,7 @@ function ensureHintWorker() {
   return new Promise((res, rej) => {
     if (hintWorker && hintReady) return res();
     _hres = {ready: () => { hintReady = true; res(); }, fail: rej};
-    hintWorker = new Worker('/static/analysis_worker.js?v=20');
+    hintWorker = new Worker('/static/analysis_worker.js?v=21');
     hintWorker.onmessage = ev => {
       const m = ev.data;
       if (m.type === 'ready') {
@@ -1769,6 +1866,12 @@ el('hint-btn').onclick = async () => {
 };
 
 function render() {
+  // Server truth for the current deal. render() only ever runs with the
+  // animation drained (submit awaits animate() first; pumpEvents renders
+  // after the queue empties), so adopting it here can never light the
+  // badge ahead of the card that broke hearts. A payload without the
+  // field (older server) leaves the watched-plays behaviour untouched.
+  if (state && 'hearts_broken' in state) setHeartsBroken(!!state.hearts_broken);
   renderSeats(state.your_turn && !state.finished ? state.your_seat : null);
   renderTrick(state.trick);
   renderSide();
@@ -1829,8 +1932,7 @@ function actionable() {          // may the player act right now?
 }
 function onCardClick(card) {
   const canAct = actionable();
-  const selecting = mode === 'table' ? state.passing
-                                     : (state.your_turn && state.passing);
+  const selecting = state.passing;
   if (canAct && selecting) {
     const need = 3 - (state.passed_so_far ? state.passed_so_far.length : 0);
     const i = passSelection.indexOf(card);
@@ -1912,6 +2014,7 @@ async function submit(cards) {
     }
     await animate(events, preTrick);
     render();
+    csTick();   // client-search: the AI's reply is searched on this device
   } catch (e) { setStatus('Error: ' + e.message); }
   finally { busy = false; }
 }
@@ -2090,6 +2193,13 @@ async function animate(events, preTrick = []) {
   }
 }
 
+// Score tables read top-to-bottom as the standing: 1st place first, 4th
+// last. At match end the engine's placements are authoritative (a tie
+// shares a fractional place); mid-match there are none, so the standing
+// is the running totals - LOWEST wins at Hearts. Seat order breaks ties
+// so tied rows keep a fixed order instead of swapping between deals.
+const byPlace = ps => [0, 1, 2, 3].sort((a, b) => ps[a] - ps[b] || a - b);
+
 function showDealEnd(ev) {
   return new Promise(resolve => {
     // hidden tab: nobody to click "Next deal", and a stale popup on
@@ -2101,7 +2211,7 @@ function showDealEnd(ev) {
                                         : `${seatName(ev.moon_by)} shot the moon!`)
       : `Deal ${state.deal_no - 1} complete`;
     el('o-body').innerHTML = '<table><tr><th>Player</th><th>This deal</th><th>Total</th></tr>' +
-      [0,1,2,3].map(s => `<tr><td>${seatSup(s) ? SUP_IMG : ''}${seatName(s)}</td>
+      byPlace(ev.totals).map(s => `<tr><td>${seatSup(s) ? SUP_IMG : ''}${seatName(s)}</td>
         <td>+${ev.round_scores[s]}</td><td>${ev.totals[s]}</td></tr>`).join('') + '</table>';
     el('o-btn').textContent = 'Next deal';
     el('o-btn').style.display = '';
@@ -2167,7 +2277,7 @@ function showMatchEnd() {
       ['', '1st', '2nd', '3rd', '4th'][Math.round(p2)] || p2}`;
     el('o-body').innerHTML =
       '<table><tr><th>Player</th><th>Total</th></tr>'
-      + [0, 1, 2, 3].map(s2 => `<tr><td>${seatSup(s2) ? SUP_IMG : ''}${seatName(s2)}</td>
+      + byPlace(state.placements).map(s2 => `<tr><td>${seatSup(s2) ? SUP_IMG : ''}${seatName(s2)}</td>
           <td>${state.match_scores[s2]}</td></tr>`).join('') + '</table>'
       + `<p style="margin-top:12px">
            <button id="pr-again">Practice again</button>
@@ -2186,7 +2296,7 @@ function showMatchEnd() {
     return;
   }
   maybeKeyNudge();
-  const order = [0,1,2,3].sort((a,b) => state.placements[a] - state.placements[b]);
+  const order = byPlace(state.placements);
   const p = state.placements[state.your_seat];
   el('o-title').textContent = p === 1 ? 'You won the match!' :
     `You placed ${['','1st','2nd','3rd','4th'][Math.round(p)] || p}`;
@@ -2231,14 +2341,28 @@ function showMatchEnd() {
   // without a click. Habit authority - labeled as Perilune's PICK, with
   // the review one tap away for the deep-search verdict.
   (async () => {
+    // The insight call replays the match server-side, so on a cold cache
+    // it takes seconds - during which the card slot was simply absent and
+    // the screen looked finished. Hold the slot with a spinner instead,
+    // but only after a beat: a prewarmed match answers in milliseconds
+    // and a spinner that flashes for one frame reads as a glitch.
+    const box = el('lesson');
+    const hold = box && setTimeout(() => {
+      box.innerHTML = '<div class="vline"><span class="vring"></span>'
+        + ' Reviewing your match&hellip;</div>';
+      box.style.display = 'block';
+    }, 250);
+    const dropHold = () => { if (hold) clearTimeout(hold); };
     try {
       const path = mode === 'table'
         ? `/api/table/insight/${tcode}?pid=${encodeURIComponent(pid)}`
         : `/api/insight/${sid}?pid=${encodeURIComponent(pid)}`;
       const r = await api(path);
+      dropHold();
       const d = (r.disagreements || [])[0];
-      const box = el('lesson');
-      if (!d || !box) return;
+      // nothing worth surfacing: take the slot back rather than leaving
+      // a spinner running forever over a match with no disagreement
+      if (!d || !box) { if (box) box.style.display = 'none'; return; }
       // inline glyphs (6♣ / 4♦), red suits tinted - no card blocks
       const ctxt = nm => {
         const s2 = nm.slice(-1);
@@ -2330,7 +2454,11 @@ function showMatchEnd() {
             () => verifyEnd.cancel(), {once: true});
         });
       }
-    } catch (e) {}
+    } catch (e) {
+      // the insight is a bonus, not the screen: never strand a spinner
+      dropHold();
+      if (box) box.style.display = 'none';
+    }
   })();
   // Full review opens in its OWN TAB reading the telemetry log - a host
   // rematch or table close cannot disturb it, and this tab stays free to
@@ -2405,6 +2533,10 @@ function showHome(err) {
   _endShownFor = null;   // returning to a finished match rebuilds its screen
 
   tableDeadline = null;
+  // A closed table (or any exit to the menu) takes its search line with
+  // it - otherwise the disclaimer outlives the game it described.
+  if (window.csPlay && !(state && state.client_search && !state.finished))
+    csPlay.stop();
   el('home').style.display = 'flex';
   document.body.classList.add('menuopen');
   el('home-err').textContent = err || '';
@@ -2462,8 +2594,9 @@ async function loadHistory() {
     const row = (m, i) => {
       const when = new Date(m.ts * 1000)
         .toLocaleDateString(undefined, {month: 'short', day: 'numeric'});
-      const what = m.daily ? 'Daily'
-        : m.mode === 'table' ? `Table ${esc(m.code)}` : 'vs AI';
+      const what = (m.daily ? 'Daily'
+        : m.mode === 'table' ? `Table ${esc(m.code)}` : 'vs AI')
+        + (m.search ? ' <span class="cs-tag">(search on)</span>' : '');
       const place = PLACE_WORD[Math.round(m.place)] || `${m.place}`;
       return `<div class="histline" data-i="${i}">${when} &middot; ${what}
         &middot; <b>${place}</b> of 4 <span class="muted2">&middot; ${m.deals} deals</span></div>`;
@@ -2494,7 +2627,8 @@ async function hostTable() {
     await ensureIdentity();
     abandonCurrent();
     const ts = await api('/api/table/new',
-      POSTJSON({pid, tier: el('home-tier').value}));
+      POSTJSON({pid, tier: el('home-tier').value,
+                client_search: csOn()}));
     enterTable(ts);
   } catch (e) { el('home-err').textContent = e.message; }
 }
@@ -2512,6 +2646,8 @@ function enterTable(ts) {
   hideHome();
   setMode('table', ts.code);
   tcursor = 0; evq = []; shownTrick = []; passSelection = []; preselect = null;
+  setHeartsBroken(false);   // lobby returns early below, so the match_no
+                            // reset in handleTableState never fires here
   handleTableState(ts);
   startPolling();
 }
@@ -2519,6 +2655,7 @@ function leaveTable() {
   if (tcode)   // tell the server; when the last human leaves, the table closes
     api('/api/table/leave', POSTJSON({code: tcode, pid})).catch(() => {});
   stopPolling();
+  if (window.csPlay) csPlay.stop();   // the table's search line goes with it
   el('overlay').style.display = 'none';
   // the table is gone: no current game exists to return to
   state = null;
@@ -2679,6 +2816,7 @@ function handleTableState(ts) {
   if (el('speed-btn')) updateSpeedBtn();
   if (fresh.length) { evq.push(...fresh); pumpEvents(); }
   else if (!pumping) render();
+  csTick();   // client-search table: the host's device searches AI plays
 }
 
 // Single animator consuming the event queue: polls arriving mid-animation
@@ -2946,22 +3084,62 @@ function updateTierline() {
   }
 }
 
-async function newMatch(practice = false) {
+// ---- bridge for cs_play.js -------------------------------------------------
+// cs_play.js owns the search worker; this file owns `state` and the
+// animation. A narrow surface beats letting another script reach into
+// globals it cannot legally assign - `state` is a lexical binding here, so
+// a foreign `window.state = ...` would silently write a different variable.
+window.csHost = {
+  sid: () => sid,
+  code: () => tcode,
+  // the speed setting governs AI moves whether or not a search produced
+  // them: a search faster than the setting waits out the remainder
+  paceAi: () => pace().ai,
+  mode: () => mode,
+  isHost: () => isHost,
+  state: () => state,
+  get: path => api(path + (path.includes('?') ? '&' : '?')
+                   + 'pid=' + encodeURIComponent(pid || '')),
+  post: (path, body) => api(path, POSTJSON({pid, ...body})),
+  async apply(st) {
+    // Tables have their own cursor/event machinery; reuse it rather than
+    // animating a table payload by hand.
+    if (mode === 'table') { handleTableState(st); return; }
+    // same order submit() uses: animate onto the trick as displayed, then
+    // render - otherwise the AI's card appears and vanishes
+    const preTrick = state && state.trick ? state.trick.slice() : [];
+    const events = st.events || [];
+    state = st;
+    if (events.length) await animate(events, preTrick);
+    render();
+  }
+};
+// Called wherever a state lands, solo or table; a no-op when search is off.
+function csTick() {
+  if (state && state.client_search && window.csPlay) csPlay.sync();
+  else if (window.csPlay) csPlay.idle();
+}
+
+async function newMatch(practice = false, clientSearch = false) {
   await ensureIdentity();
   abandonCurrent();
   passSelection = [];
   preselect = null;
+  setHeartsBroken(false);
   setMode('solo');
   hideHome();
   tableDeadline = null;
+  if (window.csPlay) csPlay.stop();   // drop any previous match's search
   state = await api('/api/new',
-    POSTJSON({pid, tier: el('home-tier').value, practice}));
+    POSTJSON({pid, tier: el('home-tier').value, practice,
+              client_search: clientSearch}));
   sid = state.sid;
   localStorage.setItem(K('hearts_sid'), sid);
   el('hint-out').innerHTML = '';
   el('hint-status').textContent = '';
   el('hint-pos').textContent = '';
   render();
+  csTick();
 }
 // Refreshing resumes the ongoing game (solo session or table); the reset
 // button, a finished match, or a lost session returns to the menu.
@@ -2976,6 +3154,8 @@ let _specQ = [], _specPumping = false, _specTrick = [], _specLast = null;
 async function startSpectate(tok) {
   SPECTATE = true;
   document.body.classList.add('spectate');
+  setHeartsBroken(false);   // shares the felt; the spectator pump never
+                            // touches the badge, so it would be leftover
   hideHome();
   // review-matched scaffolding: north hand row above, then the row
   // [side panels | west hand | felt | east hand]. The LEFT column is a
@@ -3093,6 +3273,7 @@ async function pumpSpec() {
     const zip = f === 0 || theaterOff();
     const names = (_specLast && _specLast.seat_names) || {};
     if (ev.type === 'play') {
+      if (ev.name.endsWith('H')) setHeartsBroken(true);   // as it lands
       if (!zip) sfx(ev.name === 'QS' ? 'explosion' : 'placing');
       _specTrick.push({seat: ev.seat, name: ev.name});
       renderTrick(_specTrick);
@@ -3127,6 +3308,11 @@ async function pumpSpec() {
   _specPumping = false;
 }
 function renderSpectateChrome(st) {
+  // Spectators never watched the earlier plays, so the snapshot is the
+  // only source - but only adopt it once the replay queue has drained,
+  // or the badge jumps ahead of the heart the pump is still animating.
+  if (!_specQ.length && st && 'hearts_broken' in st)
+    setHeartsBroken(!!st.hearts_broken);
   state = {
     your_seat: st.perspective, your_turn: false, finished: st.finished,
     passing: false, deal_no: st.deal_no, pass_direction: null,
@@ -3229,14 +3415,67 @@ async function init() {
   if (saved) {
     try {
       const st = await api(`/api/state/${saved}?pid=${encodeURIComponent(pid || '')}`);
-      if (!st.finished) { sid = saved; state = st; hideHome(); render(); return; }
+      if (!st.finished) {
+        sid = saved; state = st; hideHome(); render(); csTick(); return;
+      }
     } catch (e) { /* unknown session (e.g. server restarted) */ }
   }
   showHome();
 }
-el('home-solo').onclick = () => newMatch().catch(e => showHome(e.message));
+// ---- search toggle ---------------------------------------------------------
+// One switch across the play modes rather than a separate button, so the
+// choice is "how do I want to play" instead of "which mode is the search
+// one". Daily is excluded and visibly disabled: it is a ranked, one-attempt
+// -per-day board, and a search match cannot count for it.
+const csOn = () => !!(el('cs-toggle') && el('cs-toggle').checked);
+function csToggleSync() {
+  const on = csOn();
+  try { localStorage.setItem('hearts_cs_on', on ? '1' : '0'); } catch (e) {}
+  const st = el('cs-state');
+  if (st) {
+    st.textContent = on ? 'Search on' : 'Search off';
+    st.classList.toggle('on', on);
+  }
+  const d = el('home-daily');
+  if (d) {
+    d.disabled = on && !d.dataset.done;
+    d.title = on && !d.dataset.done
+      ? 'The daily challenge is ranked, so it cannot be played with search '
+        + 'on. Turn the toggle off to play it.'
+      : 'one attempt per day - the identical deal for every player; '
+        + 'compare on the daily leaderboard';
+  }
+  const note = el('cs-toggle-note');
+  if (note) {
+    note.style.display = on ? '' : 'none';
+    note.innerHTML =
+        '<p>Normally the AI plays on instinct — one quick judgement per '
+      + 'card. With this on, it <b>plays out the rest of the hand</b> '
+      + 'dozens of times before every move. It gets noticeably stronger, '
+      + 'and slower.</p>'
+      + '<p>That thinking happens <b>in your browser, on your computer</b>, '
+      + 'not on the server. Expect a pause on each of the AI’s turns, and a '
+      + 'one-off download the first time.</p>'
+      + '<p>Because your browser is running the AI, it has to be given the '
+      + 'AI’s cards. So these games <b>stay off the leaderboard</b> — and '
+      + 'at a table you host, every player is told your device can see the '
+      + 'AI’s hands.</p>'
+      + '<p class="muted2">Covers the AI’s passes and its plays. Works with '
+      + 'Play vs AI, Practice, and tables you host — the daily challenge is '
+      + 'scored, so it stays off.</p>';
+  }
+}
+if (el('cs-toggle')) {
+  try { el('cs-toggle').checked =
+          localStorage.getItem('hearts_cs_on') === '1'; } catch (e) {}
+  el('cs-toggle').onchange = csToggleSync;
+  csToggleSync();
+}
+
+el('home-solo').onclick = () =>
+  newMatch(false, csOn()).catch(e => showHome(e.message));
 el('home-practice').onclick = () =>
-  newMatch(true).catch(e => showHome(e.message));
+  newMatch(true, csOn()).catch(e => showHome(e.message));
 // Daily challenge: one seeded attempt/day; server enforces and resumes.
 async function dailyStart() {
   try {
@@ -3272,6 +3511,7 @@ async function dailyRefresh() {
       b.textContent = 'Daily challenge';
       b.dataset.done = '';
     }
+    csToggleSync();   // this rewrote the button; re-apply the search gate
   } catch (e) {}
 }
 el('home-daily').onclick = () => {
@@ -3326,5 +3566,6 @@ init().then(() => { if (_wantMenu) showHome(); });
 </script>
 <script src="/static/attract.js?v=7"></script>
 <script src="/static/verify_end.js?v=7"></script>
+<script src="/static/cs_play.js?v=5"></script>
 </body>
 </html>

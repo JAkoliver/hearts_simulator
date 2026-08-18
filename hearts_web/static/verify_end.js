@@ -161,7 +161,7 @@
     };
 
     if (tok !== runToken) return;   // skipped/cancelled while preparing
-    worker = new Worker('/static/analysis_worker.js?v=20');
+    worker = new Worker('/static/analysis_worker.js?v=21');
     capTimer = setTimeout(() => abort(
       `<span style="opacity:.7">deep verification stopped - too slow on
        this device</span>`), CAP_MS);

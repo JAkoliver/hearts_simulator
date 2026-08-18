@@ -198,6 +198,19 @@
                   background:rgba(0,0,0,.6); align-items:center;
                   justify-content:center; padding:20px; }
   #help-overlay.on { display:flex; }
+  /* First view of a match COMPUTES the review (seconds of CPU server-
+     side); later views come off the memory/disk cache in milliseconds.
+     Without this the page sat empty-but-laid-out and looked broken. */
+  #rev-loading { display:none; position:fixed; inset:0; z-index:45;
+                 background:#121212; align-items:center;
+                 justify-content:center; flex-direction:column; gap:8px; }
+  #rev-loading.on { display:flex; }
+  @keyframes vspin { to { transform:rotate(360deg); } }
+  #rev-loading .vring { display:inline-block; width:13px; height:13px;
+                        border:2px solid #2E2E33; border-top-color:#E8C46A;
+                        border-radius:50%; animation:vspin .9s linear infinite; }
+  #rev-loading .vline { display:flex; align-items:center; gap:8px;
+                        font-size:.92rem; }
   #help-card { background:#1E1E21; border-radius:12px; padding:20px 24px;
                max-width:680px; max-height:85vh; overflow-y:auto;
                position:relative; user-select:text; }
@@ -404,6 +417,11 @@
 </style>
 </head>
 <body>
+<div id="rev-loading">
+  <div class="vline"><span class="vring"></span>Building the match review&hellip;</div>
+  <div class="muted" style="font-size:.75rem">The first view of a match
+    computes it; after that it opens instantly.</div>
+</div>
 <div id="top">
   <h1>Match review</h1>
   <span id="matchinfo" class="muted"></span>
@@ -1581,11 +1599,23 @@ el('d-gap').onclick = () => { disSort = 'gap';
       if (q.get('match_no')) params.set('match_no', q.get('match_no')); }
     else params.set('sid', q.get('sid') || '');
   }
+  // Delayed so a cached review (the common case - match end prewarms it)
+  // opens without a one-frame spinner flash; the timer is cleared on
+  // BOTH exits, including the error path, which replaces the body.
+  const loadTimer = setTimeout(
+    () => { const n = el('rev-loading'); if (n) n.classList.add('on'); }, 250);
+  const doneLoading = () => {
+    clearTimeout(loadTimer);
+    const n = el('rev-loading');
+    if (n) n.classList.remove('on');
+  };
   try {
     const r = await fetch(`/api/review?${params}`);
     if (!r.ok) throw new Error((await r.json()).detail || `error ${r.status}`);
     R = await r.json();
+    doneLoading();
   } catch (e) {
+    doneLoading();
     document.body.innerHTML = `<p style="padding:30px">Review unavailable:
       ${esc(e.message)}</p><p style="padding:0 30px"><a href="/">back</a></p>`;
     return;
@@ -1943,7 +1973,7 @@ async function bootEngine() {
   // v19: version busts EDGE caches too (Cloudflare caches .js by
   // extension; a stale pre-COEP copy at the edge blocks worker spawn
   // even when the origin is fixed - bit us live 2026-08-09).
-  deepWorker = new Worker('/static/analysis_worker.js?v=20');
+  deepWorker = new Worker('/static/analysis_worker.js?v=21');
   // A crashed worker (e.g. a wasm abort) must be VISIBLE, never a frozen
   // counter.
   deepWorker.onerror = e => {

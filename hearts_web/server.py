@@ -282,6 +282,105 @@ def log_line(obj):
             pass   # a malformed entry must never block the log append
 
 
+# ---------------------------------------------------------------------------
+# Client-search store. These matches are played with the AI's move chosen by
+# the VISITOR'S browser, which means the visitor's machine necessarily held
+# the AI's cards - so neither side's play is trustworthy and none of it may
+# reach the leaderboard, the daily board, progress stats, calibration or
+# training. A `client_search: true` field in match_logs.jsonl would leave
+# that to every consumer to remember; a separate path makes inclusion
+# structurally hard instead, the same reasoning as HEARTS_LOG_PATH being an
+# isolation valve rather than a flag. Only _log_lines_for reads it, so
+# review and history work while every ranked surface stays clean.
+CS_LOG_PATH = (os.environ.get('HEARTS_CS_LOG_PATH')
+               or os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                               'client_search_logs.jsonl'))
+# Teacher profile minus the endgame tier (K=64 is the measured strength
+# plateau; 128/256 buy SNR for match-aware equity, which is not ported).
+# Passes ARE searched now, at the teacher's K=24 (cloud/orchestrator.py
+# --pass-k). This needed an engine entry point: an_analyze_pass is review
+# machinery - it wants a finished 64-action deal and anchors on the pass
+# actually made - so the research side added an_choose_pass, which runs the
+# same search from a deal still in progress. Engine VER 17.
+CS_PROFILE = {'play_k': 64, 'pass_k': 24}
+# How long a table waits on the host's device before taking the AI back.
+# Generous: a slow machine at K=64 is not misbehaviour. But it is bounded,
+# because at a table other people are waiting on it.
+CS_TABLE_GRACE_S = 120
+_cs_log_lock = threading.Lock()
+_cs_idx_deals = {}          # sid -> [byte offsets into CS_LOG_PATH]
+
+
+def cs_log_line(obj):
+    """Append to the client-search store. Never touches LOG_PATH."""
+    with _cs_log_lock:
+        with open(CS_LOG_PATH, 'ab') as f:
+            off = f.seek(0, 2)
+            f.write((json.dumps(obj) + '\n').encode())
+        if obj.get('kind') == 'cs_deal' and obj.get('sid'):
+            _cs_idx_deals.setdefault(obj['sid'], []).append(off)
+        elif obj.get('kind') == 'cs_match' and obj.get('sid'):
+            # Review gates on this set, and only the trusted-log indexer
+            # fills it - so without this a finished client-search match
+            # answers "the review opens when the match ends" forever.
+            _finished_matches.add((obj['sid'], obj.get('match_no', 1)))
+            _cs_history_add(obj)
+
+
+def _cs_history_add(obj):
+    """Client-search matches appear in each player's own history, flagged
+    `search`, so they can reopen the review. This is the ONE index they
+    enter, and only because history is a personal list rather than a
+    scoreboard - the leaderboard, daily board and progress stats all read
+    LOG_PATH and so cannot see them."""
+    places = obj.get('placements')
+    if not places:
+        return
+    if obj.get('mode') == 'table':
+        sp = obj.get('seat_pids') or {}
+        for s, p in sp.items():
+            _idx_history.setdefault(p, []).append(
+                {'mode': 'table', 'code': obj['sid'].split(':', 1)[1],
+                 'match_no': obj.get('match_no', 1), 'ts': obj['ts'],
+                 'deals': obj.get('deals', 0), 'seat': int(s),
+                 'place': places[int(s)], 'final': obj.get('final'),
+                 'model': (obj.get('model') or '')[:12],
+                 'humans': len(sp), 'search': True})
+        return
+    pid, seat = obj.get('pid'), obj.get('human_seat')
+    if not pid or seat is None:
+        return
+    _idx_history.setdefault(pid, []).append(
+        {'mode': 'solo', 'sid': obj['sid'], 'ts': obj['ts'],
+         'deals': obj.get('deals', 0), 'seat': seat,
+         'place': places[seat], 'final': obj.get('final'),
+         'model': (obj.get('model') or '')[:12],
+         'tier': obj.get('tier') or 'full', 'daily': None,
+         'search': True})
+
+
+def _cs_index_boot():
+    """Rebuild the offset index so review still resolves after a restart."""
+    try:
+        with open(CS_LOG_PATH, 'rb') as f:
+            off = 0
+            for raw in f:
+                try:
+                    o = json.loads(raw.decode())
+                    if o.get('kind') == 'cs_deal' and o.get('sid'):
+                        _cs_idx_deals.setdefault(o['sid'], []).append(off)
+                    elif o.get('kind') == 'cs_match' and o.get('sid'):
+                        _finished_matches.add((o['sid'], 1))
+                except ValueError:
+                    pass
+                off += len(raw)
+    except FileNotFoundError:
+        pass
+
+
+_cs_index_boot()
+
+
 def _lb_callout(sid, pid, tier):
     """End-screen leaderboard callout: non-None only when THIS match is
     the player's recorded board entry - i.e. the win that just claimed
@@ -434,6 +533,22 @@ def card_name(idx):
     return RANKS[idx % 13] + SUITS[idx // 13]
 
 
+def _pass_offset(menv):
+    """12 on a deal that opens with a pass phase, 0 on a hold deal. The
+    engine addresses a deal by its full action list (pass picks first);
+    review.html addresses it by plays alone. This is the difference."""
+    try:
+        return 0 if int(menv.env.get_pass_direction()) == 3 else 12
+    except Exception:
+        return 12
+
+
+def is_heart(idx):
+    """Only a heart breaks hearts - the QS does not. Matches the engine
+    (HeartsEnv.hpp sets state.hearts_broken on Suit::Hearts alone)."""
+    return SUITS[int(idx) // 13] == 'H'
+
+
 def ai_action(menv, tier='full'):
     """Argmax action for the current player, from the tier's net."""
     obs = torch.from_numpy(menv.observe()).unsqueeze(0)
@@ -459,7 +574,7 @@ def hand_of(menv, seat):
 
 class Session:
     def __init__(self, pid=None, ua='', tier='full', daily=None,
-                 practice=False):
+                 practice=False, client_search=False):
         self.sid = secrets.token_urlsafe(12)
         self.last_active = time.time()   # touched by state polls (the
         # client heartbeat); admin's "live" = active within cfg.STALE_S
@@ -480,6 +595,12 @@ class Session:
         self.ua = (ua or '')[:120]
         self.trick = []           # [(seat, card)] of the current trick
         self.last_trick = None    # {'cards': [(seat, card)], 'winner': seat}
+        # Hearts broken this deal. PUBLIC information - every seat watches
+        # it happen - so it ships in the state payload instead of being
+        # re-derived per client. Deriving it from watched plays alone left
+        # anyone who did NOT watch the heart land (a refresh, a resumed
+        # session, a spectator who arrived later) with the wrong badge.
+        self.hearts_broken = False
         self.last_deal = None     # round scores of the most recent deal
         self.deal_no = 1
         self.passed_cards = []    # human's picks this pass phase
@@ -507,6 +628,18 @@ class Session:
         self.deal_pass_flags = [bool(self.menv.is_passing())]
         self.redo_stack = []
         self.played_this_deal = set()   # visible plays (equivalence)
+        # CLIENT-SEARCH MODE: the AI's move is chosen by the visitor's
+        # browser and arrives via /api/cs/play. The server keeps dealing,
+        # legality and scoring; the client only picks among legal moves.
+        self.client_search = bool(client_search)
+        self.cs_fallback = None    # {'at_action', 'reason'} once engaged
+        self.cs_moves = []         # per-deal provenance, cleared at deal end
+        self.cs_engine = None      # last engine descriptor the client sent
+        self.cs_search_ms = 0      # device time spent searching, whole match
+        # The human's pass, picked while an AI seat is still being
+        # searched. Tables have always queued passes this way; solo did
+        # not need to until client search made the AI's pass take seconds.
+        self.pending_pass = []
 
     def _stamp(self, kind):
         return {'v': LOG_V, 'kind': kind, 'sid': self.sid, 'pid': self.pid,
@@ -543,6 +676,8 @@ class Session:
         if in_play:
             self.trick.append((seat, action))
             self.played_this_deal.add(int(action))
+            if is_heart(action):
+                self.hearts_broken = True
             self._emit({'type': 'play', 'seat': seat,
                         'name': card_name(action)})
         deal_done, match_done, round_scores = self.menv.step(action)
@@ -557,6 +692,7 @@ class Session:
             self.trick = []
         if deal_done:
             self.trick = []
+            self.hearts_broken = False   # the next deal starts unbroken
             self.last_deal = list(map(int, round_scores))
             srt = sorted(round_scores)
             self._emit({
@@ -571,7 +707,17 @@ class Session:
             # Flush one line per completed deal: abandoned matches keep
             # every finished deal (only the in-progress one is lost).
             # PRACTICE never logs - which is the whole no-recording story.
-            if not self.practice:
+            # CLIENT-SEARCH logs to its own store instead, never here.
+            if self.client_search:
+                cs_log_line({**self._cs_stamp('cs_deal'),
+                             'deal_no': self.deal_no,
+                             'actions': self.deal_actions,
+                             'hands': self.deal_hands_hist[self.deal_no - 1],
+                             'ai_moves': self.cs_moves,
+                             'round_scores': list(map(int, round_scores)),
+                             'totals': list(map(int, self.menv.match_scores))})
+                self.cs_moves = []
+            elif not self.practice:
                 log_line({**self._stamp('deal'), 'deal_no': self.deal_no,
                           'actions': self.deal_actions,
                           # dealt hands: makes the line replayable on any
@@ -588,7 +734,20 @@ class Session:
                 self.deal_pass_flags.append(bool(self.menv.is_passing()))
         if match_done:
             self.finished = True
-            if not self.practice:
+            if self.client_search:
+                # No _pstats_kick: progress stats are a ranked surface. No
+                # prewarm either - the review computes on demand behind the
+                # loading state, rather than spending VPS CPU on a match
+                # that cannot count for anything.
+                cs_log_line({**self._cs_stamp('cs_match'),
+                             'deals': self.deal_no - 1,
+                             'n_actions': self.n_actions,
+                             'final': list(map(int, self.menv.match_scores)),
+                             'placements': list(self.menv.placements()),
+                             'duration_s': round(time.time() - self.t0, 1),
+                             'search_ms_total': self.cs_search_ms,
+                             'ua': self.ua})
+            elif not self.practice:
                 log_line({**self._stamp('match'), 'deals': self.deal_no - 1,
                           'n_actions': self.n_actions,
                           'final': list(map(int, self.menv.match_scores)),
@@ -600,20 +759,68 @@ class Session:
                 _pstats_kick(self.sid, 1)
 
     def run_ai_turns(self):
+        # Client-search sessions stop here: the AI's move comes from the
+        # browser via /api/cs/play. Gating the single choke point is what
+        # makes every existing caller - /api/new, /api/play, practice,
+        # resume - wait at the AI's turn instead of playing it, rather than
+        # four call sites each having to remember.
+        if self.client_search and self.cs_fallback is None:
+            return      # every AI decision, pass or play, comes from the client
         while (not self.finished
                and self.menv.get_current_player() != self.human_seat):
             self._apply(self.menv.get_current_player(), self._ai_action())
 
+    def drain_pending_pass(self):
+        """Apply the human's queued pass once the env reaches their seat."""
+        while (self.pending_pass and not self.finished
+               and self.menv.is_passing()
+               and self.menv.get_current_player() == self.human_seat):
+            card = self.pending_pass.pop(0)
+            self.passed_cards.append(card)
+            self._apply(self.human_seat, card)
+
+    def cs_awaiting(self):
+        """The AI seat the client must search for, or None. K comes from the
+        SERVER's profile - a client that claims teacher settings it did not
+        run should be contradicted by the record, not trusted by it."""
+        if not self.client_search or self.finished or self.cs_fallback:
+            return None
+        seat = int(self.menv.get_current_player())
+        if seat == self.human_seat:
+            return None
+        if self.menv.is_passing():
+            # A pass is ONE decision worth three cards - the engine scores
+            # whole 3-card combos, so the client posts all three at once.
+            return {'seat': seat, 'phase': 'pass', 'k': CS_PROFILE['pass_k'],
+                    'cards': 3}
+        return {'seat': seat, 'phase': 'play', 'k': CS_PROFILE['play_k']}
+
+    def _cs_stamp(self, kind):
+        return {'v': 1, 'kind': kind, 'trust': 'client-search',
+                'sid': self.sid, 'pid': self.pid, 'seed': self.seed,
+                'human_seat': self.human_seat,
+                'model': TIERS[self.tier]['md5'], 'tier': self.tier,
+                'search_profile': dict(CS_PROFILE),
+                'engine': self.cs_engine,
+                'fallback': self.cs_fallback,
+                'ts': round(time.time(), 3)}
+
     # -- human-facing state -------------------------------------------------
     def state(self):
-        obs = np.asarray(self.menv.env.observe(), dtype=np.float32) \
-            if self.menv.get_current_player() == self.human_seat else None
-        my_turn = obs is not None and not self.finished
-        hand = [int(c) for c in np.flatnonzero(obs[:52] > 0)] if my_turn else []
+        # Observe from the HUMAN's seat, not the current player's. Normal
+        # play only ever renders state on the human's turn, so this was the
+        # same thing - but a client-search session returns state while an
+        # AI seat is on turn, and gating the hand on `my_turn` blanked the
+        # player's own cards for the whole time the AI was thinking
+        # (reported 2026-08-17). A seat's own hand is never a leak.
+        obs = np.asarray(self.menv.observe_for(self.human_seat),
+                         dtype=np.float32)
+        my_turn = (self.menv.get_current_player() == self.human_seat
+                   and not self.finished)
+        hand = [int(c) for c in np.flatnonzero(obs[:52] > 0)]
         legal = self._legal() if my_turn else []
         # Obs block 9 (238-289): cards received in this deal's pass
-        received = ([card_name(int(c)) for c in np.flatnonzero(obs[238:290] > 0)]
-                    if my_turn else [])
+        received = [card_name(int(c)) for c in np.flatnonzero(obs[238:290] > 0)]
         try:
             pass_dir = ['left', 'right', 'across', 'hold'][
                 int(self.menv.env.get_pass_direction())]
@@ -625,7 +832,10 @@ class Session:
             'finished': self.finished,
             'your_seat': self.human_seat,
             'your_turn': my_turn,
-            'passing': bool(self.menv.is_passing()) if my_turn else False,
+            # a PHASE, not a turn: while an AI seat's pass is being
+            # searched the human is still in the pass phase and must be
+            # able to choose their three (queued below if out of turn)
+            'passing': bool(self.menv.is_passing()),
             'passed_so_far': [card_name(c) for c in self.passed_cards],
             'deal_no': self.deal_no,
             'pass_direction': pass_dir,
@@ -635,6 +845,11 @@ class Session:
             'hand': [{'card': c, 'name': card_name(c)} for c in sorted(hand)],
             'legal': sorted(legal),
             'trick': [{'seat': s, 'name': card_name(c)} for s, c in self.trick],
+            'hearts_broken': self.hearts_broken,
+            # client-search: absent-ish (False/None) for every normal session
+            'client_search': self.client_search,
+            'search_profile': dict(CS_PROFILE) if self.client_search else None,
+            'awaiting': self.cs_awaiting(),
             'last_trick': (None if self.last_trick is None else {
                 'cards': [{'seat': s, 'name': card_name(c)}
                           for s, c in self.last_trick['cards']],
@@ -781,6 +996,20 @@ class Table:
         self.received = {}        # seat -> cards received this deal
         self.trick = []
         self.last_trick = None
+        self.hearts_broken = False   # see Session; reset in _snapshot_deal
+        # CLIENT SEARCH at a table: the HOST's device searches the AI seats'
+        # plays. Every seated human is told, because the host's browser
+        # necessarily holds the AI hands and this is a game against other
+        # people - see the table warning in cs_play.js.
+        self.client_search = False
+        self.cs_fallback = None
+        self.cs_moves = []
+        self.cs_engine = None
+        self.cs_search_ms = 0
+        # Watchdog: a host who closes the tab mid-search would otherwise
+        # wedge the table for everyone else. Past this the server takes the
+        # AI over with the raw policy and says so.
+        self.cs_deadline = None
         self.deal_no = 1
         self.deal_actions = []
         self.n_actions = 0
@@ -852,6 +1081,9 @@ class Table:
         self.deal_start_hands = {s: set(hand_of(self.menv, s)) for s in range(4)}
         self.passed_by, self.received, self.pending_pass = {}, {}, {}
         self.timeouts = []
+        # every caller of this is a fresh deal: match start, rematch, and
+        # the deal boundary in _apply - so the flag resets in ONE place
+        self.hearts_broken = False
 
     # -- engine pump --------------------------------------------------------
     def humans(self):
@@ -867,6 +1099,11 @@ class Table:
                     if not q:
                         break
                     card = q.pop(0)
+                elif self.client_search and self.cs_fallback is None:
+                    q = self.pending_pass.get(s)
+                    if not q:
+                        break      # the searching device owes us this pass
+                    card = q.pop(0)
                 else:
                     card = ai_action(self.menv, self.tier)
                 self.passed_by.setdefault(s, []).append(card)
@@ -874,7 +1111,12 @@ class Table:
             else:
                 if s in self.humans():
                     break
+                if self.client_search and self.cs_fallback is None:
+                    break      # the host's device searches this play
                 self._apply(s, ai_action(self.menv, self.tier))
+        # Search watchdog: armed only while we are waiting on the host.
+        self.cs_deadline = (time.time() + CS_TABLE_GRACE_S
+                            if self.cs_awaiting() else None)
         # Arm the AFK timer for whichever human we stopped on.
         if (self.timer_s and self.state == 'playing' and not self.finished
                 and self.menv.get_current_player() in self.humans()):
@@ -882,11 +1124,38 @@ class Table:
         else:
             self.turn_deadline = None
 
+    def cs_awaiting(self):
+        """The AI seat the HOST's device must search, or None. Passes are
+        never client-searched (see CS_PROFILE)."""
+        if (not self.client_search or self.cs_fallback
+                or self.state != 'playing' or self.finished
+                or self.menv is None):
+            return None
+        seat = int(self.menv.get_current_player())
+        if seat in self.humans():
+            return None
+        if self.menv.is_passing():
+            return {'seat': seat, 'phase': 'pass', 'k': CS_PROFILE['pass_k'],
+                    'cards': 3}
+        return {'seat': seat, 'phase': 'play', 'k': CS_PROFILE['play_k']}
+
+    def cs_check_watchdog(self):
+        """A host who stops searching must not freeze the other players."""
+        if (self.cs_deadline is None or self.cs_fallback
+                or time.time() < self.cs_deadline):
+            return
+        self.cs_fallback = {'at_action': int(self.n_actions),
+                            'reason': 'host_timeout'}
+        self.cs_deadline = None
+        self.emit('cs_fallback', reason='host_timeout')
+        self.advance()
+
     def check_timeout(self):
         """AFK enforcement, called from every state poll. The auto-play is a
         deliberately DUMB heuristic (lowest card of the current suit /
         lowest 3 for a pass) so waiting the timer out is never a way to
         make the strong AI play for you."""
+        self.cs_check_watchdog()
         if (not self.timer_s or self.state != 'playing' or self.finished
                 or self.turn_deadline is None
                 or time.time() < self.turn_deadline):
@@ -915,6 +1184,8 @@ class Table:
         self.n_actions += 1
         if not was_passing:
             self.trick.append((seat, action))
+            if is_heart(action):
+                self.hearts_broken = True
             self.emit('play', seat=seat, name=card_name(action))
         deal_done, match_done, round_scores = self.menv.step(action)
         if was_passing and not self.menv.is_passing() and not deal_done:
@@ -940,7 +1211,16 @@ class Table:
                       moon_by=(int(np.argmin(round_scores))
                                if srt[0] == 0 and all(v == 26 for v in srt[1:])
                                else None))
-            log_line({'v': LOG_V, 'kind': 'deal', 'sid': f'table:{self.code}',
+            _line = (cs_log_line if self.client_search else log_line)
+            _line({'v': LOG_V if not self.client_search else 1,
+                      'kind': 'cs_deal' if self.client_search else 'deal',
+                      **({'trust': 'client-search',
+                          'search_profile': dict(CS_PROFILE),
+                          'engine': self.cs_engine,
+                          'fallback': self.cs_fallback,
+                          'ai_moves': self.cs_moves} if self.client_search
+                         else {}),
+                      'sid': f'table:{self.code}',
                       'pid': None, 'mode': 'table', 'seed': self.seed,
                       'human_seat': None, 'match_no': self.match_no,
                       'seats': {str(s): ('human' if s in self.humans() else 'ai')
@@ -954,6 +1234,7 @@ class Table:
                                 for s in range(4)],
                       'round_scores': list(map(int, round_scores)),
                       'totals': list(map(int, self.menv.match_scores))})
+            self.cs_moves = []
             self.deal_actions = []
             self.deal_no += 1
             self._snapshot_deal()
@@ -969,10 +1250,20 @@ class Table:
             self.emit('match_end',
                       final=list(map(int, self.menv.match_scores)),
                       placements=places)
-            threading.Thread(target=_prewarm_review,
-                             args=(f'table:{self.code}', self.match_no),
-                             daemon=True).start()
-            log_line({'v': LOG_V, 'kind': 'match', 'sid': f'table:{self.code}',
+            if not self.client_search:   # see Session: no VPS CPU on these
+                threading.Thread(target=_prewarm_review,
+                                 args=(f'table:{self.code}', self.match_no),
+                                 daemon=True).start()
+            _line = (cs_log_line if self.client_search else log_line)
+            _line({'v': LOG_V if not self.client_search else 1,
+                      'kind': 'cs_match' if self.client_search else 'match',
+                      **({'trust': 'client-search',
+                          'search_profile': dict(CS_PROFILE),
+                          'engine': self.cs_engine,
+                          'fallback': self.cs_fallback,
+                          'search_ms_total': self.cs_search_ms}
+                         if self.client_search else {}),
+                      'sid': f'table:{self.code}',
                       'pid': None, 'mode': 'table', 'seed': self.seed,
                       'human_seat': None, 'match_no': self.match_no,
                       'seat_pids': {str(s): p for p, s in self.seat_of.items()},
@@ -984,7 +1275,8 @@ class Table:
                       'final': list(map(int, self.menv.match_scores)),
                       'placements': list(self.menv.placements()),
                       'duration_s': round(time.time() - self.t0, 1), 'ua': ''})
-            _pstats_kick(f'table:{self.code}', self.match_no)
+            if not self.client_search:
+                _pstats_kick(f'table:{self.code}', self.match_no)
 
     # -- per-seat view ------------------------------------------------------
     def view(self, pid, cursor=0):
@@ -994,7 +1286,14 @@ class Table:
         self.departed.discard(pid)
         base = {'code': self.code, 'state': self.state, 'target': TARGET,
                 'tier': self.tier, 'tier_label': TIERS[self.tier]['label'],
-                'speed': self.speed}
+                'speed': self.speed,
+                # everyone at the table is told, not just the host: their
+                # opponent's browser is holding the AI seats' cards
+                'client_search': self.client_search,
+                'search_profile': (dict(CS_PROFILE) if self.client_search
+                                   else None),
+                'cs_fallback': self.cs_fallback,
+                'awaiting': self.cs_awaiting()}
         if self.state == 'playing' and self.turn_deadline is not None:
             base['turn_seconds_left'] = max(
                 0, int(self.turn_deadline - time.time()))
@@ -1052,6 +1351,7 @@ class Table:
                 'legal': sorted(legal),
                 'trick': [{'seat': s, 'name': card_name(c)}
                           for s, c in self.trick],
+                'hearts_broken': self.hearts_broken,
                 'last_trick': (None if self.last_trick is None else {
                     'cards': [{'seat': s, 'name': card_name(c)}
                               for s, c in self.last_trick['cards']],
@@ -1091,7 +1391,19 @@ _SNAP_FIELDS = ('code', 'tier', 'timer_s', 'speed', 'timeouts', 'state',
                 'pending_pass', 'passed_by', 'deal_start_hands', 'received',
                 'trick', 'last_trick', 'deal_no', 'deal_actions',
                 'n_actions', 'finished', 'match_no', 't0', 'created',
-                'departed', 'series_wins', 'series_played')
+                'departed', 'series_wins', 'series_played',
+                # carried so a mid-deal table restores with the right
+                # badge; the replay below re-steps the engine directly
+                # and never runs _apply, so nothing else would set it
+                'hearts_broken',
+                # Client search must SURVIVE a restart: a restored search
+                # table that forgot would silently swap the AI back to the
+                # raw net and drop the warning every seat was shown. The
+                # provenance rides along so the match record stays whole.
+                # cs_deadline deliberately does NOT - a wall-clock deadline
+                # from before the restart fires the instant it comes back.
+                'client_search', 'cs_fallback', 'cs_moves', 'cs_engine',
+                'cs_search_ms')
 
 
 def snapshot_tables():
@@ -1122,9 +1434,21 @@ def _restore_tables():
     for d in snaps:
         try:
             t = Table.__new__(Table)
-            # defaults first so snapshots from older field sets restore
+            # defaults first so snapshots from older field sets restore.
+            # EVERY attribute Table.state() reads must have one: __new__
+            # skips __init__, so a field added to the class but not here
+            # is an AttributeError on the restored table's first poll.
             t.series_wins = [0, 0, 0, 0]
             t.series_played = 0
+            t.hearts_broken = False
+            # Spectator state is deliberately NOT snapshotted - live
+            # viewers reconnect and re-register - but it still has to
+            # EXIST, or the first spectate request on a restored table
+            # raises AttributeError (obj.spectators is read directly).
+            t.spectators = {}
+            t.spec_share = set()
+            t.spec_kicked = set()
+            t.cs_deadline = None   # re-armed by advance(), never restored
             for k, v in d.items():
                 setattr(t, k, v)
             t.lock = threading.RLock()
@@ -1176,6 +1500,22 @@ class NewBody(BaseModel):
     pid: str | None = None
     tier: str | None = None
     practice: bool = False
+    client_search: bool = False
+
+
+class CsPlayBody(BaseModel):
+    pid: str | None = None
+    seat: int
+    card: int | None = None      # a play
+    cards: list[int] | None = None   # a pass: three at once
+    k: int | None = None        # what the client says it ran
+    ms: int | None = None       # wall time the device spent
+    engine: dict | None = None  # {ver, ep, onnx_md5} - recorded, not believed
+
+
+class CsFallbackBody(BaseModel):
+    pid: str | None = None
+    reason: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -1892,9 +2232,21 @@ def _legal_deals(key, lines):
     menv = MatchEnv(seed=lines[0]['seed'])
     deals = []
     for d in lines:
+        # Install the LOGGED hands, exactly as compute_review does. Trusting
+        # the seed desyncs across toolchains (std::shuffle is
+        # implementation-bound - the whole reason deal lines carry hands),
+        # and a desynced replay steps cards that are not in the current
+        # hand. That grew hands past 13, and GetLegalActions fills a
+        # std::array<int,13> with an unchecked idx++ - so the process died
+        # on the stack canary ("stack smashing detected"), taking the site
+        # with it. Reproduced 2026-08-17; /api/search/upload was the path.
+        _apply_logged_hands(menv, d)
         start = [frozenset(hand_of(menv, s)) for s in range(4)]
         steps = []
         for s, card, ms in d['actions']:
+            # a 500 is a bad review; a desynced replay is a dead server
+            if menv.get_current_player() != s:
+                raise HTTPException(500, 'replay desync in legality map')
             steps.append(frozenset(
                 a for a in menv.get_legal_actions() if a != -1))
             menv.step(card)
@@ -2094,11 +2446,16 @@ def _decision_replay(lines):
     menv = MatchEnv(seed=lines[0]['seed'])
     deals = []
     for dl in lines:
+        _apply_logged_hands(menv, dl)   # see _legal_deals: seed-only replay
+                                        # desyncs and can smash the engine's
+                                        # 13-slot legal-action buffer
         passed = [[] for _ in range(4)]
         plays = []
         played_deal = set()
         trick = []
         for s, card, ms in dl['actions']:
+            if menv.get_current_player() != s:
+                raise ValueError('replay desync in decision replay')
             if menv.is_passing():
                 passed[s].append(card)
                 menv.step(card)
@@ -3142,6 +3499,24 @@ def _log_lines_for(sid):
                         continue
         except FileNotFoundError:
             pass
+    if out:
+        return out
+    # Client-search matches live in their own store. Only this reader -
+    # which backs review and history - ever consults it; the leaderboard,
+    # daily board and progress stats index LOG_PATH directly and so cannot
+    # see these matches even by accident.
+    with _cs_log_lock:
+        offs = list(_cs_idx_deals.get(sid, ()))
+        try:
+            with open(CS_LOG_PATH, 'rb') as f:
+                for off in offs:
+                    f.seek(off)
+                    try:
+                        out.append(json.loads(f.readline().decode()))
+                    except ValueError:
+                        continue
+        except FileNotFoundError:
+            pass
     return out
 
 
@@ -3310,7 +3685,8 @@ def new_session(body: NewBody | None = None, request: Request = None):
     pid = (resolve_pid(body.pid) if body and body.pid else None)
     ua = request.headers.get('user-agent', '') if request else ''
     s = Session(pid=pid, ua=ua, tier=(body.tier if body else None) or 'full',
-                practice=bool(body and body.practice))
+                practice=bool(body and body.practice),
+                client_search=bool(body and body.client_search))
     with _sessions_lock:
         _sessions[s.sid] = s
         # Drop oldest sessions past a sane cap
@@ -3338,6 +3714,233 @@ def _own_session(s, pid):
         raise HTTPException(403, 'not your session')
 
 
+# ---------------------------------------------------------------------------
+# Client-search play. The AI's move is searched in the visitor's browser at
+# the server-owned profile (CS_PROFILE) and posted back here. The server
+# stays authoritative for dealing, legality, trick resolution and scoring;
+# the client only chooses among legal moves. A hostile client can make the
+# AI play badly and can read the AI's cards - see /api/cs/position - but it
+# cannot fabricate a score, play an illegal card, or reach a ranked surface.
+# ---------------------------------------------------------------------------
+def _cs_session(sid, pid):
+    s = _get(sid)
+    _own_session(s, pid)
+    if not s.client_search:
+        raise HTTPException(409, 'not a client-search session')
+    return s
+
+
+@app.get('/api/cs/position/{sid}')
+def cs_position(sid: str, pid: str = None):
+    """THE ONE ROUTE WHERE HIDDEN STATE LEAVES THE SERVER.
+
+    Searching for the AI requires the AI's cards, so this deliberately
+    breaks the invariant hand_of() documents ("never shipped to anyone but
+    that seat"). It is confined to this route, and this route is reachable
+    only on a client_search session, so ordinary play cannot leak through
+    it. That exposure is precisely why these matches are unranked."""
+    s = _cs_session(sid, pid)
+    with s.lock:
+        aw = s.cs_awaiting()
+        if aw is None:
+            raise HTTPException(409, 'no AI seat is on turn')
+        # The WHOLE match so far, not just the live deal. Pass direction is
+        # deal_count % 4 (HeartsEnv.hpp), and the engine derives deal_count
+        # by replaying - so a client handed only the current deal thinks it
+        # is deal 1 and exchanges the pass in the wrong direction. That
+        # yields different hands and a "legal" move the seat does not hold
+        # (live bug 2026-08-17: deal 2 rejected as 'illegal card 4').
+        deals = []
+        offs = list(s.deal_offsets) + [len(s.all_actions)]
+        for i in range(len(s.deal_offsets)):
+            deals.append([int(a) for _, a in
+                          s.all_actions[offs[i]:offs[i + 1]]])
+        return {
+            **aw,
+            'seed': s.seed,
+            'deal_no': s.deal_no,
+            'deal_idx': len(deals) - 1,
+            'action_idx': len(deals[-1]),
+            'deals': deals,
+            'start_hands': [[[int(c) for c in seat] for seat in dh]
+                            for dh in s.deal_hands_hist],
+            'legal': sorted(int(a) for a in s._legal()),
+            # The review indexes a deal by PLAYS only; the engine indexes
+            # the whole action list, which starts with 12 pass picks on a
+            # passing deal. The client needs the offset to write its
+            # results under keys review.html will look up.
+            'pass_offset': _pass_offset(s.menv),
+        }
+
+
+@app.post('/api/cs/play/{sid}')
+def cs_play(sid: str, body: CsPlayBody):
+    """Apply an AI move chosen by the client. Everything past `card` is
+    provenance - recorded, never believed."""
+    s = _cs_session(sid, body.pid)
+    with s.lock:
+        if s.finished:
+            raise HTTPException(409, 'match is over')
+        aw = s.cs_awaiting()
+        if aw is None:
+            raise HTTPException(409, 'no AI seat is on turn')
+        if int(body.seat) != aw['seat']:
+            raise HTTPException(409, f"seat {body.seat} is not on turn")
+        cards = _cs_cards(body, aw, s._legal())
+        if body.engine:
+            s.cs_engine = {k: body.engine.get(k)
+                           for k in ('ver', 'ep', 'onnx_md5')}
+        ms = max(0, int(body.ms or 0))
+        s.cs_search_ms += ms
+        for c in cards:
+            s.cs_moves.append({'seat': aw['seat'], 'card': c,
+                               'k': int(body.k) if body.k else None,
+                               'nominal_k': aw['k'], 'phase': aw['phase'],
+                               'ms': ms if c == cards[0] else 0})
+        s.events = []
+        for c in cards:
+            s._apply(aw['seat'], c)   # passing or playing: _apply knows which
+        s.drain_pending_pass()        # the human may have picked ahead
+        # An AI play can END the deal, and the next deal opens in its pass
+        # phase - which the server owns. Without this the match wedges:
+        # cs_awaiting is None during passing, the human is not on turn, and
+        # nobody advances. /api/new and /api/play already do this; this was
+        # the one path that did not (caught driving a real match).
+        s.run_ai_turns()
+        s.last_active = time.time()
+        out = s.state()
+        out['events'] = s.events
+        return out
+
+
+def _cs_cards(body, aw, legal):
+    """The move(s) a client-search body is offering, validated against the
+    awaited decision. A pass is one decision worth three cards - the engine
+    scores whole combos - so it is posted and applied as a unit."""
+    legal = set(int(a) for a in legal)
+    if aw['phase'] == 'pass':
+        cards = [int(c) for c in (body.cards or [])]
+        if len(cards) != 3 or len(set(cards)) != 3:
+            raise HTTPException(400, 'a pass is exactly 3 distinct cards')
+        bad = [c for c in cards if c not in legal]
+        if bad:
+            raise HTTPException(400, f'illegal pass card {bad[0]}')
+        return cards
+    if body.card is None:
+        raise HTTPException(400, 'card required')
+    if int(body.card) not in legal:
+        raise HTTPException(400, f'illegal card {body.card}')
+    return [int(body.card)]
+
+
+def _cs_table(code, pid):
+    """Host-only: the host's device is the one running the search."""
+    t = _get_table(code)
+    canon = resolve_pid(pid)
+    if not t.client_search:
+        raise HTTPException(409, 'not a client-search table')
+    if not canon or canon != t.host_pid:
+        raise HTTPException(403, 'only the host searches for this table')
+    return t
+
+
+@app.get('/api/cs/table/position/{code}')
+def cs_table_position(code: str, pid: str = None):
+    """Table twin of /api/cs/position. Same deliberate disclosure, with the
+    same confinement: reachable only on a client-search table, and only by
+    the host. Every other seat is TOLD this is happening (view() carries
+    client_search) because it is a game against other people."""
+    t = _cs_table(code, pid)
+    with t.lock:
+        aw = t.cs_awaiting()
+        if aw is None:
+            raise HTTPException(409, 'no AI seat is on turn')
+        deals, cur = [], []
+        for d in _log_lines_for(f'table:{t.code}'):
+            if d.get('match_no', 1) == t.match_no:
+                deals.append((d['deal_no'], [int(a[1]) for a in d['actions']],
+                              [list(map(int, h)) for h in d['hands']]))
+        deals.sort()
+        acts = [d[1] for d in deals] + [[int(a[1]) for a in t.deal_actions]]
+        hands = [d[2] for d in deals] + [[sorted(int(c) for c in
+                                                 t.deal_start_hands[s])
+                                          for s in range(4)]]
+        return {**aw, 'seed': t.seed, 'deal_no': t.deal_no,
+                'deal_idx': len(acts) - 1, 'action_idx': len(acts[-1]),
+                'deals': acts, 'start_hands': hands,
+                'pass_offset': _pass_offset(t.menv),
+                'legal': sorted(int(a) for a in t.menv.get_legal_actions()
+                                if a != -1)}
+
+
+@app.post('/api/cs/table/play/{code}')
+def cs_table_play(code: str, body: CsPlayBody):
+    t = _cs_table(code, body.pid)
+    with t.lock:
+        if t.finished:
+            raise HTTPException(409, 'match is over')
+        aw = t.cs_awaiting()
+        if aw is None:
+            raise HTTPException(409, 'no AI seat is on turn')
+        if int(body.seat) != aw['seat']:
+            raise HTTPException(409, f'seat {body.seat} is not on turn')
+        legal = [int(a) for a in t.menv.get_legal_actions() if a != -1]
+        cards = _cs_cards(body, aw, legal)
+        if body.engine:
+            t.cs_engine = {k: body.engine.get(k)
+                           for k in ('ver', 'ep', 'onnx_md5')}
+        ms = max(0, int(body.ms or 0))
+        t.cs_search_ms += ms
+        for c in cards:
+            t.cs_moves.append({'seat': aw['seat'], 'card': c,
+                               'k': int(body.k) if body.k else None,
+                               'nominal_k': aw['k'], 'phase': aw['phase'],
+                               'ms': ms if c == cards[0] else 0})
+        if aw['phase'] == 'pass':
+            # queue it the way a human pass is queued, then let advance()
+            # apply it in the env's own order
+            t.pending_pass[aw['seat']] = list(cards)
+        else:
+            t._apply(aw['seat'], cards[0])
+        t.advance()
+        return t.view(resolve_pid(body.pid), cursor=0)
+
+
+@app.post('/api/cs/table/fallback/{code}')
+def cs_table_fallback(code: str, body: CsFallbackBody):
+    """Host hands the AI back to the server for the rest of the match. The
+    watchdog does the same automatically if the host goes quiet, so the
+    other players are never stuck waiting on a closed tab."""
+    t = _cs_table(code, body.pid)
+    with t.lock:
+        if t.cs_fallback is None:
+            t.cs_fallback = {'at_action': int(t.n_actions),
+                             'reason': (body.reason or 'user_abort')[:32]}
+            t.cs_deadline = None
+            t.emit('cs_fallback', reason=t.cs_fallback['reason'])
+            t.advance()
+        return t.view(resolve_pid(body.pid), cursor=0)
+
+
+@app.post('/api/cs/fallback/{sid}')
+def cs_fallback(sid: str, body: CsFallbackBody):
+    """Hand the rest of the match to the server's raw net. Stamped into the
+    log so the record never claims teacher strength for a stretch the raw
+    net played."""
+    s = _cs_session(sid, body.pid)
+    with s.lock:
+        if s.finished:
+            raise HTTPException(409, 'match is over')
+        if s.cs_fallback is None:
+            reason = (body.reason or 'user_abort')[:32]
+            s.cs_fallback = {'at_action': int(s.n_actions), 'reason': reason}
+        s.events = []
+        s.run_ai_turns()      # cs_fallback set, so this now advances
+        out = s.state()
+        out['events'] = s.events
+        return out
+
+
 @app.get('/api/state/{sid}')
 def get_state(sid: str, pid: str = None):
     s = _get(sid)
@@ -3351,6 +3954,7 @@ class TableNewBody(BaseModel):
     pid: str
     name: str | None = None
     tier: str | None = None
+    client_search: bool = False
 
 
 class TableJoinBody(BaseModel):
@@ -3375,6 +3979,7 @@ def table_new(body: TableNewBody):
     canon = resolve_pid(body.pid)
     t = Table(canon, codename_of(canon),
               tier=body.tier or 'full')
+    t.client_search = bool(body.client_search)
     with _tables_lock:
         while t.code in _tables:
             t.code = ''.join(secrets.choice(CODE_ALPHABET)
@@ -3762,6 +4367,10 @@ def spectate_state(token: str, pid: str = None, cursor: int = None):
             'deal_no': obj.deal_no,
             'trick': [{'seat': s, 'name': card_name(c)}
                       for s, c in obj.trick],
+            # spectators never watched the earlier plays, so this is the
+            # only way their badge can be right (Session and Table both
+            # carry it; getattr keeps a lobby-stage Table harmless)
+            'hearts_broken': bool(getattr(obj, 'hearts_broken', False)),
             'last_trick': (None if obj.last_trick is None else {
                 'cards': [{'seat': s, 'name': card_name(c)}
                           for s, c in obj.last_trick['cards']],
@@ -3940,8 +4549,26 @@ def play(sid: str, body: PlayBody):
     with s.lock:
         if s.finished:
             raise HTTPException(409, 'match is over')
-        if s.menv.get_current_player() != s.human_seat:
-            raise HTTPException(409, 'not your turn')
+        out_of_turn = s.menv.get_current_player() != s.human_seat
+        if out_of_turn:
+            # Client search only: the human may pick their pass while an AI
+            # seat's pass is still being searched. Queue it; it is applied
+            # the moment the env reaches their seat. Plays are never queued
+            # this way - only the pass phase is simultaneous in spirit.
+            if not (s.client_search and not s.cs_fallback
+                    and s.menv.is_passing()):
+                raise HTTPException(409, 'not your turn')
+            if len(s.pending_pass) + len(s.passed_cards) >= 3:
+                raise HTTPException(409, 'you have already passed')
+            hand = set(int(c) for c in hand_of(s.menv, s.human_seat))
+            if int(body.card) not in hand or int(body.card) in s.pending_pass:
+                raise HTTPException(400, f'illegal pass card {body.card}')
+            s.events = []
+            s.pending_pass.append(int(body.card))
+            s.drain_pending_pass()      # in case the seat came round already
+            out = s.state()
+            out['events'] = s.events
+            return out
         if body.card not in s._legal():
             raise HTTPException(400, f'illegal card {body.card}')
         # a fresh decision abandons the stored future (practice redo)
