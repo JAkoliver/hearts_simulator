@@ -213,6 +213,15 @@ variable.) Every reopening gets its own pre-registration.
   the champion already decodes moon-alive well (AUC 0.975 given points
   taken) but not per-seat points (R^2 0.62) or per-card capture (probe =
   raw channels).
+- Gated ensemble champion + arm b routed by arm b's moon head (tau 0.1)
+  as a promotion candidate (2026-08-19, league round 6, docs/exploiter_
+  league_r6_results.md): NI PASS (+0.003 +/- 0.006) but SEL defense gate
+  n=320 NULL (-0.019 +/- 0.043) against a fast-probe reading of -0.247 -
+  the clone attacker overstated the defense of a clone-distilled
+  specialist ~10x. Closes THIS specialist for defense against the search
+  attacker; the ensemble mechanism itself is unaffected. INSTRUMENT RULE
+  added: clone-trained specialists need an attacker-transfer check (AGG
+  clone / small search-SEL run) before any battery.
 
 ## Strategy (2026-07-23): see docs/ROADMAP.md
 

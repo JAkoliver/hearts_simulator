@@ -116,6 +116,19 @@ Mitigating context: expert-iter v2's confidence filter consumes
 within-decision equity ORDERING (gaps), which is more drift-robust
 than absolute levels - drift concern is real but not urgent.
 
+## CURRENT MAIN LINE (2026-08-18): the gated-ensemble program
+The best raw player may be several raw nets that switch: a DEFAULT net
+(the champion) + SPECIALISTS + a public-information ROUTER, exported as
+one 882-input traced module. Measured 2026-08-18: champion + the obs-v2
+student arm b routed by arm b's own moon head concedes -0.247
+moons/match vs the champion (twice arm b alone, ~r1-t3) at no
+measurable strength cost; NI passed on the cruder variant. Program doc
+(design space, currency, sequencing, limits): docs/gated_ensemble_
+program.md. First battery: docs/exploiter_league_r6_prereg.md. Next:
+specialist ladder -> router refinements -> round 7 (train the specialist
+with the default frozen) -> round 8 (search-judged router) -> more
+domains behind audits.
+
 ## Queued: v6 network (added 2026-07-29 - trigger condition, not a date)
 **STATUS 2026-08-16: RUN AND SHELVED.** The v6 that actually ran
 (docs/v6_prereg.md, signed 08-11) departed from this queue entry: it

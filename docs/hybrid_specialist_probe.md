@@ -93,3 +93,5 @@ switching in low-value states); the champion-uncertainty gate is dead.
 Estimation only (8 rungs, selection noise modest at these SEs); the
 chosen rung(s) go to the registered battery (NI n=3200 → SEL defense gate
 n=320 → search guard) as one traced 882 module.
+
+**Follow-through:** program document docs/gated_ensemble_program.md; the τ=0.1 rung is the round-6 promotion candidate (docs/exploiter_league_r6_prereg.md, signed 2026-08-18; battery in progress).

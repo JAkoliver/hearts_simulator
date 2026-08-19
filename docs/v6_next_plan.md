@@ -12,6 +12,13 @@ trials 1-3 and the halt), equity_data/verdicts/.
 
 ---
 
+**STATUS 2026-08-18 — this plan's routing is superseded for the main
+line:** v6 shelved (data probe + Addendum A); league r4 (anchored PPO,
+reward shaping) and r5 (threat adapters + warm-start) concluded without
+promotion; the main compute program is now the GATED-ENSEMBLE program
+(docs/gated_ensemble_program.md; r6 battery in progress). Path C stays
+recorded as the only v6 continuation.
+
 ## 1. Where things stand (verified 2026-08-13)
 
 - Baseline/champion **8a89da90** (milestone 1785322724, 5th match-era

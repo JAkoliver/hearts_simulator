@@ -35,7 +35,9 @@ citations is [docs/release/RESULTS.md](docs/release/RESULTS.md).
   the successor campaign (v6, [docs/v6_prereg.md](docs/v6_prereg.md))
   trained a larger, structurally extended network from scratch and was
   concluded 2026-08-16 without a promotion — post-mortem in
-  [docs/v6_postmortem.md](docs/v6_postmortem.md).
+  [docs/v6_postmortem.md](docs/v6_postmortem.md). The current line is a
+  gated ensemble of raw nets (default + specialists + a public-
+  information router; [docs/gated_ensemble_program.md](docs/gated_ensemble_program.md)).
 
 No claims about human-relative strength are made anywhere in this
 repository; human games on the site are n=1 anecdotes and labeled so.

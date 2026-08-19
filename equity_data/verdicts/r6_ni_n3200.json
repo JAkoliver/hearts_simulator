@@ -1,0 +1,19 @@
+{
+ "n": 3200,
+ "win_a": 0.51375,
+ "win_b": 0.51375,
+ "discordant": [
+  86,
+  86
+ ],
+ "p_win": 0.5303748823130829,
+ "dplace_mean": 0.00265625,
+ "dplace_se": 0.006122507258853195,
+ "p_place": 0.6677867003456406,
+ "dscore_mean": 0.1171875,
+ "dscore_se": 0.13947561731095245,
+ "p_score": 0.799570649342958,
+ "seconds": 5120.7,
+ "cand": "hybrid_champ_armb_moonhead_0p1.pth",
+ "base": "Hall_of_Fame/hearts_model_milestone_1785322724.pth"
+}

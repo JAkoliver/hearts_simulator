@@ -1323,3 +1323,21 @@ at 8 workers. Total 5 h 40 m; desktop usable throughout. Results in
 docs/hybrid_specialist_probe.md: moonhead:0.1 -0.247 (SE 0.032) defense /
 +0.014 (0.031) strength; threat:3/6/10 -0.17/-0.17/-0.15 at ~-0.01;
 uncertain +0.03 / +0.05 (dead).
+
+## 2026-08-19: LEAGUE R6 gate 1 — NI PASS for the tau=0.1 ensemble; defense gate candidate arm launched 00:59
+
+NI n=3200 (8 workers BelowNormal, ensemble = 2 nets on gated ~10% of
+decisions): 5,121 s = 85 min. placement +0.003 (SE 0.006), UB95 +0.013
+-> PASS; win 51.4/51.4; score +0.12; moons conceded at table 509 vs 521.
+Defense gate candidate arm (n=320, shards 0,1,4..11, 4-wide) started
+00:59 (equity_data/exploiter_r4/r6_gate/cand_*.csv; analyzer -> r6_defense_gate_n320.json).
+
+## 2026-08-19: LEAGUE R6 defense gate — HALT (null vs the search shooter); attacker-transfer failure on record
+
+Candidate arm n=320 at 4-wide (waves of 4,4,2): 00:59 -> 07:48 = 6 h 49 m
+(shards 0/1/4/5 2h49m; 6/7/8/9 2h40m; 10/11 1h20m at 2-wide) — 77 s/match
+aggregate 4-wide, matching the 08-16 extension rate. Analyzer: base 2.544
+vs cand 2.525, delta -0.019 (SE 0.043), p=0.33 -> HALT. vs the fast probe's
+-0.247 (SE 0.032) for the same ensemble: the clone attacker overstates
+defense for this clone-distilled specialist ~10x. Guard not run. r6 total
+~9 h, $0. Champion untouched.
