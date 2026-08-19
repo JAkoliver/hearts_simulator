@@ -1,0 +1,21 @@
+{
+ "base": "Hall_of_Fame/hearts_model_milestone_1785322724.pth",
+ "attacker": "shooter_sel_v1.pth",
+ "matches": 1000,
+ "seed": 740000000,
+ "results": {
+  "hybrid_champ_armb_uncertain_1p0.pth": {
+   "n": 1000,
+   "cand_moons_per_match": 1.546,
+   "base_moons_per_match": 1.52,
+   "delta": 0.026,
+   "se": 0.026608871303233292,
+   "p_one_sided": 0.8356262897370809,
+   "ci95": [
+    -0.02621569139229873,
+    0.07821569139229873
+   ],
+   "ddef_place": 0.005166666666666662
+  }
+ }
+}

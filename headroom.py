@@ -28,8 +28,12 @@ enabled = 0.0 < FRACTION < 0.9
 _last = None
 
 
-def apply_process_priority():
-    if not enabled:
+def apply_process_priority(force=False):
+    # 2026-08-18 incident: CPU pools (match gates, fast probes) at NORMAL
+    # priority starved the desktop for over an hour (display would not
+    # wake; hard power-off). Priority is now lowered whenever a pool asks,
+    # headroom enabled or not - it costs nothing when the machine is idle.
+    if not enabled and not force and os.environ.get('HEARTS_NO_LOWPRI') == '1':
         return
     try:
         import psutil

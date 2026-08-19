@@ -546,13 +546,36 @@ class HeartsHybrid(nn.Module):
         pen = torch.zeros(52); pen[39:52] = 1.0; pen[36] = 13.0
         self.register_buffer('pen', pen, persistent=False)
 
-    def gate_mask(self, observation):
+    # Gate grammar (docs/hybrid_specialist_probe.md ladder):
+    #   'threat'        opponent moon-alive AND >= 1 pt (the probe's primary)
+    #   'threat:N'      opponent moon-alive AND >= N pts held by that seat
+    #   'any_alive'     any opponent moon-alive flag
+    #   'moonhead:T'    specialist's own aux moon head: max_opp sigmoid(logit) > T
+    #   'uncertain:D'   threat (>=1 pt) AND champion top-2 logit gap < D
+    def gate_mask(self, observation, lc=None):
         alive = observation[:, 872:876] > 0.5                       # rel seats 0..3
-        if self.gate == 'any_alive':
+        kind, _, arg = self.gate.partition(':')
+        if kind == 'any_alive':
             return alive[:, 1:].any(dim=1)
         taken = observation[:, 660:868].reshape(-1, 4, 52)
         pts = taken @ self.pen                                       # (b, 4)
-        return (alive[:, 1:] & (pts[:, 1:] >= 1.0)).any(dim=1)
+        if kind == 'threat':
+            thr = float(arg) if arg else 1.0
+            return (alive[:, 1:] & (pts[:, 1:] >= thr)).any(dim=1)
+        if kind == 'moonhead':
+            tau = float(arg)
+            _, _, _, moon_logits, _ = self.specialist.forward_aux(
+                observation, torch.ones(observation.shape[0], 52, dtype=torch.bool,
+                                        device=observation.device))
+            p = torch.sigmoid(moon_logits[:, 1:])                    # opponents
+            return (p.max(dim=1).values > tau) & alive[:, 1:].any(dim=1)
+        if kind == 'uncertain':
+            d = float(arg)
+            threat = (alive[:, 1:] & (pts[:, 1:] >= 1.0)).any(dim=1)
+            top2 = lc.masked_fill(~torch.isfinite(lc), -1e9).topk(2, dim=1).values
+            gap = top2[:, 0] - top2[:, 1]
+            return threat & (gap < d)
+        raise ValueError(f'unknown gate {self.gate}')
 
     def forward(self, observation, legal_actions_mask):
         if observation.dim() == 1:
@@ -561,8 +584,8 @@ class HeartsHybrid(nn.Module):
             legal_actions_mask = legal_actions_mask.unsqueeze(0)
         if observation.shape[-1] != self.OBS_DIM:
             raise ValueError(f'HeartsHybrid requires 882-dim obs v2, got {observation.shape[-1]}')
-        g = self.gate_mask(observation)
         lc, vc = self.champion(observation[:, :556], legal_actions_mask)
+        g = self.gate_mask(observation, lc)
         ls, vs = self.specialist(observation, legal_actions_mask)
         gm = g.unsqueeze(1)
         return torch.where(gm, ls, lc), torch.where(gm, vs, vc)
@@ -589,11 +612,13 @@ def net_from_checkpoint(path, map_location=None):
     """
     sd = torch.load(path, weights_only=True, map_location=map_location)
     if isinstance(sd, dict) and sd.get('hybrid'):
-        import tempfile, os
+        # in-memory round trip (no temp files: 12 pool workers x 2 files per
+        # hybrid was an avoidable startup I/O burst - 2026-08-18 incident)
+        import io
         parts = []
         for k in ('champion_sd', 'specialist_sd'):
-            f = tempfile.NamedTemporaryFile(delete=False, suffix='.pth'); f.close()
-            torch.save(sd[k], f.name); parts.append(net_from_checkpoint(f.name, map_location)); os.remove(f.name)
+            buf = io.BytesIO(); torch.save(sd[k], buf); buf.seek(0)
+            parts.append(net_from_checkpoint(buf, map_location))
         net = HeartsHybrid(parts[0], parts[1], gate=sd.get('gate', 'threat'))
         net.eval()
         return net

@@ -1297,3 +1297,29 @@ a plain-net probe); neutral_raw n=5000 vs champion 6.6 min each.
 threat gate: defense -0.107 (SE 0.036), strength +0.104 (SE 0.055);
 any_alive gate: -0.147 (0.041), +0.246 (0.093). Defense lives in the
 threat-state play (19% of decisions).
+
+## 2026-08-18: OPS INCIDENT — desktop starved by an 8-arm hybrid probe (hard power-off); NI gate result preserved
+
+MEASURED before the incident: match NI n=3200, threat hybrid vs champion,
+12 workers, 2,675 s = 44.6 min (two nets per decision on 19% of steps):
+placement +0.001 (SE 0.010), UB95 +0.017 -> NI PASS; win 52.4/52.6.
+Then the gate LADDER (7 hybrids + base = 8 arms/decision, ~240 ms per
+decision per worker, 12 workers, NORMAL priority - headroom's BelowNormal
+was a no-op with HEARTS_HEADROOM unset) started 15:05; by ~15:20 shells
+timed out, the display would not wake, user hard-powered-off at 16:19
+(EventLog 6008/41; no 2004 resource-exhaustion, no bugcheck). CPU
+starvation, not a wedge and not memory (~1.1 GB/worker measured).
+FIXES: headroom.apply_process_priority now lowers priority for every pool
+(HEARTS_NO_LOWPRI=1 to opt out); hybrid checkpoints load in-memory;
+RULE: daytime CPU pools <= 8 workers, never stack > 3 arms per probe.
+Champion/working/served weights verified 8a89da90 after reboot.
+
+## 2026-08-18: HYBRID gate ladder (gentle rerun) — moon-head router wins: -0.247 defense at ~0 cost
+
+8 workers BelowNormal (post-incident rules): fast probe 4 arms x 1000 =
+4,000 hybrid matches 88 min (A), 4 arms 135 min (B, moon-head gates run
+arm b's aux forward), 2 arms 40 min (C); neutral_raw n=5000 8-13 min each
+at 8 workers. Total 5 h 40 m; desktop usable throughout. Results in
+docs/hybrid_specialist_probe.md: moonhead:0.1 -0.247 (SE 0.032) defense /
++0.014 (0.031) strength; threat:3/6/10 -0.17/-0.17/-0.15 at ~-0.01;
+uncertain +0.03 / +0.05 (dead).
