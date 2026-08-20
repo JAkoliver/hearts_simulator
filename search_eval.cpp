@@ -130,15 +130,26 @@ static int ShooterResumeTrim(const std::string& csv_path,
 // [self,left,across,right scores]/100, deals/20, leader-distance-to-100/100.
 class MatchRawPolicy {
 public:
-    MatchRawPolicy(torch::jit::script::Module model) : model_(std::move(model)) {}
+    // obs_dim 556 (classic match trace) or 882 (obs v2: + the extension
+    // block, assembled exactly as the recorder / FillObsRow do). 2026-08-19
+    // fix: 882 traces used to fall through to RawPolicy (zeros past 550),
+    // which zeroed the obs-v2 extension - a gated ensemble's router never
+    // fired and every "candidate" defense-gate run replayed the champion
+    // (byte-identical CSVs across different candidates was the tell).
+    MatchRawPolicy(torch::jit::script::Module model, int obs_dim = 556)
+        : model_(std::move(model)), obs_dim_(obs_dim) {}
 
     int ChooseAction(const HeartsEnv& env, const std::array<double, 4>& totals,
                      int deals_played) {
         auto obs = env.Observe();  // 550 floats
         int me = env.GetCurrentPlayer();
-        torch::Tensor o = torch::zeros({1, 556}, torch::kFloat32);
+        torch::Tensor o = torch::zeros({1, obs_dim_}, torch::kFloat32);
         float* op = o.data_ptr<float>();
         std::copy(obs.begin(), obs.end(), op);
+        if (obs_dim_ == 882) {
+            auto ext = env.ObserveExtFor(me);
+            std::copy(ext.begin(), ext.end(), op + 556);
+        }
         double mx = *std::max_element(totals.begin(), totals.end());
         for (int i = 0; i < 4; ++i) op[550 + i] = (float)(totals[(me + i) % 4] / 100.0);
         op[554] = (float)(deals_played / 20.0);
@@ -157,6 +168,7 @@ public:
 
 private:
     torch::jit::script::Module model_;
+    int obs_dim_ = 556;
 };
 
 // 1 = winner (lowest total); ties share the mean of their ranks.
@@ -843,7 +855,8 @@ int main(int argc, char** argv) {
         // search-speed matches.
         SearchPlayer* sp_flat = static_cast<SearchPlayer*>(sp.get());
         std::unique_ptr<MatchRawPolicy> mdef;
-        if (odim == 556) mdef = std::make_unique<MatchRawPolicy>(opp_model);
+        if (odim == 556 || odim == 882)
+            mdef = std::make_unique<MatchRawPolicy>(opp_model, odim);
         // Round-2 teacher measurement (--search-defenders): the SAME search
         // program, standard match-equity scoring (shooter mode OFF), seated
         // in all three defender chairs. One instance serves all three: the

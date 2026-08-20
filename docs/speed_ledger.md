@@ -1341,3 +1341,23 @@ vs cand 2.525, delta -0.019 (SE 0.043), p=0.33 -> HALT. vs the fast probe's
 -0.247 (SE 0.032) for the same ensemble: the clone attacker overstates
 defense for this clone-distilled specialist ~10x. Guard not run. r6 total
 ~9 h, $0. Champion untouched.
+
+## 2026-08-19 evening: r6 DEFENSE GATE RETRACTED — instrument artifact (882 defenders zero-filled); engine fixed
+
+Byte-identical candidate CSVs across THREE different ensemble runs
+(r6 n=320 + two n=64 checks; md5 b1e7b7d4) exposed it: in shooter mode
+an 882 defender trace fell through to RawPolicy's zero-fill (dims
+550..882 = 0), the router never fired, every "candidate" arm replayed
+the champion at zero match ctx. r6 gate verdict VOID (it was an A/A);
+the "attacker-transfer failure ~10x" reading WITHDRAWN; register entry
+corrected. NI (+0.003, Python harness) and all clone-probe numbers
+stand. FIX: MatchRawPolicy(obs_dim) assembles [550 obs | ctx 6 | ext
+326] for 882 defenders (mirrors FillObsRow); search_eval accepts 882
+for mdef. Rebuilt; 556 regression byte-identical vs r1 base rows.
+MEASURED same day: steps 1-2 of the specialist work (all Python, valid):
+AGG diagnostic - every candidate defends the AGG clone hugely (ensemble
+-0.440, arm b -0.468, r1-t3 -0.473 vs base 2.018); specialist ladder
+SEL/AGG/strength - champion+arm a (own moon head, tau .1): -0.360/-0.647
+at -0.010 strength; champion+r1-t3 (arm-b head): -0.252/-0.364 at +0.005.
+NEW RULE (register): C++ ensemble measurements need a gate-fires check
+(candidate CSV must DIFFER from the default's on same seeds) first.

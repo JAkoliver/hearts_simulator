@@ -537,10 +537,14 @@ class HeartsHybrid(nn.Module):
     OBS_DIM = 882
     _PEN = None
 
-    def __init__(self, champion, specialist, gate='threat'):
+    def __init__(self, champion, specialist, gate='threat', router=None):
         super().__init__()
         self.champion = champion
         self.specialist = specialist
+        # optional separate ROUTER net for 'moonhead' gates (decouples the
+        # detector from the specialist: e.g. arm b's moon head routing r1-t3);
+        # default = the specialist's own aux head
+        self.router = router
         self.gate = gate
         self.obs_dim = 882
         pen = torch.zeros(52); pen[39:52] = 1.0; pen[36] = 13.0
@@ -564,7 +568,8 @@ class HeartsHybrid(nn.Module):
             return (alive[:, 1:] & (pts[:, 1:] >= thr)).any(dim=1)
         if kind == 'moonhead':
             tau = float(arg)
-            _, _, _, moon_logits, _ = self.specialist.forward_aux(
+            det = self.router if self.router is not None else self.specialist
+            _, _, _, moon_logits, _ = det.forward_aux(
                 observation, torch.ones(observation.shape[0], 52, dtype=torch.bool,
                                         device=observation.device))
             p = torch.sigmoid(moon_logits[:, 1:])                    # opponents
@@ -586,7 +591,8 @@ class HeartsHybrid(nn.Module):
             raise ValueError(f'HeartsHybrid requires 882-dim obs v2, got {observation.shape[-1]}')
         lc, vc = self.champion(observation[:, :556], legal_actions_mask)
         g = self.gate_mask(observation, lc)
-        ls, vs = self.specialist(observation, legal_actions_mask)
+        sdim = 882 if getattr(self.specialist, 'obs_dim', 556) == 882 else 556
+        ls, vs = self.specialist(observation[:, :sdim], legal_actions_mask)
         gm = g.unsqueeze(1)
         return torch.where(gm, ls, lc), torch.where(gm, vs, vc)
 
@@ -596,10 +602,13 @@ class HeartsHybrid(nn.Module):
         return logits, value, bel
 
 
-def save_hybrid(path, champion_ckpt, specialist_ckpt, gate='threat'):
-    torch.save({'hybrid': True, 'gate': gate,
-                'champion_sd': torch.load(champion_ckpt, weights_only=True, map_location='cpu'),
-                'specialist_sd': torch.load(specialist_ckpt, weights_only=True, map_location='cpu')}, path)
+def save_hybrid(path, champion_ckpt, specialist_ckpt, gate='threat', router_ckpt=None):
+    d = {'hybrid': True, 'gate': gate,
+         'champion_sd': torch.load(champion_ckpt, weights_only=True, map_location='cpu'),
+         'specialist_sd': torch.load(specialist_ckpt, weights_only=True, map_location='cpu')}
+    if router_ckpt:
+        d['router_sd'] = torch.load(router_ckpt, weights_only=True, map_location='cpu')
+    torch.save(d, path)
 
 
 def net_from_checkpoint(path, map_location=None):
@@ -616,10 +625,12 @@ def net_from_checkpoint(path, map_location=None):
         # hybrid was an avoidable startup I/O burst - 2026-08-18 incident)
         import io
         parts = []
-        for k in ('champion_sd', 'specialist_sd'):
+        for k in ('champion_sd', 'specialist_sd', 'router_sd'):
+            if k not in sd:
+                parts.append(None); continue
             buf = io.BytesIO(); torch.save(sd[k], buf); buf.seek(0)
             parts.append(net_from_checkpoint(buf, map_location))
-        net = HeartsHybrid(parts[0], parts[1], gate=sd.get('gate', 'threat'))
+        net = HeartsHybrid(parts[0], parts[1], gate=sd.get('gate', 'threat'), router=parts[2])
         net.eval()
         return net
     if 'ext_card_proj.weight' in sd:          # league r5 adapter net (882)

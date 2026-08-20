@@ -49,7 +49,8 @@ ATTACKER = 'shooter_sel_v1.pth'
 _SEED_STRIDE = 1_000_000
 
 
-def load_attacker(path=ATTACKER):
+def load_attacker(path=None):
+    path = path or ATTACKER
     ck = torch.load(path, weights_only=True, map_location='cpu')
     net = HeartsNetV5(obs_dim=556, d_model=ck['d_model'],
                       num_layers=ck['num_layers'],
@@ -77,9 +78,9 @@ def _one(menv_seed, defenders, attacker, att_seat):
 
 
 def _chunk(job):
-    net_paths, base_path, seed, offset, n_matches = job
+    net_paths, base_path, seed, offset, n_matches, attacker_path = job
     torch.set_num_threads(1)
-    attacker = load_attacker()
+    attacker = load_attacker(attacker_path)
     base = net_from_checkpoint(base_path); base.eval()
     cands = []
     for p in net_paths:
@@ -96,10 +97,11 @@ def _chunk(job):
     return rows
 
 
-def run(net_paths, base_path, matches, workers, seed, out):
+def run(net_paths, base_path, matches, workers, seed, out, attacker=None):
+    attacker = attacker or ATTACKER
     workers = headroom.scaled_workers(workers)
     print(f"FAST DEFENSE PROBE: {len(net_paths)} nets vs base {base_path} | "
-          f"attacker {ATTACKER} | {matches} CRN-paired matches | seed {seed} | "
+          f"attacker {attacker} | {matches} CRN-paired matches | seed {seed} | "
           f"workers {workers}", flush=True)
     per, extra = divmod(matches, workers)
     jobs, offset = [], 0
@@ -107,7 +109,7 @@ def run(net_paths, base_path, matches, workers, seed, out):
         n = per + (1 if w < extra else 0)
         if n == 0:
             continue
-        jobs.append((net_paths, base_path, seed + w * _SEED_STRIDE, offset, n))
+        jobs.append((net_paths, base_path, seed + w * _SEED_STRIDE, offset, n, attacker))
         offset += n
     import multiprocessing
     t0 = time.time()
@@ -165,11 +167,12 @@ def main():
     ap.add_argument('--seed', type=int, default=740_000_000)
     ap.add_argument('--out', required=True)
     ap.add_argument('--json', default=None)
+    ap.add_argument('--attacker', default=None, help='clone attacker checkpoint (default shooter_sel_v1.pth)')
     a = ap.parse_args()
-    res = run(a.nets, a.base, a.matches, a.workers, a.seed, a.out)
+    res = run(a.nets, a.base, a.matches, a.workers, a.seed, a.out, a.attacker)
     if a.json:
         import json
-        json.dump({'base': a.base, 'attacker': ATTACKER, 'matches': a.matches,
+        json.dump({'base': a.base, 'attacker': a.attacker or ATTACKER, 'matches': a.matches,
                    'seed': a.seed, 'results': res}, open(a.json, 'w'),
                   indent=1, default=float)
 

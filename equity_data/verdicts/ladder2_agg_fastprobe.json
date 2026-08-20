@@ -1,0 +1,47 @@
+{
+ "base": "Hall_of_Fame/hearts_model_milestone_1785322724.pth",
+ "attacker": "shooter_agg_v1b.pth",
+ "matches": 1000,
+ "seed": 740000000,
+ "results": {
+  "hybrid_champ_r1t3_moonheadB_0p1.pth": {
+   "n": 1000,
+   "cand_moons_per_match": 1.654,
+   "base_moons_per_match": 2.018,
+   "delta": -0.364,
+   "se": 0.03502471599785973,
+   "p_one_sided": 2.1489031513364273e-24,
+   "ci95": [
+    -0.4327304523670241,
+    -0.29526954763297586
+   ],
+   "ddef_place": -0.08833333333333335
+  },
+  "hybrid_champ_r1t3_threat_6.pth": {
+   "n": 1000,
+   "cand_moons_per_match": 1.65,
+   "base_moons_per_match": 2.018,
+   "delta": -0.368,
+   "se": 0.03676857255766027,
+   "p_one_sided": 7.723517016546122e-23,
+   "ci95": [
+    -0.4401524943965903,
+    -0.29584750560340967
+   ],
+   "ddef_place": -0.09916666666666667
+  },
+  "hybrid_champ_arma_moonhead_0p1.pth": {
+   "n": 1000,
+   "cand_moons_per_match": 1.371,
+   "base_moons_per_match": 2.018,
+   "delta": -0.647,
+   "se": 0.03929293746890063,
+   "p_one_sided": 2.2149040410511576e-54,
+   "ci95": [
+    -0.7241061603249477,
+    -0.5698938396750524
+   ],
+   "ddef_place": -0.1625
+  }
+ }
+}

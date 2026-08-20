@@ -58,14 +58,17 @@ Battery in progress (r6): NI → SEL defense gate n=320 → search guard.
   policy. Deal points are reported, never gated — a defender pays points
   to remove 26-point tails; the champion's own promotions traded points
   for placement.
-- **ATTACKER-TRANSFER CAVEAT (measured 2026-08-19, r6):** the fast probe's
-  clone attacker overstated the tau=0.1 ensemble's defense ~10x (−0.247
-  on the probe vs −0.019 ± 0.043 on the search gate). Arm b was distilled
-  from a bank whose defense pressure was these same clones. RULE: for any
-  specialist trained against the clones (imitation or RL), the cheap loop
-  must include an attacker-transfer check — the AGG clone (shooter_agg_
-  v1b) and/or a small search-SEL run (n=64, ~85 min, the r1 base arm
-  reused) — before a battery; the search gate remains the claim.
+- **GATE-FIRES CHECK (rule from the retracted r6 gate, 2026-08-19):** the
+  r6 defense-gate "null" was an artifact — the engine's 882-defender path
+  zero-filled the obs-v2 extension, so the router never fired and the
+  gate replayed the champion (byte-identical candidate CSVs across
+  different candidates). Engine fixed (MatchRawPolicy assembles 882).
+  RULE: before any C++-side measurement of an ensemble, verify its
+  output CSV DIFFERS from the default net's on the same seeds; clone
+  probes remain estimation-only and the search gate remains the claim.
+  The attacker-transfer question (clone vs search shooter) is OPEN again
+  — the AGG diagnostic showed all candidates defend both clones easily,
+  and no valid search-side ensemble measurement exists yet.
 - Registered secondary for ensembles: placement in a shooter-mixed field
   (SEL clone in 1/8 of matches) — where insurance is supposed to pay.
 - Seed rule: ≥ 2 independent training runs for any specialist strength
