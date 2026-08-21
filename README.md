@@ -90,7 +90,7 @@ The released checkpoints and traces are in **GitHub Releases**
 |---|---|
 | `hearts_ai_search_match.pt` | Deployed match-aware search trace: the strongest configuration, and the v6 teacher (md5 3a2abd36) |
 | `hearts_ai_match_8a89da90.pt` + `hearts_model_final.pth` | The 8a89da90 champion network (5th match-era promotion), match-context trace + checkpoint — now the DEFAULT component and search substrate of the promoted ensemble |
-| milestone 1787333162 (release upload pending) | Current champion: gated ensemble (8a89da90 default + v6 arm a specialist + moon-head router, one 882-input module, md5 8d7816d1) — [round-7 record](docs/exploiter_league_r7_results.md) |
+| `hearts_ensemble_8d7816d1.pth` + `_882trace.pt` (models-v1 release) | Current champion: gated ensemble (8a89da90 default + v6 arm a specialist + moon-head router, one 882-input module; checkpoint md5 8d7816d1, trace 9d9a4f49) — [round-7 record](docs/exploiter_league_r7_results.md), [model card](docs/release/model_cards/hearts_ensemble_8d7816d1.md) |
 | `hearts_ai_grandmaster.pt` / `hearts_ai_search.pt` | Champion raw-play / search traces (filenames are engine identifiers, not strength claims) |
 | `hearts_ai_search_ref_matchblind_20260724.pt` + `.pth` | The frozen match-blind reference of the N=8000 validation (md5 a1a0be31); required to reproduce the headline result |
 | `hearts_equity.pt` + `equity_v1.pth` | The equity model: score state to placement probabilities |

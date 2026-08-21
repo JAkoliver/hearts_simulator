@@ -31,4 +31,7 @@ search shooter + its clones); no claim about human attackers; the
 specialist is one training seed; τ chosen on clone probes (battery ran
 on disjoint seeds); serving cost ≈ champion + specialist-aux per play
 decision until the cheap pre-gate lands (program doc §7 step 1-2).
-Weights: release-asset upload pending (models-v1); never tracked in git.
+Weights: models-v1 release assets `hearts_ensemble_8d7816d1.pth`
+(checkpoint, md5 8d7816d1) and `hearts_ensemble_8d7816d1_882trace.pt`
+(served-form trace, md5 9d9a4f49), with ENSEMBLE_MD5SUMS /
+ENSEMBLE_SHA256SUMS alongside; never tracked in git.
