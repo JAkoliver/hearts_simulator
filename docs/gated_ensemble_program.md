@@ -179,9 +179,14 @@ the site can serve 882.
    already assembles 882 for search. Until it lands, the site serves
    8a89da90 and the promotion is research-record-only. Serving-cost fix
    belongs with it: the τ-gate currently runs the 19M aux EVERY decision
-   — add the cheap pre-gate (compute the moon head only when an opponent
-   is moon-alive with ≥1 point, ~19% of plays) and the single-aux-forward
-   refactor below.
+   — add the cheap pre-gate and the single-aux-forward refactor below.
+   PRE-GATE CORRECTION (site review, 2026-08-21): the safe pre-filter for
+   the moonhead gate is "some opponent moon-alive" ALONE (the gate's own
+   conjunct) — the earlier "moon-alive with ≥1 point" suggestion was the
+   THREAT gate's condition and would skip ~5% of genuinely gated states
+   (site measured 6/111). Passing may NOT be skipped either: the moon
+   head exceeds τ=0.1 on ~0.4% of holdout pass states (max 0.155) — it
+   is empirically quiet in passing, not structurally.
 2. SINGLE-AUX-FORWARD REFACTOR (research, no prereg needed — a null-
    contract instrument change): HeartsHybrid.forward runs the specialist
    TWICE per row (forward_aux for the gate, forward for the action).

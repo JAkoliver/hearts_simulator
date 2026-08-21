@@ -1455,3 +1455,22 @@ raw path in perilune-site; hearts_web_model.pth stays 8a89da90 until
 then (verified). Round-8 bar = the ensemble's SEL numbers (1.816 vs
 base-arm 2.544/320). No optimizer state exists (composition of frozen
 nets); traces NOT re-exported (Amendment 1).
+
+## 2026-08-21: site-review corrections to the ensemble record (docs-only; gates unaffected)
+
+Site instance review of the serving brief caught: (1) my suggested
+pre-filter ("opponent moon-alive with >=1 point") was the THREAT gate's
+condition, not the shipped moonhead gate's - it would skip ~5% of gated
+states (site: 6/111). Safe pre-filter = "some opponent moon-alive"
+alone. (2) Follow-up measurement falsified my committed "never fires in
+passing" claim for the moonhead gate: 0.37% of 12,282 holdout pass
+states exceed tau=0.1 (max 0.155) - the threat gates are structurally
+pass-inert (points term), moonhead is only empirically quiet. (3) Site
+gate rate 4.9-6.1% vs my 8-11% band CONFIRMED distributional: measured
+11.65% plays on the v6 search-bank holdout, ~2.5% vs v3-m7 anchors
+(r7 debug, 5/199) - champion self-play sits between. All gates measured
+the true function; prose corrected in r7 prereg, model card, program
+doc. Also on record: no human-exploit regression FIXTURE exists (the r1
+prereg listed the replay as telemetry; match logs are site-private;
+analyze_matches replays logs but cannot counterfactually re-play with a
+new net) - a real gap, r8-adjacent, site-side data.

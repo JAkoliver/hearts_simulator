@@ -7,7 +7,7 @@ Promoted 2026-08-21 (6th match-era promotion; first ensemble). One
 |---|---|---|---|
 | default | Hall_of_Fame/hearts_model_milestone_1785322724.pth | 8a89da90 | plays ~90% of decisions (556-dim prefix) |
 | specialist | v6_stage3/arma_lr3e-4… (arm a, 19.37M, obs v2) | a9653255 | plays gated moon-threat states |
-| router | arm a's aux moon head, τ=0.1 + moon-alive check | — | public information only; fires ~10% of plays, never in passing |
+| router | arm a's aux moon head, τ=0.1 + moon-alive check | — | public information only; fire rate is DISTRIBUTION-DEPENDENT: ~11.7% of plays on the search-bank holdout, ~5–6% in champion self-play, ~2.5% vs weak anchors; ~0.4% of PASS decisions can also gate (no points term — corrected 2026-08-21) |
 
 Inputs: obs v2 (882 public dims — v1 obs 550 + match ctx 6 + extension
 326). Outputs: masked policy logits + value (belief via forward_all).
