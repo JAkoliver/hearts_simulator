@@ -294,6 +294,35 @@ struct Engine {
         return {};
     }
 
+    // A default-constructed sample (all four hands empty) is SampleHands'
+    // "unsatisfiable" sentinel. A valid determinization always holds at
+    // least the acting seat's cards (play) or 13 everywhere (pass rewind).
+    static bool DetEmpty(const std::array<std::vector<int>, 4>& h) {
+        return h[0].empty() && h[1].empty() && h[2].empty() && h[3].empty();
+    }
+
+    // Fill `dets` with up to want valid determinizations, drawing at most
+    // 3*want times. 2026-08-21 robustness fix (site follow-up): one
+    // unlucky/unsatisfiable draw used to ride into SetHands /
+    // ResetForPassSearch and abort the WHOLE search via Trap (-3) - the
+    // caller lost all K determinizations instead of one. Skip bad draws;
+    // only if fewer than max(4, want/4) survive is the position treated
+    // as genuinely broken, with the surviving count in the message.
+    void FillDets(std::vector<std::array<std::vector<int>, 4>>& out, int want) {
+        int draws = 0;
+        while ((int)out.size() < want && draws < 3 * want) {
+            auto h = SampleHands();
+            ++draws;
+            if (!DetEmpty(h)) out.push_back(std::move(h));
+        }
+        int floor_n = want / 4 > 4 ? want / 4 : 4;
+        if ((int)out.size() < floor_n) {
+            throw std::runtime_error(
+                "determinization starvation: " + std::to_string(out.size()) +
+                " of " + std::to_string(want) + " samples valid");
+        }
+    }
+
     static double TerminalWinValue(const std::array<double, 4>& t, int seat) {
         double mine = t[seat];
         int better = 0, tied = 0;
@@ -345,14 +374,13 @@ struct Engine {
         int start_deals = deals_played;
         (void)start_deals;
         sims.clear();
-        sims.reserve(legal.size() * K);
+        // dets shared across actions (paired comparison); sampled up front
+        // with skip-and-retry (FillDets) so one bad draw costs one det,
+        // not the search. K_eff = surviving count.
+        FillDets(dets, K);
+        sims.reserve(legal.size() * dets.size());
         for (size_t ai = 0; ai < legal.size(); ++ai) {
-            for (int d = 0; d < K; ++d) {
-                // dets shared across actions: sample once per det index on
-                // ai==0, reuse for the rest (paired comparison).
-                if (ai == 0) {
-                    dets.push_back(SampleHands());
-                }
+            for (size_t d = 0; d < dets.size(); ++d) {
                 Sim s(env.Clone(), (int)ai);
                 s.env.SetHands(dets[d]);
                 s.done = s.env.Step(legal[ai]).done;
@@ -750,8 +778,8 @@ KEEP int an_feed_root_pass(const float* logits52, const float* belief156) {
         }
         add_combo(c);
     }
-    // determinizations + scripted sims
-    for (int d = 0; d < E.K; ++d) E.dets.push_back(E.SampleHands());
+    // determinizations + scripted sims (skip-and-retry; see FillDets)
+    E.FillDets(E.dets, E.K);
     for (size_t ci = 0; ci < E.combos.size(); ++ci) {
         for (const auto& det : E.dets) {
             Sim s(E.env.Clone(), (int)ci);
