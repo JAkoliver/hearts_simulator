@@ -116,7 +116,16 @@ Mitigating context: expert-iter v2's confidence filter consumes
 within-decision equity ORDERING (gaps), which is more drift-robust
 than absolute levels - drift concern is real but not urgent.
 
-## CURRENT MAIN LINE (2026-08-18): the gated-ensemble program
+## CURRENT MAIN LINE — gated-ensemble program; FIRST ENSEMBLE PROMOTED 2026-08-21
+Milestone 1787333162 (8d7816d1): champion 8a89da90 + v6 arm a routed by
+arm a's moon head (τ=0.1) — 6th match-era promotion. NI -0.011±0.007;
+SEL defense -0.742±0.071 (29% fewer concessions); guard by substrate
+verification (Amendment 1, raw-only). Serving awaits the site's obs-v2
+raw path; search substrate unchanged. Next: docs/gated_ensemble_
+program.md §7 (deployment prerequisite → single-aux refactor → publish
+weights → round 8 trains the specialist).
+
+## Program origin (2026-08-18): the gated-ensemble program
 The best raw player may be several raw nets that switch: a DEFAULT net
 (the champion) + SPECIALISTS + a public-information ROUTER, exported as
 one 882-input traced module. Measured 2026-08-18: champion + the obs-v2

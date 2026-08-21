@@ -35,9 +35,16 @@ citations is [docs/release/RESULTS.md](docs/release/RESULTS.md).
   the successor campaign (v6, [docs/v6_prereg.md](docs/v6_prereg.md))
   trained a larger, structurally extended network from scratch and was
   concluded 2026-08-16 without a promotion — post-mortem in
-  [docs/v6_postmortem.md](docs/v6_postmortem.md). The current line is a
-  gated ensemble of raw nets (default + specialists + a public-
-  information router; [docs/gated_ensemble_program.md](docs/gated_ensemble_program.md)).
+  [docs/v6_postmortem.md](docs/v6_postmortem.md). The capacity answer
+  arrived by a different route: the current champion (promoted
+  2026-08-21) is a **gated ensemble of raw nets** — the 7.6M champion
+  playing ~90% of decisions, with the 19M obs-v2 network from the v6
+  campaign playing only the moon-threat states its own threat head
+  detects. That composition cut moons conceded to a competent attacker
+  by 29% at no measurable cost in ordinary play — capacity paying off
+  exactly where the whole-net evaluation could not see it
+  ([docs/gated_ensemble_program.md](docs/gated_ensemble_program.md),
+  [docs/exploiter_league_r7_results.md](docs/exploiter_league_r7_results.md)).
 
 No claims about human-relative strength are made anywhere in this
 repository; human games on the site are n=1 anecdotes and labeled so.
@@ -82,7 +89,8 @@ The released checkpoints and traces are in **GitHub Releases**
 | File | Role |
 |---|---|
 | `hearts_ai_search_match.pt` | Deployed match-aware search trace: the strongest configuration, and the v6 teacher (md5 3a2abd36) |
-| `hearts_ai_match_8a89da90.pt` + `hearts_model_final.pth` | Current champion network, match-context trace + checkpoint (promotion hash 8a89da90) |
+| `hearts_ai_match_8a89da90.pt` + `hearts_model_final.pth` | The 8a89da90 champion network (5th match-era promotion), match-context trace + checkpoint — now the DEFAULT component and search substrate of the promoted ensemble |
+| milestone 1787333162 (release upload pending) | Current champion: gated ensemble (8a89da90 default + v6 arm a specialist + moon-head router, one 882-input module, md5 8d7816d1) — [round-7 record](docs/exploiter_league_r7_results.md) |
 | `hearts_ai_grandmaster.pt` / `hearts_ai_search.pt` | Champion raw-play / search traces (filenames are engine identifiers, not strength claims) |
 | `hearts_ai_search_ref_matchblind_20260724.pt` + `.pth` | The frozen match-blind reference of the N=8000 validation (md5 a1a0be31); required to reproduce the headline result |
 | `hearts_equity.pt` + `equity_v1.pth` | The equity model: score state to placement probabilities |

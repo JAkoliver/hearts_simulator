@@ -259,6 +259,31 @@ Current promotion regime (evolved, era 7):
   the match trace so the guard baseline tracks the champion), all
   hash-verified (rule #6).
 
+### 6b. The gated ensemble (promoted 2026-08-21; first ensemble champion)
+
+The 6th match-era promotion is not a single network but a **gated
+ensemble** served as one TorchScript module with 882-dim (obs v2)
+inputs: the 8a89da90 champion plays every decision except those the
+ROUTER hands to the SPECIALIST — the v6 campaign's 19.37M obs-v2
+network (arm a), which plays only when its own auxiliary moon head
+rates some opponent's moon probability above τ=0.1 while that seat is
+moon-alive (~10% of play decisions; public information only).
+`HeartsHybrid` in hearts_net.py; checkpoint format holds both
+constituent state-dicts plus the gate string.
+
+Promotion mechanics differed from rule #6 in two REGISTERED ways
+(round-7 Amendment 1): no optimizer state exists (the ensemble is a
+composition of frozen nets — nothing was trained), and traces were NOT
+re-exported — the served search substrate keeps the champion's traces,
+because the promotion is raw-only (searched play already defends; the
+moon hole was a raw-play hole). Battery: match non-inferiority n=3,200
+(−0.011 ± 0.007), SEL defense gate n=256 fresh-seed primary (−0.742 ±
+0.071 moons/match, 29% fewer concessions), substrate verification.
+Measurement lessons that now live in the methodology: the GATE-FIRES
+check (an ensemble measured through a C++ path must first demonstrably
+differ from its default component — its absence produced one retracted
+gate), and chunked resumable drivers for guard-class runs.
+
 ## 7. Cloud harness (cloud/)
 
 - **cloud/Dockerfile:** two-stage build, Ubuntu 22.04, libtorch

@@ -1,0 +1,13 @@
+{
+ "tag": "r7",
+ "n_paired": 320,
+ "base_moons_per_match": 2.54375,
+ "cand_moons_per_match": 1.846875,
+ "paired_delta": -0.696875,
+ "se": 0.06472125508756546,
+ "t": -10.767328276578597,
+ "p_one_sided": 2.4552203682842033e-27,
+ "def_place_base": 2.951041666666667,
+ "def_place_cand": 2.576041666666667,
+ "pass": true
+}

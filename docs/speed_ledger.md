@@ -1361,3 +1361,97 @@ SEL/AGG/strength - champion+arm a (own moon head, tau .1): -0.360/-0.647
 at -0.010 strength; champion+r1-t3 (arm-b head): -0.252/-0.364 at +0.005.
 NEW RULE (register): C++ ensemble measurements need a gate-fires check
 (candidate CSV must DIFFER from the default's on same seeds) first.
+
+## 2026-08-19 night: FIXED-ENGINE search-SEL n=64 — the arm-a ensemble DEFENDS THE SEARCH ATTACKER
+
+Reruns on the repaired engine (gate-fires check passed; base arm r1
+shards 0,1 reused; 2-wide, ~92 min/candidate):
+- champion + r1-t3 (arm-b moon head, tau .1): -0.078 (SE 0.125), p=.27
+  - inconclusive at n=64.
+- champion + ARM A (own moon head, tau .1): baseline 2.484 -> 1.969,
+  **delta -0.516 (SE 0.151), p=0.0003, PASS at n=64** - the largest
+  defense effect ever measured against the search shooter (r1-t3 whole
+  net: -0.250). Defender placement vs the probe field 2.969 -> 2.589
+  (better). Verdicts: equity_data/verdicts/searchsel_{r1t3mb,arma}.json.
+Next decision (user): full battery for the arm-a ensemble under a fresh
+registration (defense gate n=320 ~7h + guard ~4.5h; NI already
+measured for the sibling tau=.1 ensemble but must be re-run for THIS
+candidate).
+
+## 2026-08-20: r7 battery — NI PASS, defense gate PASS (primary -0.742); guard wedged at 4-wide, relaunched 2-wide
+
+NI n=3200 (6 headroom workers; moonhead router runs the 19M aux EVERY
+decision): 3 h 03 m — dplace -0.011 (SE 0.007), UB95 +0.0004 PASS (point
+estimate favors the ensemble). Defense gate candidate arm (10 shards,
+waves 4/4/2): 02:27->10:11 = 7 h 44 m. POOLED n=320: 2.544 -> 1.847,
+delta -0.697 (SE 0.065), t=-10.8. REGISTERED PRIMARY (fresh shards 4..11,
+n=256): 2.559 -> 1.816, **delta -0.742 (SE 0.071), t=-10.4, PASS** —
+29% fewer concessions to the search shooter; defender placement vs probe
+field 2.951 -> 2.576 (better). Chain's inline primary script crashed
+(numpy int into statistics.stdev) AFTER the analyzer's PASS print — halt-
+default worked; primary recomputed with numpy, identical data.
+GUARD: ensemble-as-search-policy measured ~21.4 s/deal (~4x champion —
+champion + 19M per rollout row): true guard cost ~14 h, not the prereg's
+~4.5 h note. At 4 concurrent shards the run WEDGED (base shards zero-CPU
+2 h, cand shards stopped writing; GPU 7.1 GB — NOT the 07-30 VRAM
+ratchet; 4-process contention class). Killed cleanly; relaunched
+shards=2 (1 pair, 2 concurrent — an evaluate_candidate_search parameter,
+not an instrument change; same seeds/pairing). ETA ~14 h.
+
+## 2026-08-20 CORRECTION: the guard was NOT wedged — killed in error at deal 600/2400
+
+The 13:30 "wedge" call was WRONG: logs/r7_guard.log shows steady progress
+(deal 600/2400, running mean diff -0.363, elapsed 11,212 s = 18.7
+s/paired-deal) at the moment of the kill. The per-shard CSV mtimes and
+per-process CPU snapshots I diagnosed from do not track this run mode's
+progress; the guard log's own deal lines do. ~3.1 h lost; relaunched
+fresh with the ORIGINAL instrument settings (shards=4). RULE: judge a
+guard/gate run by ITS OWN progress log, never by shard-file mtimes; a
+kill decision needs the run's primary log read FIRST (rule 10's watchdog
+patterns already say this - re-learned). Measured guard pace for the
+ensemble candidate: 18.7 s/paired-deal => n=4800 ~ 12.5 h.
+
+## 2026-08-20 evening: r7 AMENDMENT 1 (registered) — gate 3 re-pointed at the actual deployment; telemetry chunked+resumable
+
+User decision "(A)": ensemble promotes RAW-ONLY; the served search
+substrate keeps the champion traces (3a2abd36 / efdfee07, verified) and
+traces are NOT re-exported — so gate 3's subject (served searched play)
+is unchanged by construction and is satisfied by substrate verification.
+The amendment budget is SPENT; recorded before any valid gate-3 data
+existed (two 4-wide runs wedged, one staged run stopped by user — all
+VOID, no statistic computed). Ensemble-as-rollout number demoted to
+TELEMETRY at n=2400 via the new chunked resumable driver
+(scripts/run_r7_guard_telemetry.py: 12x200-deal chunks/arm, fixed chunk
+seeds 745260820+stride, <=2 concurrent, resume-by-complete-chunk;
+launched 20:0x). Root-cause note for the wedges: candidate trace =
+champion + arm a with the specialist forwarded TWICE per row (gate +
+action) ~ 6x a normal candidate's compute; 4-way concurrency with the
+60MB trace stalls progressively (07-25 class; base shards froze at
+~deal 630 both runs). Fix queued for round 8/serving: single-aux-forward
+hybrid (bit-equal null contract) + a cheap pre-gate; guard-class runs at
+<=2 concurrent for big traces.
+
+## 2026-08-21: r7 COMPLETE — ALL GATES PASS (Amendment 1); telemetry neutral; candidate eligible for promotion
+
+Telemetry finished via resume (16 complete chunks detected, 8 re-run;
+the two FAIL lines in the log are last night's user-requested stop —
+chunks re-ran cleanly): base chunks 8.8-8.9 min each, cand chunks ~50
+min each at 2-wide headroom; assembled n=2400: +0.016 (SE 0.167), UB95
++0.291 — ensemble-as-rollout ~neutral for searched play (does not serve;
+informs only). Battery: NI PASS (-0.011 +/- 0.007), defense primary
+PASS (-0.742 +/- 0.071), guard satisfied by substrate verification
+(Amendment 1). Results doc: docs/exploiter_league_r7_results.md.
+PROMOTION DECISION -> user.
+
+## 2026-08-21: 6TH MATCH-ERA PROMOTION — the gated ensemble (first ensemble promotion)
+
+hybrid_champ_arma_moonhead_0p1.pth (8d7816d1) -> Hall_of_Fame/
+hearts_model_milestone_1787333162.pth, md5-verified. Battery: NI PASS
+(-0.011 +/- 0.007), SEL defense primary n=256 PASS (-0.742 +/- 0.071,
+29% fewer concessions), guard = substrate verification (Amendment 1;
+3a2abd36/efdfee07 re-verified at promotion). Rollout telemetry +0.016
++/- 0.167 (neutral). NOT scp'd to the VPS: serving awaits the obs-v2
+raw path in perilune-site; hearts_web_model.pth stays 8a89da90 until
+then (verified). Round-8 bar = the ensemble's SEL numbers (1.816 vs
+base-arm 2.544/320). No optimizer state exists (composition of frozen
+nets); traces NOT re-exported (Amendment 1).

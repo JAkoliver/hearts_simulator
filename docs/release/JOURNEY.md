@@ -717,6 +717,26 @@ transferable artifact.
 
 ---
 
+## Coda (2026-08-21): the sixth promotion is an ensemble
+
+The v6 campaign's larger network — which tied its small sibling on
+imitation and was shelved without a promotion — turned out to be the
+best moon-defense specialist the project ever measured, once it only
+had to play the ~10% of decisions where its own threat head fires. Two
+rounds of preregistered training on the champion (reward shaping,
+threat-information adapters) had already measured that the champion
+itself could not be moved in-band; composition moved it. The gated
+ensemble (champion + arm a + moon-head router, one 882-input module)
+passed non-inferiority (−0.011 ± 0.007), cut concessions to the search
+attacker 29% (−0.742 ± 0.071, n=256 fresh seeds), and was promoted
+raw-only — searched play keeps the champion's traces. Round-7 record:
+docs/exploiter_league_r7_results.md; the program's design space and
+next steps: docs/gated_ensemble_program.md. The era also bought its
+measurement lessons the usual way: one retracted gate (an 882 defender
+path that silently zero-filled — hence the standing gate-fires check)
+and a wedge-and-recovery week that ended in chunked resumable
+evaluation drivers.
+
 Cross-references: system details in docs/release/ARCHITECTURE.md;
 measurement practice in docs/release/METHODOLOGY.md; every number above
 in table form in docs/release/RESULTS.md; builds and reruns in

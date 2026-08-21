@@ -1,0 +1,13 @@
+{
+ "tag": "ss_r1t3mb",
+ "n_paired": 64,
+ "base_moons_per_match": 2.484375,
+ "cand_moons_per_match": 2.40625,
+ "paired_delta": -0.078125,
+ "se": 0.12461187262698195,
+ "t": -0.6269466813476308,
+ "p_one_sided": 0.2653470930791255,
+ "def_place_base": 2.96875,
+ "def_place_cand": 2.8541666666666665,
+ "pass": false
+}

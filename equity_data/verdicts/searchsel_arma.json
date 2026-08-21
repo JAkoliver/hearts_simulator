@@ -1,0 +1,13 @@
+{
+ "tag": "ss_arma",
+ "n_paired": 64,
+ "base_moons_per_match": 2.484375,
+ "cand_moons_per_match": 1.96875,
+ "paired_delta": -0.515625,
+ "se": 0.15104166666666666,
+ "t": -3.4137931034482762,
+ "p_one_sided": 0.0003203260318444669,
+ "def_place_base": 2.96875,
+ "def_place_cand": 2.5885416666666665,
+ "pass": true
+}

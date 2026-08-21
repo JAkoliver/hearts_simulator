@@ -163,7 +163,52 @@ gated decisions. Search mode may keep the champion as its rollout
 policy if the guard prefers it (search sees the threat itself) — a
 deployment decision registered per round, not an override of the guard.
 
-## 7. Sequencing (as of 2026-08-18)
+## 7. Sequencing — UPDATED 2026-08-21 (read this first in a new session)
+
+**STATE: the arm-a ensemble IS the promoted champion.** Round 7 passed
+the full battery (docs/exploiter_league_r7_results.md): milestone
+1787333162 = hybrid_champ_arma_moonhead_0p1.pth (8d7816d1) = 8a89da90
+(default) + v6 arm a a9653255 (specialist) + arm a's moon head at τ=0.1
+(router). Amendment 1: raw-only promotion — the served SEARCH substrate
+keeps 3a2abd36/efdfee07 and hearts_web_model.pth stays 8a89da90 until
+the site can serve 882.
+
+**NEXT STEPS, in order (each behind its own prereg where it measures):**
+1. DEPLOYMENT PREREQUISITE (perilune-site, not this repo): the raw play
+   path must feed obs v2 (882) and load the ensemble module; the engine
+   already assembles 882 for search. Until it lands, the site serves
+   8a89da90 and the promotion is research-record-only. Serving-cost fix
+   belongs with it: the τ-gate currently runs the 19M aux EVERY decision
+   — add the cheap pre-gate (compute the moon head only when an opponent
+   is moon-alive with ≥1 point, ~19% of plays) and the single-aux-forward
+   refactor below.
+2. SINGLE-AUX-FORWARD REFACTOR (research, no prereg needed — a null-
+   contract instrument change): HeartsHybrid.forward runs the specialist
+   TWICE per row (forward_aux for the gate, forward for the action).
+   Compute forward_aux once and reuse its logits. Bit-equality null
+   contract vs the current trace on recorded rows, then re-freeze md5s.
+   ~1.7× cheaper everywhere (probes, gates, serving).
+3. PUBLISH THE WEIGHTS: upload Hall_of_Fame/hearts_model_milestone_
+   1787333162.pth (+ constituent list + md5s) to the models-v1 GitHub
+   Release per the open-weights policy (release assets, never tracked
+   files); update the README weights table. USER/operator action.
+4. ROUND 8 (next research round, own prereg): train the SPECIALIST
+   inside the ensemble — champion frozen, gradient only through gated
+   decisions, unanchored, shooter clones + SEARCH-attack pressure in the
+   pool (r6's lesson: clone-only pressure can mislead; the search-SEL
+   n=64 chunked check is the cheap transfer instrument). BAR: the
+   promoted ensemble's own SEL numbers (1.816 vs base 2.544/320-arm).
+   Also register ≥2 runs, the fast probe + paired strength cheap loop,
+   and the gate-fires check for any C++ measurement.
+5. ROUND 9+ candidates (audit first, program §4.3): search-judged router;
+   passing/endgame specialists; cross-deal opponent memory as a
+   specialist input (post-mortem §7.2).
+Ops standing rules: ≤2 concurrent SearchEval for big traces; chunked
+resumable drivers for guard-class runs (scripts/run_r7_guard_telemetry.py
+is the template); judge runs by their own progress log; gate-fires check
+before any C++ ensemble measurement.
+
+## 7b. Original sequencing (2026-08-18, superseded above)
 1. r6 battery on the current instance — DONE 2026-08-19: NI PASS, defense
    gate NULL vs the search shooter (attacker-transfer failure); see
    docs/exploiter_league_r6_results.md.

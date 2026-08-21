@@ -225,6 +225,17 @@ variable.) Every reopening gets its own pre-registration.
   ensemble/882 net through a C++ path must first show its OUTPUT DIFFERS
   from the default net's on the same seeds (a gate-fires check), exactly
   as the A/A rule requires identity in the other direction.
+- GATED ENSEMBLE round 7 (2026-08-21, docs/exploiter_league_r7_results.md):
+  champion + v6 arm a routed by arm a's moon head (tau 0.1) PASSES the
+  full battery - NI -0.011 +/- 0.007; SEL defense gate primary n=256
+  -0.742 +/- 0.071 (29% fewer concessions to the search shooter);
+  guard satisfied by substrate verification (Amendment 1: raw-only
+  promotion, search keeps the champion traces). MEASUREMENT lessons on
+  the record: gate-fires check caught a zero-filled 882 defender path
+  (r6 retraction); ensemble-as-rollout telemetry ~neutral (+0.016 +/-
+  0.167, n=2400). The moon-defense hole, open since 2026-07-28, is
+  closed at the raw level by ENSEMBLE COMPOSITION, not by training the
+  champion (r4/r5 measured that impossible in-band).
 
 ## Strategy (2026-07-23): see docs/ROADMAP.md
 

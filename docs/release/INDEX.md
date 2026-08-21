@@ -25,7 +25,9 @@ Reading order for an outside observer:
    regenerating data from seeds.
 7. model_cards/ - per released checkpoint.
 
-Status: drafts 2026-08-01; update pass 2026-08-09 (era 8 closed —
+Status: drafts 2026-08-01; update pass 2026-08-21 (6th promotion — the
+gated ensemble; ARCHITECTURE §6b, JOURNEY coda, model card
+hearts_ensemble_8d7816d1.md); update pass 2026-08-09 (era 8 closed —
 expert-iter v2 decisive negative; era 9 exploiter league round 1 +
 round 2 in flight); update pass 2026-08-12 (era 9 closed — league
 rounds 2-3 halted; era 10 closed — visit-count distillation both
