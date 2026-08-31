@@ -590,9 +590,26 @@ class HeartsHybrid(nn.Module):
         if observation.shape[-1] != self.OBS_DIM:
             raise ValueError(f'HeartsHybrid requires 882-dim obs v2, got {observation.shape[-1]}')
         lc, vc = self.champion(observation[:, :556], legal_actions_mask)
-        g = self.gate_mask(observation, lc)
-        sdim = 882 if getattr(self.specialist, 'obs_dim', 556) == 882 else 556
-        ls, vs = self.specialist(observation[:, :sdim], legal_actions_mask)
+        kind, _, arg = self.gate.partition(':')
+        if (kind == 'moonhead' and self.router is None
+                and getattr(self.specialist, 'obs_dim', 556) == 882):
+            # SINGLE-AUX-FORWARD path (2026-08-21, program doc §7 step 2):
+            # one specialist forward serves BOTH the router and the action.
+            # Identical by construction to the two-forward version: the moon
+            # head reads seat tokens (mask-independent - the mask only masks
+            # policy logits), and forward_aux's (logits, value) are the same
+            # _tokens/_heads pass as forward's. Bit-equality verified by
+            # validate_hybrid_fused.py at freeze. ~1.7x cheaper per row.
+            ls, vs, _, moon_logits, _ = self.specialist.forward_aux(
+                observation, legal_actions_mask)
+            tau = float(arg)
+            alive = observation[:, 872:876] > 0.5
+            p = torch.sigmoid(moon_logits[:, 1:])
+            g = (p.max(dim=1).values > tau) & alive[:, 1:].any(dim=1)
+        else:
+            g = self.gate_mask(observation, lc)
+            sdim = 882 if getattr(self.specialist, 'obs_dim', 556) == 882 else 556
+            ls, vs = self.specialist(observation[:, :sdim], legal_actions_mask)
         gm = g.unsqueeze(1)
         return torch.where(gm, ls, lc), torch.where(gm, vs, vc)
 

@@ -1474,3 +1474,16 @@ doc. Also on record: no human-exploit regression FIXTURE exists (the r1
 prereg listed the replay as telemetry; match logs are site-private;
 analyze_matches replays logs but cannot counterfactually re-play with a
 new net) - a real gap, r8-adjacent, site-side data.
+
+## 2026-08-21: single-aux-forward refactor DONE (program §7 step 2) — 1.5-1.7x, bit-identical
+
+HeartsHybrid.forward now runs ONE specialist forward_aux per row on the
+moonhead-no-router path (was: aux for the gate + full forward for the
+action). Null contract (validate_hybrid_fused.py, 20k obs-v2 states,
+CPU fp32): fused output BIT-IDENTICAL to the released trace 9d9a4f49;
+fused gate == gate_mask reference; new trace == eager, rejects 556.
+MEASURED: batch 1 (serving) 19.40 -> 12.81 ms = 1.51x; batch 256
+(probes/gates) 3.01 -> 1.77 s = 1.70x. New serving/measurement trace
+hybrid_champ_arma_moonhead_0p1_882_v2.pt md5 4f6d396a — same function
+as 9d9a4f49, faster graph; checkpoint 8d7816d1 unchanged. gate_mask
+(un-fused) kept as the instruments' reference path.

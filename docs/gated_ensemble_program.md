@@ -187,12 +187,15 @@ the site can serve 882.
    (site measured 6/111). Passing may NOT be skipped either: the moon
    head exceeds τ=0.1 on ~0.4% of holdout pass states (max 0.155) — it
    is empirically quiet in passing, not structurally.
-2. SINGLE-AUX-FORWARD REFACTOR (research, no prereg needed — a null-
-   contract instrument change): HeartsHybrid.forward runs the specialist
-   TWICE per row (forward_aux for the gate, forward for the action).
-   Compute forward_aux once and reuse its logits. Bit-equality null
-   contract vs the current trace on recorded rows, then re-freeze md5s.
-   ~1.7× cheaper everywhere (probes, gates, serving).
+2. SINGLE-AUX-FORWARD REFACTOR — **DONE 2026-08-21**: fused path in
+   HeartsHybrid.forward (moonhead-no-router only; gate_mask kept as the
+   instruments' un-fused reference). Null contract PASS on 20k states
+   (bit-identical to the released trace 9d9a4f49; gate == reference).
+   Measured 1.51× at batch 1 / 1.70× at batch 256. New trace
+   hybrid_champ_arma_moonhead_0p1_882_v2.pt md5 **4f6d396a** — same
+   function, faster graph; prefer it for serving and all future
+   ensemble measurements (checkpoint 8d7816d1 unchanged; hand the v2
+   trace to perilune-site and optionally the models-v1 release).
 3. PUBLISH THE WEIGHTS: upload Hall_of_Fame/hearts_model_milestone_
    1787333162.pth (+ constituent list + md5s) to the models-v1 GitHub
    Release per the open-weights policy (release assets, never tracked
