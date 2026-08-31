@@ -187,7 +187,7 @@ the site can serve 882.
    (site measured 6/111). Passing may NOT be skipped either: the moon
    head exceeds τ=0.1 on ~0.4% of holdout pass states (max 0.155) — it
    is empirically quiet in passing, not structurally.
-2. SINGLE-AUX-FORWARD REFACTOR — **DONE 2026-08-21**: fused path in
+2. SINGLE-AUX-FORWARD REFACTOR — **DONE 2026-08-31**: fused path in
    HeartsHybrid.forward (moonhead-no-router only; gate_mask kept as the
    instruments' un-fused reference). Null contract PASS on 20k states
    (bit-identical to the released trace 9d9a4f49; gate == reference).
@@ -200,14 +200,18 @@ the site can serve 882.
    1787333162.pth (+ constituent list + md5s) to the models-v1 GitHub
    Release per the open-weights policy (release assets, never tracked
    files); update the README weights table. USER/operator action.
-4. ROUND 8 (next research round, own prereg): train the SPECIALIST
-   inside the ensemble — champion frozen, gradient only through gated
-   decisions, unanchored, shooter clones + SEARCH-attack pressure in the
-   pool (r6's lesson: clone-only pressure can mislead; the search-SEL
-   n=64 chunked check is the cheap transfer instrument). BAR: the
-   promoted ensemble's own SEL numbers (1.816 vs base 2.544/320-arm).
-   Also register ≥2 runs, the fast probe + paired strength cheap loop,
-   and the gate-fires check for any C++ measurement.
+4. ROUND 8 — **PREREG SIGNED 2026-08-31, INSTRUMENTS FROZEN, TRIALS
+   AWAIT THE USER'S GO** (docs/exploiter_league_r8_prereg.md): train the
+   SPECIALIST inside the ensemble — champion + router frozen, gated-only
+   recording, unanchored, 2 lr cells × 2 runs. Trainer = train.py
+   `ensemble_learner` mode (282c4363); all four null contracts PASS
+   (lr-0 bit-identity; 11k-decision A/A vs the promoted ensemble with 0
+   mismatches; clean smoke; pace probe → 6.2 h/trial measured). BAR:
+   the promoted ensemble's SEL numbers (paired vs its r7 rows, 1.816).
+   Launch sequence: L1r1 → L2r1 → L1r2 → L2r2 (config_r8_L1/L2.json →
+   config.json, delete hearts_optimizer.pth, `python -u train.py`
+   file-logged; per-trial readouts per prereg §4;
+   assemble_r8_candidate.py builds each candidate ckpt + trace).
 5. ROUND 9+ candidates (audit first, program §4.3): search-judged router;
    passing/endgame specialists; cross-deal opponent memory as a
    specialist input (post-mortem §7.2).

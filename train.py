@@ -4,6 +4,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.distributions import Categorical
 import copy
+import hashlib
 import random
 import os
 import glob
@@ -11,7 +12,104 @@ import json
 import headroom
 import hearts_env
 from hearts_match_env import MatchVecEnv
-from hearts_net import HeartsNet, HeartsNetV5, net_from_checkpoint
+from hearts_net import HeartsNet, HeartsNetV5, HeartsHybrid, net_from_checkpoint
+
+
+def file_md5_8(path):
+    h = hashlib.md5()
+    with open(path, 'rb') as f:
+        for chunk in iter(lambda: f.read(1 << 20), b''):
+            h.update(chunk)
+    return h.hexdigest()[:8]
+
+
+def sd_md5_8(net):
+    """md5 over a module's state-dict tensor bytes, canonical key order -
+    an in-memory fingerprint that detects ANY weight drift."""
+    h = hashlib.md5()
+    for k, v in sorted(net.state_dict().items()):
+        h.update(k.encode())
+        h.update(v.detach().cpu().contiguous().numpy().tobytes())
+    return h.hexdigest()[:8]
+
+
+class EnsembleCtx:
+    """League r8 ensemble-learner mode (docs/exploiter_league_r8_prereg.md
+    §3). Learner seats play THE ENSEMBLE: a FROZEN champion decides
+    non-gated states (argmax, fp32 - the served behaviour), the trainable
+    specialist decides gated states, and the gate comes from a FROZEN
+    router (arm a's aux moon head at tau, moonhead grammar only). Only
+    gated decisions are recorded into the PPO buffers. fp32 throughout
+    this branch so training-time ensemble behaviour matches the served
+    fp32 module bit-for-bit (validate_ensemble_learner.py)."""
+
+    def __init__(self, champion, router, gate_str, device):
+        kind, _, arg = gate_str.partition(':')
+        if kind != 'moonhead':
+            raise SystemExit(f"ensemble_learner supports only moonhead gates "
+                             f"(r8 prereg); got {gate_str!r}")
+        self.champion = champion
+        self.router = router
+        self.gate_str = gate_str
+        self.tau = float(arg)
+        self.device = device
+        self.champ_sig = sd_md5_8(champion)
+        self.router_sig = sd_md5_8(router)
+        self.deterministic = os.environ.get('ENSEMBLE_DETERMINISTIC') == '1'
+        self.gated = 0
+        self.total = 0
+
+    def gate(self, obs_np):
+        """Gate bits for a batch of NORMALIZED obs-v2 rows (fp32, no
+        autocast - the gate defines the training domain and must match the
+        serving/probe instruments)."""
+        obs = torch.from_numpy(obs_np).to(self.device)
+        with torch.no_grad():
+            ml = self.router.forward_aux(
+                obs, torch.ones(obs.shape[0], 52, dtype=torch.bool,
+                                device=self.device))[3]
+        alive = obs[:, 872:876] > 0.5
+        g = (torch.sigmoid(ml[:, 1:]).max(dim=1).values > self.tau) \
+            & alive[:, 1:].any(dim=1)
+        return g.cpu().numpy()
+
+    def decide(self, obs_np, mask_np, specialist, deterministic=None):
+        """The ensemble's decision for a batch of learner rows. Returns
+        (actions, log_probs, values, gate_bits); log_probs/values are 0 on
+        non-gated rows (never recorded). This is THE code path the rollout
+        loop uses - validate_ensemble_learner.py A/As it against the
+        promoted ensemble's trace."""
+        if deterministic is None:
+            deterministic = self.deterministic
+        gmask = self.gate(obs_np)
+        n = len(obs_np)
+        actions = np.zeros(n, dtype=np.int64)
+        log_probs = np.zeros(n, dtype=np.float32)
+        values = np.zeros(n, dtype=np.float32)
+        ng = ~gmask
+        if ng.any():
+            a_c, _, _ = select_actions_batch(
+                self.champion, obs_np[ng, :556], mask_np[ng], self.device,
+                deterministic=True, fp32=True)
+            actions[ng] = a_c
+        if gmask.any():
+            a_s, lp_s, v_s = select_actions_batch(
+                specialist, obs_np[gmask], mask_np[gmask], self.device,
+                deterministic=deterministic, fp32=True)
+            actions[gmask] = a_s
+            log_probs[gmask] = lp_s
+            values[gmask] = v_s
+        return actions, log_probs, values, gmask
+
+    def check_frozen(self):
+        if sd_md5_8(self.champion) != self.champ_sig:
+            raise SystemExit('ENSEMBLE-LEARNER FATAL: champion weights drifted')
+        if sd_md5_8(self.router) != self.router_sig:
+            raise SystemExit('ENSEMBLE-LEARNER FATAL: router weights drifted')
+
+    def stats_line(self):
+        pct = 100.0 * self.gated / max(1, self.total)
+        return f"Gate: {pct:.1f}% ({self.gated}/{self.total})"
 
 
 class Slice550(nn.Module):
@@ -63,7 +161,8 @@ class RolloutBuffer:
 # ---------------------------------------------------------
 # 2. Batched Action Selection
 # ---------------------------------------------------------
-def select_actions_batch(network, obs_np, masks_np, device, deterministic=False):
+def select_actions_batch(network, obs_np, masks_np, device, deterministic=False,
+                         fp32=False):
     """Sample actions for a batch of observations in one forward pass.
 
     Rollouts never backprop, so autograd is skipped entirely and the forward
@@ -75,11 +174,15 @@ def select_actions_batch(network, obs_np, masks_np, device, deterministic=False)
     deterministic=True plays the argmax instead of sampling - used for the
     distilled shooter clones, whose quality bar was VERIFIED under argmax
     (sampling an imitation net's softmax dilutes the threat it was
-    certified to carry)."""
+    certified to carry).
+
+    fp32=True skips the bf16 autocast - the ensemble-learner branch (league
+    r8) uses it so the frozen components behave exactly as the served fp32
+    ensemble does."""
     obs = torch.from_numpy(obs_np).to(device)
     mask = torch.from_numpy(masks_np).to(device)
     with torch.no_grad():
-        if device.type == 'cuda':
+        if device.type == 'cuda' and not fp32:
             with torch.autocast('cuda', dtype=torch.bfloat16):
                 masked_logits, state_values = network(obs, mask)
             masked_logits = masked_logits.float()
@@ -447,7 +550,8 @@ BLOCK_CREDIT_STATS = {'events': 0, 'reward': 0.0}   # Addendum R telemetry
 
 def run_cycle_vec_match(vec, registry, active_ids, seat_net, steps_this_match,
                         buffers, deals_target, device, match_reward_scale,
-                        shooter_ids=(), shooter_p=0.0, block_credit_b=0.0):
+                        shooter_ids=(), shooter_p=0.0, block_credit_b=0.0,
+                        ens=None):
     """Match-to-100 variant of run_cycle_vec (docs/ROADMAP.md phase 1).
 
     Differences: seats are FIXED for a whole match (reassigned only at match
@@ -487,10 +591,22 @@ def run_cycle_vec_match(vec, registry, active_ids, seat_net, steps_this_match,
             else:
                 obs = vec.observe_batch(g)
             mask = vec.legal_mask_batch(g)
-            actions, log_probs, values = select_actions_batch(
-                registry[k], obs, mask, device,
-                deterministic=(k in shooter_ids))
             is_learner = (k == 0)
+            gmask = None
+            if is_learner and ens is not None:
+                # League r8 ensemble-learner (prereg §3): the learner seat
+                # plays the ENSEMBLE. Frozen router gates; frozen champion
+                # decides non-gated rows (argmax fp32, the served
+                # behaviour); the trainable specialist decides gated rows.
+                # Only gated rows are recorded below.
+                actions, log_probs, values, gmask = ens.decide(
+                    obs, mask, registry[0])
+                ens.total += len(g)
+                ens.gated += int(gmask.sum())
+            else:
+                actions, log_probs, values = select_actions_batch(
+                    registry[k], obs, mask, device,
+                    deterministic=(k in shooter_ids))
             if is_learner:
                 labels = vec.labels_batch(g)
 
@@ -500,6 +616,8 @@ def run_cycle_vec_match(vec, registry, active_ids, seat_net, steps_this_match,
 
             if is_learner:
                 for j in range(len(g)):
+                    if gmask is not None and not gmask[j]:
+                        continue   # champion's decision - never recorded
                     b = buffers[int(g[j])][int(cp[g[j]])]
                     b.states.append(obs[j])
                     b.actions.append(int(actions[j]))
@@ -579,9 +697,22 @@ def main():
         depth = sum(k.startswith(('blocks.', 'enc_blocks.')) for k in sd)
         return key, tuple(sd[key].shape), depth
 
+    # League r8 (docs/exploiter_league_r8_prereg.md): ensemble-learner mode.
+    # The learner network is the SPECIALIST (loaded from specialist_init,
+    # md5-verified, ignoring the normal resume order - each trial restores
+    # its init explicitly); champion + router load frozen below.
+    ens_cfg = config.get('ensemble_learner')
     init_path = None
     ti = config.get('train_init')
-    if ti and os.path.exists(ti):
+    if ens_cfg:
+        init_path = ens_cfg['specialist_init']
+        want = ens_cfg.get('specialist_md5_8')
+        got = file_md5_8(init_path)
+        if want and got != want:
+            raise SystemExit(f"ensemble_learner specialist_init {init_path} "
+                             f"md5 {got} != {want} - refusing to train")
+        print(f"ENSEMBLE-LEARNER: specialist init {init_path} ({got})")
+    elif ti and os.path.exists(ti):
         if (os.path.exists('hearts_model_final.pth')
                 and ckpt_shape('hearts_model_final.pth') == ckpt_shape(ti)):
             init_path = 'hearts_model_final.pth'
@@ -602,6 +733,43 @@ def main():
         network = HeartsNet()
         print("Fresh default-size network")
     network.to(device)
+
+    ens = None
+    if ens_cfg:
+        if not (config.get('vec_env', True) and config.get('match_mode', False)):
+            raise SystemExit('ensemble_learner requires vec_env + match_mode')
+        if float(config.get('anchor_kl_coef', 0.0)) > 0.0:
+            raise SystemExit('ensemble_learner + anchor is unregistered '
+                             '(r8 trains unanchored; set anchor_kl_coef 0)')
+        if float(config.get('block_credit_b', 0.0)) > 0.0:
+            raise SystemExit('ensemble_learner + block credit is unregistered')
+        if getattr(network, 'obs_dim', 0) != 882:
+            raise SystemExit('ensemble_learner specialist must be an obs-v2 '
+                             '(882) net')
+
+        def _load_frozen(role):
+            path = ens_cfg[role + '_path']
+            want_ = ens_cfg.get(role + '_md5_8')
+            got_ = file_md5_8(path)
+            if want_ and got_ != want_:
+                raise SystemExit(f'ensemble_learner {role} {path} md5 {got_} '
+                                 f'!= {want_} - refusing to train')
+            n = net_from_checkpoint(path).to(device).eval()
+            for p_ in n.parameters():
+                p_.requires_grad_(False)
+            print(f"ENSEMBLE-LEARNER: frozen {role} {path} ({got_})")
+            return n
+
+        champ_net = _load_frozen('champion')
+        router_net = _load_frozen('router')
+        if getattr(champ_net, 'obs_dim', 556) == 882:
+            raise SystemExit('ensemble_learner champion must be a 556-path '
+                             'net (decide() feeds it obs[:, :556])')
+        ens = EnsembleCtx(champ_net, router_net, ens_cfg['gate'], device)
+        print(f"ENSEMBLE-LEARNER active: gate {ens.gate_str}, fp32 learner "
+              f"branch, gated-only recording"
+              + (", DETERMINISTIC specialist (A/A mode)"
+                 if ens.deterministic else ""))
 
     optimizer = optim.Adam(network.parameters(), lr=config.get('learning_rate', 5e-5))
 
@@ -632,7 +800,16 @@ def main():
     else:
         max_episodes = config.get('max_episodes', 250000)
 
-    historical_pool = [copy.deepcopy(network)]
+    if ens is not None:
+        # The pool must see ENSEMBLES, not bare specialists: opponents drawn
+        # from the pool should play the composed policy the league measures.
+        _snap0 = copy.deepcopy(network)
+        _snap0.eval()
+        historical_pool = [HeartsHybrid(ens.champion, _snap0,
+                                        gate=ens.gate_str,
+                                        router=ens.router).to(device).eval()]
+    else:
+        historical_pool = [copy.deepcopy(network)]
     for m_file in glob.glob('Hall_of_Fame/hearts_model_milestone_*.pth'):
         try:
             m_net = net_from_checkpoint(m_file)
@@ -748,7 +925,7 @@ def main():
                         vec, registry, active_ids, seat_net, steps_this_game,
                         vec_buffers, update_timestep, device,
                         match_reward_scale, shooter_ids, shooter_p,
-                        block_credit_b)
+                        block_credit_b, ens)
                     p0_reward_sum, p0_raw_sum = 0.0, 0.0
                 else:
                     done_games, p0_reward_sum, p0_raw_sum = run_cycle_vec(
@@ -814,6 +991,10 @@ def main():
             if block_credit_b > 0.0:
                 line += (f" | BlockCredits: {BLOCK_CREDIT_STATS['events']} "
                          f"(+{BLOCK_CREDIT_STATS['reward']:.1f} reward total)")
+            if ens is not None:
+                # (Avg Place counts only learner seats that recorded >= 1
+                # gated decision in the match - telemetry, never a gate.)
+                line += " | " + ens.stats_line()
             print(line)
             train_log.write(line + "\n")
             train_log.flush()
@@ -837,6 +1018,10 @@ def main():
             if games_played >= next_pool_refresh:
                 snap = copy.deepcopy(network)
                 snap.eval()
+                if ens is not None:
+                    snap = HeartsHybrid(ens.champion, snap,
+                                        gate=ens.gate_str,
+                                        router=ens.router).to(device).eval()
                 historical_pool.append(snap)
                 if use_vec:
                     registry.append(snap)
@@ -853,11 +1038,19 @@ def main():
         torch.save(network.cpu().state_dict(), 'hearts_model_final.pth')
         torch.save(optimizer.state_dict(), 'hearts_optimizer.pth')
         print("Model saved to hearts_model_final.pth!")
+        if ens is not None:
+            ens.check_frozen()
+            print(f"ENSEMBLE-LEARNER: champion/router UNCHANGED "
+                  f"({ens.champ_sig}/{ens.router_sig}); final {ens.stats_line()}")
 
     except KeyboardInterrupt:
         print("\nTraining interrupted. Model saved safely!")
         torch.save(network.cpu().state_dict(), 'hearts_model_interrupted.pth')
         torch.save(optimizer.state_dict(), 'hearts_optimizer.pth')
+        if ens is not None:
+            ens.check_frozen()
+            print(f"ENSEMBLE-LEARNER: champion/router UNCHANGED "
+                  f"({ens.champ_sig}/{ens.router_sig}); {ens.stats_line()}")
 
 if __name__ == '__main__':
     main()

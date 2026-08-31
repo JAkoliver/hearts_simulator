@@ -1475,7 +1475,8 @@ prereg listed the replay as telemetry; match logs are site-private;
 analyze_matches replays logs but cannot counterfactually re-play with a
 new net) - a real gap, r8-adjacent, site-side data.
 
-## 2026-08-21: single-aux-forward refactor DONE (program §7 step 2) — 1.5-1.7x, bit-identical
+## 2026-08-31: single-aux-forward refactor DONE (program §7 step 2) — 1.5-1.7x, bit-identical
+(dated 2026-08-21 in the original commit by error; the work ran 08-31)
 
 HeartsHybrid.forward now runs ONE specialist forward_aux per row on the
 moonhead-no-router path (was: aux for the gate + full forward for the
@@ -1487,3 +1488,25 @@ MEASURED: batch 1 (serving) 19.40 -> 12.81 ms = 1.51x; batch 256
 hybrid_champ_arma_moonhead_0p1_882_v2.pt md5 4f6d396a — same function
 as 9d9a4f49, faster graph; checkpoint 8d7816d1 unchanged. gate_mask
 (un-fused) kept as the instruments' reference path.
+
+## 2026-08-31: r8 SIGNED; ensemble-learner trainer built + null-tested; pace = 6.2 h/trial
+
+Round-8 prereg signed ("sign"); instruments built and frozen
+post-signature pre-data (r4-r7 convention; docs/exploiter_league_r8_
+prereg.md §3.1 has md5s). train.py `ensemble_learner` mode: learner
+seats play the ensemble (frozen champion argmax fp32 on non-gated rows,
+frozen arm-a router gates fp32, trainable specialist sampled on gated
+rows), GATED-ONLY recording, pool snapshots are ensembles. Null
+contracts ALL PASS on the frozen code: (a) lr-0 -> 120/120 specialist
+tensors bit-identical, champion/router sd-md5 unchanged; (b) A/A 11,008
+ensemble self-play decisions (405 gated), 0 gate + 0 action mismatches
+vs the promoted eager hybrid AND the served v2 trace (cuda-fp32 trainer
+vs cpu-fp32 references); (c) L1 smoke clean; (d) MEASURED pace 6,864
+deals / 684 s (3 cycles, 256 envs, BelowNormal, cuda) -> 11.2 deals/s ->
+**~6.2 h per 250k-deal trial** (draft guess 3-5 h was low). Two
+instrument defects caught during null-testing, pre-data: V5 champion
+obs_dim guard (card nets report the 550 default) and pool-snapshot
+hybrids missing .to(device) (cpu pen buffer; crashed pace cycle 2 -
+multi-cycle probes earn their keep). Gate rate in ensemble SELF-play
+8.4-9.9% vs 11.7% holdout (distribution-dependent, as corrected
+2026-08-21). TRIALS NOT STARTED - they await the user's separate go.

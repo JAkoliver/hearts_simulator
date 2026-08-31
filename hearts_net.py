@@ -593,7 +593,7 @@ class HeartsHybrid(nn.Module):
         kind, _, arg = self.gate.partition(':')
         if (kind == 'moonhead' and self.router is None
                 and getattr(self.specialist, 'obs_dim', 556) == 882):
-            # SINGLE-AUX-FORWARD path (2026-08-21, program doc §7 step 2):
+            # SINGLE-AUX-FORWARD path (2026-08-31, program doc §7 step 2):
             # one specialist forward serves BOTH the router and the action.
             # Identical by construction to the two-forward version: the moon
             # head reads seat tokens (mask-independent - the mask only masks

@@ -1,5 +1,5 @@
 """Null contract for the HeartsHybrid single-aux-forward refactor
-(docs/gated_ensemble_program.md §7 step 2; 2026-08-21).
+(docs/gated_ensemble_program.md §7 step 2; 2026-08-31).
 
 The fused path must be BIT-IDENTICAL to the promoted artifacts:
   1. vs the RELEASED trace hybrid_champ_arma_moonhead_0p1_882.pt
