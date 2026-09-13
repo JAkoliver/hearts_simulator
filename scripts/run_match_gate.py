@@ -30,12 +30,17 @@ def main():
     ap.add_argument('--matches', type=int, default=3200)
     ap.add_argument('--workers', type=int, default=12)
     ap.add_argument('--json', default=None)
+    ap.add_argument('--seed', type=int, default=None,
+                    help='league r9: explicit seed (required with --chunk-dir)')
+    ap.add_argument('--chunk-dir', default=None,
+                    help='league r9: resumable mode - per-job chunk files here')
     args = ap.parse_args()
 
     import match_eval
     t0 = time.time()
     r = match_eval.run_gate(args.cand, args.base,
-                            matches=args.matches, workers=args.workers)
+                            matches=args.matches, workers=args.workers,
+                            seed=args.seed, chunk_dir=args.chunk_dir)
     r['seconds'] = round(time.time() - t0, 1)
     r['cand'], r['base'] = args.cand, args.base
     print(json.dumps(r, indent=1, default=float))

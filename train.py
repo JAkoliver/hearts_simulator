@@ -9,6 +9,7 @@ import random
 import os
 import glob
 import json
+import argparse
 import headroom
 import hearts_env
 from hearts_match_env import MatchVecEnv
@@ -58,6 +59,9 @@ class EnsembleCtx:
         self.deterministic = os.environ.get('ENSEMBLE_DETERMINISTIC') == '1'
         self.gated = 0
         self.total = 0
+        self.recorded = 0            # r9: decisions actually recorded
+        self.gated_shooter = 0       # r9: gated decisions in shooter matches
+        self.gated_nonshooter = 0    # r9: gated decisions in non-shooter matches
 
     def gate(self, obs_np):
         """Gate bits for a batch of NORMALIZED obs-v2 rows (fp32, no
@@ -109,7 +113,9 @@ class EnsembleCtx:
 
     def stats_line(self):
         pct = 100.0 * self.gated / max(1, self.total)
-        return f"Gate: {pct:.1f}% ({self.gated}/{self.total})"
+        return (f"Gate: {pct:.1f}% ({self.gated}/{self.total}) | "
+                f"Rec: {self.recorded} (shooter-match gated {self.gated_shooter}, "
+                f"other {self.gated_nonshooter})")
 
 
 class Slice550(nn.Module):
@@ -223,7 +229,8 @@ def compute_gae(rewards, values, dones, gamma=1.0, gae_lambda=0.95):
 
 def ppo_update(network, optimizer, buffer, device, gamma=1.0, eps_clip=0.2, k_epochs=4,
                minibatch_size=2048, gae_lambda=0.95, entropy_coef=0.01, aux_coef=0.5,
-               actor_coef=1.0, anchor_net=None, anchor_kl_coef=0.0):
+               actor_coef=1.0, anchor_net=None, anchor_kl_coef=0.0,
+               micro_batch=512):
     if len(buffer.states) == 0:
         return None, None
 
@@ -257,7 +264,10 @@ def ppo_update(network, optimizer, buffer, device, gamma=1.0, eps_clip=0.2, k_ep
     # single optimizer step), but the worst-case kernel length drops ~4x and
     # pace() runs between micro-batches - this is what un-freezes the Windows
     # compositor during the long update bursts.
-    micro = 512 if headroom.enabled else minibatch_size
+    # League r9 (docs/exploiter_league_r9_prereg.md §3.2): micro-batching is
+    # ALWAYS ON (default 512) - it caps activation VRAM at full speed; the
+    # equivalence (max |dparam| ~ 8e-6) is re-verified by validate_r9_microbatch.py
+    micro = min(int(micro_batch), minibatch_size) if micro_batch else minibatch_size
     for epoch in range(k_epochs):
         perm = torch.randperm(n, device=device)
         for start in range(0, n, minibatch_size):
@@ -536,22 +546,33 @@ def run_cycle_vec(vec, registry, active_ids, seat_net, steps_this_game,
 # AGG shooter clone, with p=0.15 by the SEL clone - mutually exclusive
 # draws, so 30% of matches contain exactly one shooter.
 def assign_match_opponents(seat_net, e, ids, shooter_ids, shooter_p):
+    """shooter_p: a float (legacy two-shooter case: each shooter gets share
+    shooter_p) or a sequence of per-shooter shares aligned with shooter_ids
+    (league r9 attacker POPULATION). One shooter seat at most per match;
+    RNG consumption is identical to the legacy path for two equal shares."""
     for seat in range(1, 4):
         seat_net[e, seat] = (random.choice(ids)
                              if ids and random.random() < 0.5 else 0)
     if shooter_ids:
+        shares = (list(shooter_p) if isinstance(shooter_p, (list, tuple))
+                  else [shooter_p] * len(shooter_ids))
         u = random.random()
-        if u < 2 * shooter_p:
-            sid = shooter_ids[0] if u < shooter_p else shooter_ids[1]
-            seat_net[e, random.randrange(1, 4)] = sid
+        acc = 0.0
+        for sid, sh in zip(shooter_ids, shares):
+            acc += sh
+            if u < acc:
+                seat_net[e, random.randrange(1, 4)] = sid
+                break
 
 BLOCK_CREDIT_STATS = {'events': 0, 'reward': 0.0}   # Addendum R telemetry
+MOON_PEN_STATS = {'events': 0}                        # league r9 cell B telemetry
 
 
 def run_cycle_vec_match(vec, registry, active_ids, seat_net, steps_this_match,
                         buffers, deals_target, device, match_reward_scale,
                         shooter_ids=(), shooter_p=0.0, block_credit_b=0.0,
-                        ens=None):
+                        ens=None, rec_shooter_only=False, moon_penalty=0.0,
+                        deal_no=None, last_rec_deal=None):
     """Match-to-100 variant of run_cycle_vec (docs/ROADMAP.md phase 1).
 
     Differences: seats are FIXED for a whole match (reassigned only at match
@@ -609,8 +630,19 @@ def run_cycle_vec_match(vec, registry, active_ids, seat_net, steps_this_match,
                     deterministic=(k in shooter_ids))
             if is_learner:
                 labels = vec.labels_batch(g)
+                # League r9 §3.2 (H3): SHOOTER-MATCH-ONLY RECORDING - a
+                # learner decision is recorded only if its match has a
+                # shooter seat. Seats are fixed per match, so this is a
+                # per-env constant until the match ends.
+                if rec_shooter_only and shooter_ids:
+                    smask = np.isin(seat_net[g, 1:], shooter_ids).any(axis=1)
+                else:
+                    smask = None
+                if ens is not None and gmask is not None and smask is not None:
+                    ens.gated_shooter += int((gmask & smask).sum())
+                    ens.gated_nonshooter += int((gmask & ~smask).sum())
 
-            deal_dones, match_dones, placements, _ = vec.step_batch(
+            deal_dones, match_dones, placements, round_scores = vec.step_batch(
                 g, actions.astype(np.int64))
             steps_this_match[g] += 1
 
@@ -618,6 +650,12 @@ def run_cycle_vec_match(vec, registry, active_ids, seat_net, steps_this_match,
                 for j in range(len(g)):
                     if gmask is not None and not gmask[j]:
                         continue   # champion's decision - never recorded
+                    if smask is not None and not smask[j]:
+                        continue   # no shooter in this match - not recorded
+                    if ens is not None:
+                        ens.recorded += 1
+                    if last_rec_deal is not None:
+                        last_rec_deal[int(g[j]), int(cp[g[j]])] = deal_no[int(g[j])]
                     b = buffers[int(g[j])][int(cp[g[j]])]
                     b.states.append(obs[j])
                     b.actions.append(int(actions[j]))
@@ -648,6 +686,27 @@ def run_cycle_vec_match(vec, registry, active_ids, seat_net, steps_this_match,
                         BLOCK_CREDIT_STATS['events'] += 1
                         BLOCK_CREDIT_STATS['reward'] += credit
 
+            # League r9 §3.2 (H2, cell B only): MOON-OUTCOME PENALTY. At deal
+            # end, if an opponent of a learner seat shot the moon (established
+            # accounting: round scores sum to 78 with the shooter at 0) and
+            # that learner seat recorded a gated decision IN THIS DEAL, its
+            # last recorded decision gets -moon_penalty. moon_penalty == 0.0
+            # (cell A, r8) skips this block; deal_no still advances.
+            if deal_no is not None:
+                for j in np.flatnonzero(deal_dones):
+                    e = int(g[j])
+                    if moon_penalty > 0.0:
+                        rs = np.asarray(round_scores[j], dtype=np.float64)
+                        if rs.sum() == 78.0 and (rs == 0.0).sum() == 1:
+                            m = int(np.flatnonzero(rs == 0.0)[0])
+                            for seat in range(4):
+                                if (seat != m and seat_net[e, seat] == 0
+                                        and last_rec_deal[e, seat] == deal_no[e]
+                                        and len(buffers[e][seat].rewards) > 0):
+                                    buffers[e][seat].rewards[-1] -= moon_penalty
+                                    MOON_PEN_STATS['events'] += 1
+                    deal_no[e] += 1
+
             deals_done += int(deal_dones.sum())
             for j in np.flatnonzero(match_dones):
                 e = int(g[j])
@@ -668,15 +727,65 @@ def run_cycle_vec_match(vec, registry, active_ids, seat_net, steps_this_match,
     return deals_done, matches_done, placement_sum, win_sum, seats_counted
 
 # ---------------------------------------------------------
+# 4b. League r9 cycle-boundary checkpoints (docs/exploiter_league_r9_prereg.md §3.2)
+# ---------------------------------------------------------
+def _snapshot_specialist(m):
+    """State dict (cpu) of an in-trial pool snapshot - the bare net, or the
+    specialist inside an ensemble wrapper."""
+    src = m.specialist if isinstance(m, HeartsHybrid) else m
+    return {k: v.detach().cpu().clone() for k, v in src.state_dict().items()}
+
+
+def save_checkpoint(path, network, optimizer, trial_snaps, state):
+    """Atomic (tmp + os.replace), 2-generation rotation. Everything a
+    resumed run needs EXCEPT in-flight matches - every cycle ends fully
+    drained, so there are none at a cycle boundary."""
+    ck = {
+        'specialist': {k: v.detach().cpu().clone() for k, v in network.state_dict().items()},
+        'optimizer': optimizer.state_dict(),
+        'snapshots': [_snapshot_specialist(m) for m in trial_snaps],
+        'state': state,
+        'rng': {'python': random.getstate(),
+                'numpy': np.random.get_state(),
+                'torch': torch.get_rng_state(),
+                'cuda': (torch.cuda.get_rng_state_all()
+                         if torch.cuda.is_available() else None)},
+    }
+    tmp = path + '.tmp'
+    torch.save(ck, tmp)
+    if os.path.exists(path):
+        os.replace(path, path + '.prev')
+    os.replace(tmp, path)
+
+
+def load_checkpoint(path):
+    return torch.load(path, weights_only=False, map_location='cpu')
+
+
+# ---------------------------------------------------------
 # 5. Main Training Loop
 # ---------------------------------------------------------
 def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--resume', action='store_true',
+                    help='league r9: continue from the last cycle-boundary '
+                         'checkpoint (config checkpoint_path)')
+    cli = ap.parse_args()
     print("Initializing Hearts PPO Training Pipeline (vectorized)...")
     headroom.apply_process_priority()
     headroom.banner()
 
     with open('config.json', 'r') as f:
         config = json.load(f)
+    # League r9 (docs/exploiter_league_r9_prereg.md §3.2) knobs; all default
+    # to the r8 behaviour when absent.
+    rec_shooter_only = bool(config.get('record_shooter_matches_only', False))
+    moon_penalty = float(config.get('moon_penalty', 0.0))
+    micro_batch = int(config.get('micro_batch', 512))
+    ckpt_cycles = int(config.get('checkpoint_cycles', 0))
+    ckpt_path = config.get('checkpoint_path', 'train_ckpt.pt')
+    if cli.resume and not os.path.exists(ckpt_path):
+        raise SystemExit(f'--resume: no checkpoint at {ckpt_path}')
 
     device = torch.device(config.get('device',
                                      'cuda' if torch.cuda.is_available() else 'cpu'))
@@ -785,6 +894,16 @@ def main():
         except Exception as e:
             print(f"Could not load optimizer state ({e}); starting with fresh Adam moments.")
 
+    resume_ck = load_checkpoint(ckpt_path) if cli.resume else None
+    if resume_ck is not None:
+        network.load_state_dict({k: v.to(device) for k, v in resume_ck['specialist'].items()})
+        optimizer.load_state_dict(resume_ck['optimizer'])
+        for group in optimizer.param_groups:
+            group['lr'] = config.get('learning_rate', 5e-5)
+        print(f"RESUME: checkpoint {ckpt_path} loaded - cycle "
+              f"{resume_ck['state']['cycle']}, deals {resume_ck['state']['games_played']}, "
+              f"{len(resume_ck['snapshots'])} in-trial pool snapshots")
+
     update_timestep = config.get('update_timestep', 560)
     num_envs = config.get('num_envs', 128)
     active_pool_size = config.get('active_pool_size', 4)
@@ -792,7 +911,7 @@ def main():
     # belief heads adapt to the on-policy distribution first (a warm-started
     # policy with a cold critic otherwise trains on noise advantages)
     warmup_games = config.get('critic_warmup_games', 20000)
-    train_log = open('train_last_run.log', 'w')
+    train_log = open('train_last_run.log', 'a' if cli.resume else 'w')
 
     if os.environ.get('SMOKE_TEST') == '1':
         max_episodes = 100
@@ -851,26 +970,45 @@ def main():
             # never sampled as pool, never trimmed, never snapshotted over,
             # frozen and deterministic. (agg, sel) order matters:
             # assign_match_opponents maps the first id to the agg draw.
-            sp = config.get('shooter_agg_path'), config.get('shooter_sel_path')
-            if sp[0] and sp[1]:
-                shooter_p = float(config.get('shooter_share', 0.15))
-                ids = []
-                for path in sp:
-                    ck = torch.load(path, weights_only=True, map_location='cpu')
+            # League r9 §3.2: attacker POPULATION `shooters: [{path, share}]`;
+            # the legacy two-key form maps to two equal shares (RNG-identical).
+            pop = config.get('shooters')
+            if not pop:
+                sp = config.get('shooter_agg_path'), config.get('shooter_sel_path')
+                if sp[0] and sp[1]:
+                    p_ = float(config.get('shooter_share', 0.15))
+                    pop = [{'path': sp[0], 'share': p_}, {'path': sp[1], 'share': p_}]
+            if pop:
+                ids, shares = [], []
+                for ent in pop:
+                    ck = torch.load(ent['path'], weights_only=True, map_location='cpu')
                     sn = HeartsNetV5(obs_dim=556, d_model=ck['d_model'],
                                      num_layers=ck['num_layers'],
                                      num_heads=ck.get('num_heads', 6))
                     sn.load_state_dict(ck['state_dict'])
                     registry.append(sn.to(device).eval())
                     ids.append(len(registry) - 1)
+                    shares.append(float(ent['share']))
+                    print(f"EXPLOITER LEAGUE: shooter {ent['path']} "
+                          f"({file_md5_8(ent['path'])}) share {ent['share']:.2f} "
+                          f"-> registry id {ids[-1]}")
+                if sum(shares) > 1.0:
+                    raise SystemExit('shooter shares sum > 1')
                 shooter_ids = tuple(ids)
-                print(f"EXPLOITER LEAGUE: shooters {sp[0]} + {sp[1]} at "
-                      f"p={shooter_p:.2f} each (registry ids {shooter_ids})")
+                shooter_p = tuple(shares)
+                print(f"EXPLOITER LEAGUE: {len(ids)} shooters, a shooter seat in "
+                      f"{100 * sum(shares):.0f}% of matches"
+                      + (" | RECORDING SHOOTER MATCHES ONLY (r9 H3)"
+                         if rec_shooter_only else "")
+                      + (f" | MOON PENALTY {moon_penalty} (r9 cell B)"
+                         if moon_penalty > 0 else ""))
         else:
             vec = hearts_env.HeartsVecEnv(num_envs, 1000)
         seat_net = np.zeros((num_envs, 4), dtype=np.int64)
         steps_this_game = np.zeros(num_envs, dtype=np.int64)
         vec_buffers = [[RolloutBuffer() for _ in range(4)] for _ in range(num_envs)]
+        deal_no = np.zeros(num_envs, dtype=np.int64)          # r9: deals seen per env
+        last_rec_deal = np.full((num_envs, 4), -1, dtype=np.int64)  # r9: last recorded deal
         init_ids = random.sample(pool_ids, min(active_pool_size, len(pool_ids)))
         for e in range(num_envs):
             assign_match_opponents(seat_net, e, init_ids, shooter_ids, shooter_p)
@@ -911,6 +1049,42 @@ def main():
     mid_snapshot_written = False
     pool_refresh_interval = config.get('pool_refresh_interval', 25000)
     next_pool_refresh = pool_refresh_interval
+    cycle = 0
+    trial_snaps = []    # in-trial pool snapshots (module objects), in order
+    if resume_ck is not None:
+        st = resume_ck['state']
+        if st['registry_base'] != len(registry):
+            raise SystemExit(f"RESUME: registry base size {len(registry)} != "
+                             f"checkpointed {st['registry_base']} (pool files changed?)")
+        for sd in resume_ck['snapshots']:
+            snap = copy.deepcopy(network)
+            snap.load_state_dict({k: v.to(device) for k, v in sd.items()})
+            snap.eval()
+            if ens is not None:
+                snap = HeartsHybrid(ens.champion, snap, gate=ens.gate_str,
+                                    router=ens.router).to(device).eval()
+            historical_pool.append(snap)
+            trial_snaps.append(snap)
+            if use_vec:
+                registry.append(snap)
+                pool_ids.append(len(registry) - 1)
+        games_played = st['games_played']
+        mid_snapshot_written = st['mid_snapshot_written']
+        next_pool_refresh = st['next_pool_refresh']
+        cycle = st['cycle']
+        if ens is not None:
+            for k_, v_ in st['ens_stats'].items():
+                setattr(ens, k_, v_)
+        BLOCK_CREDIT_STATS.update(st.get('block_credit_stats', {}))
+        MOON_PEN_STATS.update(st.get('moon_pen_stats', {}))
+        r = resume_ck['rng']
+        random.setstate(r['python'])
+        np.random.set_state(r['numpy'])
+        torch.set_rng_state(r['torch'])
+        if r['cuda'] is not None and torch.cuda.is_available():
+            torch.cuda.set_rng_state_all(r['cuda'])
+        print(f"RESUME: state restored - continuing at {games_played} deals, "
+              f"pool {len(historical_pool)}")
 
     try:
         while games_played < max_episodes:
@@ -925,7 +1099,8 @@ def main():
                         vec, registry, active_ids, seat_net, steps_this_game,
                         vec_buffers, update_timestep, device,
                         match_reward_scale, shooter_ids, shooter_p,
-                        block_credit_b, ens)
+                        block_credit_b, ens, rec_shooter_only, moon_penalty,
+                        deal_no, last_rec_deal)
                     p0_reward_sum, p0_raw_sum = 0.0, 0.0
                 else:
                     done_games, p0_reward_sum, p0_raw_sum = run_cycle_vec(
@@ -971,7 +1146,8 @@ def main():
                                                    aux_coef=config.get('aux_coef', 0.5),
                                                    actor_coef=0.0 if in_warmup else 1.0,
                                                    anchor_net=anchor_net,
-                                                   anchor_kl_coef=anchor_kl_coef)
+                                                   anchor_kl_coef=anchor_kl_coef,
+                                                   micro_batch=micro_batch)
 
             ev_str = f"{explained_var:.3f}" if explained_var is not None else "n/a"
             bce_str = f"{belief_bce:.4f}" if belief_bce is not None else "n/a"
@@ -995,6 +1171,8 @@ def main():
                 # (Avg Place counts only learner seats that recorded >= 1
                 # gated decision in the match - telemetry, never a gate.)
                 line += " | " + ens.stats_line()
+            if moon_penalty > 0.0:
+                line += f" | MoonPen: {MOON_PEN_STATS['events']}"
             print(line)
             train_log.write(line + "\n")
             train_log.flush()
@@ -1022,6 +1200,7 @@ def main():
                     snap = HeartsHybrid(ens.champion, snap,
                                         gate=ens.gate_str,
                                         router=ens.router).to(device).eval()
+                trial_snaps.append(snap)
                 historical_pool.append(snap)
                 if use_vec:
                     registry.append(snap)
@@ -1034,6 +1213,21 @@ def main():
                         pool_ids.pop(0)
                 next_pool_refresh += pool_refresh_interval
 
+            cycle += 1
+            if ckpt_cycles > 0 and cycle % ckpt_cycles == 0:
+                save_checkpoint(ckpt_path, network, optimizer, trial_snaps, {
+                    'cycle': cycle, 'games_played': games_played,
+                    'mid_snapshot_written': mid_snapshot_written,
+                    'next_pool_refresh': next_pool_refresh,
+                    'registry_base': len(registry) - len(trial_snaps),
+                    'ens_stats': ({k_: getattr(ens, k_) for k_ in
+                                   ('gated', 'total', 'recorded',
+                                    'gated_shooter', 'gated_nonshooter')}
+                                  if ens is not None else {}),
+                    'block_credit_stats': dict(BLOCK_CREDIT_STATS),
+                    'moon_pen_stats': dict(MOON_PEN_STATS)})
+                print(f"CHECKPOINT saved at cycle {cycle} ({games_played} deals) -> {ckpt_path}")
+
         print("\nTraining Complete! Saving final model...")
         torch.save(network.cpu().state_dict(), 'hearts_model_final.pth')
         torch.save(optimizer.state_dict(), 'hearts_optimizer.pth')
@@ -1042,6 +1236,13 @@ def main():
             ens.check_frozen()
             print(f"ENSEMBLE-LEARNER: champion/router UNCHANGED "
                   f"({ens.champ_sig}/{ens.router_sig}); final {ens.stats_line()}")
+            if rec_shooter_only and shooter_ids:
+                # r9 null contract (c): recorded == gated-in-shooter-matches
+                if ens.recorded != ens.gated_shooter:
+                    raise SystemExit(f"R9 CONTRACT (c) FAIL: recorded {ens.recorded} "
+                                     f"!= gated-in-shooter-matches {ens.gated_shooter}")
+                print(f"R9 CONTRACT (c) PASS: recorded == gated-in-shooter-matches "
+                      f"== {ens.recorded}; non-shooter gated {ens.gated_nonshooter} never recorded")
 
     except KeyboardInterrupt:
         print("\nTraining interrupted. Model saved safely!")

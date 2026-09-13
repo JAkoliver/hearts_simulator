@@ -40,6 +40,8 @@ def load_clone(path):
 
 
 def act(net, obs, legal, dev):
+    # v6/ensemble defenders (obs_dim 882) take obs v2; the caller passes the
+    # right observation (league r9: the promoted ENSEMBLE is a defender)
     o = torch.from_numpy(np.asarray(obs, dtype=np.float32)).unsqueeze(0).to(dev)
     m = torch.zeros((1, 52), dtype=torch.bool)
     for a in legal:
@@ -57,6 +59,12 @@ def main():
     ap.add_argument('--defender', default='hearts_model_final.pth')
     ap.add_argument('--matches', type=int, default=120)
     ap.add_argument('--seed', type=int, default=130_000_000)
+    ap.add_argument('--search-rate', type=float, default=None,
+                    help="league r9: the SEARCH shooter's moons/deal vs THIS "
+                         "defender (from the generation rows); overrides the "
+                         "Phase-A champion-field rate for the 50%% bar")
+    ap.add_argument('--tag', default='v1',
+                    help='verdict file suffix: shooter_<mode>_<tag>_quality.json')
     args = ap.parse_args()
 
     dev = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -64,11 +72,15 @@ def main():
     clone.to(dev)
     defender = net_from_checkpoint(args.defender)
     defender.eval().to(dev)
-    bar = BAR_FRACTION * PHASE_A_RATE[args.mode]
+    ref_rate = (args.search_rate if args.search_rate is not None
+                else PHASE_A_RATE[args.mode])
+    bar = BAR_FRACTION * ref_rate
+    def_obs = (lambda m: m.observe_v2()) if getattr(defender, 'obs_dim', 0) == 882         else (lambda m: m.observe())
     print(f'clone {args.clone} (holdout match {ck.get("holdout_match", 0):.3f}) '
           f'vs 3x {args.defender}')
-    print(f'bar: >= {bar:.4f} moons/deal ({BAR_FRACTION:.0%} of the Phase A '
-          f'search-shooter rate {PHASE_A_RATE[args.mode]:.4f})')
+    print(f'bar: >= {bar:.4f} moons/deal ({BAR_FRACTION:.0%} of the search-'
+          f'shooter rate {ref_rate:.4f} vs '
+          f'{"this defender" if args.search_rate is not None else "the Phase-A champion field"})')
 
     deals = moons = 0
     t0 = time.time()
@@ -78,7 +90,8 @@ def main():
         while True:
             p = menv.get_current_player()
             legal = menv.get_legal_actions()
-            a = act(clone if p == seat else defender, menv.observe(), legal, dev)
+            a = (act(clone, menv.observe(), legal, dev) if p == seat
+                 else act(defender, def_obs(menv), legal, dev))
             deal_done, match_done, rs = menv.step(a)
             if deal_done:
                 deals += 1
@@ -101,8 +114,9 @@ def main():
                'holdout_match': ck.get('holdout_match'),
                'matches': args.matches, 'deals': deals, 'moons': moons,
                'rate': rate, 'ci95_lower': lo, 'bar': bar, 'pass': bool(ok),
+               'reference_rate': ref_rate, 'defender': args.defender,
                'phase_a_rate': PHASE_A_RATE[args.mode], 'seed': args.seed},
-              open(f'equity_data/verdicts/shooter_{args.mode}_v1_quality.json', 'w'),
+              open(f'equity_data/verdicts/shooter_{args.mode}_{args.tag}_quality.json', 'w'),
               indent=1)
     return 0 if ok else 1
 

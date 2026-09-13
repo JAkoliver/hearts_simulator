@@ -111,8 +111,30 @@ def _chunk(job):
     return rows
 
 
-def run_gate(cand, base, matches=800, workers=12, seed=None, csv_out=None):
-    """Run the paired match gate; prints the report and returns a stats dict."""
+def _chunk_resumable(job):
+    """League r9 §3.5: per-job chunk file. The job's rows are computed
+    exactly as _chunk does (same seeds, same order) and pickled to
+    <chunk_dir>/job_<w>.pkl; a job whose file exists is skipped by the
+    caller. Same rows bit-for-bit as the unchunked path (validated by
+    validate_r9_ni_chunks.py)."""
+    job_core, chunk_path = job
+    rows = _chunk(job_core)
+    import pickle
+    tmp = chunk_path + '.tmp'
+    with open(tmp, 'wb') as f:
+        pickle.dump(rows, f)
+    os.replace(tmp, chunk_path)
+    return rows
+
+
+def run_gate(cand, base, matches=800, workers=12, seed=None, csv_out=None,
+             chunk_dir=None):
+    """Run the paired match gate; prints the report and returns a stats dict.
+    chunk_dir (league r9): resumable mode - each worker job persists its rows
+    to chunk_dir/job_<w>.pkl; completed jobs are skipped on re-run. The seed
+    is then REQUIRED (a resumed run must rebuild the same jobs)."""
+    if chunk_dir is not None and seed is None:
+        raise SystemExit('chunk_dir requires an explicit --seed')
     seed = seed if seed is not None else int(time.time())
     workers = headroom.scaled_workers(workers)
     fields = ("mixed v3-m7/v4-m10" if os.path.exists(V4_ANCHOR)
@@ -132,9 +154,25 @@ def run_gate(cand, base, matches=800, workers=12, seed=None, csv_out=None):
 
     import multiprocessing
     t0 = time.time()
-    with multiprocessing.Pool(len(jobs),
-                              initializer=headroom.apply_process_priority) as pool:
-        results = pool.map(_chunk, jobs)
+    if chunk_dir is None:
+        with multiprocessing.Pool(len(jobs),
+                                  initializer=headroom.apply_process_priority) as pool:
+            results = pool.map(_chunk, jobs)
+    else:
+        import pickle
+        os.makedirs(chunk_dir, exist_ok=True)
+        paths = [os.path.join(chunk_dir, f'job_{w}.pkl') for w in range(len(jobs))]
+        todo = [(j, p) for j, p in zip(jobs, paths) if not os.path.exists(p)]
+        print(f"chunked gate: {len(jobs) - len(todo)}/{len(jobs)} jobs already "
+              f"complete in {chunk_dir}; running {len(todo)}")
+        if todo:
+            with multiprocessing.Pool(len(todo),
+                                      initializer=headroom.apply_process_priority) as pool:
+                pool.map(_chunk_resumable, todo)
+        results = []
+        for p in paths:
+            with open(p, 'rb') as f:
+                results.append(pickle.load(f))
     rows = [r for chunk in results for r in chunk]
 
     # Per-match paired rows (expert_iter_v2 prereg artifact: the raw eval

@@ -1595,3 +1595,27 @@ raw cost (2 runs) translated into a real placement loss - the specialist's
 in-role training bought clone defense with ordinary-play strength.
 Round 8 outcome: NO promotion; results doc next; L1r2 (pinned) awaits
 the user's decision.
+
+## 2026-09-13: r9 SIGNED; step-0 instruments built + null-tested (all pass); vec probe 60x; SearchEval resume replaced by one-match-per-process
+
+Round-9 prereg signed ("I sign the prereg"). Built and null-tested pre-
+data (freeze record: docs/exploiter_league_r9_prereg.md §3.7): trainer
+(attacker population, shooter-match-only recording, cell-B moon penalty,
+always-on 512 micro-batching = the VRAM fix, cycle-boundary checkpoints +
+--resume), vectorized GPU defense probe, chunk-resumable NI, per-match
+SearchEval driver, preflight/pipeline/PAUSE_R9 ops layer. MEASURED:
+- vec probe: 41 s per 1,000-match arm (promoted, 2-net), 64 s (3-net
+  candidate); three arms 150 s wall vs 9,004 s sequential (60x); A/A
+  exactly 0; L2r2-end -0.537 (SE 0.035) vs sequential -0.493 (0.035).
+- micro-batching equivalence 9.4e-7 max |dparam| (bar 1e-5).
+- checkpoint 232 MB (specialist + Adam + state), atomic, 2 generations;
+  resume verified with 0 and with 2 in-trial pool snapshots.
+- SearchEval: deterministic per process (independent runs bit-identical
+  on 5 matches) but in-process --resume changes post-resume matches (one
+  RNG stream per process) -> driver unit = one match per process; killed
+  match replays bit-identical; 2-wide concurrency bit-identical; single
+  match 65-90 s.
+- NI chunked path == unchunked bit-for-bit (n=160).
+- Seed audit: 160M/170M in use -> attacker-bank stride 1e6 -> 1e4 (pre-
+  data correction). Pace probes pending the user's mode confirmation.
+Working files restored (hearts_model_final.pth = champion 8a89da90).

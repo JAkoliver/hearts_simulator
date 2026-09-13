@@ -1,0 +1,61 @@
+{
+ "learning_rate": 5e-05,
+ "update_timestep": 231,
+ "games_per_worker": 26,
+ "max_workers": 14,
+ "gamma": 1.0,
+ "eps_clip": 0.161863,
+ "k_epochs": 4,
+ "max_episodes": 250000,
+ "gae_lambda": 0.89889,
+ "entropy_coef": 0.00214,
+ "minibatch_size": 2048,
+ "aux_coef": 0.77131,
+ "num_envs": 256,
+ "active_pool_size": 4,
+ "search_gate_deals": 4800,
+ "search_gate_alpha": 0.05,
+ "search_gate_k": 32,
+ "raw_guard_threshold": 0.3,
+ "critic_warmup_games": 20000,
+ "vec_env": true,
+ "raw_gate_deals": 2500,
+ "raw_gate_workers": 12,
+ "raw_gate_alpha": 0.05,
+ "search_guard_margin": 0.3,
+ "match_mode": true,
+ "match_reward_scale": 4.0,
+ "match_gate_matches": 3200,
+ "match_gate_alpha": 0.05,
+ "anchor_kl_coef": 0.0,
+ "anchor_baseline_path": "Hall_of_Fame/hearts_model_milestone_1785322724.pth",
+ "anchor_baseline_md5_8": "8a89da90",
+ "ensemble_learner": {
+  "champion_path": "Hall_of_Fame/hearts_model_milestone_1785322724.pth",
+  "champion_md5_8": "8a89da90",
+  "specialist_init": "v6_stage3/arma_lr1e-4.ep3.pth",
+  "specialist_md5_8": "a9653255",
+  "router_path": "v6_stage3/arma_lr1e-4.ep3.pth",
+  "router_md5_8": "a9653255",
+  "gate": "moonhead:0.1"
+ },
+ "shooters": [
+  {
+   "path": "shooter_agg_v1b.pth",
+   "share": 0.1
+  },
+  {
+   "path": "shooter_sel_v1.pth",
+   "share": 0.1
+  },
+  {
+   "path": "shooter_sel_v2.pth",
+   "share": 0.2
+  }
+ ],
+ "record_shooter_matches_only": true,
+ "micro_batch": 512,
+ "checkpoint_cycles": 10,
+ "checkpoint_path": "train_ckpt.pt",
+ "moon_penalty": 0.0
+}
