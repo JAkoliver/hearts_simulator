@@ -200,18 +200,21 @@ the site can serve 882.
    1787333162.pth (+ constituent list + md5s) to the models-v1 GitHub
    Release per the open-weights policy (release assets, never tracked
    files); update the README weights table. USER/operator action.
-4. ROUND 8 — **PREREG SIGNED 2026-08-31, INSTRUMENTS FROZEN, TRIALS
-   AWAIT THE USER'S GO** (docs/exploiter_league_r8_prereg.md): train the
-   SPECIALIST inside the ensemble — champion + router frozen, gated-only
-   recording, unanchored, 2 lr cells × 2 runs. Trainer = train.py
-   `ensemble_learner` mode (282c4363); all four null contracts PASS
-   (lr-0 bit-identity; 11k-decision A/A vs the promoted ensemble with 0
-   mismatches; clean smoke; pace probe → 6.2 h/trial measured). BAR:
-   the promoted ensemble's SEL numbers (paired vs its r7 rows, 1.816).
-   Launch sequence: L1r1 → L2r1 → L1r2 → L2r2 (config_r8_L1/L2.json →
-   config.json, delete hearts_optimizer.pth, `python -u train.py`
-   file-logged; per-trial readouts per prereg §4;
-   assemble_r8_candidate.py builds each candidate ckpt + trace).
+4. ROUND 8 — **RUN AND CLOSED 2026-09-13: NO PROMOTION**
+   (docs/exploiter_league_r8_prereg.md + _results.md). Training the
+   specialist inside the ensemble (default + router frozen, gated-only
+   recording, unanchored; 3 of 4 pinned trials run) learned the SEL
+   CLONE decisively (fast probe −0.46/−0.49 moons/match vs promoted,
+   replicated at lr 5e-5) but NOT the search attacker (transfer, cell
+   pooled n=128: −0.02 ± 0.12) — the r6 clone-specificity effect
+   reproduced under training — and paid a replicated ordinary-play cost
+   (+0.17/deal neutral raw; NI gate FAIL +0.036 placement, UB95 +0.051
+   vs +0.030). lr 1e-5 was worse on defense outright. Closed: clone-only
+   pool pressure for specialist training. ROUND 9 must put SEARCH-ATTACK
+   data in the loop (offline search-shooter matches → replay set;
+   prioritized threat-state seeds) and/or reward the gated decisions
+   with a defense-specific signal rather than only the match terminal.
+   The promoted ensemble 8d7816d1 remains the champion of record.
 5. ROUND 9+ candidates (audit first, program §4.3): search-judged router;
    passing/endgame specialists; cross-deal opponent memory as a
    specialist input (post-mortem §7.2).

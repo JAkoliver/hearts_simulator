@@ -1,0 +1,13 @@
+{
+ "tag": "r8_L2r2_vs_champion",
+ "n_paired": 64,
+ "base_moons_per_match": 2.484375,
+ "cand_moons_per_match": 1.828125,
+ "paired_delta": -0.65625,
+ "se": 0.16247519651973646,
+ "t": -4.039078050416655,
+ "p_one_sided": 2.6830854044165814e-05,
+ "def_place_base": 2.96875,
+ "def_place_cand": 2.5833333333333335,
+ "pass": true
+}

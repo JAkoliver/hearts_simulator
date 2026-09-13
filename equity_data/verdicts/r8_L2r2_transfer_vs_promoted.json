@@ -1,0 +1,13 @@
+{
+ "tag": "r8_L2r2_vs_promoted",
+ "n_paired": 64,
+ "base_moons_per_match": 1.96875,
+ "cand_moons_per_match": 1.828125,
+ "paired_delta": -0.140625,
+ "se": 0.176590262426132,
+ "t": -0.7963349624604793,
+ "p_one_sided": 0.2129186846520676,
+ "def_place_base": 2.5885416666666665,
+ "def_place_cand": 2.5833333333333335,
+ "pass": false
+}

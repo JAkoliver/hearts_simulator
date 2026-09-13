@@ -1,0 +1,10 @@
+{
+ "runs": [
+  "L2r1",
+  "L2r2"
+ ],
+ "pooled_delta_vs_promoted": -0.015625,
+ "se": 0.11784290926857226,
+ "n": 128,
+ "role": "informs (n=64 per run; sign-based eligibility per r8 prereg \u00a75)"
+}

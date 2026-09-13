@@ -1510,3 +1510,88 @@ hybrids missing .to(device) (cpu pen buffer; crashed pace cycle 2 -
 multi-cycle probes earn their keep). Gate rate in ensemble SELF-play
 8.4-9.9% vs 11.7% holdout (distribution-dependent, as corrected
 2026-08-21). TRIALS NOT STARTED - they await the user's separate go.
+
+## 2026-09-01: r8 L1r1 trial + fast probe measured; L1r1 FAIL-FAST on the mid probe
+
+Trial L1r1 (lr 1e-5, 250k deals, night, BelowNormal): **5 h 10 m**
+(14.6 deals/s - faster than the 11.2 pace-probe rate; idle machine).
+Clean exit, champion/router unchanged, gate 9.4% (864k gated decisions
+recorded). Fast defense probe with ALL-ENSEMBLE arms, n=1,000 CRN block
+740M vs the PROMOTED ensemble as base, 8 workers: **9,004 s (~2.5 h)** -
+measured per-seed cost 69 s (base ensemble 14 s + 2x 3-net candidates
+28 s); the r4 "n=1,000 = 10 min" row is RAW-net cost and must not be
+quoted for ensemble arms. RESULT: L1r1 mid +0.349 (SE 0.036), end
++0.211 (SE 0.036) moons/match WORSE than promoted (base 1.160) -
+registered fail-fast fired on mid (>= +0.10, LB > 0); paired-strength +
+transfer readouts skipped, candidate ineligible. mid->end partial
+recovery noted (informs: early training damages defense, then claws
+back - consistent with prereg §7 credit-assignment variance).
+L2r1 (lr 5e-5) launched 09:55 per the pinned order.
+
+## 2026-09-11: r8 L2r1 (lr 5e-5) — clone gain -0.46 does NOT transfer to the search attacker; strength cost +0.126/deal; NOT eligible
+
+Trial L2r1 at FULL SPEED (user-directed; normal priority, no pacing):
+250k deals in **5 h 38 m** (15.2 deals/s); clean, champion/router
+unchanged, gate 8.7% (807k gated decisions). Fast defense probe (all-
+ensemble arms, n=1,000 CRN block 740M vs the PROMOTED ensemble, 8
+workers): mid **-0.137 (SE 0.037)**, end **-0.460 (SE 0.035), CI
+[-0.528, -0.392]** (0.700 vs 1.160 moons/match, 40% fewer; defender
+placement -0.076) - passes the first eligibility clause. Paired
+neutral-raw strength vs the promoted ensemble n=5,000 (6 workers, ~40
+min): **+0.126/deal WORSE (SE 0.051, t=2.5)** - reported, informs
+(promoted-vs-champion read -0.010 on this instrument in r7).
+TRANSFER CHECK (scripts/run_r8_transfer.sh: gate-fires 4m PASS - differs
+from champion AND promoted rows; shards 0,1 x 32 matches, K=64, 2-wide
+BelowNormal, 20:36 -> 22:06 = **90 min** with the 3-net trace a21e57d9;
+engine 3cc871e0, substrate 3a2abd36/efdfee07): vs the PROMOTED
+ensemble's r7 rows on identical seeds **+0.109 (SE 0.156), p=0.76** -
+WRONG SIGN (2.078 vs 1.969 moons/match); vs the champion -0.406 (SE
+0.139, p=0.002) - the candidate keeps most of the ensemble's search-
+attacker defense but adds none. Verdicts: equity_data/verdicts/
+r8_L2r1_transfer_vs_{promoted,champion}.json. **ELIGIBILITY: NO** (§5
+requires the transfer check to point the same way). Registered reading
+(§6 bullet 2): the r6 clone-specificity effect REPRODUCED UNDER TRAINING
+- the specialist learned the SEL clone (-0.46) without learning the
+search attacker (+0.11 +/- 0.16); with a +0.126/deal strength cost on
+top. Caveat on the record: n=64 (SE 0.156) cannot exclude a small true
+transfer gain; a second L2 run would pool to n=128. Remaining pinned
+trials L1r2, L2r2 await the user's decision.
+
+## 2026-09-12: r8 L2r2 (lr 5e-5, run 2) — clone gain REPLICATES (-0.49); transfer -0.14 (SE 0.18); strength cost +0.206/deal; ELIGIBLE by the §5 letter
+
+Trial L2r2 at full speed: **8 h 52 m** (532 min) - first half at HALF
+pace from VRAM OVERSUBSCRIPTION (trainer 23.3 GB dedicated + 6.9 GB
+SPILLED to shared memory; desktop apps holding GPU contexts pushed it
+over the 24 GB ceiling; second half at 15 deals/s once the desktop went
+idle). Rule for quoting 19M-specialist full-speed trials: other GPU apps
+closed, else expect up to 2x. Clean, champion/router unchanged, gate
+8.7% (810k gated decisions). Fast probe vs promoted: mid **-0.355 (SE
+0.036)**, end **-0.493 (SE 0.035), CI [-0.562, -0.424]** (0.667 vs
+1.160) - replicates L2r1's -0.460. Paired strength vs promoted n=5,000:
+**+0.206/deal WORSE (SE 0.054, t=3.8)**; L2 cell pooled +0.166 (SE
+0.037) - a REPLICATED cost. Transfer check (gate-fires PASS; shards 0,1;
+14:14 -> 15:48 = 94 min): vs the PROMOTED rows **-0.141 (SE 0.177),
+p=0.21** (1.828 vs 1.969) - right sign; vs champion -0.656 (SE 0.162,
+p<1e-4). **L2 CELL POOLED transfer vs promoted, n=128: -0.016 (SE
+0.118), 95% CI [-0.247, +0.215]** (equity_data/verdicts/
+r8_L2cell_transfer_pooled.json) - no evidence the -0.46/-0.49 clone
+gain reaches the search attacker. Per §5's sign-based rule L2r2 alone
+is battery-ELIGIBLE (fast probe UB<0 AND transfer delta<0); the cell-
+level evidence says the eligibility is marginal and the +0.2/deal cost
+makes the NI gate (UB95 dplace <= +0.030 vs promoted) the likely
+failure point. Battery launch = user's decision. L1r2 still pinned.
+
+## 2026-09-13: r8 battery on L2r2 — NI GATE FAIL (+0.036 placement, UB95 +0.051 > +0.030); battery HALTED, no promotion
+
+NI match gate n=3,200 (scripts/run_match_gate.py, L2r2 ensemble
+740acbbd vs the PROMOTED ensemble 8d7816d1, mixed anchors, seed
+1789299870, 8 workers): **3 h 07 m** (two ensembles; r7's one-ensemble
+NI was 3 h 03 m on 6 workers). dplace **+0.0362 (SE 0.0092), UB95
++0.0513 vs bar +0.030 -> FAIL** (t=3.9; the point estimate alone
+exceeds the bar); win 50.8% vs 52.2%; dscore +0.98/match (SE 0.21).
+Verdict: equity_data/verdicts/r8_L2r2_ni_n3200.json. Halt-default:
+defense gate and substrate verification NOT run. The +0.17/deal neutral-
+raw cost (2 runs) translated into a real placement loss - the specialist's
+in-role training bought clone defense with ordinary-play strength.
+Round 8 outcome: NO promotion; results doc next; L1r2 (pinned) awaits
+the user's decision.
