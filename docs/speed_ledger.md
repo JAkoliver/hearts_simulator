@@ -1619,3 +1619,16 @@ SearchEval driver, preflight/pipeline/PAUSE_R9 ops layer. MEASURED:
 - Seed audit: 160M/170M in use -> attacker-bank stride 1e6 -> 1e4 (pre-
   data correction). Pace probes pending the user's mode confirmation.
 Working files restored (hearts_model_final.pth = champion 8a89da90).
+
+## 2026-09-13: r9 PACE PROBES — 76 deals/s full speed, 54 deals/s at headroom 0.25; trainer VRAM 8.4 GB
+
+Cell-A recipe (config_r9_pace.json, 3 cycles, v1 clones standing in for
+sel v2): FULL SPEED 6,775 deals / 89 s wall incl. startup = **76 deals/s
+-> 250k-deal trial ~1.0 h**; HEADROOM 0.25: 6,628 deals / 122 s = **54
+deals/s -> ~1.3 h**. Trainer VRAM measured after the first full-speed
+update: 8,386 MB dedicated, 86 MB shared (always-on 512 micro-batching;
+r8 full speed sat at 23.3 GB + 6.9 GB spilled). The r8 trial rate of
+13-15 deals/s was therefore allocator-bound at the ceiling, not the
+ensemble's intrinsic cost - the r4-era per-deal trainer row (~140
+deals/s, 14.6M net) is the right historical comparator. Both probes
+clean (EXIT 0, recording invariant held, gate 10.5%).
