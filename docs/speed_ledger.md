@@ -1645,3 +1645,10 @@ verify_shooter 120 matches vs 882 ensemble defenders: ~35 min each,
 three in parallel. sel v2 (0c0a26b1) vs ensemble 0.1649/deal -> PASS
 (bar 0.1273); v1 vs ensemble 0.1723; v2 vs champion 0.2145. Next: base
 rows shards 12-15, then trials on the user's go.
+Base rows (promoted ensemble's fused trace, shards 12-15, 128 matches, one
+per process, 2-wide, full speed): **3 h 04 m**; 985 deals; the promoted
+ensemble concedes **1.922 moons/match (SE 0.080)** on these shards (r7
+gate: 1.816 on shards 4-11, 1.969 on 0-1) - the transfer instrument's
+base arm. Analyzer glob fixed pre-data to exclude the .tricks.csv
+sidecars (they had doubled a first tally). STAGE 0 COMPLETE; trials on
+the user's go.

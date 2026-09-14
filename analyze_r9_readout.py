@@ -38,9 +38,9 @@ def per_match_moons(df):
 
 
 def transfer(name):
-    cand = pd.concat([pd.read_csv(p) for p in sorted(glob.glob(f'{ROOT}/transfer/{name}/s*m*.csv'))],
+    cand = pd.concat([pd.read_csv(p) for p in sorted([p for p in glob.glob(f'{ROOT}/transfer/{name}/s*m*.csv') if not p.endswith('.tricks.csv')])],
                      ignore_index=True)
-    base = pd.concat([pd.read_csv(p) for p in sorted(glob.glob(f'{ROOT}/transfer/promoted_base/s*m*.csv'))],
+    base = pd.concat([pd.read_csv(p) for p in sorted([p for p in glob.glob(f'{ROOT}/transfer/promoted_base/s*m*.csv') if not p.endswith('.tricks.csv')])],
                      ignore_index=True)
     c, b = per_match_moons(cand), per_match_moons(base)
     keys = sorted(set(c) & set(b))
@@ -78,7 +78,7 @@ if __name__ == '__main__':
     name = sys.argv[1]
     v2, v1 = vecprobe(name, 'shooter_sel_v2'), vecprobe(name, 'shooter_sel_v1')
     st = strength(name)
-    tr = transfer(name) if glob.glob(f'{ROOT}/transfer/{name}/s*m*.csv') else None
+    tr = transfer(name) if [p for p in glob.glob(f'{ROOT}/transfer/{name}/s*m*.csv') if not p.endswith('.tricks.csv')] else None
     out = {'trial': name, 'vecprobe_sel_v2': v2, 'vecprobe_sel_v1': v1,
            'strength': st, 'transfer': tr}
     print(f'== r9 readout {name}')
