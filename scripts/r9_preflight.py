@@ -15,7 +15,8 @@ import sys
 
 NEED_GB = {'trainer': 12.0, 'searchsel': 8.0, 'vecprobe': 6.0, 'cpu': 0.0}
 RESEARCH = ('train.py', 'defense_probe', 'run_match_gate', 'neutral_raw_eval',
-            'SearchEval', 'validate_', 'run_r9_', 'run_r8_')
+            'SearchEval', 'validate_', 'run_r9_', 'run_r8_', 'verify_shooter',
+            'train_shooter', 'bank_moon_rate')
 
 
 def sh(cmd):

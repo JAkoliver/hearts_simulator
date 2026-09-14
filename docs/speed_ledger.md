@@ -1632,3 +1632,16 @@ r8 full speed sat at 23.3 GB + 6.9 GB spilled). The r8 trial rate of
 ensemble's intrinsic cost - the r4-era per-deal trainer row (~140
 deals/s, 14.6M net) is the right historical comparator. Both probes
 clean (EXIT 0, recording invariant held, gate 10.5%).
+
+## 2026-09-14: r9 STAGE 0 — attacker bank (7 h 13 m), sel v2 distilled + CERTIFIED
+
+Bank: 300 search-SEL matches vs the promoted ensemble (one match per
+process, 2-wide, full speed): **7 h 13 m** = ~87 s/match effective —
+xinxin-style CPU saturation means 2-wide gains little over 1-wide;
+quote ~1.5 min/match for this instrument. Search shooter vs the
+ensemble 0.2546 moons/deal (1.95/match; consistent with the r7 gate's
+1.82-1.97 on other blocks). Distill 10 s (35,247 decisions, 1.87M net).
+verify_shooter 120 matches vs 882 ensemble defenders: ~35 min each,
+three in parallel. sel v2 (0c0a26b1) vs ensemble 0.1649/deal -> PASS
+(bar 0.1273); v1 vs ensemble 0.1723; v2 vs champion 0.2145. Next: base
+rows shards 12-15, then trials on the user's go.
