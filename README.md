@@ -46,6 +46,20 @@ citations is [docs/release/RESULTS.md](docs/release/RESULTS.md).
   ([docs/gated_ensemble_program.md](docs/gated_ensemble_program.md),
   [docs/exploiter_league_r7_results.md](docs/exploiter_league_r7_results.md)).
 
+- **External benchmark (snapshot of Perilune v5, August 2026):** against
+  Nathan Sturtevant's PIMC+UCT hearts program ("xinxin") at its shipped
+  default, in two preregistered studies with complement-paired seeds —
+  the deployed raw net placed **0.297 places/seat better** (95% CI
+  [−0.38, −0.21], n=438 pairs, Holm q<0.0001), matched it on match wins
+  (−0.03/pair, CI [−0.16, +0.10]), at about one-sixth of its decision
+  time on the same CPU; the searched teacher configuration beat it more
+  decisively at defaults (−0.66 places/seat, n=24 pairs). At ~9× xinxin's
+  default budget the advantage is not detectable at the study's size.
+  Report, both preregistrations, CC0 data release and the GPLv3
+  evaluation code are linked from
+  [docs/xinxin_eval_report.md](docs/xinxin_eval_report.md). Perilune v5
+  is a snapshot: the report is the record of that model only.
+
 No claims about human-relative strength are made anywhere in this
 repository; human games on the site are n=1 anecdotes and labeled so.
 
@@ -119,6 +133,11 @@ Reading order for an outside observer
    CI, and citation.
 6. [REPRODUCING.md](docs/release/REPRODUCING.md): builds, gates,
    regenerating data from seeds.
+7. [xinxin_eval_report.md](docs/xinxin_eval_report.md): the external
+   benchmark — Perilune v5 vs. xinxin, two preregistered studies
+   ([prereg 1](docs/xinxin_eval_prereg_study1.md),
+   [prereg 2](docs/xinxin_eval_prereg_study2.md); data release
+   `xinxin-eval-v1`; code in `perilune-xinxin-eval`, GPLv3).
 
 Primary sources outrank all of the above on conflict: the ledger, the
 rules file ([docs/experiment_rules.md](docs/experiment_rules.md)), the

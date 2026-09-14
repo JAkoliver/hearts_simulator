@@ -1,4 +1,4 @@
-# Release documentation (DRAFTS - project not yet open-sourced)
+# Release documentation (public since 2026-08-12; kept current as eras close)
 
 Contract for everything in this directory:
 - DERIVED documents. Primary sources (docs/speed_ledger.md,
@@ -24,6 +24,12 @@ Reading order for an outside observer:
 6. REPRODUCING.md - toolchain pins, builds, rerunning gates,
    regenerating data from seeds.
 7. model_cards/ - per released checkpoint.
+8. ../xinxin_eval_report.md - the external benchmark: Perilune v5 vs.
+   Nathan Sturtevant's xinxin, two preregistered studies
+   (preregistrations ../xinxin_eval_prereg_study1.md / _study2.md; data release
+   xinxin-eval-v1, CC0; evaluation code in the separate GPLv3 repo
+   perilune-xinxin-eval — never merged here). A snapshot of Perilune v5
+   (lineage 8a89da90, the version deployed in August 2026).
 
 Status: drafts 2026-08-01; update pass 2026-08-21 (6th promotion — the
 gated ensemble; ARCHITECTURE §6b, JOURNEY coda, model card
