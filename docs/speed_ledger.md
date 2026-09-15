@@ -1670,3 +1670,11 @@ probes/strength): **+0.125 (SE 0.102), p=0.89** - 2.047 vs the promoted
 (training -0.157, held-out -0.258), no better vs the search shooter -
 the r8 pattern reproduced with the refreshed attacker. Cell-level
 reading awaits A2; B1 (moon-outcome penalty) training from 07:51.
+B1 (cell B = A + moon-outcome penalty -2.0; full speed): 250k deals in
+65 min, champion/router unchanged, contract (c) held (542k recorded).
+Vec probe vs promoted: sel v2 mid -0.580 / end **-0.768 (SE 0.034)**
+(0.330 vs 1.098 moons/match); held-out sel v1 end **-0.817 (0.033)** -
+a 70% cut, ~5x A1's effect: the deal-level moon signal is the stronger
+learning signal by far. Strength vs promoted **+0.082/deal (SE 0.047,
+UB95 +0.159)** - just above the amended E2 bar (+0.15). Transfer n=128
+in flight (verdict ~12:50).
