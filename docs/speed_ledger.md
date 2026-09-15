@@ -1664,3 +1664,9 @@ the cost). E2 as registered (UB95 <= +0.05) was mis-calibrated (the
 promoted ensemble itself would fail it); AMENDMENT 1 sets UB95 <= +0.15,
 approved by the user with A1's number already known (disclosed in the
 prereg). Transfer n=128 in flight; chain continues (B1 -> A2 -> B2).
+A1 transfer n=128 (shards 12-15, 2-wide, 04:21 -> 07:50 = 3 h 29 m incl.
+probes/strength): **+0.125 (SE 0.102), p=0.89** - 2.047 vs the promoted
+1.922 moons/match. **A1 NOT ELIGIBLE (E3 fails)**: better vs BOTH clones
+(training -0.157, held-out -0.258), no better vs the search shooter -
+the r8 pattern reproduced with the refreshed attacker. Cell-level
+reading awaits A2; B1 (moon-outcome penalty) training from 07:51.
