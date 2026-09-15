@@ -1678,3 +1678,13 @@ a 70% cut, ~5x A1's effect: the deal-level moon signal is the stronger
 learning signal by far. Strength vs promoted **+0.082/deal (SE 0.047,
 UB95 +0.159)** - just above the amended E2 bar (+0.15). Transfer n=128
 in flight (verdict ~12:50).
+**B1 TRANSFER n=128 (shards 12-15, 08:56 -> 12:50 incl. probes/strength):
+-1.008 (SE 0.098), p<0.001 - 0.914 vs the promoted 1.922 moons/match
+against the SEARCH attacker: a 52% cut, larger than the r7 promotion's
+-0.74, the first trained-defense effect that has ever transferred.**
+E1 PASS, E3 PASS; E2 FAIL by 0.009 (UB95 +0.159 vs the amended +0.15;
+SE 0.047) -> formally NOT ELIGIBLE. Cell A (no penalty) got +0.125 on
+the same shards: the moon-outcome penalty (H2) is the ingredient.
+Chain halted before A2 on the user's stop request (r9_STOP); A2/B2
+resumable. Decision pending: continue A2->B2 as pinned, and/or NI on B1
+as a standing-instrument telemetry run.

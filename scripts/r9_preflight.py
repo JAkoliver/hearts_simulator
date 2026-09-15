@@ -9,6 +9,7 @@ Usage: python scripts/r9_preflight.py --stage trainer|searchsel|vecprobe|cpu
                                      --mode "full speed"|"headroom 0.25"
 """
 import argparse
+import os
 import shutil
 import subprocess
 import sys
@@ -37,6 +38,9 @@ def main():
     a = ap.parse_args()
     ok = True
     print(f'R9 PREFLIGHT  stage={a.stage}  mode="{a.mode}"')
+    if os.path.exists('r9_STOP'):
+        print('  REFUSE: r9_STOP file present (user asked to stop after the current step; delete it to resume)')
+        ok = False
 
     q = sh(['nvidia-smi', '--query-gpu=memory.total,memory.used,utilization.gpu,'
             'temperature.gpu', '--format=csv,noheader,nounits']).strip()
