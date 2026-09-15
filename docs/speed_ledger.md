@@ -1652,3 +1652,15 @@ gate: 1.816 on shards 4-11, 1.969 on 0-1) - the transfer instrument's
 base arm. Analyzer glob fixed pre-data to exclude the .tricks.csv
 sidecars (they had doubled a first tally). STAGE 0 COMPLETE; trials on
 the user's go.
+
+## 2026-09-15: r9 A1 trained + clone/strength readouts; AMENDMENT 1 (E2 bar 0.05 -> 0.15, budget spent)
+
+A1 (cell A, full speed): 250k deals in **65 min**, champion/router
+unchanged, contract (c) held (557k recorded, all shooter-match).
+Vec probe vs promoted: sel v2 mid +0.071 / end **-0.157 (SE 0.037)**;
+held-out sel v1 end **-0.258 (0.036)** -> E1 PASS. Strength vs promoted
+**+0.056/deal (SE 0.050)** (r8: +0.126/+0.206 - the recording mask cut
+the cost). E2 as registered (UB95 <= +0.05) was mis-calibrated (the
+promoted ensemble itself would fail it); AMENDMENT 1 sets UB95 <= +0.15,
+approved by the user with A1's number already known (disclosed in the
+prereg). Transfer n=128 in flight; chain continues (B1 -> A2 -> B2).

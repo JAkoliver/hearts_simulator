@@ -6,7 +6,7 @@ Reads, for trial <name> under equity_data/exploiter_r9/<name>/:
   transfer/<name>/ chunk CSVs paired against transfer/promoted_base/ (E3)
 and prints the registered verdicts:
   E1: end vec-probe delta vs promoted UB95 < 0 on sel v2 AND point delta < 0 on sel v1
-  E2: neutral-raw delta UB95 <= +0.05/deal
+  E2: neutral-raw delta UB95 <= +0.15/deal (Amendment 1; registered 0.05 was mis-set)
   E3: transfer n=128 paired delta vs promoted <= -0.15
   fail-fast (informs the driver): mid sel-v2 delta >= +0.10 with LB > 0
 Writes equity_data/verdicts/r9_<name>_readout.json. Never promotes.
@@ -95,7 +95,7 @@ if __name__ == '__main__':
     e1 = bool(v2 and v1 and (v2['end']['delta'] + 1.645 * v2['end']['se']) < 0 and v1['end']['delta'] < 0)
     if st:
         print(f"strength vs promoted: {st['delta']:+.3f}/deal (SE {st['se']:.3f}) UB95 {st['ub95']:+.3f}")
-    e2 = bool(st and st['ub95'] <= 0.05)
+    e2 = bool(st and st['ub95'] <= 0.15)   # Amendment 1 (2026-09-15): bar 0.05 -> 0.15
     if tr:
         print(f"transfer n={tr['n']}: {tr['delta']:+.3f} (SE {tr['se']:.3f}, p={tr['p_one_sided']:.3f}) "
               f"[{tr['cand_moons']:.3f} vs promoted {tr['base_moons']:.3f} moons/match]")

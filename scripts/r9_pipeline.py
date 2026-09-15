@@ -198,6 +198,17 @@ def readout(st, name, mode):
         if rc != 0:
             raise SystemExit(f'{unit} failed')
         mark(st, unit)
+    # registered FAIL-FAST (prereg §4): mid vec-probe delta vs promoted >= +0.10
+    # (worse) with LB > 0 on sel v2 -> skip strength + transfer for this trial
+    ff_unit = f'readout-{name}-failfast'
+    if done(st, ff_unit):
+        print(f'{name}: fail-fast recorded earlier; strength/transfer skipped'); return
+    vp = json.load(open(f'{d}/vecprobe_shooter_sel_v2.json'))['results']
+    mid_r = [v for k, v in vp.items() if k.endswith('_mid_ensemble.pth')][0]
+    if mid_r['delta'] >= 0.10 and (mid_r['delta'] - 1.645 * mid_r['se']) > 0:
+        mark(st, ff_unit, {'mid_delta': mid_r['delta'], 'mid_se': mid_r['se']})
+        print(f'{name}: FAIL-FAST (mid delta {mid_r["delta"]:+.3f}, SE {mid_r["se"]:.3f}) - strength/transfer skipped')
+        return
     # 2. strength
     unit = f'readout-{name}-strength'
     if not done(st, unit):
