@@ -1688,3 +1688,9 @@ the same shards: the moon-outcome penalty (H2) is the ingredient.
 Chain halted before A2 on the user's stop request (r9_STOP); A2/B2
 resumable. Decision pending: continue A2->B2 as pinned, and/or NI on B1
 as a standing-instrument telemetry run.
+A2 (cell A, run 2; 68 min): vec probe end **+0.087 (SE 0.037)** vs sel v2
+(worse), -0.020 (0.038) vs held-out v1 -> E1 FAIL; strength +0.098/deal
+(SE 0.051, UB95 +0.182) -> E2 FAIL. Transfer SKIPPED per prereg §4
+("only if 1 and 2 do not already disqualify") - saves ~3 h; chain
+resumed to B2. Cell A across two runs: no transfer (A1 +0.125) and no
+consistent clone gain (A1 -0.16/-0.26, A2 +0.09/-0.02).
