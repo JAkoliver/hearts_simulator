@@ -1699,3 +1699,7 @@ unchanged, contract (c) held (529k recorded). Vec probe vs promoted:
 sel v2 mid -0.794 / end **-0.652 (SE 0.034)**; held-out sel v1 mid
 -0.828 / end **-0.695 (0.036)** - the cell-B clone effect REPLICATES
 (B1: -0.768/-0.817). Strength + transfer in flight.
+B2 strength vs promoted: **+0.200/deal (SE 0.055, UB95 +0.290)** -> E2
+FAIL (B1 was +0.082; cell B pooled ~+0.14, SE ~0.036): the moon-outcome
+penalty's defense comes with an r8-sized ordinary-play cost in this run.
+Transfer in flight (~10:00).
