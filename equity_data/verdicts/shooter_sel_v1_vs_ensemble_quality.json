@@ -1,0 +1,16 @@
+{
+ "mode": "sel",
+ "clone": "shooter_sel_v1.pth",
+ "holdout_match": 0.4847809120303267,
+ "matches": 120,
+ "deals": 853,
+ "moons": 147,
+ "rate": 0.17233294255568582,
+ "ci95_lower": 0.14698786978504977,
+ "bar": 0.1273,
+ "pass": true,
+ "reference_rate": 0.2546,
+ "defender": "hybrid_champ_arma_moonhead_0p1.pth",
+ "phase_a_rate": 0.3665699782451051,
+ "seed": 130000000
+}

@@ -1,0 +1,16 @@
+{
+ "mode": "sel",
+ "clone": "shooter_sel_v2.pth",
+ "holdout_match": 0.41304347826086957,
+ "matches": 120,
+ "deals": 858,
+ "moons": 184,
+ "rate": 0.21445221445221446,
+ "ci95_lower": 0.18698820123933924,
+ "bar": 0.18328498912255256,
+ "pass": true,
+ "reference_rate": 0.3665699782451051,
+ "defender": "Hall_of_Fame/hearts_model_milestone_1785322724.pth",
+ "phase_a_rate": 0.3665699782451051,
+ "seed": 130000000
+}

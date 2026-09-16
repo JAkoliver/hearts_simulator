@@ -215,8 +215,23 @@ the site can serve 882.
    prioritized threat-state seeds) and/or reward the gated decisions
    with a defense-specific signal rather than only the match terminal.
    The promoted ensemble 8d7816d1 remains the champion of record.
-5. ROUND 9+ candidates (audit first, program §4.3): search-judged router;
-   passing/endgame specialists; cross-deal opponent memory as a
+5. ROUND 9 — **RUN AND CLOSED 2026-09-16: NO PROMOTION, BUT THE FIRST
+   TRANSFER** (docs/exploiter_league_r9_prereg.md + _results.md). The
+   deal-level MOON-OUTCOME PENALTY on gated decisions (cell B) made
+   trained defense reach the SEARCH attacker for the first time: pooled
+   −0.672 moons/match vs the promoted ensemble (SE 0.073, n=256; runs
+   −1.01 / −0.34), comparable to the r7 promotion effect. The refreshed
+   attacker alone (cell A) transferred nothing. Cost: +0.14/deal
+   ordinary-play strength (pooled), which failed the E2 pre-screen (B1
+   by 0.009) → battery not run. NEXT (round 10, own prereg): keep cell
+   B's signal and control the cost — candidates: smaller penalty /
+   penalty schedule, KL anchor to the init on gated states in non-
+   shooter matches, router precision (τ) on the trained specialist —
+   and calibrate E2 pre-data from the r9 numbers. An NI telemetry run
+   on B1 (3 h) would tell whether +0.08/deal is already inside the NI
+   bar; the user decides.
+6. ROUND 10+ candidates (audit first, program §4.3): search-judged
+   router; passing/endgame specialists; cross-deal opponent memory as a
    specialist input (post-mortem §7.2).
 Ops standing rules: ≤2 concurrent SearchEval for big traces; chunked
 resumable drivers for guard-class runs (scripts/run_r7_guard_telemetry.py

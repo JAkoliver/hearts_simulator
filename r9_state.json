@@ -1,0 +1,134 @@
+{
+ "done": {
+  "stage0-bank": {
+   "t": "2026-09-14 09:48:32",
+   "info": {
+    "matches": 300
+   }
+  },
+  "stage0-distill": {
+   "t": "2026-09-14 09:58:12",
+   "info": {
+    "md5": "0c0a26b1"
+   }
+  },
+  "stage0-base": {
+   "t": "2026-09-14 13:08:51",
+   "info": null
+  },
+  "trial-A1": {
+   "t": "2026-09-15 04:21:09",
+   "info": {
+    "end_md5": "7821d555"
+   }
+  },
+  "readout-A1-vecprobe-shooter_sel_v2": {
+   "t": "2026-09-15 04:24:11",
+   "info": null
+  },
+  "readout-A1-vecprobe-shooter_sel_v1": {
+   "t": "2026-09-15 04:27:10",
+   "info": null
+  },
+  "readout-A1-strength": {
+   "t": "2026-09-15 04:51:08",
+   "info": null
+  },
+  "readout-A1-transfer": {
+   "t": "2026-09-15 07:50:48",
+   "info": null
+  },
+  "trial-B1": {
+   "t": "2026-09-15 08:56:15",
+   "info": {
+    "end_md5": "50492c6d"
+   }
+  },
+  "readout-B1-vecprobe-shooter_sel_v2": {
+   "t": "2026-09-15 08:59:05",
+   "info": null
+  },
+  "readout-B1-vecprobe-shooter_sel_v1": {
+   "t": "2026-09-15 09:01:59",
+   "info": null
+  },
+  "readout-B1-strength": {
+   "t": "2026-09-15 09:37:54",
+   "info": null
+  },
+  "readout-B1-transfer": {
+   "t": "2026-09-15 12:50:31",
+   "info": null
+  },
+  "trial-A2": {
+   "t": "2026-09-16 03:45:53",
+   "info": {
+    "end_md5": "ca562867"
+   }
+  },
+  "readout-A2-vecprobe-shooter_sel_v2": {
+   "t": "2026-09-16 03:48:53",
+   "info": null
+  },
+  "readout-A2-vecprobe-shooter_sel_v1": {
+   "t": "2026-09-16 03:51:58",
+   "info": null
+  },
+  "readout-A2-strength": {
+   "t": "2026-09-16 04:27:43",
+   "info": null
+  },
+  "readout-A2-transfer": {
+   "t": "2026-09-16 04:28:29",
+   "info": "SKIPPED by prereg \u00a74 rule: A2 fails E1 (vec probe end +0.087 vs sel v2) and E2 (strength +0.098, UB95 +0.182); transfer not run"
+  },
+  "trial-B2": {
+   "t": "2026-09-16 06:01:50",
+   "info": {
+    "end_md5": "533db45a"
+   }
+  },
+  "readout-B2-vecprobe-shooter_sel_v2": {
+   "t": "2026-09-16 06:04:40",
+   "info": null
+  },
+  "readout-B2-vecprobe-shooter_sel_v1": {
+   "t": "2026-09-16 06:07:34",
+   "info": null
+  },
+  "readout-B2-strength": {
+   "t": "2026-09-16 06:42:10",
+   "info": null
+  },
+  "readout-B2-transfer": {
+   "t": "2026-09-16 09:48:47",
+   "info": null
+  }
+ },
+ "log": [
+  "2026-09-14 09:48:32 DONE stage0-bank",
+  "2026-09-14 09:58:12 DONE stage0-distill",
+  "2026-09-14 13:08:51 DONE stage0-base",
+  "2026-09-15 04:21:09 DONE trial-A1",
+  "2026-09-15 04:24:11 DONE readout-A1-vecprobe-shooter_sel_v2",
+  "2026-09-15 04:27:10 DONE readout-A1-vecprobe-shooter_sel_v1",
+  "2026-09-15 04:51:08 DONE readout-A1-strength",
+  "2026-09-15 07:50:48 DONE readout-A1-transfer",
+  "2026-09-15 08:56:15 DONE trial-B1",
+  "2026-09-15 08:59:05 DONE readout-B1-vecprobe-shooter_sel_v2",
+  "2026-09-15 09:01:59 DONE readout-B1-vecprobe-shooter_sel_v1",
+  "2026-09-15 09:37:54 DONE readout-B1-strength",
+  "2026-09-15 12:50:31 DONE readout-B1-transfer",
+  "2026-09-16 03:45:53 DONE trial-A2",
+  "2026-09-16 03:48:53 DONE readout-A2-vecprobe-shooter_sel_v2",
+  "2026-09-16 03:51:58 DONE readout-A2-vecprobe-shooter_sel_v1",
+  "2026-09-16 04:27:43 DONE readout-A2-strength",
+  "2026-09-16 04:28:29 SKIP readout-A2-transfer (E1+E2 fail)",
+  "2026-09-16 06:01:50 DONE trial-B2",
+  "2026-09-16 06:04:40 DONE readout-B2-vecprobe-shooter_sel_v2",
+  "2026-09-16 06:07:34 DONE readout-B2-vecprobe-shooter_sel_v1",
+  "2026-09-16 06:42:10 DONE readout-B2-strength",
+  "2026-09-16 09:48:47 DONE readout-B2-transfer"
+ ],
+ "active_trial": null
+}

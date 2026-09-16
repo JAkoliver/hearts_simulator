@@ -1,0 +1,71 @@
+{
+ "trial": "A2",
+ "vecprobe_sel_v2": {
+  "end": {
+   "n": 1000,
+   "cand_moons_per_match": 1.185,
+   "base_moons_per_match": 1.098,
+   "delta": 0.087,
+   "se": 0.03740093354222365,
+   "p_one_sided": 0.9898949295027378,
+   "ci95": [
+    0.013606597424997799,
+    0.16039340257500218
+   ],
+   "ddef_place": 0.0175
+  },
+  "mid": {
+   "n": 1000,
+   "cand_moons_per_match": 1.071,
+   "base_moons_per_match": 1.098,
+   "delta": -0.027,
+   "se": 0.036655349058692846,
+   "p_one_sided": 0.23077202406282968,
+   "ci95": [
+    -0.09893031123019193,
+    0.044930311230191936
+   ],
+   "ddef_place": 0.006000000000000001
+  }
+ },
+ "vecprobe_sel_v1": {
+  "end": {
+   "n": 1000,
+   "cand_moons_per_match": 1.15,
+   "base_moons_per_match": 1.17,
+   "delta": -0.02,
+   "se": 0.03748339639100231,
+   "p_one_sided": 0.29687902552656886,
+   "ci95": [
+    -0.09355522284216373,
+    0.05355522284216373
+   ],
+   "ddef_place": -0.011666666666666665
+  },
+  "mid": {
+   "n": 1000,
+   "cand_moons_per_match": 1.072,
+   "base_moons_per_match": 1.17,
+   "delta": -0.098,
+   "se": 0.03810312123498347,
+   "p_one_sided": 0.005127900389051544,
+   "ci95": [
+    -0.17277133459800242,
+    -0.023228665401997584
+   ],
+   "ddef_place": -0.0235
+  }
+ },
+ "strength": {
+  "delta": 0.098,
+  "se": 0.051,
+  "n": 5000,
+  "ub95": 0.181895
+ },
+ "transfer": null,
+ "fail_fast": false,
+ "E1": false,
+ "E2": false,
+ "E3": false,
+ "eligible": false
+}

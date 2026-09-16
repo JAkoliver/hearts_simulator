@@ -1703,3 +1703,15 @@ B2 strength vs promoted: **+0.200/deal (SE 0.055, UB95 +0.290)** -> E2
 FAIL (B1 was +0.082; cell B pooled ~+0.14, SE ~0.036): the moon-outcome
 penalty's defense comes with an r8-sized ordinary-play cost in this run.
 Transfer in flight (~10:00).
+
+## 2026-09-16: r9 CHAIN COMPLETE — cell B transfers (pooled -0.672, SE 0.073, n=256); no eligible candidate (E2); NO PROMOTION
+
+B2 transfer n=128: **-0.336 (SE 0.107), p=0.001** (1.586 vs 1.922).
+CELL B POOLED vs promoted n=256: **-0.672 (SE 0.073), CI [-0.81, -0.53]**
+- the first trained-defense effect that reaches the search attacker
+(r8 + r9 cell A: clone-only). Cost: cell B pooled +0.141/deal (SE
+0.036); E2 fails (B1 by 0.009, B2 clearly) -> battery not run per the
+conjunctive rule. Chain wall: A1 03:15 -> B2 09:49 on 09-15/16 with a
+user pause; per trial ~1 h train + ~4 h readout (transfer dominates).
+Results: docs/exploiter_league_r9_results.md. NI on B1 (telemetry) and
+round-10 design = user decisions.
