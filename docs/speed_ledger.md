@@ -1694,3 +1694,8 @@ A2 (cell A, run 2; 68 min): vec probe end **+0.087 (SE 0.037)** vs sel v2
 ("only if 1 and 2 do not already disqualify") - saves ~3 h; chain
 resumed to B2. Cell A across two runs: no transfer (A1 +0.125) and no
 consistent clone gain (A1 -0.16/-0.26, A2 +0.09/-0.02).
+B2 (cell B, run 2; 93 min - daytime contention): champion/router
+unchanged, contract (c) held (529k recorded). Vec probe vs promoted:
+sel v2 mid -0.794 / end **-0.652 (SE 0.034)**; held-out sel v1 mid
+-0.828 / end **-0.695 (0.036)** - the cell-B clone effect REPLICATES
+(B1: -0.768/-0.817). Strength + transfer in flight.
