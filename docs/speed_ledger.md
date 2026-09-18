@@ -1715,3 +1715,14 @@ conjunctive rule. Chain wall: A1 03:15 -> B2 09:49 on 09-15/16 with a
 user pause; per trial ~1 h train + ~4 h readout (transfer dominates).
 Results: docs/exploiter_league_r9_results.md. NI on B1 (telemetry) and
 round-10 design = user decisions.
+
+## 2026-09-18: r10 NI on the r9 B1 ensemble — FAIL on placement by 0.0018 (UB95 +0.0318 > +0.030); win-rate co-primary PASS; no promotion
+
+NI match gate n=3,200 (scripts/run_match_gate.py, B1 ensemble d5222b1d
+vs the PROMOTED ensemble 8d7816d1, mixed anchors, seed 1789729251,
+`--workers 64 --procs 8` = 64 resumable chunks of 50 matches on 8
+processes, full speed): **3 h 02 m** (10,946 s; first wave of 8 chunks
+at ~27 min). dplace +0.0180 (SE 0.0084); win 52.22% vs 52.44%
+(discordant 139:146; dwin LB95 -0.0109 vs bar -0.025 -> pass); dscore
++0.79/match (SE 0.20). Verdict: equity_data/verdicts/r10_B1_ni_verdict.json.
+Halt-default: defense gate not run. docs/exploiter_league_r10_results.md.

@@ -1,0 +1,32 @@
+{
+ "prereg": "docs/exploiter_league_r10_prereg.md",
+ "seed": 1789729251,
+ "n": 3200,
+ "placement": {
+  "dplace": 0.01796875,
+  "se": 0.008399466129885588,
+  "ub95": 0.03178587178366179,
+  "bar": 0.03,
+  "pass": false
+ },
+ "win_rate": {
+  "win_cand": 0.5221875,
+  "win_promoted": 0.524375,
+  "discordant": [
+   139,
+   146
+  ],
+  "dwin": -0.0021875,
+  "se": 0.0052754654665414956,
+  "lb95": -0.01086564069246076,
+  "bar": -0.025,
+  "pass": true,
+  "mcnemar_p_one_sided": 0.6821683729800702
+ },
+ "dscore": {
+  "mean": 0.7909375,
+  "se": 0.19696111136662592
+ },
+ "seconds": 10946.2,
+ "ni_pass": false
+}

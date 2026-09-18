@@ -128,7 +128,7 @@ def _chunk_resumable(job):
 
 
 def run_gate(cand, base, matches=800, workers=12, seed=None, csv_out=None,
-             chunk_dir=None):
+             chunk_dir=None, procs=None):
     """Run the paired match gate; prints the report and returns a stats dict.
     chunk_dir (league r9): resumable mode - each worker job persists its rows
     to chunk_dir/job_<w>.pkl; completed jobs are skipped on re-run. The seed
@@ -166,9 +166,13 @@ def run_gate(cand, base, matches=800, workers=12, seed=None, csv_out=None,
         print(f"chunked gate: {len(jobs) - len(todo)}/{len(jobs)} jobs already "
               f"complete in {chunk_dir}; running {len(todo)}")
         if todo:
-            with multiprocessing.Pool(len(todo),
+            # league r10: `procs` caps concurrency so a run can have MANY small
+            # chunks (workers = number of chunks) on a few processes - a pause
+            # then loses only the chunks in flight. Rows are per-chunk, so the
+            # pool size cannot change them.
+            with multiprocessing.Pool(min(len(todo), procs or len(todo)),
                                       initializer=headroom.apply_process_priority) as pool:
-                pool.map(_chunk_resumable, todo)
+                pool.map(_chunk_resumable, todo, chunksize=1)
         results = []
         for p in paths:
             with open(p, 'rb') as f:
