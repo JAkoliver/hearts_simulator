@@ -591,6 +591,28 @@ class HeartsHybrid(nn.Module):
             raise ValueError(f'HeartsHybrid requires 882-dim obs v2, got {observation.shape[-1]}')
         lc, vc = self.champion(observation[:, :556], legal_actions_mask)
         kind, _, arg = self.gate.partition(':')
+        if kind == 'moonhead2':
+            # TWO-TIER router (league r11 prereg §2): 'moonhead2:T_lo:T_hi'.
+            # The ROUTER net is itself the tier-1 specialist (arm a): its one
+            # forward_aux gives both the moon head and its policy, so
+            #   p > T_hi        -> self.specialist (the trained one) plays
+            #   T_lo < p <= T_hi -> the router net plays (promoted behaviour)
+            #   otherwise       -> champion
+            # T_hi >= 1 reproduces the promoted ensemble; T_hi == T_lo the
+            # single-tier 'moonhead' candidate with the same router.
+            if self.router is None:
+                raise ValueError('moonhead2 requires a router net')
+            t_lo, t_hi = (float(x) for x in arg.split(':'))
+            lr, vr, _, moon_logits, _ = self.router.forward_aux(
+                observation, legal_actions_mask)
+            alive = (observation[:, 872:876] > 0.5)[:, 1:].any(dim=1)
+            pmax = torch.sigmoid(moon_logits[:, 1:]).max(dim=1).values
+            g_lo = ((pmax > t_lo) & alive).unsqueeze(1)
+            g_hi = ((pmax > t_hi) & alive).unsqueeze(1)
+            sdim = 882 if getattr(self.specialist, 'obs_dim', 556) == 882 else 556
+            ls, vs = self.specialist(observation[:, :sdim], legal_actions_mask)
+            return (torch.where(g_hi, ls, torch.where(g_lo, lr, lc)),
+                    torch.where(g_hi, vs, torch.where(g_lo, vr, vc)))
         if (kind == 'moonhead' and self.router is None
                 and getattr(self.specialist, 'obs_dim', 556) == 882):
             # SINGLE-AUX-FORWARD path (2026-08-31, program doc §7 step 2):

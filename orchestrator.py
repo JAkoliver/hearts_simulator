@@ -212,21 +212,29 @@ def _neutral_chunk(job):
 
 
 def evaluate_candidate_neutral_raw(candidate_path, baseline_path,
-                                   num_deals=2500, workers=12, alpha=0.05):
-    """Raw-line promoter. Returns (success, mean, se, p)."""
+                                   num_deals=2500, workers=12, alpha=0.05,
+                                   seed=None, shards=None, diffs_out=None):
+    """Raw-line promoter. Returns (success, mean, se, p).
+
+    League r11 (prereg §3.3): an explicit `seed` with a fixed `shards` count
+    makes the deal set independent of the worker count / headroom mode, so
+    several candidates can be measured on IDENTICAL deals; `diffs_out` saves
+    the per-deal paired diffs (.npy) for arm-vs-arm pairing. Defaults keep
+    the legacy behaviour (time seed, one shard per worker)."""
     workers = headroom.scaled_workers(workers)
     anchor = NEUTRAL_OPPONENT
     if not os.path.exists(anchor):
         raise RuntimeError(f"neutral anchor missing ({anchor}); "
                            "cannot run the raw promotion gate")
-    seed = int(time.time())
+    seed = int(time.time()) if seed is None else int(seed)
+    n_shards = workers if shards is None else int(shards)
     print(f"Neutral raw gate (promoter): {num_deals} paired deals, "
           f"candidate/baseline @ seat vs 3x v3-m7 anchors, seed {seed}")
 
-    per = num_deals // workers
-    extra = num_deals % workers
+    per = num_deals // n_shards
+    extra = num_deals % n_shards
     jobs, offset = [], 0
-    for w in range(workers):
+    for w in range(n_shards):
         n = per + (1 if w < extra else 0)
         if n == 0:
             continue
@@ -235,11 +243,13 @@ def evaluate_candidate_neutral_raw(candidate_path, baseline_path,
         offset += n
 
     import multiprocessing
-    with multiprocessing.Pool(len(jobs),
+    with multiprocessing.Pool(min(len(jobs), workers),
                               initializer=headroom.apply_process_priority) as pool:
-        results = pool.map(_neutral_chunk, jobs)
+        results = pool.map(_neutral_chunk, jobs, chunksize=1)
 
     diffs = np.array([d for r in results for d in r], dtype=np.float64)
+    if diffs_out:
+        np.save(diffs_out, diffs)
     mean = float(diffs.mean())
     se = float(diffs.std(ddof=1) / np.sqrt(len(diffs)))
     t_stat, p_val = stats.ttest_1samp(diffs, 0.0, alternative='less')
