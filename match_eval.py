@@ -136,7 +136,13 @@ def run_gate(cand, base, matches=800, workers=12, seed=None, csv_out=None,
     if chunk_dir is not None and seed is None:
         raise SystemExit('chunk_dir requires an explicit --seed')
     seed = seed if seed is not None else int(time.time())
-    workers = headroom.scaled_workers(workers)
+    if procs is not None:
+        # league r11 fix: with an explicit process cap, `workers` is the CHUNK
+        # PARTITION (must not depend on the headroom mode, or a resume in a
+        # different mode cannot find its chunks); headroom scales the pool.
+        procs = headroom.scaled_workers(procs)
+    else:
+        workers = headroom.scaled_workers(workers)
     fields = ("mixed v3-m7/v4-m10" if os.path.exists(V4_ANCHOR)
               else "3x v3-m7") + " anchors"
     print(f"Match gate: {cand} vs {base} @ shared seat, {fields}, "
