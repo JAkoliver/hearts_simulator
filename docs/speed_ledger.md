@@ -1726,3 +1726,14 @@ at ~27 min). dplace +0.0180 (SE 0.0084); win 52.22% vs 52.44%
 (discordant 139:146; dwin LB95 -0.0109 vs bar -0.025 -> pass); dscore
 +0.79/match (SE 0.20). Verdict: equity_data/verdicts/r10_B1_ni_verdict.json.
 Halt-default: defense gate not run. docs/exploiter_league_r10_results.md.
+
+## 2026-09-19: r11 NI on E25 (two-tier, T_hi 0.26) — PASS both co-primaries; headroom 0.25
+
+NI match gate n=6,400 (scripts/run_match_gate.py, r11 E25 ensemble
+710c2102 vs the PROMOTED ensemble 8d7816d1, mixed anchors, seed
+1789827270, `--workers 128 --procs 8` = 128 chunks of 50 on 6 processes
+after headroom scaling, HEARTS_HEADROOM=0.25): **6 h 01 m** (21,660 s;
+r10's 3,200 at 8 unpaced processes was 3 h 02 m). dplace +0.0020 (SE
+0.0034), UB95 +0.0075 vs +0.030 -> pass; win 51.05% vs 50.98%
+(discordant 87:83; dwin LB95 -0.0027 vs -0.025 -> pass); dscore
+-0.04/match (SE 0.08). Verdict: equity_data/verdicts/r11_E25_ni_verdict.json.

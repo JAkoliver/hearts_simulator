@@ -1,0 +1,19 @@
+{
+ "n": 6400,
+ "win_a": 0.51046875,
+ "win_b": 0.50984375,
+ "discordant": [
+  87,
+  83
+ ],
+ "p_win": 0.40905298395147155,
+ "dplace_mean": 0.001953125,
+ "dplace_se": 0.0033686217604371243,
+ "p_place": 0.7189648550510197,
+ "dscore_mean": -0.0434375,
+ "dscore_se": 0.07584432611585651,
+ "p_score": 0.28342748659680284,
+ "seconds": 21660.5,
+ "cand": "equity_data/exploiter_r11/r11_E25_ensemble.pth",
+ "base": "hybrid_champ_arma_moonhead_0p1.pth"
+}
