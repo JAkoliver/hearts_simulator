@@ -566,6 +566,17 @@ class HeartsHybrid(nn.Module):
         if kind == 'threat':
             thr = float(arg) if arg else 1.0
             return (alive[:, 1:] & (pts[:, 1:] >= thr)).any(dim=1)
+        if kind == 'moonhead2':
+            # reference mask for the two-tier router = "some specialist plays"
+            # (tier 1 fires at T_lo; tier 2 is a subset of it). Mirrors the
+            # g_lo computed in forward(); the site's champion short-circuit
+            # test relies on this being conjoined with opponent moon-alive.
+            t_lo = float(arg.split(':')[0])
+            _, _, _, moon_logits, _ = self.router.forward_aux(
+                observation, torch.ones(observation.shape[0], 52, dtype=torch.bool,
+                                        device=observation.device))
+            p = torch.sigmoid(moon_logits[:, 1:])
+            return (p.max(dim=1).values > t_lo) & alive[:, 1:].any(dim=1)
         if kind == 'moonhead':
             tau = float(arg)
             det = self.router if self.router is not None else self.specialist
