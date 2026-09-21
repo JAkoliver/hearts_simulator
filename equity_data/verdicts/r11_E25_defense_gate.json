@@ -1,0 +1,38 @@
+{
+ "primary_shards": "4..11 vs promoted r7 rows",
+ "primary": {
+  "n": 256,
+  "delta": -0.31640625,
+  "se": 0.09056020281105905,
+  "t": -3.4938774448212815,
+  "p_one_sided": 0.0002805598980902781,
+  "cand_mean": 1.5,
+  "base_mean": 1.81640625,
+  "cand_def_place": 2.37890625,
+  "base_def_place": 2.572916666666667,
+  "pass": true
+ },
+ "pooled_n320_vs_promoted": {
+  "n": 320,
+  "delta": -0.325,
+  "se": 0.0796863955145045,
+  "t": -4.078487901248383,
+  "p_one_sided": 2.8653946061694484e-05,
+  "cand_mean": 1.521875,
+  "base_mean": 1.846875,
+  "cand_def_place": 2.38125,
+  "base_def_place": 2.576041666666667
+ },
+ "pooled_n320_vs_champion": {
+  "n": 320,
+  "delta": -1.021875,
+  "se": 0.06863301353306653,
+  "t": -14.888971755664983,
+  "p_one_sided": 9.790399158241398e-39,
+  "cand_mean": 1.521875,
+  "base_mean": 2.54375,
+  "cand_def_place": 2.38125,
+  "base_def_place": 2.9510416666666663
+ },
+ "bar_promoted_moons_primary": 1.81640625
+}

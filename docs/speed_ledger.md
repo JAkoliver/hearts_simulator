@@ -1737,3 +1737,14 @@ r10's 3,200 at 8 unpaced processes was 3 h 02 m). dplace +0.0020 (SE
 0.0034), UB95 +0.0075 vs +0.030 -> pass; win 51.05% vs 50.98%
 (discordant 87:83; dwin LB95 -0.0027 vs -0.025 -> pass); dscore
 -0.04/match (SE 0.08). Verdict: equity_data/verdicts/r11_E25_ni_verdict.json.
+
+## 2026-09-20: r11 SEL defense gate on E25 — PASS (primary -0.316, SE 0.091, p=0.0003); full battery PASS
+
+SEL defense gate, one match per process (scripts/run_r11_gate.sh), E25
+trace 85ee0851, shards 0,1,4..11 x 32 = 320 units, 2-wide, full speed
+(HEARTS_NO_LOWPRI=1): **7 h 53 m** (12:19 -> 20:13; first unit 147 s;
+~89 s/match effective; r9 transfer row ~87 s/match). Primary n=256 vs
+the promoted ensemble's r7 rows: 1.816 -> 1.500 moons/match; pooled
+n=320 -0.325 (SE 0.080); vs champion -1.022 (SE 0.069). Gate-fires PASS
+(promoted one-match run == r7 rows bitwise). Verdict:
+equity_data/verdicts/r11_E25_defense_gate.json; docs/exploiter_league_r11_results.md.
