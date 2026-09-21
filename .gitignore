@@ -136,3 +136,37 @@ hearts_web/match_logs.jsonl.*
 
 # release-asset staging (weights go to GitHub Releases, never tracked)
 release_staging/
+
+# ---- league round raw output (verdicts + results docs carry the record) ----
+equity_data/exploiter_r8/
+equity_data/exploiter_r9/
+equity_data/exploiter_r10/ni_chunks/
+equity_data/exploiter_r11/ni_chunks/
+equity_data/exploiter_r11/gate/*.tricks.csv
+equity_data/exploiter_r11/gate/*.log
+equity_data/exploiter_r11/gate/*.done
+equity_data/exploiter_r11/gate_ref/*.tricks.csv
+equity_data/exploiter_r11/gate_ref/*.log
+equity_data/exploiter_r11/gate_ref/*.done
+equity_data/exploiter_r11/gate_ref/driver.log
+equity_data/exploiter_r11/gate/driver.log
+equity_data/exploiter_r11/gate_driver.out
+equity_data/exploiter_r11/*_u[0-9].log
+equity_data/exploiter_r11/vecprobe_*.log
+equity_data/exploiter_r11/census.log
+equity_data/exploiter_r11/ni.log
+equity_data/exploiter_r11/stage1_driver.log
+equity_data/exploiter_r11/aa/
+equity_data/exploiter_r10/*.log
+# r4-r7 era scratch
+equity_data/exploiter_r4/config_json_*.json
+equity_data/exploiter_r4/*.pyd.bak
+equity_data/exploiter_r4/fixcheck/
+equity_data/exploiter_r4/hybrid_smoke/
+equity_data/exploiter_r4/r6_smoke/
+equity_data/exploiter_r4/r7_stage0/
+equity_data/exploiter_r4/probe_smoke*.csv
+probe_smoke.csv
+train_ckpt.pt.prev
+v6_probe/preflight/
+.claude/
