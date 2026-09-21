@@ -163,9 +163,23 @@ gated decisions. Search mode may keep the champion as its rollout
 policy if the guard prefers it (search sees the threat itself) — a
 deployment decision registered per round, not an override of the guard.
 
-## 7. Sequencing — UPDATED 2026-08-21 (read this first in a new session)
+## 7. Sequencing — UPDATED 2026-09-20 (read this first in a new session)
 
-**STATE: the arm-a ensemble IS the promoted champion.** Round 7 passed
+**STATE (2026-09-20): the v6.1 TWO-TIER ensemble IS the promoted champion
+(7th match-era promotion).** Milestone 1789949580 = equity_data/
+exploiter_r11/r11_E25_ensemble.pth (**710c2102**, trace 85ee0851) = the v6
+ensemble with a second router tier: p > 0.26 → the round-9 B1 specialist
+(50492c6d); 0.10 < p ≤ 0.26 → arm a (a9653255, also the router); else the
+champion 8a89da90 (gate `moonhead2:0.1:0.26`). Battery vs 8d7816d1
+(docs/exploiter_league_r11_results.md): NI n=6,400 Δplace +0.002 (UB95
++0.0075), win LB95 −0.003; defense gate 1.816 → 1.500 moons/match
+(−0.316, SE 0.091, p=0.0003; −1.02 vs the raw champion). Raw-only
+promotion as r7 (search substrate 3a2abd36/efdfee07 untouched). Model
+card docs/release/model_cards/hearts_ensemble_710c2102.md. Deployment:
+perilune-site must merge upstream (hearts_net.py `moonhead2` gate) and
+add 'moonhead2' to its moon-alive pre-filter set before serving.
+
+**Previous state (2026-08-21): the arm-a ensemble was the promoted champion.** Round 7 passed
 the full battery (docs/exploiter_league_r7_results.md): milestone
 1787333162 = hybrid_champ_arma_moonhead_0p1.pth (8d7816d1) = 8a89da90
 (default) + v6 arm a a9653255 (specialist) + arm a's moon head at τ=0.1
@@ -230,9 +244,26 @@ the site can serve 882.
    and calibrate E2 pre-data from the r9 numbers. An NI telemetry run
    on B1 (3 h) would tell whether +0.08/deal is already inside the NI
    bar; the user decides.
-6. ROUND 10+ candidates (audit first, program §4.3): search-judged
-   router; passing/endgame specialists; cross-deal opponent memory as a
-   specialist input (post-mortem §7.2).
+6. ROUND 10 — **RUN AND CLOSED 2026-09-18: NO PROMOTION** (docs/
+   exploiter_league_r10_prereg.md + _results.md): B1's NI failed
+   placement by 0.0018 (UB95 +0.0318 vs +0.030) with win rate
+   indistinguishable — the objectives diverged; B1 became the cost-
+   control target.
+7. ROUND 11 — **RUN 2026-09-19/20: PROMOTION** (docs/exploiter_league_
+   r11_prereg.md + _results.md). Two-tier router on the B1 specialist,
+   no training: an outcome-blind exposure census fixed three arms (B1
+   plays the top 75/50/25% of gated decisions); the frontier showed
+   B1's ordinary-play cost lives in its LOWEST-confidence gated states
+   (p 0.10–0.17; removing them took the cost from +0.10/deal to zero)
+   while its defense sits above. E25 (T_hi 0.26) was selected
+   mechanically and passed the full battery (STATE above). Runner-up
+   E50 (T_hi 0.17: ~85% of B1's clone defense at zero screen cost) is
+   recorded, unmeasured.
+8. ROUND 12+ candidates (audit first, program §4.3): one threat-state
+   search bank feeding BOTH a search-judged router and a search-
+   distilled specialist; τ/near-100 refinements on the new champion;
+   passing-domain audit (free routing, one decision per deal); belief-
+   head quality audit; cross-deal opponent memory (post-mortem §7.2).
 Ops standing rules: ≤2 concurrent SearchEval for big traces; chunked
 resumable drivers for guard-class runs (scripts/run_r7_guard_telemetry.py
 is the template); judge runs by their own progress log; gate-fires check

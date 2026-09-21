@@ -36,15 +36,21 @@ citations is [docs/release/RESULTS.md](docs/release/RESULTS.md).
   trained a larger, structurally extended network from scratch and was
   concluded 2026-08-16 without a promotion — post-mortem in
   [docs/v6_postmortem.md](docs/v6_postmortem.md). The capacity answer
-  arrived by a different route: the current champion (promoted
-  2026-08-21) is a **gated ensemble of raw nets** — the 7.6M champion
-  playing ~90% of decisions, with the 19M obs-v2 network from the v6
-  campaign playing only the moon-threat states its own threat head
-  detects. That composition cut moons conceded to a competent attacker
-  by 29% at no measurable cost in ordinary play — capacity paying off
-  exactly where the whole-net evaluation could not see it
+  arrived by a different route: the current champion is a **gated
+  ensemble of raw nets** — the 7.6M champion playing ~95% of decisions,
+  with the 19M obs-v2 network from the v6 campaign playing only the
+  moon-threat states its own threat head detects. The first version
+  (v6, promoted 2026-08-21) cut moons conceded to a competent attacker
+  by 29% at no measurable cost in ordinary play; v6.1 (promoted
+  2026-09-20) adds a second router tier that hands the highest-
+  confidence threat states to a specialist trained inside the ensemble
+  against moon-shooting attackers — a further 17% fewer moons conceded
+  (40% below the raw champion), again with ordinary play statistically
+  indistinguishable. Capacity paying off exactly where the whole-net
+  evaluation could not see it
   ([docs/gated_ensemble_program.md](docs/gated_ensemble_program.md),
-  [docs/exploiter_league_r7_results.md](docs/exploiter_league_r7_results.md)).
+  [docs/exploiter_league_r7_results.md](docs/exploiter_league_r7_results.md),
+  [docs/exploiter_league_r11_results.md](docs/exploiter_league_r11_results.md)).
 
 - **External benchmark (snapshot of Perilune v5, August 2026):** against
   Nathan Sturtevant's PIMC+UCT hearts program ("xinxin") at its shipped
@@ -104,7 +110,8 @@ The released checkpoints and traces are in **GitHub Releases**
 |---|---|
 | `hearts_ai_search_match.pt` | Deployed match-aware search trace: the strongest configuration, and the v6 teacher (md5 3a2abd36) |
 | `hearts_ai_match_8a89da90.pt` + `hearts_model_final.pth` | The 8a89da90 champion network (5th match-era promotion), match-context trace + checkpoint — now the DEFAULT component and search substrate of the promoted ensemble |
-| `hearts_ensemble_8d7816d1.pth` + `_882trace.pt` (models-v1 release) | Current champion: gated ensemble (8a89da90 default + v6 arm a specialist + moon-head router, one 882-input module; checkpoint md5 8d7816d1, trace 9d9a4f49) — [round-7 record](docs/exploiter_league_r7_results.md), [model card](docs/release/model_cards/hearts_ensemble_8d7816d1.md) |
+| `hearts_ensemble_710c2102.pth` + `_882trace.pt` (models-v1 release) | **Current champion (v6.1)**: two-tier gated ensemble (8a89da90 default + v6 arm a specialist/router + round-9 B1 specialist above router confidence 0.26, one 882-input module; checkpoint md5 710c2102, trace 85ee0851) — [round-11 record](docs/exploiter_league_r11_results.md), [model card](docs/release/model_cards/hearts_ensemble_710c2102.md) |
+| `hearts_ensemble_8d7816d1.pth` + `_882trace.pt` (models-v1 release) | Previous champion (v6): gated ensemble (8a89da90 default + v6 arm a specialist + moon-head router, one 882-input module; checkpoint md5 8d7816d1, trace 9d9a4f49) — [round-7 record](docs/exploiter_league_r7_results.md), [model card](docs/release/model_cards/hearts_ensemble_8d7816d1.md) |
 | `hearts_ai_grandmaster.pt` / `hearts_ai_search.pt` | Champion raw-play / search traces (filenames are engine identifiers, not strength claims) |
 | `hearts_ai_search_ref_matchblind_20260724.pt` + `.pth` | The frozen match-blind reference of the N=8000 validation (md5 a1a0be31); required to reproduce the headline result |
 | `hearts_equity.pt` + `equity_v1.pth` | The equity model: score state to placement probabilities |

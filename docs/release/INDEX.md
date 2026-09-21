@@ -31,7 +31,9 @@ Reading order for an outside observer:
    perilune-xinxin-eval — never merged here). A snapshot of Perilune v5
    (lineage 8a89da90, the version deployed in August 2026).
 
-Status: drafts 2026-08-01; update pass 2026-08-21 (6th promotion — the
+Status: drafts 2026-08-01; update pass 2026-09-20 (7th promotion — the
+v6.1 two-tier ensemble; model card hearts_ensemble_710c2102.md,
+docs/exploiter_league_r11_results.md); update pass 2026-08-21 (6th promotion — the
 gated ensemble; ARCHITECTURE §6b, JOURNEY coda, model card
 hearts_ensemble_8d7816d1.md); update pass 2026-08-09 (era 8 closed —
 expert-iter v2 decisive negative; era 9 exploiter league round 1 +

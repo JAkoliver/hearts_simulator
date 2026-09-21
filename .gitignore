@@ -133,3 +133,6 @@ equity_data/instrument_check/
 # player-submitted feedback (may contain a volunteered email)
 hearts_web/feedback.jsonl
 hearts_web/match_logs.jsonl.*
+
+# release-asset staging (weights go to GitHub Releases, never tracked)
+release_staging/
